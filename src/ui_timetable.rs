@@ -331,6 +331,7 @@ impl TimetableUi {
         let Some(net) = &self.net else {
             return "Road and track network unavailable / 道路與軌道網路無法使用".to_string();
         };
+        let stop_positions: HashMap<i64, DVec3> = self.stops.iter().map(|s| (s.id, s.pos)).collect();
         let mut planned: Vec<PlannedRoute> = Vec::new();
         let mut protected: HashSet<(i64, i64)> = HashSet::new();
         let mut failures = Vec::new();
@@ -344,7 +345,7 @@ impl TimetableUi {
                 continue;
             }
             let positions: Vec<Option<DVec3>> = trip.stations.iter()
-                .map(|id| self.stops.iter().find(|stop| stop.id == *id).map(|stop| stop.pos))
+                .map(|id| stop_positions.get(id).copied())
                 .collect();
             let route = route::find(net, &positions, doc.global.left_hand_traffic, ways_for(&self.ways, doc, net, &trip.name));
             if route.ok() {
@@ -359,6 +360,9 @@ impl TimetableUi {
 
         let conflicts = conflicting_batch_routes(&planned, &doc.timetable.links, &protected);
         let conflicting = conflicts.len();
+        let conflict_samples: Vec<&str> = planned.iter().enumerate()
+            .filter(|(index, _)| conflicts.contains(index))
+            .map(|(_, (name, _, _))| name.as_str()).take(5).collect();
         let mut completed = 0;
         for (index, (name, track, links)) in planned.into_iter().enumerate() {
             if conflicts.contains(&index) {
@@ -376,10 +380,17 @@ impl TimetableUi {
         }
         self.shown = None;
         self.bulk_changed |= completed > 0;
-        format!(
+        let mut report = format!(
             "Recalculated / 已重算: {completed}  |  Failed / 失敗（保留原檔）: {}  |  Conflicts / 衝突（保留原檔）: {conflicting}  |  Skipped / 略過: {skipped}",
             failures.len(),
-        )
+        );
+        if !failures.is_empty() {
+            report.push_str(&format!("\nFailed / 失敗: {}", failures.iter().take(5).cloned().collect::<Vec<_>>().join(", ")));
+        }
+        if !conflict_samples.is_empty() {
+            report.push_str(&format!("\nConflicts / 衝突: {}", conflict_samples.join(", ")));
+        }
+        report
     }
 
     /// Before the map is saved: the stop list follows the map's stops, and the routes of
@@ -582,7 +593,8 @@ impl TimetableUi {
                     ui.horizontal(|ui| {
                         if ui.button("Confirm recalculation / 確認重算").clicked() {
                             self.confirm_recalculate = false;
-                            self.bulk_report = Some(self.recalculate_all(doc));
+                            let report = self.recalculate_all(doc);
+                            self.bulk_report = Some(report);
                         }
                         if ui.button(tr("Cancel", "Отмена")).clicked() {
                             self.confirm_recalculate = false;
