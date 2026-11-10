@@ -124,11 +124,13 @@ pub struct Options {
     pub side_green: f64,
     /// The arms with a zebra crossing, by their heading out of the junction (degrees).
     pub crossings: Vec<f64>,
+    /// Whether the junction generates AI footway paths around its corners.
+    pub corner_walks: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new() }
+        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), corner_walks: true }
     }
 }
 
@@ -138,7 +140,7 @@ impl Options {
     fn line(&self) -> String {
         let c: Vec<String> = self.crossings.iter().map(|h| format!("{h:.1}")).collect();
         // (helpers=omsi: its spline helpers are in OMSI's order, x height forward)
-        format!("{OPTIONS_TAG} lights={} main={:.0} side={:.0} crossings={} helpers=omsi", self.lights as i32, self.main_green, self.side_green, c.join(","))
+        format!("{OPTIONS_TAG} lights={} main={:.0} side={:.0} crossings={} walks={} helpers=omsi", self.lights as i32, self.main_green, self.side_green, c.join(","), self.corner_walks as i32)
     }
 
     /// The options written in a junction's `.sco` text (defaults when none are).
@@ -152,6 +154,7 @@ impl Options {
                 "main" => o.main_green = v.parse().unwrap_or(o.main_green),
                 "side" => o.side_green = v.parse().unwrap_or(o.side_green),
                 "crossings" => o.crossings = v.split(',').filter_map(|x| x.parse().ok()).collect(),
+                "walks" => o.corner_walks = match v { "0" => false, "1" => true, _ => o.corner_walks },
                 _ => {}
             }
         }
@@ -1364,7 +1367,7 @@ pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
 mod tests {
     #[test]
     fn options_are_read_back_from_the_line_written() {
-        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5] };
+        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], ..Default::default() };
         let text = format!("{}\r\n\r\n[friendlyname]\r\nJunction 1\r\n", o.line());
         let back = Options::parse(&text);
         assert_eq!(back.lights, true);
@@ -1376,7 +1379,7 @@ mod tests {
     #[test]
     fn the_main_road_is_the_pair_most_in_line_and_its_light_comes_first() {
         assert_eq!(main_road(&[0.5, 90.0, 270.0]), (1, 2));
-        let p = light_program(&Options { lights: true, main_green: 30.0, side_green: 20.0, crossings: vec![] });
+        let p = light_program(&Options { lights: true, main_green: 30.0, side_green: 20.0, crossings: vec![], ..Default::default() });
         // a cycle of both greens, their yellows, red-yellows and all-red times
         assert!(p.starts_with("[traffic_lights_group]\n64\n"), "{p}");
         assert_eq!(p.matches("[traffic_light]").count(), 2);
@@ -1639,6 +1642,7 @@ mod tests {
         let opts = Options {
             lights: false, main_green: 30.0, side_green: 20.0,
             crossings: vec![0.0, 90.0, 180.0, 270.0],
+            ..Default::default()
         };
         let asphalt = content.join("om_test_asphalt.png");
         image::RgbaImage::from_pixel(8, 8, image::Rgba([70, 70, 70, 255]))
