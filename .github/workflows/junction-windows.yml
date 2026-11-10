@@ -35,7 +35,7 @@ jobs:
           key: windows-x64-junction
 
       - name: Junction tests
-        run: cargo test --release --locked --lib junction -- --nocapture
+        run: cargo test --release --locked junction -- --nocapture
 
       - name: Build portable Windows x64 ZIP
         shell: pwsh
