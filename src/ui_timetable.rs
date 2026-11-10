@@ -3,7 +3,7 @@
 //! (a bus's day of trips with their departure times). The trip being edited is drawn in the
 //! view.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use egui::{Color32, RichText, Sense, Vec2};
@@ -85,10 +85,47 @@ pub struct TimetableUi {
     /// The year the holidays are shown of.
     holiday_year: i32,
     holidays_open: bool,
+    /// Bulk rerouting is destructive to shared station links, so require confirmation.
+    confirm_recalculate: bool,
+    bulk_report: Option<String>,
+    /// Route-only edits need a timetable snapshot for Undo as well.
+    bulk_changed: bool,
 }
 
 fn lower(s: &str) -> String {
     s.to_lowercase()
+}
+
+/// A newly calculated trip track and the station links between its stops.
+type PlannedRoute = (String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>);
+
+/// Station links belong to the whole map and are keyed only by their two stop IDs.
+/// Do not pick an arbitrary winner when two trips calculate different paths between
+/// the same stops. Nor replace a link used by a trip that could not be recalculated.
+fn conflicting_batch_routes(
+    planned: &[PlannedRoute],
+    original: &[omsi_timetable::StnLink],
+    protected: &HashSet<(i64, i64)>,
+) -> HashSet<usize> {
+    let mut uses: HashMap<(i64, i64), Vec<(usize, &omsi_timetable::StnLink)>> = HashMap::new();
+    for (index, (_, _, links)) in planned.iter().enumerate() {
+        for link in links {
+            uses.entry((link.from_id, link.to_id)).or_default().push((index, link));
+        }
+    }
+    let mut conflicts = HashSet::new();
+    for (pair, group) in uses {
+        let first = group[0].1;
+        let disagree = group.iter().any(|(_, link)| *link != first);
+        let would_change_protected = protected.contains(&pair)
+            && original.iter().any(|link| (link.from_id, link.to_id) == pair && link != first);
+        if disagree || would_change_protected {
+            for (index, _) in group {
+                conflicts.insert(index);
+            }
+        }
+    }
+    conflicts
 }
 
 /// What trip `name` drives on: as set here, else as its saved way does (None: as its stops
@@ -287,6 +324,67 @@ impl TimetableUi {
         }
     }
 
+    /// Explicitly reroute all station-link trips, even when their saved .ttr still fits.
+    /// The normal stale-trip check cannot be used for this: it prefers an existing .ttr.
+    /// Calculate everything first, then avoid replacing shared links inconsistently.
+    fn recalculate_all(&mut self, doc: &mut Document) -> String {
+        let Some(net) = &self.net else {
+            return tr("Road and track network unavailable", "Сеть дорог и путей недоступна").to_string();
+        };
+        let mut planned: Vec<PlannedRoute> = Vec::new();
+        let mut protected: HashSet<(i64, i64)> = HashSet::new();
+        let mut failures = Vec::new();
+        let mut skipped = 0;
+        for trip in &doc.timetable.trips {
+            // A legacy [station] trip specifies a track and its own stop records.
+            // Never convert it to [station_typ2] as a side effect of this action.
+            if trip.stations.len() < 2 || !trip.stations_legacy.is_empty() {
+                skipped += 1;
+                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                continue;
+            }
+            let positions: Vec<Option<DVec3>> = trip.stations.iter()
+                .map(|id| self.stops.iter().find(|stop| stop.id == *id).map(|stop| stop.pos))
+                .collect();
+            let route = route::find(net, &positions, doc.global.left_hand_traffic, ways_for(&self.ways, doc, net, &trip.name));
+            if route.ok() {
+                planned.push((trip.name.clone(), route.track(net, &doc.order), route.links(net, &doc.order, &trip.stations)));
+            } else {
+                failures.push(trip.name.clone());
+                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                self.problems.insert(lower(&trip.name), route.problems.clone());
+                log::warn!("timetable: batch route for {} not found: {:?}", trip.name, route.problems);
+            }
+        }
+
+        let conflicts = conflicting_batch_routes(&planned, &doc.timetable.links, &protected);
+        let conflicting = conflicts.len();
+        let mut completed = 0;
+        for (index, (name, track, links)) in planned.into_iter().enumerate() {
+            if conflicts.contains(&index) {
+                log::warn!("timetable: batch route for {name} skipped: conflicting shared station link");
+                continue;
+            }
+            doc.timetable.set_route(&name, track, links);
+            doc.timetable.reroute.remove(&lower(&name));
+            self.problems.remove(&lower(&name));
+            self.routed.insert(lower(&name), self.net_key);
+            completed += 1;
+        }
+        if !failures.is_empty() {
+            log::warn!("timetable: batch route failures: {}", failures.join(", "));
+        }
+        self.shown = None;
+        self.bulk_changed |= completed > 0;
+        format!(
+            "{}: {}  |  {}: {}  |  {}: {}  |  {}: {}",
+            tr("Recalculated", "Пересчитано"), completed,
+            tr("Failed (originals kept)", "Не удалось (сохранены оригиналы)"), failures.len(),
+            tr("Shared-link conflicts (kept)", "Конфликты общих связей (сохранены)"), conflicting,
+            tr("Legacy / short trips skipped", "Пропущены старые / короткие рейсы"), skipped,
+        )
+    }
+
     /// Before the map is saved: the stop list follows the map's stops, and the routes of
     /// the trips made here are found again where the roads changed since.
     pub fn before_save(&mut self, doc: &mut Document, roots: Option<&Roots>) {
@@ -400,7 +498,8 @@ impl TimetableUi {
         }
         let doc = ed.doc.as_ref().unwrap();
         // (a depot added for tours that all name a group changes only the traffic: a step too)
-        let timetable = !before.same_content(&doc.timetable);
+        let timetable = self.bulk_changed || !before.same_content(&doc.timetable);
+        self.bulk_changed = false;
         let traffic = (traffic_before != doc.traffic).then_some(traffic_before);
         if timetable || traffic.is_some() {
             ed.history.push_snapshot(tr("Edit timetable", "Правка расписания"), crate::history::Snapshot { timetable: timetable.then_some(before), traffic, ..Default::default() });
@@ -467,6 +566,40 @@ impl TimetableUi {
         }
         if self.stops.len() < 2 {
             ui.label(RichText::new(tr("A line needs at least two bus stops on the map: place them with Game logic > Bus stops, beside a road.", "Линии нужны хотя бы две остановки на карте: поставьте их через Служебное > Остановки, рядом с дорогой.")).color(WARN));
+        }
+        let eligible = doc.timetable.trips.iter()
+            .filter(|t| t.stations.len() >= 2 && t.stations_legacy.is_empty()).count();
+        if eligible > 0 {
+            ui.horizontal(|ui| {
+                if ui.add_enabled(self.net.is_some(), egui::Button::new(
+                    icons::labelled(Icon::Route, tr("Recalculate all trips", "Пересчитать все рейсы"))
+                )).clicked() {
+                    self.confirm_recalculate = true;
+                    self.bulk_report = None;
+                }
+                ui.label(format!("{}: {eligible}", tr("Eligible trips", "Подходящих рейсов")));
+            });
+            if self.confirm_recalculate {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.label(tr(
+                        "Recalculate every station-link trip, replacing successful trips' .ttr paths and shared StnLinks.cfg entries. Unroutable and conflicting trips keep their original data. Save the map to write the changes.",
+                        "Пересчитать все рейсы со связями остановок. Успешные маршруты заменят .ttr и общие записи StnLinks.cfg. Ненайденные и конфликтующие рейсы сохранят исходные данные. Сохраните карту, чтобы записать изменения."
+                    ));
+                    ui.horizontal(|ui| {
+                        if ui.button(tr("Confirm recalculation", "Подтвердить пересчёт")).clicked() {
+                            self.confirm_recalculate = false;
+                            self.bulk_report = Some(self.recalculate_all(doc));
+                        }
+                        if ui.button(tr("Cancel", "Отмена")).clicked() {
+                            self.confirm_recalculate = false;
+                        }
+                    });
+                });
+            }
+            if let Some(report) = &self.bulk_report {
+                ui.label(report);
+            }
+            ui.separator();
         }
         ui.horizontal_top(|ui| {
             // the lines
@@ -1429,4 +1562,42 @@ fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
     ui.label(":");
     ui.add(egui::DragValue::new(&mut t.1).range(0..=59).custom_formatter(|v, _| format!("{:02}", v as i32)));
     ui.spacing_mut().item_spacing.x = 8.0;
+}
+
+
+#[cfg(test)]
+mod batch_route_tests {
+    use super::{conflicting_batch_routes, PlannedRoute};
+    use std::collections::HashSet;
+
+    fn link(from_id: i64, to_id: i64, length: f64) -> omsi_timetable::StnLink {
+        omsi_timetable::StnLink { from_id, to_id, length, ..Default::default() }
+    }
+
+    fn plan(name: &str, links: Vec<omsi_timetable::StnLink>) -> PlannedRoute {
+        (name.to_string(), Vec::new(), links)
+    }
+
+    #[test]
+    fn identical_shared_links_are_safe() {
+        let same = link(1, 2, 120.0);
+        let plans = vec![plan("a", vec![same.clone()]), plan("b", vec![same])];
+        assert!(conflicting_batch_routes(&plans, &[], &HashSet::new()).is_empty());
+    }
+
+    #[test]
+    fn disagreeing_shared_links_skip_both_trips() {
+        let plans = vec![plan("a", vec![link(1, 2, 120.0)]), plan("b", vec![link(1, 2, 200.0)])];
+        assert_eq!(conflicting_batch_routes(&plans, &[], &HashSet::new()), HashSet::from([0, 1]));
+    }
+
+    #[test]
+    fn a_failed_trip_keeps_its_existing_shared_link() {
+        let original = link(1, 2, 120.0);
+        let protected = HashSet::from([(1, 2)]);
+        let plans = vec![plan("a", vec![original.clone()]), plan("b", vec![link(1, 2, 130.0)])];
+        assert_eq!(conflicting_batch_routes(&plans, &[original], &protected), HashSet::from([0, 1]));
+        let plans = vec![plan("a", vec![link(1, 2, 120.0)])];
+        assert!(conflicting_batch_routes(&plans, &[link(1, 2, 120.0)], &protected).is_empty());
+    }
 }
