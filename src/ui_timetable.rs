@@ -118,16 +118,28 @@ fn conflicting_batch_routes(
             uses.entry((link.from_id, link.to_id)).or_default().push((index, link));
         }
     }
+    let mut protected = protected.clone();
     let mut conflicts = HashSet::new();
-    for (pair, group) in uses {
-        let first = group[0].1;
-        let disagree = group.iter().any(|(_, link)| *link != first);
-        let would_change_protected = protected.contains(&pair)
-            && original.iter().any(|link| (link.from_id, link.to_id) == pair && link != first);
-        if disagree || would_change_protected {
-            for (index, _) in group {
-                conflicts.insert(index);
+    loop {
+        let mut added = false;
+        for (pair, group) in &uses {
+            let first = group[0].1;
+            let disagree = group.iter().any(|(_, link)| *link != first);
+            let would_change_protected = protected.contains(pair)
+                && original.iter().any(|link| (link.from_id, link.to_id) == *pair && link != first);
+            if disagree || would_change_protected {
+                for (index, _) in group {
+                    added |= conflicts.insert(*index);
+                }
             }
+        }
+        if !added {
+            break;
+        }
+        // A skipped trip must also retain any other shared links it depends on.
+        // Propagate its protection until no additional trip would change those links.
+        for &index in &conflicts {
+            protected.extend(planned[index].2.iter().map(|link| (link.from_id, link.to_id)));
         }
     }
     conflicts
@@ -1614,6 +1626,19 @@ mod batch_route_tests {
     fn disagreeing_shared_links_skip_both_trips() {
         let plans = vec![plan("a", vec![link(1, 2, 120.0)]), plan("b", vec![link(1, 2, 200.0)])];
         assert_eq!(conflicting_batch_routes(&plans, &[], &HashSet::new()), HashSet::from([0, 1]));
+    }
+
+    #[test]
+    fn a_conflict_protects_all_other_links_of_the_skipped_trip() {
+        let plans = vec![
+            plan("a", vec![link(1, 2, 120.0), link(2, 3, 150.0)]),
+            plan("b", vec![link(1, 2, 200.0)]),
+            plan("c", vec![link(2, 3, 150.0)]),
+        ];
+        // Trip a is skipped because it conflicts with b on 1->2. Trip c must
+        // also be skipped, because it would change a's original 2->3 link.
+        let original = vec![link(2, 3, 100.0)];
+        assert_eq!(conflicting_batch_routes(&plans, &original, &HashSet::new()), HashSet::from([0, 1, 2]));
     }
 
     #[test]
