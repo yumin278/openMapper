@@ -99,6 +99,11 @@ fn lower(s: &str) -> String {
 /// A newly calculated trip track and the station links between its stops.
 type PlannedRoute = (String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>);
 
+/// Type-2 stop IDs can be routed using station links; legacy track stop records cannot.
+fn eligible_for_batch(trip: &Trip) -> bool {
+    trip.stations.len() >= 2 && trip.stations_legacy.is_empty()
+}
+
 /// Station links belong to the whole map and are keyed only by their two stop IDs.
 /// Do not pick an arbitrary winner when two trips calculate different paths between
 /// the same stops. Nor replace a link used by a trip that could not be recalculated.
@@ -339,7 +344,7 @@ impl TimetableUi {
         for trip in &doc.timetable.trips {
             // A legacy [station] trip specifies a track and its own stop records.
             // Never convert it to [station_typ2] as a side effect of this action.
-            if trip.stations.len() < 2 || !trip.stations_legacy.is_empty() {
+            if !eligible_for_batch(trip) {
                 skipped += 1;
                 protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
                 continue;
@@ -576,7 +581,7 @@ impl TimetableUi {
             ui.label(RichText::new(tr("A line needs at least two bus stops on the map: place them with Game logic > Bus stops, beside a road.", "Линии нужны хотя бы две остановки на карте: поставьте их через Служебное > Остановки, рядом с дорогой.")).color(WARN));
         }
         let eligible = doc.timetable.trips.iter()
-            .filter(|t| t.stations.len() >= 2 && t.stations_legacy.is_empty()).count();
+            .filter(|t| eligible_for_batch(t)).count();
         if eligible > 0 {
             ui.horizontal(|ui| {
                 if ui.add_enabled(self.net.is_some(), egui::Button::new(
@@ -1573,7 +1578,7 @@ fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
 
 #[cfg(test)]
 mod batch_route_tests {
-    use super::{conflicting_batch_routes, PlannedRoute};
+    use super::{conflicting_batch_routes, eligible_for_batch, PlannedRoute};
     use std::collections::HashSet;
 
     fn link(from_id: i64, to_id: i64, length: f64) -> omsi_timetable::StnLink {
@@ -1582,6 +1587,20 @@ mod batch_route_tests {
 
     fn plan(name: &str, links: Vec<omsi_timetable::StnLink>) -> PlannedRoute {
         (name.to_string(), Vec::new(), links)
+    }
+
+    #[test]
+    fn v2_station_link_trips_are_eligible_but_legacy_tracks_are_not() {
+        let mut trip = omsi_timetable::Trip {
+            stations: vec![5521173, 5521015, 5537684, 2354518],
+            ..Default::default()
+        };
+        assert!(eligible_for_batch(&trip));
+        trip.stations_legacy.push(vec!["legacy".into()]);
+        assert!(!eligible_for_batch(&trip));
+        trip.stations_legacy.clear();
+        trip.stations.truncate(1);
+        assert!(!eligible_for_batch(&trip));
     }
 
     #[test]
