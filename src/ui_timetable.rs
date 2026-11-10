@@ -360,9 +360,9 @@ impl TimetableUi {
 
         let conflicts = conflicting_batch_routes(&planned, &doc.timetable.links, &protected);
         let conflicting = conflicts.len();
-        let conflict_samples: Vec<&str> = planned.iter().enumerate()
+        let conflict_samples: Vec<String> = planned.iter().enumerate()
             .filter(|(index, _)| conflicts.contains(index))
-            .map(|(_, (name, _, _))| name.as_str()).take(5).collect();
+            .map(|(_, (name, _, _))| name.clone()).take(5).collect();
         let mut completed = 0;
         for (index, (name, track, links)) in planned.into_iter().enumerate() {
             if conflicts.contains(&index) {
