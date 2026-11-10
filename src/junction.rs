@@ -1521,4 +1521,222 @@ mod tests {
         assert_eq!(m.triangles.len(), mesh.tris.len() * 2);
         let _ = std::fs::remove_dir_all(&dir);
     }
+    /// Read vertex heights for one texture from the *written* DirectX .x,
+    /// respecting MeshMaterialList rather than assuming a vertex belongs to asphalt.
+    fn x_texture_heights(x: &str, texture: &str) -> Vec<f64> {
+        let mut lines = x.lines().skip_while(|l| l.trim() != "Mesh {");
+        assert_eq!(lines.next().map(str::trim), Some("Mesh {"));
+        let nverts: usize = lines.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        let heights: Vec<f64> = (0..nverts).map(|_| {
+            lines.next().unwrap().trim().split(';').nth(1).unwrap().parse().unwrap()
+        }).collect();
+        let nfaces: usize = lines.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        let faces: Vec<Vec<usize>> = (0..nfaces).map(|_| {
+            let line = lines.next().unwrap().trim();
+            line.strip_prefix("3;").unwrap().split(';').next().unwrap()
+                .split(',').map(|v| v.parse::<usize>().unwrap()).collect()
+        }).collect();
+
+        let mut mats = x.lines().skip_while(|l| l.trim() != "MeshMaterialList {");
+        assert_eq!(mats.next().map(str::trim), Some("MeshMaterialList {"));
+        let _nmaterials: usize = mats.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        let material_faces: usize = mats.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        assert_eq!(material_faces, nfaces);
+        let face_mats: Vec<usize> = (0..nfaces).map(|_| {
+            mats.next().unwrap().trim().trim_end_matches(|c: char| c == ',' || c == ';').parse().unwrap()
+        }).collect();
+        let mat = x.split("  Material {").skip(1)
+            .position(|m| m.split("\n  }").next().unwrap().contains(&format!("\"{texture}\"")))
+            .expect("texture has a Material in the written .x");
+        faces.iter().zip(face_mats).filter(|(_, m)| *m == mat)
+            .flat_map(|(face, _)| face.iter().map(|i| heights[*i])).collect()
+    }
+
+    #[derive(Clone)]
+    struct WrittenPath {
+        a: DVec3,
+        b: DVec3,
+        kind: i32,
+        width: f64,
+    }
+
+    fn written_paths(sco: &str) -> Vec<WrittenPath> {
+        let normalized = sco.replace("\r\n", "\n");
+        normalized.split("[path]\n").skip(1).map(|section| {
+            let vals: Vec<&str> = section.lines().take(12).collect();
+            assert_eq!(vals.len(), 12);
+            let n = |i: usize| vals[i].parse::<f64>().unwrap();
+            let seg = Seg { start: DVec2::new(n(0), n(1)), heading: n(3), radius: n(4), length: n(5) };
+            let end = seg.end();
+            WrittenPath {
+                a: DVec3::new(n(0), n(1), n(2)),
+                b: DVec3::new(end.x, end.y, n(2) + n(6) * seg.length),
+                kind: vals[8].parse().unwrap(),
+                width: n(9),
+            }
+        }).collect()
+    }
+
+    fn record_paths(recs: &[PathRec]) -> String {
+        let mut body = String::new();
+        for p in recs {
+            let s = &p.seg;
+            let grad = if s.length > 0.01 { (p.z1 - p.z0) / s.length } else { 0.0 };
+            let _ = write!(body, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n",
+                num(s.start.x), num(s.start.y), num(p.z0), num(s.heading), num(s.radius),
+                num(s.length), num(grad), num(grad), p.kind, num(p.width), p.direction, p.blinker);
+        }
+        body
+    }
+
+    fn zebra_road_with_raised_sidewalks() -> SplineModel {
+        let mut road = test_road();
+        let point = |x: f32, z: f32| omsi_scenery::SplineProfilePoint {
+            x, z, ..Default::default()
+        };
+        road.def.profiles = vec![
+            omsi_scenery::SplineProfile {
+                texture: 0, points: vec![point(-4.0, 0.20), point(4.0, 0.20)],
+            },
+            omsi_scenery::SplineProfile {
+                texture: 0, points: vec![point(-6.5, 0.35), point(-5.5, 0.35), point(-4.0, 0.20)],
+            },
+            omsi_scenery::SplineProfile {
+                texture: 0, points: vec![point(4.0, 0.20), point(5.5, 0.35), point(6.5, 0.35)],
+            },
+        ];
+        for x in [-5.5_f32, 5.5] {
+            road.def.paths.push(omsi_scenery::PathDef {
+                kind: 1, start: [x, 0.0, 0.35], width: 2.0, direction: 2,
+                ..Default::default()
+            });
+        }
+        road.half_width = 6.5;
+        road
+    }
+
+    /// Four equally high arms, all with raised footways and marked crossings.
+    /// Write both versions of the .x/.sco, print *all* [path] blocks and stripe
+    /// vertex heights, and assert the new geometry is connected and above asphalt.
+    #[test]
+    fn junction_zebra_crossings_join_sidewalks_and_clear_asphalt() {
+        let roots = crate::doc::tests::scratch("junction-zebra-regression");
+        let content = roots.content.clone();
+        std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
+        let mut doc = crate::selection::tests::flat_map(1);
+        doc.dir = content.join("maps").join("zebra-four");
+        let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+        assets.splines.insert("splines\\road.sli".into(),
+            crate::assets::Slot::Ready(std::sync::Arc::new(zebra_road_with_raised_sidewalks())));
+        let centre = DVec3::new(100.0, 100.0, 0.0);
+        let mut arms = Vec::new();
+        for (i, out) in [0.0_f64, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let pos = centre.truncate() + roads::dir(out) * 10.0;
+            let id = i as i64 + 100;
+            crate::selection::tests::add_spline(&mut doc, (0, 0), id, pos.x, pos.y, out, 20.0, 0, 0);
+            arms.push(Arm { key: (0, 0), id, at_end: false });
+        }
+        let opts = Options {
+            lights: false, main_green: 30.0, side_green: 20.0,
+            crossings: vec![0.0, 90.0, 180.0, 270.0],
+        };
+        let asphalt = content.join("om_test_asphalt.png");
+        image::RgbaImage::from_pixel(8, 8, image::Rgba([70, 70, 70, 255]))
+            .save(&asphalt).unwrap();
+
+        // Reconstruct the original make_with() output, preserving its original
+        // lane routing and old z formula. This is the before-fix reference.
+        let (_, lanes) = arm_ends(&doc, &mut assets, &arms).unwrap();
+        let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
+        let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
+        let plate = plate_frame(&geo, &files, &lanes, centre, true);
+        let mut before_recs = paths(&plate.lanes, DVec3::ZERO, &[None; 4], &[]);
+        let mut zebras = Vec::new();
+        for g in &plate.arms {
+            let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+            let r = roads::right(g.out);
+            let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
+            let seg = roads::straight(a, b).unwrap();
+            before_recs.push(PathRec {
+                seg, z0: g.end.z, z1: g.end.z, kind: 1,
+                width: 3.0, direction: 2, blinker: 0, light: None,
+            });
+            zebras.push((mid, g.out, g.left_w, g.right_w));
+        }
+        assert_eq!(zebras.len(), 4);
+        let before_sco = format!("[friendlyname]\nBefore fix\n\n[mesh]\nbefore.x\n\n{}", record_paths(&before_recs));
+        let mut before_mesh = junction_mesh(&plate.arms, DVec3::ZERO, Some(asphalt.clone()), 8.0, 0.0);
+        let old_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / 4.0 + 0.03;
+        paint_zebra_stripes(&mut before_mesh, &zebras, old_z, content.join("om_zebra_white.png"));
+        let before_names: Vec<String> = before_mesh.textures.iter()
+            .map(|t| t.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+            .collect();
+        let before_x = mesh_x(&before_mesh, &before_names);
+
+        // Exercise production make_with(), and read the actual written files.
+        let id = make_with(&mut doc, &mut assets, &content, Some(&asphalt), centre, &arms, &opts).unwrap();
+        let obj = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+        let sco_path = omsi_cfg::resolve_path(&content, &obj.file);
+        let after_sco = omsi_cfg::decode_text(&std::fs::read(&sco_path).unwrap());
+        let after_x = std::fs::read_to_string(sco_path.parent().unwrap().join("model").join(format!(
+            "{}.x", sco_path.file_stem().unwrap().to_string_lossy()
+        ))).unwrap();
+
+        let before_z = x_texture_heights(&before_x, "om_zebra_white.png");
+        let before_road = x_texture_heights(&before_x, "om_test_asphalt.png");
+        let after_z = x_texture_heights(&after_x, "om_zebra_white.png");
+        let after_road = x_texture_heights(&after_x, "om_test_asphalt.png");
+        assert!(!before_z.is_empty() && !before_road.is_empty());
+        assert_eq!(before_z.len(), after_z.len());
+        println!("===== BEFORE .sco ALL [path] BLOCKS =====\n{}", before_sco.split_once("[path]").unwrap().1);
+        println!("===== BEFORE .x ZEBRA VERTEX HEIGHTS ({}) =====\n{:?}", before_z.len(), before_z);
+        println!("===== AFTER .sco ALL [path] BLOCKS =====\n{}", after_sco.replace("\r\n", "\n").split_once("[path]").unwrap().1);
+        println!("===== AFTER .x ZEBRA VERTEX HEIGHTS ({}) =====\n{:?}", after_z.len(), after_z);
+        println!("===== ASPHALT VERTEX HEIGHTS BEFORE / AFTER =====\n{:?}\n{:?}", before_road, after_road);
+
+        // Old stripes are buried inside elevated asphalt; new stripes must
+        // clear every vertex belonging to the asphalt material.
+        assert!(before_z.iter().any(|z| before_road.iter().any(|r| z <= r)));
+        assert!(after_z.iter().all(|z| after_road.iter().all(|r| z > r)),
+            "zebra {:?} must clear asphalt {:?}", after_z, after_road);
+        let before_paths = written_paths(&before_sco);
+        let after_paths = written_paths(&after_sco);
+        let marked: Vec<_> = after_paths.iter().enumerate()
+            .filter(|(_, p)| p.kind == 1 && (p.width - 3.0).abs() < 0.001).collect();
+        assert_eq!(marked.len(), 12, "four roadway crossings, each with two sidewalk links");
+        let connected = |paths: &[WrittenPath], i: usize, at: DVec3| {
+            paths.iter().enumerate().any(|(j, q)| j != i && q.kind == 1 &&
+                [q.a, q.b].iter().any(|p| (p.truncate() - at.truncate()).length() < 0.05 && (p.z - at.z).abs() < 0.05))
+        };
+        // Assert both ends of every roadway / connector path, not only its midpoint.
+        for (i, path) in &marked {
+            for endpoint in [path.a, path.b] {
+                assert!(connected(&after_paths, *i, endpoint),
+                    "crossing path #{i} endpoint {endpoint:?} has no coincident footway endpoint");
+            }
+        }
+        // Each raised sidewalk extension must also touch a corner path exactly.
+        for (_, p) in marked.iter().filter(|(_, p)| (p.a.z - p.b.z).abs() > 0.05) {
+            let top = if p.a.z > p.b.z { p.a } else { p.b };
+            assert!(after_paths.iter().any(|q| q.kind == 1 && (q.width - 2.0).abs() < 0.001 &&
+                [q.a, q.b].iter().any(|e| (e.truncate() - top.truncate()).length() < 0.05 && (e.z - top.z).abs() < 0.05)),
+                "raised crossing endpoint {top:?} must meet a corner sidewalk");
+        }
+        let old_cross: Vec<_> = before_paths.iter().enumerate()
+            .filter(|(_, p)| p.kind == 1 && (p.width - 3.0).abs() < 0.001).collect();
+        assert_eq!(old_cross.len(), 4);
+        assert!(old_cross.iter().any(|(i, p)| !connected(&before_paths, *i, p.a)));
+
+        // Keep both generated artifacts for byte-for-byte comparison in CI.
+        let artifacts = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/junction-zebra-regression");
+        std::fs::create_dir_all(&artifacts).unwrap();
+        for (name, bytes) in [
+            ("before.sco", before_sco.as_bytes()), ("before.x", before_x.as_bytes()),
+            ("after.sco", after_sco.as_bytes()), ("after.x", after_x.as_bytes()),
+        ] {
+            std::fs::write(artifacts.join(name), bytes).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&content);
+    }
+
 }
