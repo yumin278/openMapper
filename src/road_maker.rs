@@ -598,13 +598,15 @@ pub struct JunctionStyle {
     /// New junctions with this road get traffic lights / zebra crossings on every arm.
     pub lights: bool,
     pub crossings: bool,
+    /// Generate corner-to-corner AI footway paths for new junctions.
+    pub corner_walks: bool,
     /// Where it meets another road a junction is made at all (else the roads only cross).
     pub junctions: bool,
 }
 
 impl Default for JunctionStyle {
     fn default() -> Self {
-        JunctionStyle { corner: 1.0, lights: false, crossings: false, junctions: true }
+        JunctionStyle { corner: 1.0, lights: false, crossings: false, corner_walks: true, junctions: true }
     }
 }
 
