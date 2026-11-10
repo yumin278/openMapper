@@ -90,6 +90,9 @@ pub struct TimetableUi {
     bulk_report: Option<String>,
     /// Route-only edits need a timetable snapshot for Undo as well.
     bulk_changed: bool,
+    /// Trips deliberately left unchanged by a bulk operation: avoid a subsequent
+    /// automatic stale-route pass silently bypassing the shared-link safeguards.
+    bulk_blocked: HashSet<String>,
 }
 
 fn lower(s: &str) -> String {
@@ -322,6 +325,8 @@ impl TimetableUi {
         let Some(net) = &self.net else { return };
         let names: Vec<String> = std::mem::take(&mut doc.timetable.reroute).into_iter().collect();
         for name in names {
+            // An explicit stop edit is a new request to route this trip.
+            self.bulk_blocked.remove(&lower(&name));
             let Some(trip) = doc.timetable.trip(&name).cloned() else { continue };
             if trip.stations.len() < 2 {
                 self.problems.remove(&name);
@@ -349,6 +354,7 @@ impl TimetableUi {
             return "Road and track network unavailable / 道路與軌道網路無法使用".to_string();
         };
         let stop_positions: HashMap<i64, DVec3> = self.stops.iter().map(|s| (s.id, s.pos)).collect();
+        self.bulk_blocked.clear();
         let mut planned: Vec<PlannedRoute> = Vec::new();
         let mut protected: HashSet<(i64, i64)> = HashSet::new();
         let mut failures = Vec::new();
@@ -369,6 +375,7 @@ impl TimetableUi {
                 planned.push((trip.name.clone(), route.track(net, &doc.order), route.links(net, &doc.order, &trip.stations)));
             } else {
                 failures.push(trip.name.clone());
+                self.bulk_blocked.insert(lower(&trip.name));
                 protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
                 self.problems.insert(lower(&trip.name), route.problems.clone());
                 log::warn!("timetable: batch route for {} not found: {:?}", trip.name, route.problems);
@@ -383,6 +390,7 @@ impl TimetableUi {
         let mut completed = 0;
         for (index, (name, track, links)) in planned.into_iter().enumerate() {
             if conflicts.contains(&index) {
+                self.bulk_blocked.insert(lower(&name));
                 log::warn!("timetable: batch route for {name} skipped: conflicting shared station link");
                 continue;
             }
@@ -425,15 +433,19 @@ impl TimetableUi {
             let on_map: std::collections::HashSet<i64> = doc.tiles.values().flat_map(|t| t.tile.splines.iter().filter(|s| !s.deleted).map(|s| s.id).chain(t.tile.objects.iter().map(|o| o.id))).collect();
             let changed: std::collections::HashSet<usize> = doc.order.iter().enumerate().filter(|(_, k)| doc.tiles.get(k).map(|t| t.dirty).unwrap_or(false)).map(|(i, _)| i).collect();
             for name in route::stale_trips(&doc.timetable, net, &doc.order, &on_map, &changed) {
+                if self.bulk_blocked.contains(&lower(&name)) {
+                    continue;
+                }
                 log::info!("timetable: the way of {name} is found again (its roads changed)");
                 doc.timetable.reroute.insert(name.to_lowercase());
             }
         }
         for (name, key) in &self.routed {
-            if *key != self.net_key {
+            if *key != self.net_key && !self.bulk_blocked.contains(name) {
                 doc.timetable.reroute.insert(name.clone());
             }
         }
+        doc.timetable.reroute.retain(|name| !self.bulk_blocked.contains(name));
         self.reroute(doc);
         let ids: Vec<(TileKey, i64)> = self.stops.iter().map(|s| (s.tile, s.id)).collect();
         let entries = timetable::stop_entries(doc, &ids);
