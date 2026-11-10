@@ -214,6 +214,7 @@ struct WalkJoin {
     left: bool,
     at_arm: DVec3,
     at_crossing: DVec3,
+    width: f64,
 }
 
 /// The ways through the junction.
@@ -973,6 +974,7 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
                 walk_joins.push(WalkJoin {
                     arm: i, left, at_arm: lane.pos,
                     at_crossing: DVec3::new(xy.x, xy.y, lane.pos.z),
+                    width: lane.width,
                 });
             }
         }
@@ -992,7 +994,17 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
                     if let Some(seg) = roads::straight(edge, join.at_crossing.truncate()) {
                         recs.push(PathRec {
                             seg, z0: z, z1: join.at_crossing.z, kind: 1,
-                            width: 3.0, direction: 2, blinker: 0, light: None,
+                            width: join.width, direction: 2, blinker: 0, light: None,
+                        });
+                    }
+                    // The corner path starts at at_crossing; this additional
+                    // two-metre stub links it back to the road's original
+                    // sidewalk lane at the spline end, even when corners are off.
+                    if let Some(seg) = roads::straight(join.at_arm.truncate(), join.at_crossing.truncate()) {
+                        recs.push(PathRec {
+                            seg, z0: join.at_arm.z, z1: join.at_crossing.z,
+                            kind: 1, width: join.width, direction: 2,
+                            blinker: 0, light: None,
                         });
                     }
                 }
