@@ -329,7 +329,7 @@ impl TimetableUi {
     /// Calculate everything first, then avoid replacing shared links inconsistently.
     fn recalculate_all(&mut self, doc: &mut Document) -> String {
         let Some(net) = &self.net else {
-            return tr("Road and track network unavailable", "Сеть дорог и путей недоступна").to_string();
+            return "Road and track network unavailable / 道路與軌道網路無法使用".to_string();
         };
         let mut planned: Vec<PlannedRoute> = Vec::new();
         let mut protected: HashSet<(i64, i64)> = HashSet::new();
@@ -377,11 +377,8 @@ impl TimetableUi {
         self.shown = None;
         self.bulk_changed |= completed > 0;
         format!(
-            "{}: {}  |  {}: {}  |  {}: {}  |  {}: {}",
-            tr("Recalculated", "Пересчитано"), completed,
-            tr("Failed (originals kept)", "Не удалось (сохранены оригиналы)"), failures.len(),
-            tr("Shared-link conflicts (kept)", "Конфликты общих связей (сохранены)"), conflicting,
-            tr("Legacy / short trips skipped", "Пропущены старые / короткие рейсы"), skipped,
+            "Recalculated / 已重算: {completed}  |  Failed / 失敗（保留原檔）: {}  |  Conflicts / 衝突（保留原檔）: {conflicting}  |  Skipped / 略過: {skipped}",
+            failures.len(),
         )
     }
 
@@ -572,21 +569,18 @@ impl TimetableUi {
         if eligible > 0 {
             ui.horizontal(|ui| {
                 if ui.add_enabled(self.net.is_some(), egui::Button::new(
-                    icons::labelled(Icon::Route, tr("Recalculate all trips", "Пересчитать все рейсы"))
+                    icons::labelled(Icon::Route, "Recalculate all trips / 批次重算")
                 )).clicked() {
                     self.confirm_recalculate = true;
                     self.bulk_report = None;
                 }
-                ui.label(format!("{}: {eligible}", tr("Eligible trips", "Подходящих рейсов")));
+                ui.label(format!("Eligible trips / 可重算班次: {eligible}"));
             });
             if self.confirm_recalculate {
                 egui::Frame::group(ui.style()).show(ui, |ui| {
-                    ui.label(tr(
-                        "Recalculate every station-link trip, replacing successful trips' .ttr paths and shared StnLinks.cfg entries. Unroutable and conflicting trips keep their original data. Save the map to write the changes.",
-                        "Пересчитать все рейсы со связями остановок. Успешные маршруты заменят .ttr и общие записи StnLinks.cfg. Ненайденные и конфликтующие рейсы сохранят исходные данные. Сохраните карту, чтобы записать изменения."
-                    ));
+                    ui.label("Recalculate all station-link trips and replace successful trips' .ttr and shared StnLinks.cfg. Unroutable/conflicting trips retain their data; save the map afterward. / 批次重算所有站間連結路線，成功的班次會更新 .ttr 與共用 StnLinks.cfg；失敗或路徑衝突的班次保留原資料。完成後請存檔。");
                     ui.horizontal(|ui| {
-                        if ui.button(tr("Confirm recalculation", "Подтвердить пересчёт")).clicked() {
+                        if ui.button("Confirm recalculation / 確認重算").clicked() {
                             self.confirm_recalculate = false;
                             self.bulk_report = Some(self.recalculate_all(doc));
                         }
@@ -1595,9 +1589,9 @@ mod batch_route_tests {
     fn a_failed_trip_keeps_its_existing_shared_link() {
         let original = link(1, 2, 120.0);
         let protected = HashSet::from([(1, 2)]);
-        let plans = vec![plan("a", vec![original.clone()]), plan("b", vec![link(1, 2, 130.0)])];
-        assert_eq!(conflicting_batch_routes(&plans, &[original], &protected), HashSet::from([0, 1]));
-        let plans = vec![plan("a", vec![link(1, 2, 120.0)])];
-        assert!(conflicting_batch_routes(&plans, &[link(1, 2, 120.0)], &protected).is_empty());
+        let plans = vec![plan("a", vec![link(1, 2, 130.0)])];
+        assert_eq!(conflicting_batch_routes(&plans, &[original.clone()], &protected), HashSet::from([0]));
+        let plans = vec![plan("a", vec![original.clone()])];
+        assert!(conflicting_batch_routes(&plans, &[original], &protected).is_empty());
     }
 }
