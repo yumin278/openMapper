@@ -282,7 +282,7 @@ fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -
     for retry in 0..=3 {
         let p = pa + roads::dir(ha) * la;
         let q = pb - roads::dir(hb) * lb;
-        attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {} -> {}", p, q));
+        attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {:?} -> {:?} returned None", p, q));
         if let Some(mut middle) = roads::biarc(p, ha, q, hb) {
             let mut segs = Vec::new();
             if la > 1e-6 {
@@ -297,11 +297,11 @@ fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -
         if retry < 3 { la *= 0.5; lb *= 0.5; }
     }
     if let Some(segs) = roads::biarc(pa, ha, pb, hb) {
-        log::warn!("junction biarc lead retries failed {} -> {}; attempts: {}; using original biarc",
+        log::warn!("junction biarc lead retries failed {:?} -> {:?}; attempts: {}; using original biarc",
             pa, pb, attempts.join("; "));
         return segs;
     }
-    log::warn!("junction biarc lead retries and original biarc failed {} -> {}; attempts: {}; reason: roads::biarc returned None; using straight fallback",
+    log::warn!("junction biarc lead retries and original biarc failed {:?} -> {:?}; attempts: {}; reason: roads::biarc returned None; using straight fallback",
         pa, pb, attempts.join("; "));
     roads::straight(pa, pb).map(|s| vec![s]).unwrap_or_default()
 }
@@ -347,19 +347,19 @@ fn paths(
                 // left for left-hand traffic. The paired outermost lane is
                 // already selected above by the existing blinker logic.
                 let outer = if left_hand_traffic { blinker == 2 } else { blinker == 3 };
-                // The mesh's corner runs from i.left to j.right: driving
-                // right round it is j -> i, left round it is i -> j.
+                // The mesh's corner runs from i.left to j.right: a right turn
+                // goes i -> j, and a left turn goes j -> i.
                 let corner = if !turning || !outer { None } else {
                     kerb_corners.iter().find(|c| if blinker == 3 {
-                        c.i == j && c.j == i
-                    } else {
                         c.i == i && c.j == j
+                    } else {
+                        c.i == j && c.j == i
                     })
                 };
                 let (kerb_a, kerb_b) = if outer {
                     kerb_lead.iter().find_map(|&(ki, kj, li, lj)| {
-                        if blinker == 3 && ki == j && kj == i { Some((lj, li)) }
-                        else if blinker == 2 && ki == i && kj == j { Some((li, lj)) }
+                        if blinker == 3 && ki == i && kj == j { Some((li, lj)) }
+                        else if blinker == 2 && ki == j && kj == i { Some((lj, li)) }
                         else { None }
                     }).unwrap_or((0.0, 0.0))
                 } else { (0.0, 0.0) };
@@ -372,7 +372,7 @@ fn paths(
                     let required = a.width.max(2.5) * 0.5 - 0.1;
                     if distance < required {
                         log::warn!(
-                            "junction turning lane {} -> {} approaches corner kerb: min {:.3} m at {}, required {:.3} m",
+                            "junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
                             pa, pb, distance, position, required
                         );
                     }
