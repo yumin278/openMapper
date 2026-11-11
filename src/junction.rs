@@ -2077,4 +2077,214 @@ mod tests {
         }
     }
 
+
+    // The northwest corner of the reported repro: north arm kerb x=-4.5,
+    // west arm kerb y=+13, north rightmost inbound lane x=-2,
+    // west rightmost outbound lane y=+11.625.
+    fn kerb_lead_fixture(symmetric: bool) -> (Vec<ArmGeo>, Vec<LaneEnd>) {
+        let mut geo = Vec::new();
+        let mut lanes = Vec::new();
+        for (i, out) in [0.0, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let wide = symmetric || i % 2 == 1;
+            let kerb = if wide { 13.0 } else { 4.5 };
+            let distance = if wide { 30.0 } else { 31.0 };
+            let d = roads::dir(out) * distance;
+            let end = DVec3::new(d.x, d.y, 0.0);
+            geo.push(ArmGeo {
+                end, out, left_w: kerb, right_w: kerb,
+                right: Vec::new(), left: Vec::new(), v0: 0.0, vdir: 1.0,
+                road_tex: None, road_z: 0.0,
+            });
+            let centres: &[f64] = if wide {
+                &[-11.625, -8.125, -5.25, 5.25, 8.125, 11.625]
+            } else {
+                &[-2.0, 2.0]
+            };
+            for &offset in centres {
+                let xy = end.truncate() + roads::right(out) * offset;
+                let pos = DVec3::new(xy.x, xy.y, end.z);
+                for (incoming, flow) in [(true, roads::norm_deg(out + 180.0)), (false, out)] {
+                    lanes.push(LaneEnd {
+                        arm: i, pos, flow, kind: 0, width: 2.5,
+                        // Right of the *incoming* heading = minus right(out).
+                        side: -offset, incoming,
+                    });
+                }
+            }
+        }
+        (geo, lanes)
+    }
+
+    fn trace_turn<'a>(paths: &'a [PathRec], pa: DVec2, pb: DVec2, blinker: i32) -> Vec<&'a PathRec> {
+        let mut current = pa;
+        let mut result = Vec::new();
+        let mut used = std::collections::HashSet::new();
+        for _ in 0..10 {
+            let (idx, rec) = paths.iter().enumerate().find(|(idx, rec)| {
+                rec.kind == 0 && rec.blinker == blinker && !used.contains(idx)
+                    && (rec.seg.start - current).length() < 0.02
+            }).unwrap_or_else(|| panic!("missing route segment at {current:?} toward {pb:?}, blink {blinker}"));
+            used.insert(idx);
+            current = rec.seg.end();
+            result.push(rec);
+            if (current - pb).length() < 0.03 { return result; }
+        }
+        panic!("turn did not arrive at {pb:?}, last {current:?}");
+    }
+
+    fn turn_blocks(route: &[&PathRec]) -> String {
+        let mut result = String::new();
+        for p in route {
+            let s = &p.seg;
+            let gradient = (p.z1 - p.z0) / s.length.max(0.01);
+            let _ = write!(result, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n",
+                num(s.start.x), num(s.start.y), num(p.z0),
+                num(s.heading), num(s.radius), num(s.length),
+                num(gradient), num(gradient), p.kind, num(p.width), p.direction, p.blinker);
+        }
+        result
+    }
+
+    fn chosen_turn(lanes: &[LaneEnd], i: usize, j: usize, right: bool) -> (LaneEnd, LaneEnd) {
+        let mut incoming: Vec<_> = lanes.iter().filter(|l| l.arm == i && l.incoming).collect();
+        let mut outgoing: Vec<_> = lanes.iter().filter(|l| l.arm == j && !l.incoming).collect();
+        incoming.sort_by(|a, b| b.side.total_cmp(&a.side));
+        outgoing.sort_by(|a, b| a.side.total_cmp(&b.side));
+        let pick = if right { 0 } else { incoming.len() - 1 };
+        let exit = if right { 0 } else { outgoing.len() - 1 };
+        (*incoming[pick], *outgoing[exit])
+    }
+
+    #[test]
+    fn unequal_kerbs_keep_outer_right_turns_clear_of_corner() {
+        let (geo, lanes) = kerb_lead_fixture(false);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let northwest = corners.iter().find(|c| c.i == 0 && c.j == 3).unwrap();
+        println!("NW kerb_round: {:?}", northwest.segments);
+        assert!((northwest.lead_i - 0.0).abs() < 0.05);
+        assert!((northwest.lead_j - 7.5).abs() < 0.05);
+
+        let before = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let after = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, false);
+        for i in 0..4 {
+            let j = (i + 3) % 4;
+            let (a, b) = chosen_turn(&lanes, i, j, true);
+            let (pa, pb) = (a.pos.truncate(), b.pos.truncate());
+            let c = corners.iter().find(|c| c.i == i && c.j == j).unwrap();
+            let old = trace_turn(&before, pa, pb, 3);
+            let new = trace_turn(&after, pa, pb, 3);
+            let old_segs: Vec<_> = old.iter().map(|r| r.seg).collect();
+            let new_segs: Vec<_> = new.iter().map(|r| r.seg).collect();
+            let (old_d, old_at) = path_kerb_clearance(&old_segs, c);
+            let (new_d, new_at) = path_kerb_clearance(&new_segs, c);
+            println!("===== RIGHT TURN {i} -> {j} BEFORE: min={old_d:.4} at {old_at:?} =====\n{}",
+                turn_blocks(&old));
+            println!("===== RIGHT TURN {i} -> {j} AFTER: min={new_d:.4} at {new_at:?} =====\n{}",
+                turn_blocks(&new));
+            assert!(new_d >= 1.25 - 1e-4,
+                "outer right turn {i}->{j}: {new_d:.4} m to kerb at {new_at:?}");
+            if i == 0 {
+                assert!(old_d < 1.25, "NW baseline should reproduce kerb clipping");
+                assert!(new_d > old_d, "NW tangent lead must improve clearance");
+            }
+        }
+
+        // For left-hand traffic the outermost left turn traverses the
+        // same rounded corner in the opposite direction.
+        let left = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, true);
+        let (a, b) = chosen_turn(&lanes, 3, 0, false);
+        let reversed = trace_turn(&left, a.pos.truncate(), b.pos.truncate(), 2);
+        let reversed_segs: Vec<_> = reversed.iter().map(|r| r.seg).collect();
+        let (clearance, _) = path_kerb_clearance(&reversed_segs, northwest);
+        println!("===== LEFT-HAND OUTER LEFT TURN 3 -> 0: min={clearance:.4} =====\n{}",
+            turn_blocks(&reversed));
+        assert!(clearance >= 1.25 - 1e-4);
+    }
+
+    #[test]
+    fn symmetric_kerbs_are_bit_identical_without_zebras() {
+        let (geo, lanes) = kerb_lead_fixture(true);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        assert!(leads.iter().all(|c| c.2.abs() < 1e-6 && c.3.abs() < 1e-6),
+            "equal arms need no kerb tangent lead: {leads:?}");
+        let old = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let new = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, false);
+        let before = record_paths(&old);
+        let after = record_paths(&new);
+        assert_eq!(after.as_bytes(), before.as_bytes(),
+            "symmetric four-arm .sco path records must be byte-for-byte identical");
+        println!("===== SYMMETRIC FOUR ARMS BEFORE [path] =====\n{before}");
+        println!("===== SYMMETRIC FOUR ARMS AFTER [path] =====\n{after}");
+
+        // Even on asymmetric roads, without zebra crossings a normal
+        // left turn (not an outer LHT turn) is completely unchanged.
+        let (geo, lanes) = kerb_lead_fixture(false);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let before = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let after = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, false);
+        let only_left = |recs: &[PathRec]| record_paths(&recs.iter().filter(|p| p.kind == 0 && p.blinker == 2)
+            .map(|p| PathRec {
+                seg: p.seg, z0: p.z0, z1: p.z1, kind: p.kind,
+                width: p.width, direction: p.direction, blinker: p.blinker, light: p.light,
+            }).collect::<Vec<_>>());
+        assert_eq!(only_left(&before).as_bytes(), only_left(&after).as_bytes());
+        println!("===== ASYMMETRIC / NO ZEBRA LEFT TURNS BEFORE [path] =====\n{}", only_left(&before));
+        println!("===== ASYMMETRIC / NO ZEBRA LEFT TURNS AFTER [path] =====\n{}", only_left(&after));
+    }
+
+    #[test]
+    fn all_zebra_arms_keep_four_metres_straight_at_both_ends() {
+        let (geo, lanes) = kerb_lead_fixture(false);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let old = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let new = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[true; 4], &corners, false);
+        for i in 0..4 {
+            for j in 0..4 {
+                if i == j || (i + 2) % 4 == j { continue; }
+                let right = (i + 3) % 4 == j;
+                let (a, b) = chosen_turn(&lanes, i, j, right);
+                let (pa, pb) = (a.pos.truncate(), b.pos.truncate());
+                let old_route = trace_turn(&old, pa, pb, if right { 3 } else { 2 });
+                let route = trace_turn(&new, pa, pb, if right { 3 } else { 2 });
+                println!("===== ZEBRA TURN {i} -> {j}, before =====\n{}", turn_blocks(&old_route));
+                println!("===== ZEBRA TURN {i} -> {j}, after =====\n{}", turn_blocks(&route));
+                let segs: Vec<_> = route.iter().map(|p| p.seg).collect();
+                let full: f64 = segs.iter().map(|s| s.length).sum();
+                assert!(full > 8.0);
+                // Check each 0.25 m sample, including the boundary at 4 m,
+                // against the arm's incoming or outgoing flow (< 1 degree).
+                for n in 0..=16 {
+                    for (d, target) in [(n as f64 * 0.25, a.flow), (full - n as f64 * 0.25, b.flow)] {
+                        let mut acc = 0.0;
+                        let mut heading = None;
+                        for (k, seg) in segs.iter().enumerate() {
+                            if d <= acc + seg.length + 1e-7 || k + 1 == segs.len() {
+                                heading = Some(seg.heading_at((d - acc).clamp(0.0, seg.length)));
+                                break;
+                            }
+                            acc += seg.length;
+                        }
+                        let diff = signed_turn(heading.unwrap(), target).abs();
+                        assert!(diff < 1.0,
+                            "turn {i}->{j} at {d:.2}/{full:.2} m deviates {diff:.3} degrees; path:\n{}",
+                            turn_blocks(&route));
+                    }
+                }
+            }
+        }
+    }
+
 }
