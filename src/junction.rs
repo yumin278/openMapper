@@ -217,8 +217,101 @@ struct WalkJoin {
     width: f64,
 }
 
+
+#[derive(Clone)]
+struct KerbCorner {
+    /// Counter-clockwise mesh corner: the left edge of i leads to the right edge of j.
+    i: usize,
+    j: usize,
+    segments: Vec<Seg>,
+    lead_i: f64,
+    lead_j: f64,
+}
+
+fn corner_leads(corners: &[KerbCorner]) -> Vec<(usize, usize, f64, f64)> {
+    corners.iter().map(|c| (c.i, c.j, c.lead_i, c.lead_j)).collect()
+}
+
+/// Distance to the polyline obtained by sampling the *same* rounded kerb
+/// pieces used to construct the plate (0.25 m sampling).
+fn kerb_polyline(corner: &KerbCorner) -> Vec<DVec2> {
+    let mut points = Vec::new();
+    for seg in &corner.segments {
+        let steps = (seg.length / 0.25).ceil().max(1.0) as usize;
+        for n in 0..=steps {
+            if !points.is_empty() && n == 0 { continue; }
+            points.push(seg.point(seg.length * n as f64 / steps as f64));
+        }
+    }
+    points
+}
+
+fn point_to_polyline(p: DVec2, line: &[DVec2]) -> f64 {
+    line.windows(2).map(|q| {
+        let edge = q[1] - q[0];
+        let t = if edge.length_squared() > 1e-12 {
+            ((p - q[0]).dot(edge) / edge.length_squared()).clamp(0.0, 1.0)
+        } else { 0.0 };
+        (p - (q[0] + edge * t)).length()
+    }).fold(f64::INFINITY, f64::min)
+}
+
+fn path_kerb_clearance(segs: &[Seg], corner: &KerbCorner) -> (f64, DVec2) {
+    let line = kerb_polyline(corner);
+    let mut best = (f64::INFINITY, DVec2::ZERO);
+    for seg in segs {
+        let steps = (seg.length / 0.25).ceil().max(1.0) as usize;
+        for n in 0..=steps {
+            let p = seg.point(seg.length * n as f64 / steps as f64);
+            let d = point_to_polyline(p, &line);
+            if d < best.0 { best = (d, p); }
+        }
+    }
+    best
+}
+
+/// Keep straight tangents at the road ends, then join the shortened portion
+/// with a biarc. Retry three times at half the previous tangent lengths.
+/// A zero-length tangent is omitted, preserving the original path verbatim.
+fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> Vec<Seg> {
+    if lead_a <= 0.0 && lead_b <= 0.0 {
+        return roads::biarc(pa, ha, pb, hb).or_else(|| roads::straight(pa, pb).map(|s| vec![s])).unwrap_or_default();
+    }
+    let (mut la, mut lb) = (lead_a, lead_b);
+    let mut attempts = Vec::new();
+    for retry in 0..=3 {
+        let p = pa + roads::dir(ha) * la;
+        let q = pb - roads::dir(hb) * lb;
+        attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {} -> {}", p, q));
+        if let Some(mut middle) = roads::biarc(p, ha, q, hb) {
+            let mut segs = Vec::new();
+            if la > 1e-6 {
+                segs.push(Seg { start: pa, heading: ha, length: la, radius: 0.0 });
+            }
+            segs.append(&mut middle);
+            if lb > 1e-6 {
+                segs.push(Seg { start: q, heading: hb, length: lb, radius: 0.0 });
+            }
+            return segs;
+        }
+        if retry < 3 { la *= 0.5; lb *= 0.5; }
+    }
+    if let Some(segs) = roads::biarc(pa, ha, pb, hb) {
+        log::warn!("junction biarc lead retries failed {} -> {}; attempts: {}; using original biarc",
+            pa, pb, attempts.join("; "));
+        return segs;
+    }
+    log::warn!("junction biarc lead retries and original biarc failed {} -> {}; attempts: {}; reason: roads::biarc returned None; using straight fallback",
+        pa, pb, attempts.join("; "));
+    roads::straight(pa, pb).map(|s| vec![s]).unwrap_or_default()
+}
+
 /// The ways through the junction.
-fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin], corner_walks: bool) -> Vec<PathRec> {
+fn paths(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+) -> Vec<PathRec> {
     let mut out = Vec::new();
     let c2 = centre.truncate();
     let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
@@ -249,8 +342,41 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_join
             for (a, b) in pairs {
                 let pa = a.pos.truncate() - c2;
                 let pb = b.pos.truncate() - c2;
-                let segs = roads::biarc(pa, a.flow, pb, b.flow).or_else(|| roads::straight(pa, pb).map(|s| vec![s]));
-                let Some(segs) = segs else { continue };
+                let turning = turn.abs() >= 30.0;
+                // The outer kerb is on the right for right-hand traffic, on the
+                // left for left-hand traffic. The paired outermost lane is
+                // already selected above by the existing blinker logic.
+                let outer = if left_hand_traffic { blinker == 2 } else { blinker == 3 };
+                // The mesh's corner runs from i.left to j.right: driving
+                // right round it is j -> i, left round it is i -> j.
+                let corner = if !turning || !outer { None } else {
+                    kerb_corners.iter().find(|c| if blinker == 3 {
+                        c.i == j && c.j == i
+                    } else {
+                        c.i == i && c.j == j
+                    })
+                };
+                let (kerb_a, kerb_b) = if outer {
+                    kerb_lead.iter().find_map(|&(ki, kj, li, lj)| {
+                        if blinker == 3 && ki == j && kj == i { Some((lj, li)) }
+                        else if blinker == 2 && ki == i && kj == j { Some((li, lj)) }
+                        else { None }
+                    }).unwrap_or((0.0, 0.0))
+                } else { (0.0, 0.0) };
+                let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
+                let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
+                let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
+                if segs.is_empty() { continue; }
+                if let Some(c) = corner {
+                    let (distance, position) = path_kerb_clearance(&segs, c);
+                    let required = a.width.max(2.5) * 0.5 - 0.1;
+                    if distance < required {
+                        log::warn!(
+                            "junction turning lane {} -> {} approaches corner kerb: min {:.3} m at {}, required {:.3} m",
+                            pa, pb, distance, position, required
+                        );
+                    }
+                }
                 let total: f64 = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
                 let mut acc = 0.0;
                 for (n, s) in segs.into_iter().enumerate() {
@@ -477,7 +603,7 @@ impl Mesh {
 /// of the roads, swept along a smooth curve from one arm's kerb line to the next's.
 /// `along`: the heading the roadway's texture runs (the widest road's), so its slabs and
 /// patches lie as the road's do, not slanted across it.
-fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, period: f64, along: f64) -> Mesh {
+fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, period: f64, along: f64) -> (Mesh, Vec<KerbCorner>) {
     let mut mesh = Mesh::default();
     let core = mesh.material(core_tex);
     let rel = |p: DVec3| p - centre;
@@ -486,6 +612,7 @@ fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, peri
     let ang = |i: usize| { let d = roads::dir(arms[i].out); d.y.atan2(d.x) };
     order.sort_by(|a, b| ang(*a).total_cmp(&ang(*b)));
     let mut outline: Vec<DVec3> = Vec::new();
+    let mut kerb_corners = Vec::new();
     for k in 0..order.len() {
         let a = &arms[order[k]];
         let b = &arms[order[(k + 1) % order.len()]];
@@ -498,6 +625,15 @@ fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, peri
         let to = b.end.truncate() + roads::right(b.out) * b.right_w;
         let segs = kerb_round(from, a.out, to, b.out);
         let total: f64 = segs.iter().map(|s| s.length).sum();
+        // Only terminal straight pieces of a genuinely rounded kerb are
+        // tangent leads; a straight-only kerb is not a lead-in.
+        let rounded = segs.iter().any(|s| s.radius != 0.0);
+        let lead_i = if rounded { segs.first().filter(|s| s.radius == 0.0).map(|s| s.length).unwrap_or(0.0) } else { 0.0 };
+        let lead_j = if rounded { segs.last().filter(|s| s.radius == 0.0).map(|s| s.length).unwrap_or(0.0) } else { 0.0 };
+        kerb_corners.push(KerbCorner {
+            i: order[k], j: order[(k + 1) % order.len()],
+            segments: segs.clone(), lead_i, lead_j,
+        });
         if total < 0.05 {
             continue;
         }
@@ -602,7 +738,7 @@ fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, peri
         let p1 = rel(outline[(i + 1) % outline.len()]) + DVec3::Z * road_z;
         mesh.tri([mid, p0, p1], [uv(mid), uv(p0), uv(p1)], DVec3::Z, core);
     }
-    mesh
+    (mesh, kerb_corners)
 }
 
 /// The kerb round a corner: from `a` (on a kerb line running out along `out_a`) to `b` (on
@@ -979,7 +1115,35 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
             }
         }
     }
-    let mut recs = paths(&plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks);
+    let id = doc.new_id();
+    let folder: String = doc.dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "map".into()).chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    let sco_root = std::fs::read_dir(content)?.flatten().map(|e| e.path()).find(|p| p.is_dir() && p.file_name().map(|f| f.to_string_lossy().eq_ignore_ascii_case("sceneryobjects")).unwrap_or(false)).unwrap_or_else(|| content.join("Sceneryobjects"));
+    let dir = sco_root.join("openMapper").join(&folder);
+    let tex_dir = dir.join("texture");
+    std::fs::create_dir_all(dir.join("model"))?;
+    std::fs::create_dir_all(&tex_dir)?;
+    // the roadway's texture: the asphalt of the roads that meet (a plate in the colour of its
+    // roads, cut so that no patch comes along in rows), else the installation's own junction
+    // asphalt
+    let widest = plate.arms.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
+    let road_tex = widest.and_then(|g| g.road_tex.clone());
+    let (core_tex, period) = match road_tex {
+        Some((tex, u, range, period, width, lane)) => {
+            // (most of a lane: slabs and patches keep their size; the markings at its edges
+            // stay out. Named, formatted and accompanied as the road's own texture is)
+            let out = plain_like(&tex, u, range / width, period.clamp(2.0, 40.0), lane, &tex_dir);
+            (out.or_else(|| asphalt.map(Path::to_path_buf)), period.clamp(2.0, 40.0))
+        }
+        None => (asphalt.map(Path::to_path_buf), 8.0),
+    };
+    let along = widest.map(|g| g.out).unwrap_or(0.0);
+    let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, period, along);
+    let kerb_lead = corner_leads(&kerb_corners);
+    let zebra_arms: Vec<bool> = plate.arms.iter().map(|g| opts.crossing_at(g.out)).collect();
+    let mut recs = paths(
+        &plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
+        &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
+    );
     // Maintain the asphalt height across the roadway, and join it to raised
     // sidewalks with short graded paths at either end.
     for (i, mid) in crossing_arms {
@@ -1011,29 +1175,7 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
             }
         }
     }
-    let id = doc.new_id();
-    let folder: String = doc.dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "map".into()).chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let sco_root = std::fs::read_dir(content)?.flatten().map(|e| e.path()).find(|p| p.is_dir() && p.file_name().map(|f| f.to_string_lossy().eq_ignore_ascii_case("sceneryobjects")).unwrap_or(false)).unwrap_or_else(|| content.join("Sceneryobjects"));
-    let dir = sco_root.join("openMapper").join(&folder);
-    let tex_dir = dir.join("texture");
-    std::fs::create_dir_all(dir.join("model"))?;
-    std::fs::create_dir_all(&tex_dir)?;
-    // the roadway's texture: the asphalt of the roads that meet (a plate in the colour of its
-    // roads, cut so that no patch comes along in rows), else the installation's own junction
-    // asphalt
-    let widest = plate.arms.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
-    let road_tex = widest.and_then(|g| g.road_tex.clone());
-    let (core_tex, period) = match road_tex {
-        Some((tex, u, range, period, width, lane)) => {
-            // (most of a lane: slabs and patches keep their size; the markings at its edges
-            // stay out. Named, formatted and accompanied as the road's own texture is)
-            let out = plain_like(&tex, u, range / width, period.clamp(2.0, 40.0), lane, &tex_dir);
-            (out.or_else(|| asphalt.map(Path::to_path_buf)), period.clamp(2.0, 40.0))
-        }
-        None => (asphalt.map(Path::to_path_buf), 8.0),
-    };
-    let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let mut mesh = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, period, along);
+
     if !zebras.is_empty() {
         let white = tex_dir.join("om_zebra_white.png");
         if !white.exists() {
@@ -1188,7 +1330,8 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
     let centre = DVec3::new(mid.x, mid.y, 0.0);
-    let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true);
+    // The complex plate editor has no automatic zebra crossings.
+    // Build the kerbs first, and reuse their exact tangent lengths for AI paths.
     let widest = geo.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
     let (core_tex, period) = match (widest.and_then(|g| g.road_tex.clone()), tex_dir) {
         (Some((tex, u, range, period, width, lane)), Some(dir)) => {
@@ -1199,7 +1342,10 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
         _ => (None, 8.0),
     };
     let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let mut mesh = junction_mesh(&geo, centre, core_tex, period.max(1.0), along);
+    let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, period.max(1.0), along);
+    let kerb_lead = corner_leads(&kerb_corners);
+    let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true,
+        &kerb_lead, &vec![false; arms.len()], &kerb_corners, false);
     for v in &mut mesh.verts {
         v.0[0] += mid.x;
         v.0[1] += mid.y;
@@ -1525,7 +1671,7 @@ mod tests {
             road_z: 0.0,
         };
         let arms = vec![arm(DVec3::new(10.0, 0.0, 0.0), 90.0), arm(DVec3::new(-10.0, 0.0, 0.0), 270.0), arm(DVec3::new(0.0, 10.0, 0.0), 0.0)];
-        let mesh = junction_mesh(&arms, DVec3::ZERO, None, 8.0, 0.0);
+        let mesh = junction_mesh(&arms, DVec3::ZERO, None, 8.0, 0.0).0;
         assert!(mesh.tris.len() > 20);
         // every roadway triangle faces up
         for (f, mat) in &mesh.tris {
@@ -1691,7 +1837,8 @@ mod tests {
         let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
         let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
         let plate = plate_frame(&geo, &files, &lanes, centre, true);
-        let mut before_recs = paths(&plate.lanes, DVec3::ZERO, &[None; 4], &[], true);
+        let mut before_recs = paths(&plate.lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[], &[], false);
         let mut zebras = Vec::new();
         for g in &plate.arms {
             let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
@@ -1706,7 +1853,7 @@ mod tests {
         }
         assert_eq!(zebras.len(), 4);
         let before_sco = format!("[friendlyname]\nBefore fix\n\n[mesh]\nbefore.x\n\n{}", record_paths(&before_recs));
-        let mut before_mesh = junction_mesh(&plate.arms, DVec3::ZERO, Some(asphalt.clone()), 8.0, 0.0);
+        let mut before_mesh = junction_mesh(&plate.arms, DVec3::ZERO, Some(asphalt.clone()), 8.0, 0.0).0;
         let old_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / 4.0 + 0.03;
         paint_zebra_stripes(&mut before_mesh, &zebras, old_z, content.join("om_zebra_white.png"));
         let before_names: Vec<String> = before_mesh.textures.iter()
