@@ -217,7 +217,7 @@ struct WalkJoin {
 }
 
 /// The ways through the junction.
-fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin]) -> Vec<PathRec> {
+fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin], corner_walks: bool) -> Vec<PathRec> {
     let mut out = Vec::new();
     let c2 = centre.truncate();
     let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
@@ -271,7 +271,7 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_join
         l.map(|l| { let d = l.pos.truncate() - c2; d.y.atan2(d.x) }).unwrap_or(0.0)
     };
     order.sort_by(|a, b| angle(*a).total_cmp(&angle(*b)));
-    if arms >= 2 {
+    if corner_walks && arms >= 2 {
         for k in 0..arms {
             let (i, j) = (order[k], order[(k + 1) % arms]);
             if arms == 2 && k == 1 {
@@ -977,7 +977,7 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
             }
         }
     }
-    let mut recs = paths(&plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins);
+    let mut recs = paths(&plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks);
     // Maintain the asphalt height across the roadway, and join it to raised
     // sidewalks with short graded paths at either end.
     for (i, mid) in crossing_arms {
@@ -1176,7 +1176,7 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
     let centre = DVec3::new(mid.x, mid.y, 0.0);
-    let recs = paths(&lanes, centre, &vec![None; arms.len()], &[]);
+    let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true);
     let widest = geo.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
     let (core_tex, period) = match (widest.and_then(|g| g.road_tex.clone()), tex_dir) {
         (Some((tex, u, range, period, width, lane)), Some(dir)) => {
@@ -1654,7 +1654,7 @@ mod tests {
         let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
         let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
         let plate = plate_frame(&geo, &files, &lanes, centre, true);
-        let mut before_recs = paths(&plate.lanes, DVec3::ZERO, &[None; 4], &[]);
+        let mut before_recs = paths(&plate.lanes, DVec3::ZERO, &[None; 4], &[], true);
         let mut zebras = Vec::new();
         for g in &plate.arms {
             let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
