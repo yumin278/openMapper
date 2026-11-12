@@ -2007,7 +2007,7 @@ mod tests {
             assert!(sco.contains("[use_traffic_light]"), "AI must still stop at red");
             let paths = written_paths(&sco);
             assert!(paths.iter().any(|p| p.kind == 1), "footway crossings remain present");
-            let suffix = sco.split_once("[path]\n").unwrap().1.to_owned();
+            let suffix = sco.replace("\r\n", "\n").split_once("[path]\n").unwrap().1.to_owned();
             if let Some(reference) = &reference_paths {
                 assert_eq!(&suffix, reference, "visual switches must not change AI paths");
             } else {
