@@ -284,6 +284,12 @@ fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -
         let q = pb - roads::dir(hb) * lb;
         attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {:?} -> {:?} returned None", p, q));
         if let Some(mut middle) = roads::biarc(p, ha, q, hb) {
+            if retry > 0 {
+                log::warn!(
+                    "junction biarc recovered after reduced tangent leads {:?} -> {:?}; previous attempts: {}",
+                    pa, pb, attempts[..attempts.len() - 1].join("; ")
+                );
+            }
             let mut segs = Vec::new();
             if la > 1e-6 {
                 segs.push(Seg { start: pa, heading: ha, length: la, radius: 0.0 });
@@ -349,7 +355,7 @@ fn paths(
                 let outer = if left_hand_traffic { blinker == 2 } else { blinker == 3 };
                 // The mesh's corner runs from i.left to j.right: a right turn
                 // goes i -> j, and a left turn goes j -> i.
-                let corner = if !turning || !outer { None } else {
+                let corner = if !turning { None } else {
                     kerb_corners.iter().find(|c| if blinker == 3 {
                         c.i == i && c.j == j
                     } else {
