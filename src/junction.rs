@@ -204,8 +204,17 @@ fn signed_turn(from: f64, to: f64) -> f64 {
     (to - from + 540.0).rem_euclid(360.0) - 180.0
 }
 
+/// A sidewalk lane's original endpoint and its projected crossing endpoint.
+#[derive(Clone, Copy)]
+struct WalkJoin {
+    arm: usize,
+    left: bool,
+    at_arm: DVec3,
+    at_crossing: DVec3,
+}
+
 /// The ways through the junction.
-fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<PathRec> {
+fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin]) -> Vec<PathRec> {
     let mut out = Vec::new();
     let c2 = centre.truncate();
     let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
@@ -268,8 +277,18 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
             let walk_i: Vec<&LaneEnd> = lanes.iter().filter(|l| l.arm == i && l.kind == 1).collect();
             let walk_j: Vec<&LaneEnd> = lanes.iter().filter(|l| l.arm == j && l.kind == 1).collect();
             let mut best: Option<(f64, &LaneEnd, &LaneEnd)> = None;
-            for a in &walk_i {
-                for b in &walk_j {
+            // In counter-clockwise order, i's left side meets j's right side.
+            // If a zebra is present, select its actual sidewalk lanes.
+            let on_side = |l: &LaneEnd, left: bool| {
+                walk_joins.iter().find(|w| w.arm == l.arm && w.left == left)
+                    .map(|w| (l.pos - w.at_arm).length() < 0.01).unwrap_or(true)
+            };
+            let joined = |l: &LaneEnd| {
+                walk_joins.iter().find(|w| w.arm == l.arm && (l.pos - w.at_arm).length() < 0.01)
+                    .map(|w| w.at_crossing).unwrap_or(l.pos)
+            };
+            for a in walk_i.iter().filter(|l| on_side(l, true)) {
+                for b in walk_j.iter().filter(|l| on_side(l, false)) {
                     let d = (a.pos - b.pos).length();
                     if best.map(|x| d < x.0).unwrap_or(true) {
                         best = Some((d, a, b));
@@ -277,10 +296,11 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
                 }
             }
             if let Some((_, a, b)) = best {
-                let pa = a.pos.truncate() - c2;
-                let pb = b.pos.truncate() - c2;
+                let (a_pos, b_pos) = (joined(a), joined(b));
+                let pa = a_pos.truncate() - c2;
+                let pb = b_pos.truncate() - c2;
                 if let Some(s) = roads::straight(pa, pb) {
-                    out.push(PathRec { seg: s, z0: a.pos.z - centre.z, z1: b.pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None });
+                    out.push(PathRec { seg: s, z0: a_pos.z - centre.z, z1: b_pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None });
                 }
             }
         }
@@ -893,6 +913,22 @@ pub fn reach(doc: &Document, assets: &mut Assets, centre: DVec3, arms: &[Arm]) -
         .fold(0.0, f64::max)
 }
 
+/// Place the white stripe triangles at the supplied height, in the road frame.
+fn paint_zebra_stripes(mesh: &mut Mesh, zebras: &[(DVec2, f64, f64, f64)], z: f64, white: PathBuf) {
+    let mat = mesh.material(Some(white));
+    for (mid, out, lw, rw) in zebras {
+        let (d, r) = (roads::dir(*out), roads::right(*out));
+        let mut x = -lw + 0.25;
+        while x < rw - 0.25 {
+            let c = *mid + r * x;
+            let q = [c - r * 0.25 - d * 1.5, c + r * 0.25 - d * 1.5, c + r * 0.25 + d * 1.5, c - r * 0.25 + d * 1.5].map(|p| DVec3::new(p.x, p.y, z));
+            mesh.tri([q[0], q[1], q[2]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]], DVec3::Z, mat);
+            mesh.tri([q[0], q[2], q[3]], [[0.0, 0.0], [1.0, 1.0], [0.0, 1.0]], DVec3::Z, mat);
+            x += 1.0;
+        }
+    }
+}
+
 /// The same with lights and crossings as `opts` says.
 pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm], opts: &Options) -> anyhow::Result<i64> {
     let (_, lanes) = arm_ends(doc, assets, arms).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
@@ -912,17 +948,52 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
     for (n, i) in plate.order.iter().enumerate() {
         light_of[*i] = plate_lights[n];
     }
-    let mut recs = paths(&plate.lanes, DVec3::ZERO, &plate_lights);
-    // zebra crossings: a footway across each arm chosen, a step inside its end
+    // Project the two sidewalk lanes on each marked arm to its mid section.
+    let mut walk_joins = Vec::<WalkJoin>::new();
     let mut zebras: Vec<(DVec2, f64, f64, f64)> = Vec::new();
-    for g in plate.arms.iter().filter(|g| opts.crossing_at(g.out)) {
+    let mut crossing_arms = Vec::new();
+    for (i, g) in plate.arms.iter().enumerate().filter(|(_, g)| opts.crossing_at(g.out)) {
         let r = roads::right(g.out);
         let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+        zebras.push((mid, g.out, g.left_w, g.right_w));
+        crossing_arms.push((i, mid));
+        for left in [true, false] {
+            let lane = plate.lanes.iter().filter(|l| l.arm == i && l.kind == 1)
+                .filter_map(|l| {
+                    let side = (l.pos.truncate() - g.end.truncate()).dot(r);
+                    if (left && side < -0.01) || (!left && side > 0.01) { Some((side.abs(), l)) } else { None }
+                })
+                .max_by(|a, b| a.0.total_cmp(&b.0))
+                .map(|(_, l)| l);
+            if let Some(lane) = lane {
+                let xy = lane.pos.truncate() + mid - g.end.truncate();
+                walk_joins.push(WalkJoin {
+                    arm: i, left, at_arm: lane.pos,
+                    at_crossing: DVec3::new(xy.x, xy.y, lane.pos.z),
+                });
+            }
+        }
+    }
+    let mut recs = paths(&plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins);
+    // Maintain the asphalt height across the roadway, and join it to raised
+    // sidewalks with short graded paths at either end.
+    for (i, mid) in crossing_arms {
+        let g = &plate.arms[i];
+        let r = roads::right(g.out);
         let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
+        let z = g.end.z + g.road_z;
         if let Some(seg) = roads::straight(a, b) {
-            let z = g.end.z;
             recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None });
-            zebras.push((mid, g.out, g.left_w, g.right_w));
+            for (left, edge) in [(true, a), (false, b)] {
+                if let Some(join) = walk_joins.iter().find(|w| w.arm == i && w.left == left) {
+                    if let Some(seg) = roads::straight(edge, join.at_crossing.truncate()) {
+                        recs.push(PathRec {
+                            seg, z0: z, z1: join.at_crossing.z, kind: 1,
+                            width: 3.0, direction: 2, blinker: 0, light: None,
+                        });
+                    }
+                }
+            }
         }
     }
     let id = doc.new_id();
@@ -953,21 +1024,9 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
         if !white.exists() {
             let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
         }
-        let mat = mesh.material(Some(white));
-        let z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / plate.arms.len().max(1) as f64 + 0.03;
-        for (mid, out, lw, rw) in &zebras {
-            let (d, r) = (roads::dir(*out), roads::right(*out));
-            // stripes 0.5 m wide, a metre apart, 3 m along the road
-            let mut x = -lw + 0.25;
-            while x < rw - 0.25 {
-                let c = *mid + r * x;
-                let q = [c - r * 0.25 - d * 1.5, c + r * 0.25 - d * 1.5, c + r * 0.25 + d * 1.5, c - r * 0.25 + d * 1.5].map(|p| DVec3::new(p.x, p.y, z));
-                let uv = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]];
-                mesh.tri([q[0], q[1], q[2]], uv, DVec3::Z, mat);
-                mesh.tri([q[0], q[2], q[3]], [[0.0, 0.0], [1.0, 1.0], [0.0, 1.0]], DVec3::Z, mat);
-                x += 1.0;
-            }
-        }
+        let mean_end_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / plate.arms.len().max(1) as f64;
+        let mean_road_z = plate.arms.iter().map(|g| g.road_z).sum::<f64>() / plate.arms.len().max(1) as f64;
+        paint_zebra_stripes(&mut mesh, &zebras, mean_end_z + mean_road_z + 0.03, white);
     }
     // every texture beside the object
     let mut names = Vec::new();
@@ -1114,7 +1173,7 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
     let centre = DVec3::new(mid.x, mid.y, 0.0);
-    let recs = paths(&lanes, centre, &vec![None; arms.len()]);
+    let recs = paths(&lanes, centre, &vec![None; arms.len()], &[]);
     let widest = geo.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
     let (core_tex, period) = match (widest.and_then(|g| g.road_tex.clone()), tex_dir) {
         (Some((tex, u, range, period, width, lane)), Some(dir)) => {
