@@ -119,18 +119,22 @@ struct PathRec {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub lights: bool,
+    /// Also place physical signal heads and poles (the traffic light program runs without them).
+    pub light_objects: bool,
     /// Green for the main road and for the side roads (s).
     pub main_green: f64,
     pub side_green: f64,
     /// The arms with a zebra crossing, by their heading out of the junction (degrees).
     pub crossings: Vec<f64>,
+    /// Paint white stripes on the selected zebra crossings; their AI paths are independent.
+    pub zebra_texture: bool,
     /// Whether the junction generates AI footway paths around its corners.
     pub corner_walks: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), corner_walks: true }
+        Options { lights: false, light_objects: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), zebra_texture: true, corner_walks: true }
     }
 }
 
@@ -140,7 +144,7 @@ impl Options {
     fn line(&self) -> String {
         let c: Vec<String> = self.crossings.iter().map(|h| format!("{h:.1}")).collect();
         // (helpers=omsi: its spline helpers are in OMSI's order, x height forward)
-        format!("{OPTIONS_TAG} lights={} main={:.0} side={:.0} crossings={} walks={} helpers=omsi", self.lights as i32, self.main_green, self.side_green, c.join(","), self.corner_walks as i32)
+        format!("{OPTIONS_TAG} lights={} heads={} main={:.0} side={:.0} crossings={} zebra_tex={} walks={} helpers=omsi", self.lights as i32, self.light_objects as i32, self.main_green, self.side_green, c.join(","), self.zebra_texture as i32, self.corner_walks as i32)
     }
 
     /// The options written in a junction's `.sco` text (defaults when none are).
@@ -151,9 +155,11 @@ impl Options {
             let Some((k, v)) = kv.split_once('=') else { continue };
             match k {
                 "lights" => o.lights = v == "1",
+                "heads" => o.light_objects = match v { "0" => false, "1" => true, _ => o.light_objects },
                 "main" => o.main_green = v.parse().unwrap_or(o.main_green),
                 "side" => o.side_green = v.parse().unwrap_or(o.side_green),
                 "crossings" => o.crossings = v.split(',').filter_map(|x| x.parse().ok()).collect(),
+                "zebra_tex" => o.zebra_texture = match v { "0" => false, "1" => true, _ => o.zebra_texture },
                 "walks" => o.corner_walks = match v { "0" => false, "1" => true, _ => o.corner_walks },
                 _ => {}
             }
@@ -1182,7 +1188,7 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
         }
     }
 
-    if !zebras.is_empty() {
+    if opts.zebra_texture && !zebras.is_empty() {
         let white = tex_dir.join("om_zebra_white.png");
         if !white.exists() {
             let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
@@ -1251,27 +1257,29 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
     let t = doc.tiles.get_mut(&k).ok_or_else(|| anyhow::anyhow!("no tile"))?;
     t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], ..Default::default() });
     t.touch_content();
-    // the signal heads, on poles, bound to the junction's lights by [varparent]
-    let left_hand = doc.global.left_hand_traffic;
-    for (i, g) in geo.iter().enumerate() {
-        let Some(light) = light_of[i] else { continue };
-        if !lanes.iter().any(|l| l.arm == i && l.kind == 0 && l.incoming) {
-            continue;
-        }
-        // (traffic coming in keeps to the left of the way out where it keeps right)
-        let side = if left_hand { roads::right(g.out) * (g.right_w + 1.2) } else { -roads::right(g.out) * (g.left_w + 1.2) };
-        let p = g.end.truncate() + side - roads::dir(g.out) * 1.0;
-        let hk = tile_of(p);
-        if !doc.tiles.contains_key(&hk) {
-            continue;
-        }
-        let org = tile_origin(hk);
-        for (file, z, extra) in [(LIGHT_POLE, 0.0, Vec::new()), (LIGHT_HEAD, 2.55, vec![light.to_string()])] {
-            let oid = doc.new_id();
-            let t = doc.tiles.get_mut(&hk).unwrap();
-            let flag = extra.len() as i32;
-            t.tile.objects.push(MapObject { file: file.to_string(), id: oid, pos: [p.x - org.x, p.y - org.y, z], rot: [g.out, 0.0, 0.0], flag, extra, var_parent: Some(id), ..Default::default() });
-            t.touch_content();
+    if opts.lights && opts.light_objects {
+        // the signal heads, on poles, bound to the junction's lights by [varparent]
+        let left_hand = doc.global.left_hand_traffic;
+        for (i, g) in geo.iter().enumerate() {
+            let Some(light) = light_of[i] else { continue };
+            if !lanes.iter().any(|l| l.arm == i && l.kind == 0 && l.incoming) {
+                continue;
+            }
+            // (traffic coming in keeps to the left of the way out where it keeps right)
+            let side = if left_hand { roads::right(g.out) * (g.right_w + 1.2) } else { -roads::right(g.out) * (g.left_w + 1.2) };
+            let p = g.end.truncate() + side - roads::dir(g.out) * 1.0;
+            let hk = tile_of(p);
+            if !doc.tiles.contains_key(&hk) {
+                continue;
+            }
+            let org = tile_origin(hk);
+            for (file, z, extra) in [(LIGHT_POLE, 0.0, Vec::new()), (LIGHT_HEAD, 2.55, vec![light.to_string()])] {
+                let oid = doc.new_id();
+                let t = doc.tiles.get_mut(&hk).unwrap();
+                let flag = extra.len() as i32;
+                t.tile.objects.push(MapObject { file: file.to_string(), id: oid, pos: [p.x - org.x, p.y - org.y, z], rot: [g.out, 0.0, 0.0], flag, extra, var_parent: Some(id), ..Default::default() });
+                t.touch_content();
+            }
         }
     }
     Ok(id)
@@ -1531,16 +1539,23 @@ pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
 mod tests {
     #[test]
     fn options_are_read_back_from_the_line_written() {
-        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], corner_walks: false };
+        let o = Options { lights: true, light_objects: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], zebra_texture: false, corner_walks: false };
         let text = format!("{}\r\n\r\n[friendlyname]\r\nJunction 1\r\n", o.line());
         let back = Options::parse(&text);
         assert_eq!(back, o, "all junction options must round-trip through .sco");
         assert_eq!(back.lights, true);
         assert_eq!((back.main_green, back.side_green), (42.0, 17.0));
         assert!(back.crossing_at(91.0) && back.crossing_at(270.0) && !back.crossing_at(0.0));
+        assert!(back.light_objects);
+        assert!(!back.zebra_texture);
         assert!(!Options::parse(&text).corner_walks);
         let legacy = "openMapper junction: lights=1 main=42 side=17 crossings=90.0,270.5 helpers=omsi";
-        assert!(Options::parse(legacy).corner_walks, "old .sco without walks= must retain corner paths");
+        let legacy_options = Options::parse(legacy);
+        assert!(legacy_options.corner_walks, "old .sco without walks= must retain corner paths");
+        assert!(!legacy_options.light_objects, "old .sco without heads= must default to no signal models");
+        assert!(legacy_options.zebra_texture, "old .sco without zebra_tex= must keep zebra stripes");
+        assert!(!Options::default().light_objects);
+        assert!(Options::default().zebra_texture);
         assert_eq!(Options::parse("[friendlyname]\nx"), Options::default());
         println!("OPTIONS ROUND TRIP: {} => {:?}", o.line(), back);
         println!("LEGACY: {legacy} => corner_walks={}", Options::parse(legacy).corner_walks);
@@ -1951,6 +1966,78 @@ mod tests {
             ("after.sco", after_sco.as_bytes()), ("after.x", after_x.as_bytes()),
         ] {
             std::fs::write(artifacts.join(name), bytes).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&content);
+    }
+
+
+    /// Signal phases and pedestrian paths must work without any generated signal
+    /// objects or white stripe polygons. The two switches are independent.
+    #[test]
+    fn junction_light_objects_and_zebra_texture_are_independent() {
+        let roots = crate::doc::tests::scratch("junction-optional-visuals");
+        let content = roots.content.clone();
+        std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
+        let mut doc = crate::selection::tests::flat_map(1);
+        doc.dir = content.join("maps").join("optional-visuals");
+        let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+        assets.splines.insert("splines\\road.sli".into(),
+            crate::assets::Slot::Ready(std::sync::Arc::new(zebra_road_with_raised_sidewalks())));
+        let centre = DVec3::new(100.0, 100.0, 0.0);
+        let mut arms = Vec::new();
+        for (i, out) in [0.0_f64, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let p = centre.truncate() + roads::dir(out) * 10.0;
+            let id = 300 + i as i64;
+            crate::selection::tests::add_spline(&mut doc, (0, 0), id,
+                p.x, p.y, out, 20.0, 0, 0);
+            arms.push(Arm { key: (0, 0), id, at_end: false });
+        }
+        let mut reference_paths: Option<String> = None;
+        for (light_objects, zebra_texture) in [(false, true), (true, true), (false, false), (true, false)] {
+            let opts = Options {
+                lights: true, light_objects, zebra_texture,
+                crossings: vec![0.0, 180.0], ..Default::default()
+            };
+            let id = make_with(&mut doc, &mut assets, &content, None, centre, &arms, &opts).unwrap();
+            let junction = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let sco_path = omsi_cfg::resolve_path(&content, &junction.file);
+            let sco = omsi_cfg::decode_text(&std::fs::read(&sco_path).unwrap());
+            assert_eq!(Options::parse(&sco), opts);
+            assert!(sco.contains("[traffic_lights_group]"));
+            assert!(sco.contains("[use_traffic_light]"), "AI must still stop at red");
+            let paths = written_paths(&sco);
+            assert!(paths.iter().any(|p| p.kind == 1), "footway crossings remain present");
+            let suffix = sco.split_once("[path]\\n").unwrap().1.to_owned();
+            if let Some(reference) = &reference_paths {
+                assert_eq!(&suffix, reference, "visual switches must not change AI paths");
+            } else {
+                reference_paths = Some(suffix);
+            }
+            let kids = children(&doc, id);
+            assert_eq!(kids.len(), if light_objects { 8 } else { 0 });
+            if light_objects {
+                let mut heads = 0;
+                let mut poles = 0;
+                for (key, child_id) in kids {
+                    let o = doc.object(key, child_id).unwrap();
+                    if o.file.eq_ignore_ascii_case(LIGHT_HEAD) {
+                        heads += 1;
+                        assert_eq!(o.flag, 1);
+                    } else if o.file.eq_ignore_ascii_case(LIGHT_POLE) {
+                        poles += 1;
+                        assert_eq!(o.flag, 0);
+                    } else {
+                        panic!("unexpected junction child: {}", o.file);
+                    }
+                    assert_eq!(o.var_parent, Some(id));
+                }
+                assert_eq!((heads, poles), (4, 4));
+            }
+            let model_path = sco_path.parent().unwrap().join("model")
+                .join(format!("{}.x", sco_path.file_stem().unwrap().to_string_lossy()));
+            let model = std::fs::read_to_string(model_path).unwrap();
+            assert_eq!(model.contains("om_zebra_white.png"), zebra_texture,
+                "stripe material must follow the texture switch");
         }
         let _ = std::fs::remove_dir_all(&content);
     }

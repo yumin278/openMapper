@@ -1100,6 +1100,9 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
             apply = true;
         }
         if new.lights {
+            if check(ui, &mut new.light_objects, tr("Place signal heads and poles", "Установить светофоры и стойки")).changed() {
+                apply = true;
+            }
             if arms.len() < 3 {
                 ui.label(RichText::new(tr("Lights need three roads or more", "Светофорам нужно не меньше трёх дорог")).small().color(TEXT_DIM));
             }
@@ -1126,6 +1129,9 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
         }
         ui.add_space(4.0);
         ui.label(RichText::new(tr("Zebra crossings", "Пешеходные переходы")).strong());
+        if check(ui, &mut new.zebra_texture, tr("Paint stripes on selected crossings", "Рисовать полосы на выбранных переходах")).changed() {
+            apply = true;
+        }
         for (i, out) in arms.iter().enumerate() {
             let mut on = new.crossing_at(*out);
             if check(ui, &mut on, format!("{} {} ({:.0}°)", tr("Road", "Дорога"), i + 1, out)).changed() {
