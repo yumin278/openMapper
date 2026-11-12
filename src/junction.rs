@@ -1379,13 +1379,19 @@ pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
 mod tests {
     #[test]
     fn options_are_read_back_from_the_line_written() {
-        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], ..Default::default() };
+        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], corner_walks: false };
         let text = format!("{}\r\n\r\n[friendlyname]\r\nJunction 1\r\n", o.line());
         let back = Options::parse(&text);
+        assert_eq!(back, o, "all junction options must round-trip through .sco");
         assert_eq!(back.lights, true);
         assert_eq!((back.main_green, back.side_green), (42.0, 17.0));
         assert!(back.crossing_at(91.0) && back.crossing_at(270.0) && !back.crossing_at(0.0));
+        assert!(!Options::parse(&text).corner_walks);
+        let legacy = "openMapper junction: lights=1 main=42 side=17 crossings=90.0,270.5 helpers=omsi";
+        assert!(Options::parse(legacy).corner_walks, "old .sco without walks= must retain corner paths");
         assert_eq!(Options::parse("[friendlyname]\nx"), Options::default());
+        println!("OPTIONS ROUND TRIP: {} => {:?}", o.line(), back);
+        println!("LEGACY: {legacy} => corner_walks={}", Options::parse(legacy).corner_walks);
     }
 
     #[test]
@@ -1592,6 +1598,25 @@ mod tests {
         }).collect()
     }
 
+    /// Identify a crossing by its real geometry, not its width: the path begins
+    /// on the zebra's mid-plane and runs across (perpendicular to) that arm.
+    fn roadway_crossing_paths(paths: &[WrittenPath], arms: &[ArmGeo]) -> Vec<(usize, usize)> {
+        paths.iter().enumerate().filter_map(|(pi, p)| {
+            if p.kind != 1 { return None }
+            let delta = p.b.truncate() - p.a.truncate();
+            if delta.length() < 0.01 { return None }
+            arms.iter().enumerate().find(|(_, g)| {
+                let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+                let d = roads::dir(g.out);
+                let cross = (g.left_w + g.right_w + 1.0).max(1.0);
+                (p.a.truncate() - mid).dot(d).abs() < 0.05
+                    && (p.b.truncate() - mid).dot(d).abs() < 0.05
+                    && (delta.normalize().dot(d)).abs() < 0.01
+                    && (delta.length() - cross).abs() < 0.05
+            }).map(|(arm, _)| (pi, arm))
+        }).collect()
+    }
+
     fn record_paths(recs: &[PathRec]) -> String {
         let mut body = String::new();
         for p in recs {
@@ -1717,36 +1742,53 @@ mod tests {
             "zebra {:?} must clear asphalt {:?}", after_z, after_road);
         let before_paths = written_paths(&before_sco);
         let after_paths = written_paths(&after_sco);
-        let marked: Vec<_> = after_paths.iter().enumerate()
-            .filter(|(_, p)| p.kind == 1 && (p.width - 3.0).abs() < 0.001).collect();
-        assert_eq!(marked.len(), 12, "four roadway crossings, each with two sidewalk links");
+        let marked = roadway_crossing_paths(&after_paths, &plate.arms);
+        assert_eq!(marked.len(), 4, "one geometrically identified roadway crossing per arm");
         let connected = |paths: &[WrittenPath], i: usize, at: DVec3| {
             paths.iter().enumerate().any(|(j, q)| j != i && q.kind == 1 &&
                 [q.a, q.b].iter().any(|p| (p.truncate() - at.truncate()).length() < 0.05 && (p.z - at.z).abs() < 0.05))
         };
         // Assert both ends of every roadway / connector path, not only its midpoint.
-        for (i, path) in &marked {
+        for (i, _) in &marked {
+            let path = &after_paths[*i];
             for endpoint in [path.a, path.b] {
                 assert!(connected(&after_paths, *i, endpoint),
                     "crossing path #{i} endpoint {endpoint:?} has no coincident footway endpoint");
             }
         }
-        // Each raised sidewalk extension must also touch a corner path exactly.
-        for (_, p) in marked.iter().filter(|(_, p)| (p.a.z - p.b.z).abs() > 0.05) {
+        // Each raised sidewalk ramp must connect to a two-metre stub, regardless
+        // of its lane width. Corner walks remain optional.
+        let ramps: Vec<_> = after_paths.iter().enumerate()
+            .filter(|(_, p)| p.kind == 1 && (p.a.z - p.b.z).abs() > 0.05).collect();
+        assert_eq!(ramps.len(), 8, "two ramps on each of four crossings");
+        for (i, p) in ramps {
             let top = if p.a.z > p.b.z { p.a } else { p.b };
-            assert!(after_paths.iter().any(|q| q.kind == 1 && (q.width - 2.0).abs() < 0.001 &&
-                [q.a, q.b].iter().any(|e| (e.truncate() - top.truncate()).length() < 0.05 && (e.z - top.z).abs() < 0.05)),
-                "raised crossing endpoint {top:?} must meet a corner sidewalk");
+            assert!(connected(&after_paths, i, top), "ramp top {top:?} must meet a sidewalk stub");
         }
-        let old_cross: Vec<_> = before_paths.iter().enumerate()
-            .filter(|(_, p)| p.kind == 1 && (p.width - 3.0).abs() < 0.001).collect();
+        let old_cross = roadway_crossing_paths(&before_paths, &plate.arms);
         println!("===== BEFORE / AFTER COMPARISON =====");
         println!("all [path] blocks: {} -> {}", before_paths.len(), after_paths.len());
-        println!("marked roadway + sidewalk connector paths: {} -> {}", 4, marked.len());
+        println!("roadway crossings: {} -> {}; kind=1 paths (including stubs): {} -> {}",
+            old_cross.len(), marked.len(),
+            before_paths.iter().filter(|p| p.kind == 1).count(),
+            after_paths.iter().filter(|p| p.kind == 1).count());
         println!("asphalt z: {:.4} m; zebra z: {:.4} -> {:.4} m",
             after_road[0], before_z[0], after_z[0]);
         assert_eq!(old_cross.len(), 4);
-        assert!(old_cross.iter().any(|(i, p)| !connected(&before_paths, *i, p.a)));
+        assert!(old_cross.iter().any(|(i, _)| !connected(&before_paths, *i, before_paths[*i].a)));
+
+        for g in &plate.arms {
+            let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+            for lane in plate.lanes.iter().filter(|l| l.kind == 1) {
+                let is_arm = (lane.pos.truncate() - g.end.truncate()).length() < 10.0
+                    && (lane.pos.truncate() - g.end.truncate()).dot(roads::dir(g.out)).abs() < 0.05;
+                if is_arm {
+                    let crossing = lane.pos.truncate() + mid - g.end.truncate();
+                    println!("at_arm={:?}; at_crossing={:?}",
+                        lane.pos, DVec3::new(crossing.x, crossing.y, lane.pos.z));
+                }
+            }
+        }
 
         // Keep both generated artifacts for byte-for-byte comparison in CI.
         let artifacts = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/junction-zebra-regression");
@@ -1758,6 +1800,134 @@ mod tests {
             std::fs::write(artifacts.join(name), bytes).unwrap();
         }
         let _ = std::fs::remove_dir_all(&content);
+    }
+
+    /// The old road_styles.json schema must continue generating corner paths.
+    #[test]
+    fn old_road_style_json_keeps_corner_walks_enabled() {
+        let legacy = r#"{"splines\\a.sli":{"corner":2.0,"lights":true,"crossings":false,"junctions":true}}"#;
+        let styles: std::collections::HashMap<String, crate::road_maker::JunctionStyle> =
+            serde_json::from_str(legacy).unwrap();
+        assert!(styles["splines\\a.sli"].corner_walks);
+        println!("LEGACY road_styles.json: {legacy} => corner_walks={}",
+            styles["splines\\a.sli"].corner_walks);
+    }
+
+    /// End-to-end test of both switch positions. Re-read actual .sco path records.
+    /// For every sidewalk lane at the arm, verify the 2 m stub, followed by a
+    /// ramp, and then a full-width roadway crossing. Corners are never needed
+    /// for that chain.
+    #[test]
+    fn four_arm_crossings_connect_road_footways_with_corners_on_and_off() {
+        for corner_walks in [true, false] {
+            let roots = crate::doc::tests::scratch(if corner_walks { "junction-stub-on" } else { "junction-stub-off" });
+            let content = roots.content.clone();
+            std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
+            let mut doc = crate::selection::tests::flat_map(1);
+            doc.dir = content.join("maps").join(if corner_walks { "corners-on" } else { "corners-off" });
+            let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+            assets.splines.insert("splines\\road.sli".into(),
+                crate::assets::Slot::Ready(std::sync::Arc::new(zebra_road_with_raised_sidewalks())));
+            let centre = DVec3::new(100.0, 100.0, 0.0);
+            let mut arms = Vec::new();
+            for (i, out) in [0.0_f64, 90.0, 180.0, 270.0].into_iter().enumerate() {
+                let pos = centre.truncate() + roads::dir(out) * 10.0;
+                let id = 200 + i as i64;
+                crate::selection::tests::add_spline(&mut doc, (0, 0), id,
+                    pos.x, pos.y, out, 20.0, 0, 0);
+                arms.push(Arm { key: (0, 0), id, at_end: false });
+            }
+            let opts = Options {
+                crossings: vec![0.0, 90.0, 180.0, 270.0],
+                corner_walks, ..Default::default()
+            };
+            let (_, lanes) = arm_ends(&doc, &mut assets, &arms).unwrap();
+            let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
+            let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
+            let plate = plate_frame(&geo, &files, &lanes, centre, true);
+            let id = make_with(&mut doc, &mut assets, &content, None, centre, &arms, &opts).unwrap();
+            let obj = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let sco_path = omsi_cfg::resolve_path(&content, &obj.file);
+            let sco = omsi_cfg::decode_text(&std::fs::read(sco_path).unwrap());
+            let paths = written_paths(&sco);
+            assert_eq!(Options::parse(&sco).corner_walks, corner_walks);
+            println!("===== corner_walks={corner_walks} .sco FULL [path] BLOCKS =====");
+            println!("{}", &sco[sco.find("[path]").unwrap()..]);
+
+            let marked = roadway_crossing_paths(&paths, &plate.arms);
+            assert_eq!(marked.len(), 4);
+            let mut joins = 0;
+            let mut printed_arms = std::collections::HashSet::<(i32, i32, i32)>::new();
+            for (i, g) in plate.arms.iter().enumerate() {
+                let r = roads::right(g.out);
+                let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+                for left in [true, false] {
+                    let l = plate.lanes.iter().filter(|l| l.arm == i && l.kind == 1)
+                        .filter_map(|l| {
+                            let side = (l.pos.truncate() - g.end.truncate()).dot(r);
+                            if (left && side < -0.01) || (!left && side > 0.01) {
+                                Some((side.abs(), l))
+                            } else {
+                                None
+                            }
+                        })
+                        .max_by(|a, b| a.0.total_cmp(&b.0)).map(|(_, l)| l).unwrap();
+                    let at_arm = l.pos;
+                    let xy = at_arm.truncate() + mid - g.end.truncate();
+                    let at_crossing = DVec3::new(xy.x, xy.y, at_arm.z);
+                    println!("corner_walks={corner_walks} arm={i} left={left} at_arm={at_arm:?} at_crossing={at_crossing:?}");
+                    assert!(printed_arms.insert(((at_arm.x * 100.0).round() as i32,
+                        (at_arm.y * 100.0).round() as i32, (at_arm.z * 100.0).round() as i32)),
+                        "each sidewalk lane end should be distinct");
+                    // At the road end, a path endpoint must coincide horizontally
+                    // within 5 cm and vertically within 5 cm.
+                    let close = |a: DVec3, b: DVec3| {
+                        (a.truncate() - b.truncate()).length() < 0.05 && (a.z - b.z).abs() < 0.05
+                    };
+                    let stub = paths.iter().find(|p| p.kind == 1
+                        && close(p.a, at_arm) && close(p.b, at_crossing)
+                        && (p.width - l.width).abs() < 0.001).unwrap_or_else(|| {
+                            panic!("missing 2 m stub: {at_arm:?} -> {at_crossing:?}, width {}", l.width)
+                        });
+                    assert!(((stub.b - stub.a).length() - 2.0).abs() < 0.05);
+                    assert!(paths.iter().any(|p| p.kind == 1
+                        && [p.a, p.b].iter().any(|x| close(*x, at_crossing))
+                        && (p.a.z - p.b.z).abs() > 0.05
+                        && (p.width - l.width).abs() < 0.001),
+                        "stub must connect directly to a graded crossing ramp");
+                    joins += 1;
+                }
+            }
+            assert_eq!(joins, 8);
+            for (index, _) in &marked {
+                let crossing = &paths[*index];
+                for end in [crossing.a, crossing.b] {
+                    assert!(paths.iter().enumerate().any(|(k, p)| k != *index
+                        && p.kind == 1 && [p.a, p.b].iter().any(|e| {
+                            (end.truncate() - e.truncate()).length() < 0.05
+                                && (end.z - e.z).abs() < 0.05
+                        })), "roadway crossing disconnected at {end:?}");
+                }
+            }
+            // Map a path endpoint to the nearest arm's crossing plane.
+            // Only the corner paths join endpoints assigned to different arms.
+            let arm_of = |pt: DVec3| {
+                (0..4).min_by(|&a, &b| {
+                    let ma = plate.arms[a].end.truncate() - roads::dir(plate.arms[a].out) * 2.0;
+                    let mb = plate.arms[b].end.truncate() - roads::dir(plate.arms[b].out) * 2.0;
+                    (ma - pt.truncate()).length_squared().total_cmp(&(mb - pt.truncate()).length_squared())
+                }).unwrap()
+            };
+            let corner_count = paths.iter().filter(|p| p.kind == 1
+                && arm_of(p.a) != arm_of(p.b)).count();
+            assert_eq!(corner_count, if corner_walks { 4 } else { 0 },
+                "corner AI path count must follow corner_walks switch");
+            let total_walks = paths.iter().filter(|p| p.kind == 1).count();
+            assert_eq!(total_walks, if corner_walks { 24 } else { 20 },
+                "4 crossings + 8 ramps + 8 stubs + optional 4 corners");
+            println!("mode={corner_walks}: {total_walks} kind=1 paths, {corner_count} corner paths, 8 stubs, 4 crossings");
+            let _ = std::fs::remove_dir_all(&content);
+        }
     }
 
 }
