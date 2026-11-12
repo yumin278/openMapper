@@ -1688,9 +1688,9 @@ mod tests {
         let after_road = x_texture_heights(&after_x, "om_test_asphalt.png");
         assert!(!before_z.is_empty() && !before_road.is_empty());
         assert_eq!(before_z.len(), after_z.len());
-        println!("===== BEFORE .sco ALL [path] BLOCKS =====\n{}", before_sco.split_once("[path]").unwrap().1);
+        println!("===== BEFORE .sco ALL [path] BLOCKS =====\n{}", &before_sco[before_sco.find("[path]").unwrap()..]);
         println!("===== BEFORE .x ZEBRA VERTEX HEIGHTS ({}) =====\n{:?}", before_z.len(), before_z);
-        println!("===== AFTER .sco ALL [path] BLOCKS =====\n{}", after_sco.replace("\r\n", "\n").split_once("[path]").unwrap().1);
+        println!("===== AFTER .sco ALL [path] BLOCKS =====\n{}", { let normalized = after_sco.replace("\r\n", "\n"); normalized[normalized.find("[path]").unwrap()..].to_string() });
         println!("===== AFTER .x ZEBRA VERTEX HEIGHTS ({}) =====\n{:?}", after_z.len(), after_z);
         println!("===== ASPHALT VERTEX HEIGHTS BEFORE / AFTER =====\n{:?}\n{:?}", before_road, after_road);
 
@@ -1724,6 +1724,11 @@ mod tests {
         }
         let old_cross: Vec<_> = before_paths.iter().enumerate()
             .filter(|(_, p)| p.kind == 1 && (p.width - 3.0).abs() < 0.001).collect();
+        println!("===== BEFORE / AFTER COMPARISON =====");
+        println!("all [path] blocks: {} -> {}", before_paths.len(), after_paths.len());
+        println!("marked roadway + sidewalk connector paths: {} -> {}", 4, marked.len());
+        println!("asphalt z: {:.4} m; zebra z: {:.4} -> {:.4} m",
+            after_road[0], before_z[0], after_z[0]);
         assert_eq!(old_cross.len(), 4);
         assert!(old_cross.iter().any(|(i, p)| !connected(&before_paths, *i, p.a)));
 
