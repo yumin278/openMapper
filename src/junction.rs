@@ -488,46 +488,154 @@ fn arm_geometry(doc: &Document, assets: &mut Assets, a: &Arm) -> Option<ArmGeo> 
 /// the spline's end, else its start), `out` the heading out along the road, `v_at` how far
 /// along its texture runs there.
 fn arm_geo_of(model: &SplineModel, mirrored: bool, at_end: bool, end: DVec3, out: f64, v_at: f64) -> ArmGeo {
+    type Point = (f64, f64, f64, f64); // x, z, u, v scale
     let m = if mirrored { -1.0 } else { 1.0 };
-    let profs: Vec<(usize, Vec<(f64, f64, f64, f64)>)> = model.def.profiles.iter().filter(|p| p.points.len() >= 2).map(|p| (p.texture, p.points.iter().map(|q| (q.x as f64 * m, q.z as f64, q.u as f64, q.v_scale as f64)).collect())).collect();
-    // the roadway: where the spline's street lanes run (its `[path]`s say it: a half of a
-    // divided road has its centre line on the median's edge, with grass on one side); else
-    // the profiles that reach the centre line; else the whole width
-    let lanes: Vec<(f64, f64)> = model.def.paths.iter().filter(|q| q.kind == 0).map(|q| (q.start[0] as f64 * m, q.width as f64)).collect();
-    let all_lo = profs.iter().flat_map(|p| p.1.iter()).map(|q| q.0).fold(0.0, f64::min);
-    let all_hi = profs.iter().flat_map(|p| p.1.iter()).map(|q| q.0).fold(0.0, f64::max);
-    let touches = |pts: &Vec<(f64, f64, f64, f64)>| pts.iter().map(|q| q.0).fold(f64::MAX, f64::min) <= 0.05 && pts.iter().map(|q| q.0).fold(f64::MIN, f64::max) >= -0.05;
-    let span = |pts: &Vec<(f64, f64, f64, f64)>| (pts.iter().map(|q| q.0).fold(f64::MAX, f64::min), pts.iter().map(|q| q.0).fold(f64::MIN, f64::max));
-    let (xl, xr) = if !lanes.is_empty() {
-        let lo = lanes.iter().map(|(x, w)| x - w / 2.0).fold(f64::MAX, f64::min);
-        let hi = lanes.iter().map(|(x, w)| x + w / 2.0).fold(f64::MIN, f64::max);
-        // (out to the edges of the profiles the lanes run on: the asphalt often reaches
-        // further than the lanes, to a gutter or a parking strip, and a kerb is where it ends)
-        let under: Vec<(f64, f64)> = profs.iter().map(|p| span(&p.1)).filter(|(a, b)| *b > lo + 0.05 && *a < hi - 0.05).collect();
-        (under.iter().map(|s| s.0).fold(lo, f64::min), under.iter().map(|s| s.1).fold(hi, f64::max))
+    let profs: Vec<(usize, Vec<Point>)> = model.def.profiles.iter().filter(|p| p.points.len() >= 2).map(|p| (p.texture, p.points.iter().map(|q| (q.x as f64 * m, q.z as f64, q.u as f64, q.v_scale as f64)).collect())).collect();
+    let lanes: Vec<(f64, f64, f64)> = model.def.paths.iter().filter(|q| q.kind == 0)
+        .map(|q| (q.start[0] as f64 * m, q.width as f64, q.start[2] as f64)).collect();
+    let mut heights: Vec<_> = lanes.iter().map(|&(_, _, z)| z).collect();
+    heights.sort_by(f64::total_cmp);
+    let lane_z = (!heights.is_empty()).then(|| {
+        let mid = heights.len() / 2;
+        (heights[(heights.len() - 1) / 2] + heights[mid]) * 0.5
+    });
+
+    let interpolate = |a: Point, b: Point, x: f64| -> Point {
+        if x == a.0 {
+            return a;
+        }
+        if x == b.0 {
+            return b;
+        }
+        let t = (x - a.0) / (b.0 - a.0);
+        (x, a.1 + (b.1 - a.1) * t, a.2 + (b.2 - a.2) * t, a.3 + (b.3 - a.3) * t)
+    };
+    let span = |pts: &[Point]| {
+        pts.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p.0), hi.max(p.0)))
+    };
+    let near_surface = 0.02;
+    let (xl, xr) = if let Some(z) = lane_z {
+        let lo = lanes.iter().map(|(x, w, _)| x - w / 2.0).fold(f64::INFINITY, f64::min);
+        let hi = lanes.iter().map(|(x, w, _)| x + w / 2.0).fold(f64::NEG_INFINITY, f64::max);
+        // A bridge deck and its underside can overlap the same lanes in x.
+        // Use the segments closest to driving height within the lane envelope.
+        let overlapping = profs.iter().flat_map(|(_, pts)| pts.windows(2)).filter_map(|segment| {
+            let (a, b) = (segment[0], segment[1]);
+            let (left, right) = span(segment);
+            if right <= lo + 0.05 || left >= hi - 0.05 || right - left <= 1e-6 {
+                return None;
+            }
+            let z0 = interpolate(a, b, left.max(lo)).1;
+            let z1 = interpolate(a, b, right.min(hi)).1;
+            let distance = (z0.min(z1) - z).max(z - z0.max(z1)).max(0.0);
+            Some((left, right, distance))
+        });
+        let nearest = overlapping.clone().map(|(_, _, d)| d).fold(f64::INFINITY, f64::min);
+        let edges = overlapping.filter(|(_, _, d)| *d < nearest + near_surface)
+            .fold((lo, hi), |(lo, hi), (left, right, _)| (lo.min(left), hi.max(right)));
+
+        let expand = |mut edge: f64, sign: f64| {
+            loop {
+                let mut outermost = sign * edge;
+                for (_, pts) in &profs {
+                    let (left, right) = span(pts);
+                    let (inner, outer) = if sign > 0.0 { (left, right) } else { (right, left) };
+                    if (inner - edge).abs() < 0.05 && right - left > 0.1
+                        && pts.iter().all(|p| (p.1 - pts[0].1).abs() < 1e-6 && (p.1 - z).abs() < near_surface)
+                    {
+                        outermost = outermost.max(sign * outer);
+                    }
+                }
+                if outermost == sign * edge {
+                    return edge;
+                }
+                edge = sign * outermost;
+            }
+        };
+        (expand(edges.0, -1.0), expand(edges.1, 1.0))
     } else {
-        let road: Vec<&(usize, Vec<(f64, f64, f64, f64)>)> = profs.iter().filter(|p| touches(&p.1)).collect();
-        if road.is_empty() {
-            (all_lo, all_hi)
+        let touches_centre = |pts: &[Point]| {
+            let (lo, hi) = span(pts);
+            lo <= 0.05 && hi >= -0.05
+        };
+        let use_centre = profs.iter().any(|(_, pts)| touches_centre(pts));
+        profs.iter().filter(|(_, pts)| !use_centre || touches_centre(pts))
+            .flat_map(|(_, pts)| pts).fold((0.0_f64, 0.0_f64), |(lo, hi), p| (lo.min(p.0), hi.max(p.0)))
+    };
+
+    // Clip a polyline to an x interval, keeping each continuous piece and its UVs.
+    let clip = |pts: &[Point], lo: f64, hi: f64| -> Vec<Vec<Point>> {
+        let mut pieces = Vec::new();
+        let mut piece = Vec::new();
+        for segment in pts.windows(2) {
+            let (a, b) = (segment[0], segment[1]);
+            let (left, right) = span(segment);
+            let (first, last) = (left.max(lo), right.min(hi));
+            if first > last || (first == last && left != right) {
+                if piece.len() >= 2 {
+                    pieces.push(std::mem::take(&mut piece));
+                }
+                continue;
+            }
+            let (x0, x1) = if a.0 <= b.0 { (first, last) } else { (last, first) };
+            let (p, q) = if a.0 == b.0 { (a, b) } else { (interpolate(a, b, x0), interpolate(a, b, x1)) };
+            if piece.last() != Some(&p) {
+                if !piece.is_empty() {
+                    pieces.push(std::mem::take(&mut piece));
+                }
+                piece.push(p);
+            }
+            piece.push(q);
+        }
+        if piece.len() >= 2 {
+            pieces.push(piece);
+        }
+        pieces
+    };
+    let inside = |pts: &[Point]| pts.iter().all(|q| q.0 >= xl - 0.05 && q.0 <= xr + 0.05);
+    let lane_mid = lanes.iter().map(|(x, _, _)| *x).find(|x| *x > xl && *x < xr).unwrap_or((xl + xr) * 0.5);
+    let sample_lane = |pts: &[Point]| {
+        pts.windows(2).filter_map(|w| {
+            let (lo, hi) = span(w);
+            (hi - lo > 1e-6 && (lo..=hi).contains(&lane_mid)).then(|| interpolate(w[0], w[1], lane_mid))
+        }).reduce(|a, b| {
+            if lane_z.is_none_or(|z| (b.1 - z).abs() <= (a.1 - z).abs()) { b } else { a }
+        })
+    };
+    let central = if let Some(z) = lane_z {
+        profs.iter().flat_map(|(t, pts)| clip(pts, xl, xr).into_iter().map(move |piece| (*t, piece)))
+            .filter_map(|(t, pts)| sample_lane(&pts).map(|sample| (t, pts, sample)))
+            .min_by(|a, b| (a.2.1 - z).abs().total_cmp(&(b.2.1 - z).abs()))
+    } else {
+        let mut inside_profiles = profs.iter().filter(|(_, pts)| inside(pts));
+        inside_profiles.clone().find(|(_, pts)| {
+            let (lo, hi) = span(pts);
+            (lo..=hi).contains(&lane_mid)
+        }).or_else(|| inside_profiles.next())
+            .map(|(t, pts)| (*t, pts.clone(), sample_lane(pts).unwrap_or(pts[0])))
+    };
+    let road_z = lane_z.or_else(|| central.as_ref().map(|(_, _, sample)| sample.1)).unwrap_or(0.0);
+
+    let side_pieces = |pts: &[Point], right: bool| {
+        if lane_z.is_some() {
+            let (lo, hi) = if right { (xr, f64::INFINITY) } else { (f64::NEG_INFINITY, xl) };
+            clip(pts, lo, hi)
+        } else if pts.iter().all(|q| if right { q.0 >= xr - 0.05 } else { q.0 <= xl + 0.05 }) {
+            vec![pts.to_vec()]
         } else {
-            (road.iter().flat_map(|p| p.1.iter()).map(|q| q.0).fold(0.0, f64::min), road.iter().flat_map(|p| p.1.iter()).map(|q| q.0).fold(0.0, f64::max))
+            Vec::new()
         }
     };
-    let inside = |pts: &Vec<(f64, f64, f64, f64)>| pts.iter().all(|q| q.0 >= xl - 0.05 && q.0 <= xr + 0.05);
-    // (the lane on the right: its texture is the asphalt the junction is laid with, taken
-    // from the middle of a lane, where no markings are)
-    let lane_mid = lanes.iter().map(|(x, _)| *x).find(|x| *x > xl && *x < xr).unwrap_or((xl + xr) * 0.5);
-    let central = profs.iter().filter(|p| inside(&p.1)).find(|p| p.1.iter().any(|q| q.0 <= lane_mid) && p.1.iter().any(|q| q.0 >= lane_mid)).or_else(|| profs.iter().find(|p| inside(&p.1)));
     let side = |right: bool| -> Vec<SideProfile> {
         let mut profiles = profs
             .iter()
-            .filter(|(_, pts)| if right { pts.iter().all(|q| q.0 >= xr - 0.05) } else { pts.iter().all(|q| q.0 <= xl + 0.05) })
+            .flat_map(|(t, pts)| side_pieces(pts, right).into_iter().map(move |pts| (*t, pts)))
             .map(|(t, pts)| {
                 let mut points: Vec<(f64, f64, f64, f64)> = pts.iter().map(|q| ((if right { q.0 - xr } else { xl - q.0 }).max(0.0), q.1, q.2, q.3)).collect();
                 if points.first().map(|p| p.0).unwrap_or(0.0) > points.last().map(|p| p.0).unwrap_or(0.0) {
                     points.reverse();
                 }
-                SideProfile { texture: model.materials.get(*t).and_then(|m| m.texture.clone()), points }
+                SideProfile { texture: model.materials.get(t).and_then(|m| m.texture.clone()), points }
             })
             .collect::<Vec<_>>();
         // The .sli profile order may run outer-to-inner on the left, but the
@@ -549,38 +657,19 @@ fn arm_geo_of(model: &SplineModel, mirrored: bool, at_end: bool, end: DVec3, out
     let (spline_right, spline_left) = (side(true), side(false));
     // (looking out along an arm whose end is at the junction, the spline's right is our left)
     let (right, left, right_w, left_w) = if at_end { (spline_left, spline_right, -xl, xr) } else { (spline_right, spline_left, xr, -xl) };
-    let vs = central.map(|c| c.1[0].3).unwrap_or(0.2).abs().max(1e-3);
+    let vs = central.as_ref().map(|(_, pts, _)| pts[0].3).unwrap_or(0.2).abs().max(1e-3);
     let v0 = vs * v_at * m;
     let vdir = if at_end { m } else { -m };
-    let road_tex = central.and_then(|(t, pts)| {
-        let tex = model.materials.get(*t)?.texture.clone()?;
-        // the u in the middle of a lane
-        let x = lane_mid;
-        let mut u = pts[0].2;
-        for w in pts.windows(2) {
-            if (w[0].0 - x) * (w[1].0 - x) <= 0.0 && (w[1].0 - w[0].0).abs() > 1e-6 {
-                u = w[0].2 + (w[1].2 - w[0].2) * (x - w[0].0) / (w[1].0 - w[0].0);
-            }
-        }
+    let road_tex = central.and_then(|(t, pts, sample)| {
+        let tex = model.materials.get(t)?.texture.clone()?;
         let range = (pts.iter().map(|q| q.2).fold(f64::MIN, f64::max) - pts.iter().map(|q| q.2).fold(f64::MAX, f64::min)).abs();
-        let width = (pts.iter().map(|q| q.0).fold(f64::MIN, f64::max) - pts.iter().map(|q| q.0).fold(f64::MAX, f64::min)).abs().max(0.5);
+        let (lo, hi) = span(&pts);
+        let width = (hi - lo).max(0.5);
         // (a lane's width: the street lanes' own, else half the roadway)
-        let lane = model.def.paths.iter().filter(|p| p.kind == 0).map(|p| p.width as f64).fold(0.0, f64::max);
+        let lane = lanes.iter().map(|(_, width, _)| *width).fold(0.0, f64::max);
         let lane = if lane > 1.5 { lane / 0.9 } else { width * 0.5 };
-        Some((tex, u, range, 1.0 / vs, width, lane))
+        Some((tex, sample.2, range, 1.0 / vs, width, lane))
     });
-    let road_z = central
-        .map(|(_, pts)| {
-            let x = lane_mid;
-            let mut z = pts[0].1;
-            for w in pts.windows(2) {
-                if (w[0].0 - x) * (w[1].0 - x) <= 0.0 && (w[1].0 - w[0].0).abs() > 1e-6 {
-                    z = w[0].1 + (w[1].1 - w[0].1) * (x - w[0].0) / (w[1].0 - w[0].0);
-                }
-            }
-            z
-        })
-        .unwrap_or(0.0);
     ArmGeo { end, out, right_w, left_w, right, left, v0, vdir, road_tex, road_z }
 }
 
@@ -1634,6 +1723,155 @@ mod tests {
         }
     }
 
+    fn arm_profile_road(profiles: &[[(f32, f32); 2]], lanes: &[f32]) -> SplineModel {
+        SplineModel {
+            def: omsi_scenery::Spline {
+                profiles: profiles.iter().enumerate().map(|(texture, points)| {
+                    omsi_scenery::SplineProfile {
+                        texture,
+                        points: points.iter().enumerate().map(|(i, &(x, z))| omsi_scenery::SplineProfilePoint {
+                            x, z, u: i as f32, v_scale: 0.2 + i as f32 * 0.2, ..Default::default()
+                        }).collect(),
+                    }
+                }).collect(),
+                paths: lanes.iter().map(|&x| omsi_scenery::PathDef {
+                    kind: 0, start: [x, 0.0, 0.1], width: 2.5, ..Default::default()
+                }).collect(),
+                ..Default::default()
+            },
+            materials: (0..profiles.len()).map(|i| crate::assets::Material {
+                texture: Some(PathBuf::from(format!("profile-{i}.bmp"))),
+                color: [1.0; 4],
+                alpha: crate::assets::Alpha::Opaque,
+                glow: None,
+            }).collect(),
+            half_width: profiles.iter().flatten().map(|p| p.0.abs()).fold(0.0, f32::max),
+        }
+    }
+
+    fn log_arm_profiles(name: &str, model: &SplineModel, after: &ArmGeo) {
+        // Reproduce the old x-only overlap, whole-profile side filters, and
+        // first central profile for these two-point fixtures.
+        let profiles: Vec<_> = model.def.profiles.iter().map(|p| {
+            let (a, b) = (&p.points[0], &p.points[1]);
+            let (a, b) = if a.x <= b.x { (a, b) } else { (b, a) };
+            (p.texture, (a.x as f64, a.z as f64), (b.x as f64, b.z as f64))
+        }).collect();
+        let lanes: Vec<_> = model.def.paths.iter().filter(|p| p.kind == 0)
+            .map(|p| (p.start[0] as f64, p.width as f64, p.start[2] as f64)).collect();
+        let (lo, hi) = lanes.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &(x, w, _)| {
+            (lo.min(x - w / 2.0), hi.max(x + w / 2.0))
+        });
+        let (xl, xr) = profiles.iter().filter(|(_, a, b)| b.0 > lo + 0.05 && a.0 < hi - 0.05)
+            .fold((lo, hi), |(xl, xr), (_, a, b)| (xl.min(a.0), xr.max(b.0)));
+        let lane_mid = lanes[0].0;
+        let z = profiles.iter().find(|(_, a, b)| a.0 >= xl - 0.05 && b.0 <= xr + 0.05 && a.0 <= lane_mid && b.0 >= lane_mid)
+            .map(|(_, a, b)| a.1 + (b.1 - a.1) * (lane_mid - a.0) / (b.0 - a.0)).unwrap_or(0.0);
+        let old_side = |right: bool| -> Vec<_> {
+            profiles.iter().filter(|(_, a, b)| if right { a.0 >= xr - 0.05 } else { b.0 <= xl + 0.05 })
+                .map(|(t, a, b)| (*t, a.0, b.0)).collect()
+        };
+        let new_side = |profiles: &[SideProfile], right: bool| -> Vec<_> {
+            profiles.iter().map(|p| {
+                let xs = p.points.iter().map(|q| if right { after.right_w + q.0 } else { -after.left_w - q.0 });
+                let (lo, hi) = xs.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
+                (p.texture.clone(), lo, hi)
+            }).collect()
+        };
+        println!("{name} input profiles (slot, (x, z), (x, z)) = {profiles:?}, lanes (x, width, z) = {lanes:?}");
+        println!("{name} BEFORE xl={xl:.3} xr={xr:.3} road_z={z:.3} SideProfile x ranges: left={:?} right={:?}",
+            old_side(false), old_side(true));
+        println!("{name} AFTER  xl={:.3} xr={:.3} road_z={:.3} SideProfile x ranges: left={:?} right={:?}",
+            -after.left_w, after.right_w, after.road_z, new_side(&after.left, false), new_side(&after.right, true));
+    }
+
+    fn check_arm_profile(name: &str, road: &SplineModel, xl: f64, xr: f64, z: f64, texture: &str) -> ArmGeo {
+        let arm = arm_geo_of(road, false, false, DVec3::ZERO, 0.0, 0.0);
+        log_arm_profiles(name, road, &arm);
+        assert!((-arm.left_w - xl).abs() < 1e-5, "{name}: xl");
+        assert!((arm.right_w - xr).abs() < 1e-5, "{name}: xr");
+        assert!((arm.road_z - z).abs() < 1e-5, "{name}: road_z");
+        assert_eq!(arm.road_tex.as_ref().unwrap().0, PathBuf::from(texture));
+        arm
+    }
+
+    #[test]
+    fn altonaer_arm_extends_asphalt_to_both_kerbs() {
+        let road = arm_profile_road(&[
+            [(-9.0, 0.25), (-5.65, 0.25)], [(-5.5, 0.25), (-5.5, 0.1)],
+            [(-5.5, 0.1), (-4.0, 0.1)], [(-4.0, 0.1), (4.0, 0.1)],
+            [(4.0, 0.1), (5.5, 0.1)], [(5.5, 0.1), (5.5, 0.25)],
+            [(5.65, 0.25), (9.0, 0.25)],
+        ], &[-2.0, 2.0]);
+        let arm = check_arm_profile("2spur_11m_altonaer_c", &road, -5.5, 5.5, 0.1, "profile-3.bmp");
+        for side in [&arm.left, &arm.right] {
+            assert_eq!(side.len(), 2);
+            assert!(side.iter().any(|p| p.points.iter().all(|point| point.0 == 0.0)));
+        }
+    }
+
+    #[test]
+    fn half_road_arm_includes_the_lane_without_a_path() {
+        let road = arm_profile_road(&[
+            [(0.0, 0.1), (3.5, 0.1)], [(3.5, 0.1), (7.0, 0.1)],
+            [(7.0, 0.1), (10.5, 0.1)], [(10.5, 0.1), (10.5, 0.4)],
+            [(10.5, 0.4), (11.25, 0.4)],
+        ], &[5.25, 8.75]);
+        let arm = check_arm_profile("3lanes_wbarriernoped_half_2pathsonly", &road, 0.0, 10.5, 0.1, "profile-1.bmp");
+        assert!(arm.left.is_empty());
+        assert_eq!(arm.right.len(), 2);
+    }
+
+    #[test]
+    fn bridge_arm_uses_deck_height_and_its_left_edge() {
+        let road = arm_profile_road(&[
+            [(0.3, -4.0), (12.0, -4.0)], [(0.0, -4.0), (0.3, -0.3)],
+            [(-3.6, -0.3), (0.0, -0.3)], [(-3.9, -0.3), (-3.6, 0.4)],
+            [(-3.7, 0.5), (-3.5, 0.1)], [(-3.5, 0.1), (0.0, 0.1)],
+            [(0.0, 0.1), (4.0, 0.1)],
+        ], &[2.0, 6.0, 10.0, 14.0, 24.0, 28.0, 32.0]);
+        let arm = check_arm_profile("4lanes_oneway_bridge", &road, -3.5, 33.25, 0.1, "profile-6.bmp");
+        let cut = arm.left.iter().find(|p| p.texture.as_deref() == Some(Path::new("profile-2.bmp"))).unwrap();
+        let (offset, z, u, v_scale) = cut.points[0];
+        assert_eq!(offset, 0.0);
+        assert!((z + 0.3).abs() < 1e-5);
+        assert!((u - 0.1 / 3.6).abs() < 1e-5);
+        assert!((v_scale - (0.2 + 0.2 * 0.1 / 3.6)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn flyover_arm_keeps_left_asphalt_and_clips_crossing_underside() {
+        let road = arm_profile_road(&[
+            [(-2.0, 0.1), (-1.0, 0.1)], [(-1.0, 0.1), (2.5, 0.1)],
+            [(-1.5, -1.5), (15.15, -1.5)],
+        ], &[0.75, 4.25, 9.4, 12.9]);
+        let arm = check_arm_profile("4lanes_chathamroad_flyover_2+2", &road, -2.0, 14.15, 0.1, "profile-1.bmp");
+        assert!(arm.left.is_empty());
+        let cut = arm.right.iter().find(|p| p.texture.as_deref() == Some(Path::new("profile-2.bmp"))).unwrap();
+        let (offset, z, u, _) = cut.points[0];
+        assert_eq!(offset, 0.0);
+        assert!((z + 1.5).abs() < 1e-5);
+        assert!((u - 15.65 / 16.65).abs() < 1e-5);
+        assert!((cut.points[1].0 - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn arm_profile_height_uses_the_middle_two_vehicle_paths() {
+        let mut road = arm_profile_road(&[
+            [(-4.0, -1.0), (4.0, -1.0)], [(-4.0, 0.2), (4.0, 0.2)],
+        ], &[-2.0, -1.0, 1.0, 2.0]);
+        for (path, z) in road.def.paths.iter_mut().zip([0.3, 9.0, -8.0, 0.1]) {
+            path.start[2] = z;
+        }
+        road.def.paths.push(omsi_scenery::PathDef { kind: 1, start: [0.0, 0.0, 10.0], width: 1.5, ..Default::default() });
+        check_arm_profile("even vehicle path median", &road, -4.0, 4.0, 0.2, "profile-1.bmp");
+        road.def.paths.clear();
+        let legacy = arm_geo_of(&road, false, false, DVec3::ZERO, 0.0, 0.0);
+        println!("no vehicle paths: xl={} xr={} road_z={} texture={:?}", -legacy.left_w, legacy.right_w, legacy.road_z, legacy.road_tex);
+        assert_eq!((-legacy.left_w, legacy.right_w, legacy.road_z), (-4.0, 4.0, -1.0));
+        assert_eq!(legacy.road_tex.unwrap().0, PathBuf::from("profile-0.bmp"));
+    }
+
     /// Three roads out of `centre`, turned by `turn`, made into a junction: its object.
     fn t_junction(doc: &mut Document, assets: &mut Assets, content: &Path, centre: DVec2, turn: f64, ids: [i64; 3], lengths: [f64; 3]) -> MapObject {
         let mut arms = Vec::new();
@@ -1961,6 +2199,9 @@ mod tests {
                 texture: 0, points: vec![point(4.0, 0.20), point(5.5, 0.35), point(6.5, 0.35)],
             },
         ];
+        for lane in &mut road.def.paths {
+            lane.start[2] = 0.20;
+        }
         for x in [-5.5_f32, 5.5] {
             road.def.paths.push(omsi_scenery::PathDef {
                 kind: 1, start: [x, 0.0, 0.35], width: 2.0, direction: 2,
