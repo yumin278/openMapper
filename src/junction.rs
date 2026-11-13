@@ -1805,7 +1805,7 @@ mod tests {
             ];
             let plate = layout_plate(&mut assets, &arms, None, None).expect("both arms produce a plate");
             assert!(!plate.mesh.tris.is_empty(), "{case}: plate has triangles");
-            let previous = junction_mesh(&original, DVec3::ZERO, None, 8.0, 0.0);
+            let previous = junction_mesh(&original, DVec3::ZERO, None, 8.0, 0.0).0;
             let mut old_wedge = false;
             for (i, arm) in corrected.iter().enumerate() {
                 for (label, right) in [("left", false), ("right", true)] {
