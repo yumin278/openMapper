@@ -10798,6 +10798,76 @@ mod tests {
     use crate::selection::tests::{add_object, add_spline, flat_map};
 
     #[test]
+    fn stop_alt_lateral_moves_only_across_the_path_and_survives_release() {
+        let lane = crate::lanes::Lane {
+            pts: vec![DVec3::new(0.0, 0.0, 0.0), DVec3::new(0.0, 100.0, 0.0)],
+            kind: 0, direction: 0, spline: None, object: None, index: 0,
+        };
+        let mut ed = Editor::default();
+        ed.tool = Tool::Logic;
+        ed.logic = LogicMode::Stops;
+        ed.cursor = Some(DVec3::new(2.0, 50.0, 0.0));
+        ed.stop_hover_lane = Some(lane.clone());
+
+        let before = DVec2::new(3.2, 50.0);
+        ed.stop_lateral_key(true);
+        ed.cursor = Some(DVec3::new(5.0, 73.0, 0.0));
+        let session = ed.stop_lateral.as_ref().expect("Alt locks a vehicle lane");
+        let offset = session.offset_at(ed.cursor.unwrap().truncate(), false);
+        let during = session.anchor.truncate() + roads::right(0.0) * offset;
+        println!("RHT path={:?} original={before:?} pointer_start={:?} pointer_now={:?} locked_path_point={:?} offset_before={} offset_during={} preview_during={during:?}",
+            lane.pts, session.pointer, ed.cursor.unwrap(), session.anchor, session.initial_offset, offset);
+        assert!((offset - 6.2).abs() < 1e-9, "Alt changed only cross-path displacement");
+        assert!((during.x - 6.2).abs() < 1e-9);
+        assert!((during.y - 50.0).abs() < 1e-9, "Alt never moves longitudinally");
+
+        ed.stop_lateral_offset = offset;
+        ed.stop_lateral_key(false);
+        assert!(!ed.stop_lateral.as_ref().unwrap().adjusting);
+        let next_path_point = ed.stop_lateral.as_ref().unwrap().lane.nearest(DVec2::new(5.0, 90.0)).unwrap().0;
+        let after = next_path_point.truncate() + roads::right(0.0) * ed.stop_lateral_offset;
+        println!("Alt released: offset={} along_path_point={next_path_point:?} final_preview={after:?}", ed.stop_lateral_offset);
+        assert!((after.x - 6.2).abs() < 1e-9, "lateral offset persists");
+        assert!((after.y - 90.0).abs() < 1e-9, "normal movement resumes along the selected path");
+
+        ed.cancel();
+        println!("After cancel: offset={} session={}", ed.stop_lateral_offset, ed.stop_lateral.is_some());
+        assert!(ed.stop_lateral.is_none());
+        assert_eq!(ed.stop_lateral_offset, 3.2);
+    }
+
+    #[test]
+    fn stop_alt_lateral_respects_left_hand_and_reverse_flow() {
+        let lane = crate::lanes::Lane {
+            pts: vec![DVec3::new(0.0, 0.0, 0.0), DVec3::new(0.0, 100.0, 0.0)],
+            kind: 0, direction: 0, spline: None, object: None, index: 0,
+        };
+        for (direction, lht, dx, expected) in [
+            (0, false, 2.0, 5.2),
+            (0, true, -2.0, 5.2),
+            (1, false, -2.0, 5.2),
+            (1, true, 2.0, 5.2),
+        ] {
+            let mut ed = Editor::default();
+            ed.tool = Tool::Logic;
+            ed.logic = LogicMode::Stops;
+            ed.cursor = Some(DVec3::new(0.0, 20.0, 0.0));
+            ed.stop_hover_lane = Some(crate::lanes::Lane { direction, ..lane.clone() });
+            ed.stop_lateral_key(true);
+            let session = ed.stop_lateral.as_ref().unwrap();
+            let pointer_after = session.pointer + DVec2::new(dx, 19.0);
+            let offset = session.offset_at(pointer_after, lht);
+            let flow = if direction == 1 { 180.0 } else { 0.0 };
+            let side = roads::right(flow) * if lht { -1.0 } else { 1.0 };
+            let preview = session.anchor.truncate() + side * offset;
+            println!("direction={direction} lht={lht} lane={:?} pointer_before={:?} pointer_after={pointer_after:?} anchor={:?} offset_before={} offset_after={offset} preview={preview:?}",
+                lane.pts, session.pointer, session.anchor, session.initial_offset);
+            assert!((offset - expected).abs() < 1e-9);
+            assert!((preview.y - 20.0).abs() < 1e-9);
+        }
+    }
+
+    #[test]
     fn a_click_on_the_drawn_surface_meets_it_and_the_centre_line_does_not() {
         // a piece running north. +x of a profile is east, the same side the mesh is drawn on.
         let a = DVec3::ZERO;
