@@ -16,7 +16,7 @@ use winit::window::{Window, WindowId};
 use crate::assets::Assets;
 use crate::camera::Camera;
 use crate::doc::{tile_origin, tile_size, Document, Sel};
-use crate::editor::{Editor, Tool};
+use crate::editor::{Editor, LogicMode, Tool};
 use crate::gpu::Gpu;
 use crate::i18n::{self, tr};
 use crate::install::{self, Prefs, Roots};
