@@ -1236,6 +1236,8 @@ Zebra crossings	ทางม้าลาย
 Road	ถนน
 Build it again	สร้างใหม่
 Makes the plate, its kerbs and lanes again for the roads as they are now	สร้างแผ่น ขอบทาง และเลนใหม่ให้ถนนตามที่เป็นตอนนี้
+Persist junction	บันทึกทางแยกถาวร
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	บันทึกทางแยกนี้เป็นวัตถุฉากทั่วไปในโฟลเดอร์ติดตั้ง OMSI บันทึกแผนที่เพื่อเก็บการอ้างอิงใหม่
 Linked objects	วัตถุที่เชื่อมโยง
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	วัตถุรับสถานะจากอีกอันได้ ([varparent]): หัวสัญญาณแสดงไฟจากโปรแกรมของทางแยก จอป้ายแสดงป้ายของมัน
 Takes its state from	รับสถานะจาก

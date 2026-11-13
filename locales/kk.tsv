@@ -1236,6 +1236,8 @@ Zebra crossings	Жаяу жүргіншілер өткелдері
 Road	Жол
 Build it again	Қайта салу
 Makes the plate, its kerbs and lanes again for the roads as they are now	Алаңды, оның жиектері мен жолақтарын жолдарға қазіргі күйінде қайта жасайды
+Persist junction	Қиылысты сақтау
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Бұл қиылысты OMSI орнатылған қалтаға кәдімгі көрініс нысаны ретінде сақтаңыз. Жаңа сілтемені сақтау үшін картаны сақтаңыз.
 Linked objects	Байланысқан нысандар
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Нысан күйін басқасынан алуы мүмкін ([varparent]): бағдаршам басы өз қиылысы бағдарламасының жарығын көрсетеді, аялдама табло — өз аялдамасын.
 Takes its state from	Күйін мұнан алады

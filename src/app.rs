@@ -1692,6 +1692,21 @@ impl App {
             }
             Action::RoadTypes => self.road_types.open = !self.road_types.open,
             Action::ComplexJunctions => self.cj.open = !self.cj.open,
+            Action::PersistJunction(k, id) => {
+                if self.collab.is_guest() {
+                    self.ed.error(tr("In multiplayer the host saves the map. Leave the session to save this as a copy of your own.", "В совместной правке карту сохраняет хост. Выйдите из сессии, чтобы сохранить копию для себя."));
+                } else if let Some(roots) = &self.roots {
+                    match self.ed.persist_junction(roots, k, id) {
+                        Ok(file) => {
+                            self.lib.start_scan(roots);
+                            self.ed.toast(format!("{} {file}", tr("Saved:", "Сохранено:")));
+                        }
+                        Err(e) => self.ed.error(format!("{}: {e:#}", tr("Could not save (the changes are still here, nothing is lost)", "Не удалось сохранить (изменения остались здесь, ничего не потеряно)"))),
+                    }
+                } else {
+                    self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
+                }
+            }
             Action::CrossingPaths => {
                 // (its copy of the object would be on this disk only, and the map's others would get a path they lack)
                 if self.collab.is_guest() {

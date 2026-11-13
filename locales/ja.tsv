@@ -1236,6 +1236,8 @@ Zebra crossings	横断歩道
 Road	道路
 Build it again	再作成
 Makes the plate, its kerbs and lanes again for the roads as they are now	現在の道路に合わせて、プレート、縁石、車線を作り直します
+Persist junction	交差点を永続化
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	この交差点を通常の景観オブジェクトとして OMSI のインストール先に保存します。新しい参照先を保持するにはマップを保存してください。
 Linked objects	リンクされたオブジェクト
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	オブジェクトは別のオブジェクトから状態を取得できます（[varparent]）：信号灯器は交差点のプログラムの点灯、停留所の表示器はその停留所を表示します。
 Takes its state from	状態の取得元

@@ -1236,6 +1236,8 @@ Zebra crossings	Vạch qua đường
 Road	Đường
 Build it again	Xây lại
 Makes the plate, its kerbs and lanes again for the roads as they are now	Tạo lại tấm nền, lề đường và làn cho các đường như hiện tại
+Persist junction	Lưu cố định giao lộ
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Lưu giao lộ này dưới dạng vật thể cảnh quan thông thường trong thư mục cài đặt OMSI. Lưu bản đồ để giữ tham chiếu mới.
 Linked objects	Đối tượng liên kết
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Một đối tượng có thể lấy trạng thái từ đối tượng khác ([varparent]): đèn tín hiệu hiện đèn của chương trình ngã tư, màn hình điểm dừng hiện điểm dừng của nó.
 Takes its state from	Lấy trạng thái từ

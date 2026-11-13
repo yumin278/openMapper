@@ -1236,6 +1236,8 @@ Zebra crossings	Passos de vianants
 Road	Carretera
 Build it again	Construeix-lo de nou
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refà la placa, les seves vorades i carrils per a les carreteres tal com són ara
+Persist junction	Desa la cruïlla
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Desa aquesta cruïlla com a objecte d’escenari normal a la instal·lació d’OMSI. Desa el mapa per conservar la referència nova.
 Linked objects	Objectes enllaçats
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Un objecte pot prendre el seu estat d'un altre ([varparent]): un cap de semàfor mostra una llum del programa del seu creuament, la pantalla d'una parada la seva parada.
 Takes its state from	Pren l'estat de

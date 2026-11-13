@@ -1236,6 +1236,8 @@ Zebra crossings	Fußgängerüberwege
 Road	Straße
 Build it again	Neu bauen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Baut die Platte, ihre Bordsteine und Spuren für die Straßen, wie sie jetzt sind, neu
+Persist junction	Kreuzung dauerhaft speichern
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Diese Kreuzung als normales Szenerieobjekt in der OMSI-Installation speichern. Speichern Sie die Karte, um den neuen Verweis zu übernehmen.
 Linked objects	Verknüpfte Objekte
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Ein Objekt kann seinen Zustand von einem anderen übernehmen ([varparent]): Ein Signalkopf zeigt ein Licht des Programms seiner Kreuzung, die Anzeige einer Haltestelle ihre Haltestelle.
 Takes its state from	Übernimmt seinen Zustand von

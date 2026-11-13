@@ -1236,6 +1236,8 @@ Zebra crossings	Przejścia dla pieszych
 Road	Droga
 Build it again	Zbuduj od nowa
 Makes the plate, its kerbs and lanes again for the roads as they are now	Tworzy od nowa płytę, krawężniki i pasy dla dróg w obecnym kształcie
+Persist junction	Zapisz skrzyżowanie na stałe
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Zapisz to skrzyżowanie jako zwykły obiekt scenerii w folderze instalacyjnym OMSI. Zapisz mapę, aby zachować nowe odwołanie.
 Linked objects	Powiązane obiekty
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Obiekt może brać stan od innego ([varparent]): głowica sygnalizatora pokazuje światło z programu swojego skrzyżowania, wyświetlacz przystanku swój przystanek.
 Takes its state from	Bierze stan od

@@ -1236,6 +1236,8 @@ Zebra crossings	Mga tawiran
 Road	Kalsada
 Build it again	Buuin muli
 Makes the plate, its kerbs and lanes again for the roads as they are now	Muling ginagawa ang plate, mga kerb at lane para sa mga kalsada ayon sa kasalukuyan
+Persist junction	I-save ang interseksyon
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	I-save ang interseksyon bilang karaniwang bagay sa tanawin sa folder ng instalasyon ng OMSI. I-save ang mapa upang mapanatili ang bagong sanggunian.
 Linked objects	Mga naka-link na object
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Maaaring kunin ng object ang state nito sa iba ([varparent]): ang signal head ay nagpapakita ng ilaw mula sa program ng crossing nito, ang display ng hintuan ay ang hintuan nito.
 Takes its state from	Kinukuha ang state mula sa

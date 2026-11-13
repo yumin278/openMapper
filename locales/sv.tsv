@@ -1236,6 +1236,8 @@ Zebra crossings	Övergångsställen
 Road	Väg
 Build it again	Bygg den igen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Gör plattan, dess trottoarkanter och körfält igen för vägarna som de är nu
+Persist junction	Spara korsningen permanent
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Spara korsningen som ett vanligt sceneryobjekt i OMSI-installationen. Spara kartan för att behålla den nya referensen.
 Linked objects	Länkade objekt
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Ett objekt kan ta sitt tillstånd från ett annat ([varparent]): ett signalhuvud visar ett ljus från sin korsnings program, en hållplatsdisplay sin hållplats.
 Takes its state from	Tar sitt tillstånd från

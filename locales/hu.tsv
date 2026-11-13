@@ -1236,6 +1236,8 @@ Zebra crossings	Gyalogátkelők
 Road	Út
 Build it again	Újraépítés
 Makes the plate, its kerbs and lanes again for the roads as they are now	Újra elkészíti a lapot, a szegélyeket és a sávokat az utakhoz, ahogy most vannak
+Persist junction	Csomópont végleges mentése
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	A csomópont mentése szokásos tereptárgyként az OMSI telepítési mappájába. Az új hivatkozás megőrzéséhez mentse a térképet.
 Linked objects	Kapcsolt objektumok
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Egy objektum átveheti az állapotát egy másiktól ([varparent]): a jelzőfej a kereszteződés programjának fényét mutatja, a megálló kijelzője a megállóját.
 Takes its state from	Az állapotát innen veszi:

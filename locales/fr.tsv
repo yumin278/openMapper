@@ -1236,6 +1236,8 @@ Zebra crossings	Passages piétons
 Road	Route
 Build it again	Reconstruire
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refait la plateforme, ses bordures et ses voies pour les routes telles qu'elles sont maintenant
+Persist junction	Enregistrer le carrefour
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Enregistre ce carrefour comme objet de décor standard dans l’installation d’OMSI. Enregistrez la carte pour conserver la nouvelle référence.
 Linked objects	Objets liés
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Un objet peut tirer son état d'un autre ([varparent]) : un feu affiche une lumière du programme de son carrefour, l'afficheur d'un arrêt son arrêt.
 Takes its state from	Tire son état de
