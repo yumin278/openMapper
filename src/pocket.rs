@@ -525,7 +525,7 @@ mod tests {
     fn a_bay_widens_one_side_of_the_text_and_leaves_the_other() {
         let tex = std::env::temp_dir().join("om-bay-text.png");
         let spec = crate::road_maker::RoadSpec { name: "T".into(), roadway_tex: tex.clone(), footway_tex: tex, footway: 2.0, ..Default::default() };
-        let text = spec.sli();
+        let text = spec.sli(false);
         let ((lo, hi), heights, paths) = extremes(&text);
         for (side, sign) in [(Side::Right, 1.0f32), (Side::Left, -1.0)] {
             let out = bay_sli(&text, side, 3.0).unwrap();
