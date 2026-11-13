@@ -1476,6 +1476,155 @@ mod tests {
         }
     }
 
+    fn arm_profile_road(profiles: &[[(f32, f32); 2]], lanes: &[f32]) -> SplineModel {
+        SplineModel {
+            def: omsi_scenery::Spline {
+                profiles: profiles.iter().enumerate().map(|(texture, points)| {
+                    omsi_scenery::SplineProfile {
+                        texture,
+                        points: points.iter().enumerate().map(|(i, &(x, z))| omsi_scenery::SplineProfilePoint {
+                            x, z, u: i as f32, v_scale: 0.2 + i as f32 * 0.2, ..Default::default()
+                        }).collect(),
+                    }
+                }).collect(),
+                paths: lanes.iter().map(|&x| omsi_scenery::PathDef {
+                    kind: 0, start: [x, 0.0, 0.1], width: 2.5, ..Default::default()
+                }).collect(),
+                ..Default::default()
+            },
+            materials: (0..profiles.len()).map(|i| crate::assets::Material {
+                texture: Some(PathBuf::from(format!("profile-{i}.bmp"))),
+                color: [1.0; 4],
+                alpha: crate::assets::Alpha::Opaque,
+                glow: None,
+            }).collect(),
+            half_width: profiles.iter().flatten().map(|p| p.0.abs()).fold(0.0, f32::max),
+        }
+    }
+
+    fn log_arm_profiles(name: &str, model: &SplineModel, after: &ArmGeo) {
+        // Reproduce the old x-only overlap, whole-profile side filters, and
+        // first central profile for these two-point fixtures.
+        let profiles: Vec<_> = model.def.profiles.iter().map(|p| {
+            let (a, b) = (&p.points[0], &p.points[1]);
+            let (a, b) = if a.x <= b.x { (a, b) } else { (b, a) };
+            (p.texture, (a.x as f64, a.z as f64), (b.x as f64, b.z as f64))
+        }).collect();
+        let lanes: Vec<_> = model.def.paths.iter().filter(|p| p.kind == 0)
+            .map(|p| (p.start[0] as f64, p.width as f64, p.start[2] as f64)).collect();
+        let (lo, hi) = lanes.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &(x, w, _)| {
+            (lo.min(x - w / 2.0), hi.max(x + w / 2.0))
+        });
+        let (xl, xr) = profiles.iter().filter(|(_, a, b)| b.0 > lo + 0.05 && a.0 < hi - 0.05)
+            .fold((lo, hi), |(xl, xr), (_, a, b)| (xl.min(a.0), xr.max(b.0)));
+        let lane_mid = lanes[0].0;
+        let z = profiles.iter().find(|(_, a, b)| a.0 >= xl - 0.05 && b.0 <= xr + 0.05 && a.0 <= lane_mid && b.0 >= lane_mid)
+            .map(|(_, a, b)| a.1 + (b.1 - a.1) * (lane_mid - a.0) / (b.0 - a.0)).unwrap_or(0.0);
+        let old_side = |right: bool| -> Vec<_> {
+            profiles.iter().filter(|(_, a, b)| if right { a.0 >= xr - 0.05 } else { b.0 <= xl + 0.05 })
+                .map(|(t, a, b)| (*t, a.0, b.0)).collect()
+        };
+        let new_side = |profiles: &[SideProfile], right: bool| -> Vec<_> {
+            profiles.iter().map(|p| {
+                let xs = p.points.iter().map(|q| if right { after.right_w + q.0 } else { -after.left_w - q.0 });
+                let (lo, hi) = xs.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), x| (lo.min(x), hi.max(x)));
+                (p.texture.clone(), lo, hi)
+            }).collect()
+        };
+        println!("{name} input profiles (slot, (x, z), (x, z)) = {profiles:?}, lanes (x, width, z) = {lanes:?}");
+        println!("{name} BEFORE xl={xl:.3} xr={xr:.3} road_z={z:.3} SideProfile x ranges: left={:?} right={:?}",
+            old_side(false), old_side(true));
+        println!("{name} AFTER  xl={:.3} xr={:.3} road_z={:.3} SideProfile x ranges: left={:?} right={:?}",
+            -after.left_w, after.right_w, after.road_z, new_side(&after.left, false), new_side(&after.right, true));
+    }
+
+    fn check_arm_profile(name: &str, road: &SplineModel, xl: f64, xr: f64, z: f64, texture: &str) -> ArmGeo {
+        let arm = arm_geo_of(road, false, false, DVec3::ZERO, 0.0, 0.0);
+        log_arm_profiles(name, road, &arm);
+        assert!((-arm.left_w - xl).abs() < 1e-5, "{name}: xl");
+        assert!((arm.right_w - xr).abs() < 1e-5, "{name}: xr");
+        assert!((arm.road_z - z).abs() < 1e-5, "{name}: road_z");
+        assert_eq!(arm.road_tex.as_ref().unwrap().0, PathBuf::from(texture));
+        arm
+    }
+
+    #[test]
+    fn altonaer_arm_extends_asphalt_to_both_kerbs() {
+        let road = arm_profile_road(&[
+            [(-9.0, 0.25), (-5.65, 0.25)], [(-5.5, 0.25), (-5.5, 0.1)],
+            [(-5.5, 0.1), (-4.0, 0.1)], [(-4.0, 0.1), (4.0, 0.1)],
+            [(4.0, 0.1), (5.5, 0.1)], [(5.5, 0.1), (5.5, 0.25)],
+            [(5.65, 0.25), (9.0, 0.25)],
+        ], &[-2.0, 2.0]);
+        let arm = check_arm_profile("2spur_11m_altonaer_c", &road, -5.5, 5.5, 0.1, "profile-3.bmp");
+        for side in [&arm.left, &arm.right] {
+            assert_eq!(side.len(), 2);
+            assert!(side.iter().any(|p| p.points.iter().all(|point| point.0 == 0.0)));
+        }
+    }
+
+    #[test]
+    fn half_road_arm_includes_the_lane_without_a_path() {
+        let road = arm_profile_road(&[
+            [(0.0, 0.1), (3.5, 0.1)], [(3.5, 0.1), (7.0, 0.1)],
+            [(7.0, 0.1), (10.5, 0.1)], [(10.5, 0.1), (10.5, 0.4)],
+            [(10.5, 0.4), (11.25, 0.4)],
+        ], &[5.25, 8.75]);
+        let arm = check_arm_profile("3lanes_wbarriernoped_half_2pathsonly", &road, 0.0, 10.5, 0.1, "profile-1.bmp");
+        assert!(arm.left.is_empty());
+        assert_eq!(arm.right.len(), 2);
+    }
+
+    #[test]
+    fn bridge_arm_uses_deck_height_and_its_left_edge() {
+        let road = arm_profile_road(&[
+            [(0.3, -4.0), (12.0, -4.0)], [(0.0, -4.0), (0.3, -0.3)],
+            [(-3.6, -0.3), (0.0, -0.3)], [(-3.9, -0.3), (-3.6, 0.4)],
+            [(-3.7, 0.5), (-3.5, 0.1)], [(-3.5, 0.1), (0.0, 0.1)],
+            [(0.0, 0.1), (4.0, 0.1)],
+        ], &[2.0, 6.0, 10.0, 14.0, 24.0, 28.0, 32.0]);
+        let arm = check_arm_profile("4lanes_oneway_bridge", &road, -3.5, 33.25, 0.1, "profile-6.bmp");
+        let cut = arm.left.iter().find(|p| p.texture.as_deref() == Some(Path::new("profile-2.bmp"))).unwrap();
+        let (offset, z, u, v_scale) = cut.points[0];
+        assert_eq!(offset, 0.0);
+        assert!((z + 0.3).abs() < 1e-5);
+        assert!((u - 0.1 / 3.6).abs() < 1e-5);
+        assert!((v_scale - (0.2 + 0.2 * 0.1 / 3.6)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn flyover_arm_keeps_left_asphalt_and_clips_crossing_underside() {
+        let road = arm_profile_road(&[
+            [(-2.0, 0.1), (-1.0, 0.1)], [(-1.0, 0.1), (2.5, 0.1)],
+            [(-1.5, -1.5), (15.15, -1.5)],
+        ], &[0.75, 4.25, 9.4, 12.9]);
+        let arm = check_arm_profile("4lanes_chathamroad_flyover_2+2", &road, -2.0, 14.15, 0.1, "profile-1.bmp");
+        assert!(arm.left.is_empty());
+        let cut = arm.right.iter().find(|p| p.texture.as_deref() == Some(Path::new("profile-2.bmp"))).unwrap();
+        let (offset, z, u, _) = cut.points[0];
+        assert_eq!(offset, 0.0);
+        assert!((z + 1.5).abs() < 1e-5);
+        assert!((u - 15.65 / 16.65).abs() < 1e-5);
+        assert!((cut.points[1].0 - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn arm_profile_height_uses_the_middle_two_vehicle_paths() {
+        let mut road = arm_profile_road(&[
+            [(-4.0, -1.0), (4.0, -1.0)], [(-4.0, 0.2), (4.0, 0.2)],
+        ], &[-2.0, -1.0, 1.0, 2.0]);
+        for (path, z) in road.def.paths.iter_mut().zip([0.3, 9.0, -8.0, 0.1]) {
+            path.start[2] = z;
+        }
+        road.def.paths.push(omsi_scenery::PathDef { kind: 1, start: [0.0, 0.0, 10.0], width: 1.5, ..Default::default() });
+        check_arm_profile("even vehicle path median", &road, -4.0, 4.0, 0.2, "profile-1.bmp");
+        road.def.paths.clear();
+        let legacy = arm_geo_of(&road, false, false, DVec3::ZERO, 0.0, 0.0);
+        println!("no vehicle paths: xl={} xr={} road_z={} texture={:?}", -legacy.left_w, legacy.right_w, legacy.road_z, legacy.road_tex);
+        assert_eq!((-legacy.left_w, legacy.right_w, legacy.road_z), (-4.0, 4.0, -1.0));
+        assert_eq!(legacy.road_tex.unwrap().0, PathBuf::from("profile-0.bmp"));
+    }
+
     /// Three roads out of `centre`, turned by `turn`, made into a junction: its object.
     fn t_junction(doc: &mut Document, assets: &mut Assets, content: &Path, centre: DVec2, turn: f64, ids: [i64; 3], lengths: [f64; 3]) -> MapObject {
         let mut arms = Vec::new();
