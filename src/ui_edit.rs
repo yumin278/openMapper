@@ -1136,6 +1136,10 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
                 apply = true;
             }
         }
+        if check(ui, &mut new.corner_walks, tr("Footway paths round the corners (AI)", "Пешеходные пути вокруг углов (ИИ)")).changed() {
+            apply = true;
+        }
+        ui.label(RichText::new(tr("Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).", "Выкл.: без путей ИИ на углах; переходы по-прежнему соединены с тротуарами дорог. Соедините углы сами (например, невидимым сплайном пути).")).small().color(TEXT_DIM));
     });
     let rebuild = ui.button(icons::labelled(Icon::Junction, tr("Build it again", "Построить заново"))).on_hover_text(tr("Makes the plate, its kerbs and lanes again for the roads as they are now", "Заново строит площадку, бордюры и полосы под дороги, как они сейчас")).clicked();
     if (apply && new != opts) || rebuild {

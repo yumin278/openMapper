@@ -124,11 +124,13 @@ pub struct Options {
     pub side_green: f64,
     /// The arms with a zebra crossing, by their heading out of the junction (degrees).
     pub crossings: Vec<f64>,
+    /// Whether the junction generates AI footway paths around its corners.
+    pub corner_walks: bool,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new() }
+        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), corner_walks: true }
     }
 }
 
@@ -138,7 +140,7 @@ impl Options {
     fn line(&self) -> String {
         let c: Vec<String> = self.crossings.iter().map(|h| format!("{h:.1}")).collect();
         // (helpers=omsi: its spline helpers are in OMSI's order, x height forward)
-        format!("{OPTIONS_TAG} lights={} main={:.0} side={:.0} crossings={} helpers=omsi", self.lights as i32, self.main_green, self.side_green, c.join(","))
+        format!("{OPTIONS_TAG} lights={} main={:.0} side={:.0} crossings={} walks={} helpers=omsi", self.lights as i32, self.main_green, self.side_green, c.join(","), self.corner_walks as i32)
     }
 
     /// The options written in a junction's `.sco` text (defaults when none are).
@@ -152,6 +154,7 @@ impl Options {
                 "main" => o.main_green = v.parse().unwrap_or(o.main_green),
                 "side" => o.side_green = v.parse().unwrap_or(o.side_green),
                 "crossings" => o.crossings = v.split(',').filter_map(|x| x.parse().ok()).collect(),
+                "walks" => o.corner_walks = match v { "0" => false, "1" => true, _ => o.corner_walks },
                 _ => {}
             }
         }
@@ -204,8 +207,117 @@ fn signed_turn(from: f64, to: f64) -> f64 {
     (to - from + 540.0).rem_euclid(360.0) - 180.0
 }
 
+/// A sidewalk lane's original endpoint and its projected crossing endpoint.
+#[derive(Clone, Copy)]
+struct WalkJoin {
+    arm: usize,
+    left: bool,
+    at_arm: DVec3,
+    at_crossing: DVec3,
+    width: f64,
+}
+
+
+#[derive(Clone)]
+struct KerbCorner {
+    /// Counter-clockwise mesh corner: the left edge of i leads to the right edge of j.
+    i: usize,
+    j: usize,
+    segments: Vec<Seg>,
+    lead_i: f64,
+    lead_j: f64,
+}
+
+fn corner_leads(corners: &[KerbCorner]) -> Vec<(usize, usize, f64, f64)> {
+    corners.iter().map(|c| (c.i, c.j, c.lead_i, c.lead_j)).collect()
+}
+
+/// Distance to the polyline obtained by sampling the *same* rounded kerb
+/// pieces used to construct the plate (0.25 m sampling).
+fn kerb_polyline(corner: &KerbCorner) -> Vec<DVec2> {
+    let mut points = Vec::new();
+    for seg in &corner.segments {
+        let steps = (seg.length / 0.25).ceil().max(1.0) as usize;
+        for n in 0..=steps {
+            if !points.is_empty() && n == 0 { continue; }
+            points.push(seg.point(seg.length * n as f64 / steps as f64));
+        }
+    }
+    points
+}
+
+fn point_to_polyline(p: DVec2, line: &[DVec2]) -> f64 {
+    line.windows(2).map(|q| {
+        let edge = q[1] - q[0];
+        let t = if edge.length_squared() > 1e-12 {
+            ((p - q[0]).dot(edge) / edge.length_squared()).clamp(0.0, 1.0)
+        } else { 0.0 };
+        (p - (q[0] + edge * t)).length()
+    }).fold(f64::INFINITY, f64::min)
+}
+
+fn path_kerb_clearance(segs: &[Seg], corner: &KerbCorner) -> (f64, DVec2) {
+    let line = kerb_polyline(corner);
+    let mut best = (f64::INFINITY, DVec2::ZERO);
+    for seg in segs {
+        let steps = (seg.length / 0.25).ceil().max(1.0) as usize;
+        for n in 0..=steps {
+            let p = seg.point(seg.length * n as f64 / steps as f64);
+            let d = point_to_polyline(p, &line);
+            if d < best.0 { best = (d, p); }
+        }
+    }
+    best
+}
+
+/// Keep straight tangents at the road ends, then join the shortened portion
+/// with a biarc. Retry three times at half the previous tangent lengths.
+/// A zero-length tangent is omitted, preserving the original path verbatim.
+fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> Vec<Seg> {
+    if lead_a <= 0.0 && lead_b <= 0.0 {
+        return roads::biarc(pa, ha, pb, hb).or_else(|| roads::straight(pa, pb).map(|s| vec![s])).unwrap_or_default();
+    }
+    let (mut la, mut lb) = (lead_a, lead_b);
+    let mut attempts = Vec::new();
+    for retry in 0..=3 {
+        let p = pa + roads::dir(ha) * la;
+        let q = pb - roads::dir(hb) * lb;
+        attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {:?} -> {:?} returned None", p, q));
+        if let Some(mut middle) = roads::biarc(p, ha, q, hb) {
+            if retry > 0 {
+                log::warn!(
+                    "junction biarc recovered after reduced tangent leads {:?} -> {:?}; previous attempts: {}",
+                    pa, pb, attempts[..attempts.len() - 1].join("; ")
+                );
+            }
+            let mut segs = Vec::new();
+            if la > 1e-6 {
+                segs.push(Seg { start: pa, heading: ha, length: la, radius: 0.0 });
+            }
+            segs.append(&mut middle);
+            if lb > 1e-6 {
+                segs.push(Seg { start: q, heading: hb, length: lb, radius: 0.0 });
+            }
+            return segs;
+        }
+        if retry < 3 { la *= 0.5; lb *= 0.5; }
+    }
+    if let Some(segs) = roads::biarc(pa, ha, pb, hb) {
+        log::warn!("junction biarc lead retries failed {:?} -> {:?}; attempts: {}; using original biarc",
+            pa, pb, attempts.join("; "));
+        return segs;
+    }
+    log::warn!("junction biarc lead retries and original biarc failed {:?} -> {:?}; attempts: {}; reason: roads::biarc returned None; using straight fallback",
+        pa, pb, attempts.join("; "));
+    roads::straight(pa, pb).map(|s| vec![s]).unwrap_or_default()
+}
+
 /// The ways through the junction.
-fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<PathRec> {
+fn paths(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+) -> Vec<PathRec> {
     let mut out = Vec::new();
     let c2 = centre.truncate();
     let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
@@ -236,8 +348,41 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
             for (a, b) in pairs {
                 let pa = a.pos.truncate() - c2;
                 let pb = b.pos.truncate() - c2;
-                let segs = roads::biarc(pa, a.flow, pb, b.flow).or_else(|| roads::straight(pa, pb).map(|s| vec![s]));
-                let Some(segs) = segs else { continue };
+                let turning = turn.abs() >= 30.0;
+                // The outer kerb is on the right for right-hand traffic, on the
+                // left for left-hand traffic. The paired outermost lane is
+                // already selected above by the existing blinker logic.
+                let outer = if left_hand_traffic { blinker == 2 } else { blinker == 3 };
+                // The mesh's corner runs from i.left to j.right: a right turn
+                // goes i -> j, and a left turn goes j -> i.
+                let corner = if !turning { None } else {
+                    kerb_corners.iter().find(|c| if blinker == 3 {
+                        c.i == i && c.j == j
+                    } else {
+                        c.i == j && c.j == i
+                    })
+                };
+                let (kerb_a, kerb_b) = if outer {
+                    kerb_lead.iter().find_map(|&(ki, kj, li, lj)| {
+                        if blinker == 3 && ki == i && kj == j { Some((li, lj)) }
+                        else if blinker == 2 && ki == j && kj == i { Some((lj, li)) }
+                        else { None }
+                    }).unwrap_or((0.0, 0.0))
+                } else { (0.0, 0.0) };
+                let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
+                let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
+                let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
+                if segs.is_empty() { continue; }
+                if let Some(c) = corner {
+                    let (distance, position) = path_kerb_clearance(&segs, c);
+                    let required = a.width.max(2.5) * 0.5 - 0.1;
+                    if distance < required {
+                        log::warn!(
+                            "junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
+                            pa, pb, distance, position, required
+                        );
+                    }
+                }
                 let total: f64 = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
                 let mut acc = 0.0;
                 for (n, s) in segs.into_iter().enumerate() {
@@ -259,7 +404,7 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
         l.map(|l| { let d = l.pos.truncate() - c2; d.y.atan2(d.x) }).unwrap_or(0.0)
     };
     order.sort_by(|a, b| angle(*a).total_cmp(&angle(*b)));
-    if arms >= 2 {
+    if corner_walks && arms >= 2 {
         for k in 0..arms {
             let (i, j) = (order[k], order[(k + 1) % arms]);
             if arms == 2 && k == 1 {
@@ -268,8 +413,18 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
             let walk_i: Vec<&LaneEnd> = lanes.iter().filter(|l| l.arm == i && l.kind == 1).collect();
             let walk_j: Vec<&LaneEnd> = lanes.iter().filter(|l| l.arm == j && l.kind == 1).collect();
             let mut best: Option<(f64, &LaneEnd, &LaneEnd)> = None;
-            for a in &walk_i {
-                for b in &walk_j {
+            // In counter-clockwise order, i's left side meets j's right side.
+            // If a zebra is present, select its actual sidewalk lanes.
+            let on_side = |l: &LaneEnd, left: bool| {
+                walk_joins.iter().find(|w| w.arm == l.arm && w.left == left)
+                    .map(|w| (l.pos - w.at_arm).length() < 0.01).unwrap_or(true)
+            };
+            let joined = |l: &LaneEnd| {
+                walk_joins.iter().find(|w| w.arm == l.arm && (l.pos - w.at_arm).length() < 0.01)
+                    .map(|w| w.at_crossing).unwrap_or(l.pos)
+            };
+            for a in walk_i.iter().filter(|l| on_side(l, true)) {
+                for b in walk_j.iter().filter(|l| on_side(l, false)) {
                     let d = (a.pos - b.pos).length();
                     if best.map(|x| d < x.0).unwrap_or(true) {
                         best = Some((d, a, b));
@@ -277,10 +432,11 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
                 }
             }
             if let Some((_, a, b)) = best {
-                let pa = a.pos.truncate() - c2;
-                let pb = b.pos.truncate() - c2;
+                let (a_pos, b_pos) = (joined(a), joined(b));
+                let pa = a_pos.truncate() - c2;
+                let pb = b_pos.truncate() - c2;
                 if let Some(s) = roads::straight(pa, pb) {
-                    out.push(PathRec { seg: s, z0: a.pos.z - centre.z, z1: b.pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None });
+                    out.push(PathRec { seg: s, z0: a_pos.z - centre.z, z1: b_pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None });
                 }
             }
         }
@@ -471,7 +627,7 @@ fn arm_geo_of(model: &SplineModel, mirrored: bool, at_end: bool, end: DVec3, out
         }
     };
     let side = |right: bool| -> Vec<SideProfile> {
-        profs
+        let mut profiles = profs
             .iter()
             .flat_map(|(t, pts)| side_pieces(pts, right).into_iter().map(move |pts| (*t, pts)))
             .map(|(t, pts)| {
@@ -481,7 +637,22 @@ fn arm_geo_of(model: &SplineModel, mirrored: bool, at_end: bool, end: DVec3, out
                 }
                 SideProfile { texture: model.materials.get(t).and_then(|m| m.texture.clone()), points }
             })
-            .collect()
+            .collect::<Vec<_>>();
+        // The .sli profile order may run outer-to-inner on the left, but the
+        // junction blends strips by index. Always match inner-to-outer strips.
+        profiles.sort_by(|a, b| {
+            let key = |p: &SideProfile| {
+                (
+                    p.points.first().unwrap().0,
+                    p.points.last().unwrap().0,
+                    p.points.iter().map(|q| q.1).fold(f64::INFINITY, f64::min),
+                )
+            };
+            let (a0, a1, az) = key(a);
+            let (b0, b1, bz) = key(b);
+            a0.total_cmp(&b0).then_with(|| a1.total_cmp(&b1)).then_with(|| az.total_cmp(&bz))
+        });
+        profiles
     };
     let (spline_right, spline_left) = (side(true), side(false));
     // (looking out along an arm whose end is at the junction, the spline's right is our left)
@@ -542,7 +713,7 @@ impl Mesh {
 /// of the roads, swept along a smooth curve from one arm's kerb line to the next's.
 /// `along`: the heading the roadway's texture runs (the widest road's), so its slabs and
 /// patches lie as the road's do, not slanted across it.
-fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, period: f64, along: f64) -> Mesh {
+fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, period: f64, along: f64) -> (Mesh, Vec<KerbCorner>) {
     let mut mesh = Mesh::default();
     let core = mesh.material(core_tex);
     let rel = |p: DVec3| p - centre;
@@ -551,6 +722,7 @@ fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, peri
     let ang = |i: usize| { let d = roads::dir(arms[i].out); d.y.atan2(d.x) };
     order.sort_by(|a, b| ang(*a).total_cmp(&ang(*b)));
     let mut outline: Vec<DVec3> = Vec::new();
+    let mut kerb_corners = Vec::new();
     for k in 0..order.len() {
         let a = &arms[order[k]];
         let b = &arms[order[(k + 1) % order.len()]];
@@ -563,6 +735,15 @@ fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, peri
         let to = b.end.truncate() + roads::right(b.out) * b.right_w;
         let segs = kerb_round(from, a.out, to, b.out);
         let total: f64 = segs.iter().map(|s| s.length).sum();
+        // Only terminal straight pieces of a genuinely rounded kerb are
+        // tangent leads; a straight-only kerb is not a lead-in.
+        let rounded = segs.iter().any(|s| s.radius != 0.0);
+        let lead_i = if rounded { segs.first().filter(|s| s.radius == 0.0).map(|s| s.length).unwrap_or(0.0) } else { 0.0 };
+        let lead_j = if rounded { segs.last().filter(|s| s.radius == 0.0).map(|s| s.length).unwrap_or(0.0) } else { 0.0 };
+        kerb_corners.push(KerbCorner {
+            i: order[k], j: order[(k + 1) % order.len()],
+            segments: segs.clone(), lead_i, lead_j,
+        });
         if total < 0.05 {
             continue;
         }
@@ -667,7 +848,7 @@ fn junction_mesh(arms: &[ArmGeo], centre: DVec3, core_tex: Option<PathBuf>, peri
         let p1 = rel(outline[(i + 1) % outline.len()]) + DVec3::Z * road_z;
         mesh.tri([mid, p0, p1], [uv(mid), uv(p0), uv(p1)], DVec3::Z, core);
     }
-    mesh
+    (mesh, kerb_corners)
 }
 
 /// The kerb round a corner: from `a` (on a kerb line running out along `out_a`) to `b` (on
@@ -982,6 +1163,22 @@ pub fn reach(doc: &Document, assets: &mut Assets, centre: DVec3, arms: &[Arm]) -
         .fold(0.0, f64::max)
 }
 
+/// Place the white stripe triangles at the supplied height, in the road frame.
+fn paint_zebra_stripes(mesh: &mut Mesh, zebras: &[(DVec2, f64, f64, f64)], z: f64, white: PathBuf) {
+    let mat = mesh.material(Some(white));
+    for (mid, out, lw, rw) in zebras {
+        let (d, r) = (roads::dir(*out), roads::right(*out));
+        let mut x = -lw + 0.25;
+        while x < rw - 0.25 {
+            let c = *mid + r * x;
+            let q = [c - r * 0.25 - d * 1.5, c + r * 0.25 - d * 1.5, c + r * 0.25 + d * 1.5, c - r * 0.25 + d * 1.5].map(|p| DVec3::new(p.x, p.y, z));
+            mesh.tri([q[0], q[1], q[2]], [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]], DVec3::Z, mat);
+            mesh.tri([q[0], q[2], q[3]], [[0.0, 0.0], [1.0, 1.0], [0.0, 1.0]], DVec3::Z, mat);
+            x += 1.0;
+        }
+    }
+}
+
 /// The same with lights and crossings as `opts` says.
 pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm], opts: &Options) -> anyhow::Result<i64> {
     let (_, lanes) = arm_ends(doc, assets, arms).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
@@ -1001,17 +1198,31 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
     for (n, i) in plate.order.iter().enumerate() {
         light_of[*i] = plate_lights[n];
     }
-    let mut recs = paths(&plate.lanes, DVec3::ZERO, &plate_lights);
-    // zebra crossings: a footway across each arm chosen, a step inside its end
+    // Project the two sidewalk lanes on each marked arm to its mid section.
+    let mut walk_joins = Vec::<WalkJoin>::new();
     let mut zebras: Vec<(DVec2, f64, f64, f64)> = Vec::new();
-    for g in plate.arms.iter().filter(|g| opts.crossing_at(g.out)) {
+    let mut crossing_arms = Vec::new();
+    for (i, g) in plate.arms.iter().enumerate().filter(|(_, g)| opts.crossing_at(g.out)) {
         let r = roads::right(g.out);
         let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
-        let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
-        if let Some(seg) = roads::straight(a, b) {
-            let z = g.end.z;
-            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None });
-            zebras.push((mid, g.out, g.left_w, g.right_w));
+        zebras.push((mid, g.out, g.left_w, g.right_w));
+        crossing_arms.push((i, mid));
+        for left in [true, false] {
+            let lane = plate.lanes.iter().filter(|l| l.arm == i && l.kind == 1)
+                .filter_map(|l| {
+                    let side = (l.pos.truncate() - g.end.truncate()).dot(r);
+                    if (left && side < -0.01) || (!left && side > 0.01) { Some((side.abs(), l)) } else { None }
+                })
+                .max_by(|a, b| a.0.total_cmp(&b.0))
+                .map(|(_, l)| l);
+            if let Some(lane) = lane {
+                let xy = lane.pos.truncate() + mid - g.end.truncate();
+                walk_joins.push(WalkJoin {
+                    arm: i, left, at_arm: lane.pos,
+                    at_crossing: DVec3::new(xy.x, xy.y, lane.pos.z),
+                    width: lane.width,
+                });
+            }
         }
     }
     let id = doc.new_id();
@@ -1036,27 +1247,53 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
         None => (asphalt.map(Path::to_path_buf), 8.0),
     };
     let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let mut mesh = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, period, along);
+    let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, period, along);
+    let kerb_lead = corner_leads(&kerb_corners);
+    let zebra_arms: Vec<bool> = plate.arms.iter().map(|g| opts.crossing_at(g.out)).collect();
+    let mut recs = paths(
+        &plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
+        &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
+    );
+    // Maintain the asphalt height across the roadway, and join it to raised
+    // sidewalks with short graded paths at either end.
+    for (i, mid) in crossing_arms {
+        let g = &plate.arms[i];
+        let r = roads::right(g.out);
+        let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
+        let z = g.end.z + g.road_z;
+        if let Some(seg) = roads::straight(a, b) {
+            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None });
+            for (left, edge) in [(true, a), (false, b)] {
+                if let Some(join) = walk_joins.iter().find(|w| w.arm == i && w.left == left) {
+                    if let Some(seg) = roads::straight(edge, join.at_crossing.truncate()) {
+                        recs.push(PathRec {
+                            seg, z0: z, z1: join.at_crossing.z, kind: 1,
+                            width: join.width, direction: 2, blinker: 0, light: None,
+                        });
+                    }
+                    // The corner path starts at at_crossing; this additional
+                    // two-metre stub links it back to the road's original
+                    // sidewalk lane at the spline end, even when corners are off.
+                    if let Some(seg) = roads::straight(join.at_arm.truncate(), join.at_crossing.truncate()) {
+                        recs.push(PathRec {
+                            seg, z0: join.at_arm.z, z1: join.at_crossing.z,
+                            kind: 1, width: join.width, direction: 2,
+                            blinker: 0, light: None,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
     if !zebras.is_empty() {
         let white = tex_dir.join("om_zebra_white.png");
         if !white.exists() {
             let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
         }
-        let mat = mesh.material(Some(white));
-        let z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / plate.arms.len().max(1) as f64 + 0.03;
-        for (mid, out, lw, rw) in &zebras {
-            let (d, r) = (roads::dir(*out), roads::right(*out));
-            // stripes 0.5 m wide, a metre apart, 3 m along the road
-            let mut x = -lw + 0.25;
-            while x < rw - 0.25 {
-                let c = *mid + r * x;
-                let q = [c - r * 0.25 - d * 1.5, c + r * 0.25 - d * 1.5, c + r * 0.25 + d * 1.5, c - r * 0.25 + d * 1.5].map(|p| DVec3::new(p.x, p.y, z));
-                let uv = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0]];
-                mesh.tri([q[0], q[1], q[2]], uv, DVec3::Z, mat);
-                mesh.tri([q[0], q[2], q[3]], [[0.0, 0.0], [1.0, 1.0], [0.0, 1.0]], DVec3::Z, mat);
-                x += 1.0;
-            }
-        }
+        let mean_end_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / plate.arms.len().max(1) as f64;
+        let mean_road_z = plate.arms.iter().map(|g| g.road_z).sum::<f64>() / plate.arms.len().max(1) as f64;
+        paint_zebra_stripes(&mut mesh, &zebras, mean_end_z + mean_road_z + 0.03, white);
     }
     // every texture beside the object
     let mut names = Vec::new();
@@ -1203,7 +1440,8 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
     let centre = DVec3::new(mid.x, mid.y, 0.0);
-    let recs = paths(&lanes, centre, &vec![None; arms.len()]);
+    // The complex plate editor has no automatic zebra crossings.
+    // Build the kerbs first, and reuse their exact tangent lengths for AI paths.
     let widest = geo.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
     let (core_tex, period) = match (widest.and_then(|g| g.road_tex.clone()), tex_dir) {
         (Some((tex, u, range, period, width, lane)), Some(dir)) => {
@@ -1214,7 +1452,10 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
         _ => (None, 8.0),
     };
     let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let mut mesh = junction_mesh(&geo, centre, core_tex, period.max(1.0), along);
+    let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, period.max(1.0), along);
+    let kerb_lead = corner_leads(&kerb_corners);
+    let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true,
+        &kerb_lead, &vec![false; arms.len()], &kerb_corners, false);
     for v in &mut mesh.verts {
         v.0[0] += mid.x;
         v.0[1] += mid.y;
@@ -1394,19 +1635,25 @@ pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
 mod tests {
     #[test]
     fn options_are_read_back_from_the_line_written() {
-        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5] };
+        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], corner_walks: false };
         let text = format!("{}\r\n\r\n[friendlyname]\r\nJunction 1\r\n", o.line());
         let back = Options::parse(&text);
+        assert_eq!(back, o, "all junction options must round-trip through .sco");
         assert_eq!(back.lights, true);
         assert_eq!((back.main_green, back.side_green), (42.0, 17.0));
         assert!(back.crossing_at(91.0) && back.crossing_at(270.0) && !back.crossing_at(0.0));
+        assert!(!Options::parse(&text).corner_walks);
+        let legacy = "openMapper junction: lights=1 main=42 side=17 crossings=90.0,270.5 helpers=omsi";
+        assert!(Options::parse(legacy).corner_walks, "old .sco without walks= must retain corner paths");
         assert_eq!(Options::parse("[friendlyname]\nx"), Options::default());
+        println!("OPTIONS ROUND TRIP: {} => {:?}", o.line(), back);
+        println!("LEGACY: {legacy} => corner_walks={}", Options::parse(legacy).corner_walks);
     }
 
     #[test]
     fn the_main_road_is_the_pair_most_in_line_and_its_light_comes_first() {
         assert_eq!(main_road(&[0.5, 90.0, 270.0]), (1, 2));
-        let p = light_program(&Options { lights: true, main_green: 30.0, side_green: 20.0, crossings: vec![] });
+        let p = light_program(&Options { lights: true, main_green: 30.0, side_green: 20.0, crossings: vec![], ..Default::default() });
         // a cycle of both greens, their yellows, red-yellows and all-red times
         assert!(p.starts_with("[traffic_lights_group]\n64\n"), "{p}");
         assert_eq!(p.matches("[traffic_light]").count(), 2);
@@ -1668,6 +1915,155 @@ mod tests {
         let _ = std::fs::remove_dir_all(&content);
     }
 
+    /// Synthetic .sli sections in their real file order: left side outer-to-inner,
+    /// road surface, then right side inner-to-outer. Texture slot 3 is the kerb,
+    /// slot 2 the footway, and slot 0 the road surface.
+    fn profile_order_road(bus_bay: bool) -> SplineModel {
+        let mut profiles = Vec::new();
+        let mut add = |texture: usize, coords: &[(f32, f32)]| {
+            profiles.push(omsi_scenery::SplineProfile {
+                texture,
+                points: coords.iter().map(|&(x, z)| omsi_scenery::SplineProfilePoint {
+                    x, z, u: x * 0.1, v_scale: 0.2, ..Default::default()
+                }).collect(),
+            });
+        };
+        let (kerb, edge, outer, walk) = if bus_bay { (5.5, 5.65, 9.5, 7.5) } else { (3.5, 3.65, 7.5, 5.5) };
+        add(2, &[(-7.5, 0.25), (-3.65, 0.25)]);
+        add(3, &[(-3.65, 0.25), (-3.5, 0.25)]);
+        add(3, &[(-3.5, 0.25), (-3.5, 0.1)]);
+        add(0, &[(-3.5, 0.1), (0.0, 0.1)]);
+        add(0, &[(0.0, 0.1), (3.5, 0.1)]);
+        if bus_bay {
+            add(0, &[(3.5, 0.1), (5.5, 0.1)]);
+        }
+        add(3, &[(kerb, 0.1), (kerb, 0.25)]);
+        add(3, &[(kerb, 0.25), (edge, 0.25)]);
+        add(2, &[(edge, 0.25), (outer, 0.25)]);
+        let mut paths = Vec::new();
+        let mut path = |kind: i32, x: f32, width: f32, direction: i32| {
+            paths.push(omsi_scenery::PathDef {
+                kind, start: [x, 0.0, 0.0], width, direction, ..Default::default()
+            });
+        };
+        path(1, -5.5, 1.5, 2);
+        path(0, -1.75, 2.5, if bus_bay { 1 } else { 0 });
+        path(0, 1.75, 2.5, if bus_bay { 1 } else { 0 });
+        if bus_bay {
+            path(0, 4.5, 1.8, 1);
+        }
+        path(1, walk, 1.5, 2);
+        let material = |name: &str| crate::assets::Material {
+            texture: Some(PathBuf::from(name)),
+            color: [1.0; 4],
+            alpha: crate::assets::Alpha::Opaque,
+            glow: None,
+        };
+        SplineModel {
+            def: omsi_scenery::Spline { profiles, paths, ..Default::default() },
+            materials: vec![
+                material("road.bmp"), material("unused.bmp"),
+                material("str_side2.bmp"), material("str_side1.bmp"),
+            ],
+            half_width: outer,
+        }
+    }
+
+    fn profile_order_log(side: &[SideProfile]) -> Vec<(String, f64, f64)> {
+        side.iter().map(|p| (
+            p.texture.as_ref().and_then(|t| t.file_name()).unwrap().to_string_lossy().into_owned(),
+            p.points.first().unwrap().0, p.points.last().unwrap().0,
+        )).collect()
+    }
+
+    /// Width of one texture's triangles at a given arm's actual road interface:
+    /// only vertices at that interface, on the specified outward side of the kerb.
+    fn profile_order_width(mesh: &Mesh, arm: &ArmGeo, right: bool, texture: &str) -> Option<f64> {
+        let axis = roads::dir(arm.out);
+        let lateral = roads::right(arm.out);
+        let sign = if right { 1.0 } else { -1.0 };
+        let kerb = arm.end.truncate() + lateral * if right { arm.right_w } else { -arm.left_w };
+        let mut values = Vec::new();
+        for (tri, mat) in &mesh.tris {
+            if mesh.textures[*mat].as_ref().and_then(|p| p.file_name()).and_then(|n| n.to_str()) != Some(texture) {
+                continue;
+            }
+            for idx in tri {
+                let v = mesh.verts[*idx].0;
+                let delta = DVec2::new(v[0], v[1]) - kerb;
+                let d = delta.dot(lateral) * sign;
+                if delta.dot(axis).abs() < 1e-4 && (-1e-4..=5.0).contains(&d) {
+                    values.push(d);
+                }
+            }
+        }
+        if values.is_empty() {
+            None
+        } else {
+            Some(values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                - values.iter().copied().fold(f64::INFINITY, f64::min))
+        }
+    }
+
+    #[test]
+    fn two_arm_profile_strips_match_by_kerb_distance_in_both_directions() {
+        let a = profile_order_road(false);
+        let b = profile_order_road(true);
+        let roots = crate::doc::tests::scratch("junction-profile-order");
+        let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+        assets.splines.insert("splines\\profile-a.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(profile_order_road(false))));
+        assets.splines.insert("splines\\profile-b.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(profile_order_road(true))));
+        let names = |s: &[SideProfile]| -> Vec<String> {
+            s.iter().map(|p| p.texture.as_ref().unwrap().file_name().unwrap().to_string_lossy().into_owned()).collect()
+        };
+        let expected = vec!["str_side1.bmp", "str_side1.bmp", "str_side2.bmp"];
+        for b_at_end in [false, true] {
+            let case = if b_at_end { "A end -> B end (B reversed)" } else { "A end -> B start (same spline direction)" };
+            let g_a = arm_geo_of(&a, false, true, DVec3::new(0.0, -10.0, 0.0), 180.0, 0.0);
+            let g_b = arm_geo_of(&b, false, b_at_end, DVec3::new(0.0, 10.0, 0.0), 0.0, 0.0);
+            let corrected = [g_a, g_b];
+            for side in [&corrected[0].left, &corrected[0].right] {
+                assert_eq!(names(side), expected);
+            }
+            let mut original = corrected.clone();
+            // The left-hand .sli profiles were written outer-to-inner; their
+            // pre-fix side() order is exactly the reverse of the sorted strips.
+            for (g, at_end) in original.iter_mut().zip([true, b_at_end]) {
+                if at_end { g.right.reverse(); } else { g.left.reverse(); }
+            }
+            for (i, (old, new)) in original.iter().zip(corrected.iter()).enumerate() {
+                for (label, before, after) in [("left", &old.left, &new.left), ("right", &old.right, &new.right)] {
+                    println!("{case}, arm {i} {label} BEFORE (texture,inner,outer) = {:?}", profile_order_log(before));
+                    println!("{case}, arm {i} {label} AFTER  (texture,inner,outer) = {:?}", profile_order_log(after));
+                }
+            }
+            let arms = [
+                PlateArm { file: "splines\\profile-a.sli".into(), pos: DVec2::new(0.0, -10.0), out: 180.0, at_end: true },
+                PlateArm { file: "splines\\profile-b.sli".into(), pos: DVec2::new(0.0, 10.0), out: 0.0, at_end: b_at_end },
+            ];
+            let plate = layout_plate(&mut assets, &arms, None, None).expect("both arms produce a plate");
+            assert!(!plate.mesh.tris.is_empty(), "{case}: plate has triangles");
+            let previous = junction_mesh(&original, DVec3::ZERO, None, 8.0, 0.0).0;
+            let mut old_wedge = false;
+            for (i, arm) in corrected.iter().enumerate() {
+                for (label, right) in [("left", false), ("right", true)] {
+                    let old_kerb = profile_order_width(&previous, arm, right, "str_side1.bmp");
+                    let old_walk = profile_order_width(&previous, arm, right, "str_side2.bmp");
+                    let kerb = profile_order_width(&plate.mesh, arm, right, "str_side1.bmp").expect("kerb triangles reach the interface");
+                    let walk = profile_order_width(&plate.mesh, arm, right, "str_side2.bmp").expect("footway triangles reach the interface");
+                    println!("{case}, arm {i} {label} interface: BEFORE side1={old_kerb:?} side2={old_walk:?}; AFTER side1={kerb:.3}m side2={walk:.3}m");
+                    old_wedge |= old_kerb.is_some_and(|v| v > 0.2)
+                        || old_walk.is_some_and(|v| (v - 3.85).abs() > 0.05);
+                    assert!(kerb <= 0.2, "{case} arm {i} {label}: kerb width {kerb}");
+                    assert!((walk - 3.85).abs() <= 0.05, "{case} arm {i} {label}: footway width {walk}");
+                }
+            }
+            if b_at_end {
+                assert!(old_wedge, "reversed B should reproduce the original material wedge");
+            }
+        }
+    }
+
     #[test]
     fn a_junction_mesh_reads_back_through_openomsi() {
         let arm = |end: DVec3, out: f64| ArmGeo {
@@ -1683,7 +2079,7 @@ mod tests {
             road_z: 0.0,
         };
         let arms = vec![arm(DVec3::new(10.0, 0.0, 0.0), 90.0), arm(DVec3::new(-10.0, 0.0, 0.0), 270.0), arm(DVec3::new(0.0, 10.0, 0.0), 0.0)];
-        let mesh = junction_mesh(&arms, DVec3::ZERO, None, 8.0, 0.0);
+        let mesh = junction_mesh(&arms, DVec3::ZERO, None, 8.0, 0.0).0;
         assert!(mesh.tris.len() > 20);
         // every roadway triangle faces up
         for (f, mat) in &mesh.tris {
@@ -1700,4 +2096,606 @@ mod tests {
         assert_eq!(m.triangles.len(), mesh.tris.len() * 2);
         let _ = std::fs::remove_dir_all(&dir);
     }
+    /// Read vertex heights for one texture from the *written* DirectX .x,
+    /// respecting MeshMaterialList rather than assuming a vertex belongs to asphalt.
+    fn x_texture_heights(x: &str, texture: &str) -> Vec<f64> {
+        let mut lines = x.lines().skip_while(|l| l.trim() != "Mesh {");
+        assert_eq!(lines.next().map(str::trim), Some("Mesh {"));
+        let nverts: usize = lines.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        let heights: Vec<f64> = (0..nverts).map(|_| {
+            lines.next().unwrap().trim().split(';').nth(1).unwrap().parse().unwrap()
+        }).collect();
+        let nfaces: usize = lines.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        let faces: Vec<Vec<usize>> = (0..nfaces).map(|_| {
+            let line = lines.next().unwrap().trim();
+            line.strip_prefix("3;").unwrap().split(';').next().unwrap()
+                .split(',').map(|v| v.parse::<usize>().unwrap()).collect()
+        }).collect();
+
+        let mut mats = x.lines().skip_while(|l| l.trim() != "MeshMaterialList {");
+        assert_eq!(mats.next().map(str::trim), Some("MeshMaterialList {"));
+        let _nmaterials: usize = mats.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        let material_faces: usize = mats.next().unwrap().trim().trim_end_matches(';').parse().unwrap();
+        assert_eq!(material_faces, nfaces);
+        let face_mats: Vec<usize> = (0..nfaces).map(|_| {
+            mats.next().unwrap().trim().trim_end_matches(|c: char| c == ',' || c == ';').parse().unwrap()
+        }).collect();
+        let mat = x.split("  Material {").skip(1)
+            .position(|m| m.split("\n  }").next().unwrap().contains(&format!("\"{texture}\"")))
+            .expect("texture has a Material in the written .x");
+        faces.iter().zip(face_mats).filter(|(_, m)| *m == mat)
+            .flat_map(|(face, _)| face.iter().map(|i| heights[*i])).collect()
+    }
+
+    #[derive(Clone)]
+    struct WrittenPath {
+        a: DVec3,
+        b: DVec3,
+        kind: i32,
+        width: f64,
+    }
+
+    fn written_paths(sco: &str) -> Vec<WrittenPath> {
+        let normalized = sco.replace("\r\n", "\n");
+        normalized.split("[path]\n").skip(1).map(|section| {
+            let vals: Vec<&str> = section.lines().take(12).collect();
+            assert_eq!(vals.len(), 12);
+            let n = |i: usize| vals[i].parse::<f64>().unwrap();
+            let seg = Seg { start: DVec2::new(n(0), n(1)), heading: n(3), radius: n(4), length: n(5) };
+            let end = seg.end();
+            WrittenPath {
+                a: DVec3::new(n(0), n(1), n(2)),
+                b: DVec3::new(end.x, end.y, n(2) + n(6) * seg.length),
+                kind: vals[8].parse().unwrap(),
+                width: n(9),
+            }
+        }).collect()
+    }
+
+    /// Identify a crossing by its real geometry, not its width: the path begins
+    /// on the zebra's mid-plane and runs across (perpendicular to) that arm.
+    fn roadway_crossing_paths(paths: &[WrittenPath], arms: &[ArmGeo]) -> Vec<(usize, usize)> {
+        paths.iter().enumerate().filter_map(|(pi, p)| {
+            if p.kind != 1 { return None }
+            let delta = p.b.truncate() - p.a.truncate();
+            if delta.length() < 0.01 { return None }
+            arms.iter().enumerate().find(|(_, g)| {
+                let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+                let d = roads::dir(g.out);
+                let cross = (g.left_w + g.right_w + 1.0).max(1.0);
+                (p.a.truncate() - mid).dot(d).abs() < 0.05
+                    && (p.b.truncate() - mid).dot(d).abs() < 0.05
+                    && (delta.normalize().dot(d)).abs() < 0.01
+                    && (delta.length() - cross).abs() < 0.05
+            }).map(|(arm, _)| (pi, arm))
+        }).collect()
+    }
+
+    fn record_paths(recs: &[PathRec]) -> String {
+        let mut body = String::new();
+        for p in recs {
+            let s = &p.seg;
+            let grad = if s.length > 0.01 { (p.z1 - p.z0) / s.length } else { 0.0 };
+            let _ = write!(body, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n",
+                num(s.start.x), num(s.start.y), num(p.z0), num(s.heading), num(s.radius),
+                num(s.length), num(grad), num(grad), p.kind, num(p.width), p.direction, p.blinker);
+        }
+        body
+    }
+
+    fn zebra_road_with_raised_sidewalks() -> SplineModel {
+        let mut road = test_road();
+        let point = |x: f32, z: f32| omsi_scenery::SplineProfilePoint {
+            x, z, ..Default::default()
+        };
+        road.def.profiles = vec![
+            omsi_scenery::SplineProfile {
+                texture: 0, points: vec![point(-4.0, 0.20), point(4.0, 0.20)],
+            },
+            omsi_scenery::SplineProfile {
+                texture: 0, points: vec![point(-6.5, 0.35), point(-5.5, 0.35), point(-4.0, 0.20)],
+            },
+            omsi_scenery::SplineProfile {
+                texture: 0, points: vec![point(4.0, 0.20), point(5.5, 0.35), point(6.5, 0.35)],
+            },
+        ];
+        for lane in &mut road.def.paths {
+            lane.start[2] = 0.20;
+        }
+        for x in [-5.5_f32, 5.5] {
+            road.def.paths.push(omsi_scenery::PathDef {
+                kind: 1, start: [x, 0.0, 0.35], width: 2.0, direction: 2,
+                ..Default::default()
+            });
+        }
+        road.half_width = 6.5;
+        road
+    }
+
+    /// Four equally high arms, all with raised footways and marked crossings.
+    /// Write both versions of the .x/.sco, print *all* [path] blocks and stripe
+    /// vertex heights, and assert the new geometry is connected and above asphalt.
+    #[test]
+    fn junction_zebra_crossings_join_sidewalks_and_clear_asphalt() {
+        let roots = crate::doc::tests::scratch("junction-zebra-regression");
+        let content = roots.content.clone();
+        std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
+        let mut doc = crate::selection::tests::flat_map(1);
+        doc.dir = content.join("maps").join("zebra-four");
+        let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+        assets.splines.insert("splines\\road.sli".into(),
+            crate::assets::Slot::Ready(std::sync::Arc::new(zebra_road_with_raised_sidewalks())));
+        let centre = DVec3::new(100.0, 100.0, 0.0);
+        let mut arms = Vec::new();
+        for (i, out) in [0.0_f64, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let pos = centre.truncate() + roads::dir(out) * 10.0;
+            let id = i as i64 + 100;
+            crate::selection::tests::add_spline(&mut doc, (0, 0), id, pos.x, pos.y, out, 20.0, 0, 0);
+            arms.push(Arm { key: (0, 0), id, at_end: false });
+        }
+        let opts = Options {
+            lights: false, main_green: 30.0, side_green: 20.0,
+            crossings: vec![0.0, 90.0, 180.0, 270.0],
+            ..Default::default()
+        };
+        let asphalt = content.join("om_test_asphalt.png");
+        image::RgbaImage::from_pixel(8, 8, image::Rgba([70, 70, 70, 255]))
+            .save(&asphalt).unwrap();
+
+        // Reconstruct the original make_with() output, preserving its original
+        // lane routing and old z formula. This is the before-fix reference.
+        let (_, lanes) = arm_ends(&doc, &mut assets, &arms).unwrap();
+        let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
+        let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
+        let plate = plate_frame(&geo, &files, &lanes, centre, true);
+        let mut before_recs = paths(&plate.lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[], &[], false);
+        let mut zebras = Vec::new();
+        for g in &plate.arms {
+            let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+            let r = roads::right(g.out);
+            let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
+            let seg = roads::straight(a, b).unwrap();
+            before_recs.push(PathRec {
+                seg, z0: g.end.z, z1: g.end.z, kind: 1,
+                width: 3.0, direction: 2, blinker: 0, light: None,
+            });
+            zebras.push((mid, g.out, g.left_w, g.right_w));
+        }
+        assert_eq!(zebras.len(), 4);
+        let before_sco = format!("[friendlyname]\nBefore fix\n\n[mesh]\nbefore.x\n\n{}", record_paths(&before_recs));
+        let mut before_mesh = junction_mesh(&plate.arms, DVec3::ZERO, Some(asphalt.clone()), 8.0, 0.0).0;
+        let old_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / 4.0 + 0.03;
+        paint_zebra_stripes(&mut before_mesh, &zebras, old_z, content.join("om_zebra_white.png"));
+        let before_names: Vec<String> = before_mesh.textures.iter()
+            .map(|t| t.as_ref().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+            .collect();
+        let before_x = mesh_x(&before_mesh, &before_names);
+
+        // Exercise production make_with(), and read the actual written files.
+        let id = make_with(&mut doc, &mut assets, &content, Some(&asphalt), centre, &arms, &opts).unwrap();
+        let obj = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+        let sco_path = omsi_cfg::resolve_path(&content, &obj.file);
+        let after_sco = omsi_cfg::decode_text(&std::fs::read(&sco_path).unwrap());
+        let after_x = std::fs::read_to_string(sco_path.parent().unwrap().join("model").join(format!(
+            "{}.x", sco_path.file_stem().unwrap().to_string_lossy()
+        ))).unwrap();
+
+        let before_z = x_texture_heights(&before_x, "om_zebra_white.png");
+        let before_road = x_texture_heights(&before_x, "om_test_asphalt.png");
+        let after_z = x_texture_heights(&after_x, "om_zebra_white.png");
+        let after_road = x_texture_heights(&after_x, "om_test_asphalt.png");
+        assert!(!before_z.is_empty() && !before_road.is_empty());
+        assert_eq!(before_z.len(), after_z.len());
+        println!("===== BEFORE .sco ALL [path] BLOCKS =====\n{}", &before_sco[before_sco.find("[path]").unwrap()..]);
+        println!("===== BEFORE .x ZEBRA VERTEX HEIGHTS ({}) =====\n{:?}", before_z.len(), before_z);
+        println!("===== AFTER .sco ALL [path] BLOCKS =====\n{}", { let normalized = after_sco.replace("\r\n", "\n"); normalized[normalized.find("[path]").unwrap()..].to_string() });
+        println!("===== AFTER .x ZEBRA VERTEX HEIGHTS ({}) =====\n{:?}", after_z.len(), after_z);
+        println!("===== ASPHALT VERTEX HEIGHTS BEFORE / AFTER =====\n{:?}\n{:?}", before_road, after_road);
+
+        // Old stripes are buried inside elevated asphalt; new stripes must
+        // clear every vertex belonging to the asphalt material.
+        assert!(before_z.iter().any(|z| before_road.iter().any(|r| z <= r)));
+        assert!(after_z.iter().all(|z| after_road.iter().all(|r| z > r)),
+            "zebra {:?} must clear asphalt {:?}", after_z, after_road);
+        let before_paths = written_paths(&before_sco);
+        let after_paths = written_paths(&after_sco);
+        let marked = roadway_crossing_paths(&after_paths, &plate.arms);
+        assert_eq!(marked.len(), 4, "one geometrically identified roadway crossing per arm");
+        let connected = |paths: &[WrittenPath], i: usize, at: DVec3| {
+            paths.iter().enumerate().any(|(j, q)| j != i && q.kind == 1 &&
+                [q.a, q.b].iter().any(|p| (p.truncate() - at.truncate()).length() < 0.05 && (p.z - at.z).abs() < 0.05))
+        };
+        // Assert both ends of every roadway / connector path, not only its midpoint.
+        for (i, _) in &marked {
+            let path = &after_paths[*i];
+            for endpoint in [path.a, path.b] {
+                assert!(connected(&after_paths, *i, endpoint),
+                    "crossing path #{i} endpoint {endpoint:?} has no coincident footway endpoint");
+            }
+        }
+        // Each raised sidewalk ramp must connect to a two-metre stub, regardless
+        // of its lane width. Corner walks remain optional.
+        let ramps: Vec<_> = after_paths.iter().enumerate()
+            .filter(|(_, p)| p.kind == 1 && (p.a.z - p.b.z).abs() > 0.05).collect();
+        assert_eq!(ramps.len(), 8, "two ramps on each of four crossings");
+        for (i, p) in ramps {
+            let top = if p.a.z > p.b.z { p.a } else { p.b };
+            assert!(connected(&after_paths, i, top), "ramp top {top:?} must meet a sidewalk stub");
+        }
+        let old_cross = roadway_crossing_paths(&before_paths, &plate.arms);
+        println!("===== BEFORE / AFTER COMPARISON =====");
+        println!("all [path] blocks: {} -> {}", before_paths.len(), after_paths.len());
+        println!("roadway crossings: {} -> {}; kind=1 paths (including stubs): {} -> {}",
+            old_cross.len(), marked.len(),
+            before_paths.iter().filter(|p| p.kind == 1).count(),
+            after_paths.iter().filter(|p| p.kind == 1).count());
+        println!("asphalt z: {:.4} m; zebra z: {:.4} -> {:.4} m",
+            after_road[0], before_z[0], after_z[0]);
+        assert_eq!(old_cross.len(), 4);
+        assert!(old_cross.iter().any(|(i, _)| !connected(&before_paths, *i, before_paths[*i].a)));
+
+        for g in &plate.arms {
+            let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+            for lane in plate.lanes.iter().filter(|l| l.kind == 1) {
+                let is_arm = (lane.pos.truncate() - g.end.truncate()).length() < 10.0
+                    && (lane.pos.truncate() - g.end.truncate()).dot(roads::dir(g.out)).abs() < 0.05;
+                if is_arm {
+                    let crossing = lane.pos.truncate() + mid - g.end.truncate();
+                    println!("at_arm={:?}; at_crossing={:?}",
+                        lane.pos, DVec3::new(crossing.x, crossing.y, lane.pos.z));
+                }
+            }
+        }
+
+        // Keep both generated artifacts for byte-for-byte comparison in CI.
+        let artifacts = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/junction-zebra-regression");
+        std::fs::create_dir_all(&artifacts).unwrap();
+        for (name, bytes) in [
+            ("before.sco", before_sco.as_bytes()), ("before.x", before_x.as_bytes()),
+            ("after.sco", after_sco.as_bytes()), ("after.x", after_x.as_bytes()),
+        ] {
+            std::fs::write(artifacts.join(name), bytes).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&content);
+    }
+
+    /// The old road_styles.json schema must continue generating corner paths.
+    #[test]
+    fn old_road_style_json_keeps_corner_walks_enabled() {
+        let legacy = r#"{"splines\\a.sli":{"corner":2.0,"lights":true,"crossings":false,"junctions":true}}"#;
+        let styles: std::collections::HashMap<String, crate::road_maker::JunctionStyle> =
+            serde_json::from_str(legacy).unwrap();
+        assert!(styles["splines\\a.sli"].corner_walks);
+        println!("LEGACY road_styles.json: {legacy} => corner_walks={}",
+            styles["splines\\a.sli"].corner_walks);
+    }
+
+    /// End-to-end test of both switch positions. Re-read actual .sco path records.
+    /// For every sidewalk lane at the arm, verify the 2 m stub, followed by a
+    /// ramp, and then a full-width roadway crossing. Corners are never needed
+    /// for that chain.
+    #[test]
+    fn four_arm_crossings_connect_road_footways_with_corners_on_and_off() {
+        for corner_walks in [true, false] {
+            let roots = crate::doc::tests::scratch(if corner_walks { "junction-stub-on" } else { "junction-stub-off" });
+            let content = roots.content.clone();
+            std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
+            let mut doc = crate::selection::tests::flat_map(1);
+            doc.dir = content.join("maps").join(if corner_walks { "corners-on" } else { "corners-off" });
+            let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+            assets.splines.insert("splines\\road.sli".into(),
+                crate::assets::Slot::Ready(std::sync::Arc::new(zebra_road_with_raised_sidewalks())));
+            let centre = DVec3::new(100.0, 100.0, 0.0);
+            let mut arms = Vec::new();
+            for (i, out) in [0.0_f64, 90.0, 180.0, 270.0].into_iter().enumerate() {
+                let pos = centre.truncate() + roads::dir(out) * 10.0;
+                let id = 200 + i as i64;
+                crate::selection::tests::add_spline(&mut doc, (0, 0), id,
+                    pos.x, pos.y, out, 20.0, 0, 0);
+                arms.push(Arm { key: (0, 0), id, at_end: false });
+            }
+            let opts = Options {
+                crossings: vec![0.0, 90.0, 180.0, 270.0],
+                corner_walks, ..Default::default()
+            };
+            let (_, lanes) = arm_ends(&doc, &mut assets, &arms).unwrap();
+            let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
+            let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
+            let plate = plate_frame(&geo, &files, &lanes, centre, true);
+            let id = make_with(&mut doc, &mut assets, &content, None, centre, &arms, &opts).unwrap();
+            let obj = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let sco_path = omsi_cfg::resolve_path(&content, &obj.file);
+            let sco = omsi_cfg::decode_text(&std::fs::read(sco_path).unwrap());
+            let paths = written_paths(&sco);
+            assert_eq!(Options::parse(&sco).corner_walks, corner_walks);
+            println!("===== corner_walks={corner_walks} .sco FULL [path] BLOCKS =====");
+            println!("{}", &sco[sco.find("[path]").unwrap()..]);
+
+            let marked = roadway_crossing_paths(&paths, &plate.arms);
+            assert_eq!(marked.len(), 4);
+            let mut joins = 0;
+            let mut printed_arms = std::collections::HashSet::<(i32, i32, i32)>::new();
+            for (i, g) in plate.arms.iter().enumerate() {
+                let r = roads::right(g.out);
+                let mid = g.end.truncate() - roads::dir(g.out) * 2.0;
+                for left in [true, false] {
+                    let l = plate.lanes.iter().filter(|l| l.arm == i && l.kind == 1)
+                        .filter_map(|l| {
+                            let side = (l.pos.truncate() - g.end.truncate()).dot(r);
+                            if (left && side < -0.01) || (!left && side > 0.01) {
+                                Some((side.abs(), l))
+                            } else {
+                                None
+                            }
+                        })
+                        .max_by(|a, b| a.0.total_cmp(&b.0)).map(|(_, l)| l).unwrap();
+                    let at_arm = l.pos;
+                    let xy = at_arm.truncate() + mid - g.end.truncate();
+                    let at_crossing = DVec3::new(xy.x, xy.y, at_arm.z);
+                    println!("corner_walks={corner_walks} arm={i} left={left} at_arm={at_arm:?} at_crossing={at_crossing:?}");
+                    assert!(printed_arms.insert(((at_arm.x * 100.0).round() as i32,
+                        (at_arm.y * 100.0).round() as i32, (at_arm.z * 100.0).round() as i32)),
+                        "each sidewalk lane end should be distinct");
+                    // At the road end, a path endpoint must coincide horizontally
+                    // within 5 cm and vertically within 5 cm.
+                    let close = |a: DVec3, b: DVec3| {
+                        (a.truncate() - b.truncate()).length() < 0.05 && (a.z - b.z).abs() < 0.05
+                    };
+                    let stub = paths.iter().find(|p| p.kind == 1
+                        && close(p.a, at_arm) && close(p.b, at_crossing)
+                        && (p.width - l.width).abs() < 0.001).unwrap_or_else(|| {
+                            panic!("missing 2 m stub: {at_arm:?} -> {at_crossing:?}, width {}", l.width)
+                        });
+                    assert!(((stub.b - stub.a).length() - 2.0).abs() < 0.05);
+                    assert!(paths.iter().any(|p| p.kind == 1
+                        && [p.a, p.b].iter().any(|x| close(*x, at_crossing))
+                        && (p.a.z - p.b.z).abs() > 0.05
+                        && (p.width - l.width).abs() < 0.001),
+                        "stub must connect directly to a graded crossing ramp");
+                    joins += 1;
+                }
+            }
+            assert_eq!(joins, 8);
+            for (index, _) in &marked {
+                let crossing = &paths[*index];
+                for end in [crossing.a, crossing.b] {
+                    assert!(paths.iter().enumerate().any(|(k, p)| k != *index
+                        && p.kind == 1 && [p.a, p.b].iter().any(|e| {
+                            (end.truncate() - e.truncate()).length() < 0.05
+                                && (end.z - e.z).abs() < 0.05
+                        })), "roadway crossing disconnected at {end:?}");
+                }
+            }
+            // Map a path endpoint to the nearest arm's crossing plane.
+            // Only the corner paths join endpoints assigned to different arms.
+            let arm_of = |pt: DVec3| {
+                (0..4).min_by(|&a, &b| {
+                    let ma = plate.arms[a].end.truncate() - roads::dir(plate.arms[a].out) * 2.0;
+                    let mb = plate.arms[b].end.truncate() - roads::dir(plate.arms[b].out) * 2.0;
+                    (ma - pt.truncate()).length_squared().total_cmp(&(mb - pt.truncate()).length_squared())
+                }).unwrap()
+            };
+            let corner_count = paths.iter().filter(|p| p.kind == 1
+                && arm_of(p.a) != arm_of(p.b)).count();
+            assert_eq!(corner_count, if corner_walks { 4 } else { 0 },
+                "corner AI path count must follow corner_walks switch");
+            let total_walks = paths.iter().filter(|p| p.kind == 1).count();
+            assert_eq!(total_walks, if corner_walks { 24 } else { 20 },
+                "4 crossings + 8 ramps + 8 stubs + optional 4 corners");
+            println!("mode={corner_walks}: {total_walks} kind=1 paths, {corner_count} corner paths, 8 stubs, 4 crossings");
+            let _ = std::fs::remove_dir_all(&content);
+        }
+    }
+
+
+    // The northwest corner of the reported repro: north arm kerb x=-4.5,
+    // west arm kerb y=+13, north rightmost inbound lane x=-2,
+    // west rightmost outbound lane y=+11.625.
+    fn kerb_lead_fixture(symmetric: bool) -> (Vec<ArmGeo>, Vec<LaneEnd>) {
+        let mut geo = Vec::new();
+        let mut lanes = Vec::new();
+        for (i, out) in [0.0, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let wide = symmetric || i % 2 == 1;
+            let kerb = if wide { 13.0 } else { 4.5 };
+            let distance = if wide { 30.0 } else { 31.0 };
+            let d = roads::dir(out) * distance;
+            let end = DVec3::new(d.x, d.y, 0.0);
+            geo.push(ArmGeo {
+                end, out, left_w: kerb, right_w: kerb,
+                right: Vec::new(), left: Vec::new(), v0: 0.0, vdir: 1.0,
+                road_tex: None, road_z: 0.0,
+            });
+            let centres: &[f64] = if wide {
+                &[-11.625, -8.125, -5.25, 5.25, 8.125, 11.625]
+            } else {
+                &[-2.0, 2.0]
+            };
+            for &offset in centres {
+                let xy = end.truncate() + roads::right(out) * offset;
+                let pos = DVec3::new(xy.x, xy.y, end.z);
+                for (incoming, flow) in [(true, roads::norm_deg(out + 180.0)), (false, out)] {
+                    lanes.push(LaneEnd {
+                        arm: i, pos, flow, kind: 0, width: 2.5,
+                        // Right of the *incoming* heading = minus right(out).
+                        side: -offset, incoming,
+                    });
+                }
+            }
+        }
+        (geo, lanes)
+    }
+
+    fn trace_turn<'a>(paths: &'a [PathRec], pa: DVec2, pb: DVec2, blinker: i32) -> Vec<&'a PathRec> {
+        let mut current = pa;
+        let mut result = Vec::new();
+        let mut used = std::collections::HashSet::new();
+        for _ in 0..10 {
+            let (idx, rec) = paths.iter().enumerate().find(|(idx, rec)| {
+                rec.kind == 0 && rec.blinker == blinker && !used.contains(idx)
+                    && (rec.seg.start - current).length() < 0.02
+            }).unwrap_or_else(|| panic!("missing route segment at {current:?} toward {pb:?}, blink {blinker}"));
+            used.insert(idx);
+            current = rec.seg.end();
+            result.push(rec);
+            if (current - pb).length() < 0.03 { return result; }
+        }
+        panic!("turn did not arrive at {pb:?}, last {current:?}");
+    }
+
+    fn turn_blocks(route: &[&PathRec]) -> String {
+        let mut result = String::new();
+        for p in route {
+            let s = &p.seg;
+            let gradient = (p.z1 - p.z0) / s.length.max(0.01);
+            let _ = write!(result, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n",
+                num(s.start.x), num(s.start.y), num(p.z0),
+                num(s.heading), num(s.radius), num(s.length),
+                num(gradient), num(gradient), p.kind, num(p.width), p.direction, p.blinker);
+        }
+        result
+    }
+
+    fn chosen_turn(lanes: &[LaneEnd], i: usize, j: usize, right: bool) -> (LaneEnd, LaneEnd) {
+        let mut incoming: Vec<_> = lanes.iter().filter(|l| l.arm == i && l.incoming).collect();
+        let mut outgoing: Vec<_> = lanes.iter().filter(|l| l.arm == j && !l.incoming).collect();
+        incoming.sort_by(|a, b| b.side.total_cmp(&a.side));
+        outgoing.sort_by(|a, b| a.side.total_cmp(&b.side));
+        let pick = if right { 0 } else { incoming.len() - 1 };
+        let exit = if right { 0 } else { outgoing.len() - 1 };
+        (*incoming[pick], *outgoing[exit])
+    }
+
+    #[test]
+    fn unequal_kerbs_keep_outer_right_turns_clear_of_corner() {
+        let (geo, lanes) = kerb_lead_fixture(false);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let northwest = corners.iter().find(|c| c.i == 0 && c.j == 3).unwrap();
+        println!("NW kerb_round: {:?}", northwest.segments);
+        assert!((northwest.lead_i - 0.0).abs() < 0.05);
+        assert!((northwest.lead_j - 7.5).abs() < 0.05);
+
+        let before = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let after = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, false);
+        for i in 0..4 {
+            let j = (i + 3) % 4;
+            let (a, b) = chosen_turn(&lanes, i, j, true);
+            let (pa, pb) = (a.pos.truncate(), b.pos.truncate());
+            let c = corners.iter().find(|c| c.i == i && c.j == j).unwrap();
+            let old = trace_turn(&before, pa, pb, 3);
+            let new = trace_turn(&after, pa, pb, 3);
+            let old_segs: Vec<_> = old.iter().map(|r| r.seg).collect();
+            let new_segs: Vec<_> = new.iter().map(|r| r.seg).collect();
+            let (old_d, old_at) = path_kerb_clearance(&old_segs, c);
+            let (new_d, new_at) = path_kerb_clearance(&new_segs, c);
+            println!("===== RIGHT TURN {i} -> {j} BEFORE: min={old_d:.4} at {old_at:?} =====\n{}",
+                turn_blocks(&old));
+            println!("===== RIGHT TURN {i} -> {j} AFTER: min={new_d:.4} at {new_at:?} =====\n{}",
+                turn_blocks(&new));
+            assert!(new_d >= 1.25 - 1e-4,
+                "outer right turn {i}->{j}: {new_d:.4} m to kerb at {new_at:?}");
+            if i == 0 {
+                assert!(old_d < 1.25, "NW baseline should reproduce kerb clipping");
+                assert!(new_d > old_d, "NW tangent lead must improve clearance");
+            }
+        }
+
+        // For left-hand traffic the outermost left turn traverses the
+        // same rounded corner in the opposite direction.
+        let left = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, true);
+        let (a, b) = chosen_turn(&lanes, 3, 0, false);
+        let reversed = trace_turn(&left, a.pos.truncate(), b.pos.truncate(), 2);
+        let reversed_segs: Vec<_> = reversed.iter().map(|r| r.seg).collect();
+        let (clearance, _) = path_kerb_clearance(&reversed_segs, northwest);
+        println!("===== LEFT-HAND OUTER LEFT TURN 3 -> 0: min={clearance:.4} =====\n{}",
+            turn_blocks(&reversed));
+        assert!(clearance >= 1.25 - 1e-4);
+    }
+
+    #[test]
+    fn symmetric_kerbs_are_bit_identical_without_zebras() {
+        let (geo, lanes) = kerb_lead_fixture(true);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        assert!(leads.iter().all(|c| c.2.abs() < 1e-6 && c.3.abs() < 1e-6),
+            "equal arms need no kerb tangent lead: {leads:?}");
+        let old = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let new = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, false);
+        let before = record_paths(&old);
+        let after = record_paths(&new);
+        assert_eq!(after.as_bytes(), before.as_bytes(),
+            "symmetric four-arm .sco path records must be byte-for-byte identical");
+        println!("===== SYMMETRIC FOUR ARMS BEFORE [path] =====\n{before}");
+        println!("===== SYMMETRIC FOUR ARMS AFTER [path] =====\n{after}");
+
+        // Even on asymmetric roads, without zebra crossings a normal
+        // left turn (not an outer LHT turn) is completely unchanged.
+        let (geo, lanes) = kerb_lead_fixture(false);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let before = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let after = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[false; 4], &corners, false);
+        let only_left = |recs: &[PathRec]| record_paths(&recs.iter().filter(|p| p.kind == 0 && p.blinker == 2)
+            .map(|p| PathRec {
+                seg: p.seg, z0: p.z0, z1: p.z1, kind: p.kind,
+                width: p.width, direction: p.direction, blinker: p.blinker, light: p.light,
+            }).collect::<Vec<_>>());
+        assert_eq!(only_left(&before).as_bytes(), only_left(&after).as_bytes());
+        println!("===== ASYMMETRIC / NO ZEBRA LEFT TURNS BEFORE [path] =====\n{}", only_left(&before));
+        println!("===== ASYMMETRIC / NO ZEBRA LEFT TURNS AFTER [path] =====\n{}", only_left(&after));
+    }
+
+    #[test]
+    fn all_zebra_arms_keep_four_metres_straight_at_both_ends() {
+        let (geo, lanes) = kerb_lead_fixture(false);
+        let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let old = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &[], &[false; 4], &[], false);
+        let new = paths(&lanes, DVec3::ZERO, &[None; 4], &[], true,
+            &leads, &[true; 4], &corners, false);
+        for i in 0..4 {
+            for j in 0..4 {
+                if i == j || (i + 2) % 4 == j { continue; }
+                let right = (i + 3) % 4 == j;
+                let (a, b) = chosen_turn(&lanes, i, j, right);
+                let (pa, pb) = (a.pos.truncate(), b.pos.truncate());
+                let old_route = trace_turn(&old, pa, pb, if right { 3 } else { 2 });
+                let route = trace_turn(&new, pa, pb, if right { 3 } else { 2 });
+                println!("===== ZEBRA TURN {i} -> {j}, before =====\n{}", turn_blocks(&old_route));
+                println!("===== ZEBRA TURN {i} -> {j}, after =====\n{}", turn_blocks(&route));
+                let segs: Vec<_> = route.iter().map(|p| p.seg).collect();
+                let full: f64 = segs.iter().map(|s| s.length).sum();
+                assert!(full > 8.0);
+                // Check each 0.25 m sample, including the boundary at 4 m,
+                // against the arm's incoming or outgoing flow (< 1 degree).
+                for n in 0..=16 {
+                    for (d, target) in [(n as f64 * 0.25, a.flow), (full - n as f64 * 0.25, b.flow)] {
+                        let mut acc = 0.0;
+                        let mut heading = None;
+                        for (k, seg) in segs.iter().enumerate() {
+                            if d <= acc + seg.length + 1e-7 || k + 1 == segs.len() {
+                                heading = Some(seg.heading_at((d - acc).clamp(0.0, seg.length)));
+                                break;
+                            }
+                            acc += seg.length;
+                        }
+                        let diff = signed_turn(heading.unwrap(), target).abs();
+                        assert!(diff < 1.0,
+                            "turn {i}->{j} at {d:.2}/{full:.2} m deviates {diff:.3} degrees; path:\n{}",
+                            turn_blocks(&route));
+                    }
+                }
+            }
+        }
+    }
+
 }
