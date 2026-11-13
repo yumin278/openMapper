@@ -357,6 +357,28 @@ pub(crate) fn attach_hint(n: usize) -> &'static str {
     }
 }
 
+/// A stop's selected lane and its transverse-only Alt adjustment.
+#[derive(Clone)]
+struct StopLateral {
+    lane: crate::lanes::Lane,
+    /// Mouse position at the start of this Alt adjustment.
+    pointer: DVec2,
+    /// The longitudinal point and heading frozen while Alt is down.
+    anchor: DVec3,
+    heading: f64,
+    /// Lateral distance from the traffic lane when Alt went down.
+    initial_offset: f64,
+    adjusting: bool,
+}
+
+impl StopLateral {
+    fn offset_at(&self, cursor: DVec2, lht: bool) -> f64 {
+        let flow = if self.lane.direction == 1 { roads::norm_deg(self.heading + 180.0) } else { self.heading };
+        let side = roads::right(flow) * if lht { -1.0 } else { 1.0 };
+        self.initial_offset + (cursor - self.pointer).dot(side)
+    }
+}
+
 pub struct Editor {
     pub doc: Option<Document>,
     pub history: History,
@@ -620,6 +642,12 @@ pub struct Editor {
     pub road_setback: f64,
     /// The road point an aligned object was set against (for the guide line).
     align_guide: Option<(DVec3, DVec3)>,
+    /// Current candidate for a bus stop; replaced as the mouse moves normally.
+    stop_hover_lane: Option<crate::lanes::Lane>,
+    /// The lane stays selected during/after Alt until the stop is placed or cancelled.
+    stop_lateral: Option<StopLateral>,
+    /// Distance outward from the lane, preserved when Alt is released (m).
+    stop_lateral_offset: f64,
     /// Shift is held (places an object freely, not aligned).
     pub shift_held: bool,
     /// A press on what is selected and a drag of it moves it. False in OMSI 2's and Blender's
@@ -846,6 +874,9 @@ impl Default for Editor {
             align_front: true,
             road_setback: 2.0,
             align_guide: None,
+            stop_hover_lane: None,
+            stop_lateral: None,
+            stop_lateral_offset: 3.2,
             shift_held: false,
             plant_brush: false,
             plant_erase: false,
@@ -1395,6 +1426,9 @@ impl Editor {
 
     /// Stop what the tool is in the middle of.
     pub fn cancel(&mut self) {
+        self.stop_lateral = None;
+        self.stop_hover_lane = None;
+        self.stop_lateral_offset = 3.2;
         // (a grab or a turn taken hold of by R is called off: nothing of it stands)
         if self.grab.take().is_some() || self.rot.take().is_some() {
             if let Some(doc) = &mut self.doc {
@@ -2802,6 +2836,27 @@ impl Editor {
 
     // ---------------------------------------------------------------- objects
 
+    /// Alt changes only a bus stop's cross-path displacement. Left-click placement is
+    /// unchanged; releasing Alt preserves the displacement and resumes along-path movement.
+    pub fn stop_lateral_key(&mut self, alt: bool) {
+        if !alt {
+            if let Some(s) = &mut self.stop_lateral {
+                s.adjusting = false;
+            }
+            return;
+        }
+        if self.tool != Tool::Logic || self.logic != LogicMode::Stops || !self.align_to_road || self.shift_held {
+            return;
+        }
+        let Some(lane) = self.stop_lateral.as_ref().map(|s| &s.lane).or(self.stop_hover_lane.as_ref()).cloned() else { return };
+        let Some(cursor) = self.cursor else { return };
+        let Some((anchor, heading, _, _)) = lane.nearest(cursor.truncate()) else { return };
+        self.stop_lateral = Some(StopLateral {
+            lane, pointer: cursor.truncate(), anchor, heading,
+            initial_offset: self.stop_lateral_offset, adjusting: true,
+        });
+    }
+
     fn plan_object(&mut self, assets: &mut Assets, lib: &Library) {
         self.ghost_pos = None;
         self.stop_twin = None;
@@ -2822,13 +2877,38 @@ impl Editor {
         if self.align_to_road && !self.shift_held && (entry || park || stop) {
             if let Some(doc) = self.doc.as_ref() {
                 let lht = doc.global.left_hand_traffic;
-                let (lanes, _) = crate::lanes::near(doc, assets, c.truncate(), 25.0);
-                let best = lanes.iter().filter(|l| l.kind == 0).filter_map(|l| l.nearest(c.truncate()).map(|n| (n, l.direction))).filter(|(n, _)| n.2 < 12.0).min_by(|a, b| a.0 .2.total_cmp(&b.0 .2));
-                if let Some(((q, h, _, _), dir)) = best {
-                    let flow = if dir == 1 { roads::norm_deg(h + 180.0) } else { h };
+                // Keep the selected lane when the pointer moves sideways with Alt,
+                // even if it goes beyond the normal 12 m candidate search radius.
+                let search_at = self.stop_lateral.as_ref().filter(|_| stop)
+                    .and_then(|s| s.lane.nearest(c.truncate()).map(|n| n.0.truncate()))
+                    .unwrap_or(c.truncate());
+                let (lanes, _) = crate::lanes::near(doc, assets, search_at, 25.0);
+                let locked = self.stop_lateral.as_ref().filter(|_| stop).and_then(|s| {
+                    if s.adjusting {
+                        Some(((s.anchor, s.heading, 0.0, None), s.lane.clone()))
+                    } else {
+                        s.lane.nearest(c.truncate()).map(|n| (n, s.lane.clone()))
+                    }
+                });
+                let best = locked.or_else(|| lanes.iter()
+                    .filter(|l| l.kind == 0)
+                    .filter_map(|l| l.nearest(c.truncate()).map(|n| (n, l.clone())))
+                    .filter(|(n, _)| n.2 < 12.0)
+                    .min_by(|a, b| a.0 .2.total_cmp(&b.0 .2)));
+                if let Some(((q, h, _, _), lane)) = best {
+                    if stop {
+                        self.stop_hover_lane = Some(lane.clone());
+                    }
+                    let flow = if lane.direction == 1 { roads::norm_deg(h + 180.0) } else { h };
                     // (the kerb: right of the traffic where it keeps right)
                     let kerb = roads::right(flow) * if lht { -1.0 } else { 1.0 };
-                    let at = if entry { q.truncate() } else if park { q.truncate() + kerb * 2.6 } else { q.truncate() + kerb * 3.2 };
+                    let offset = if entry { 0.0 } else if park { 2.6 } else {
+                        if let Some(s) = self.stop_lateral.as_ref().filter(|s| s.adjusting) {
+                            self.stop_lateral_offset = s.offset_at(c.truncate(), lht);
+                        }
+                        self.stop_lateral_offset
+                    };
+                    let at = q.truncate() + kerb * offset;
                     let z = doc.ground(at);
                     let pos = DVec3::new(at.x, at.y, z);
                     self.align_guide = Some((DVec3::new(q.x, q.y, z), pos));
@@ -3192,6 +3272,12 @@ impl Editor {
         }
         if let Some(n) = linked_to {
             self.toast(format!("{} «{n}»: {}", tr("Linked to", "Связан с"), tr("choose its light in its properties", "сигнал выберите в его свойствах")));
+        }
+        // The next stop starts with the stock 3.2 m distance, not the last stop's edit.
+        if is_stop {
+            self.stop_lateral = None;
+            self.stop_hover_lane = None;
+            self.stop_lateral_offset = 3.2;
         }
         // (the tool goes on placing: the caller chooses whether to take what was put)
         Some(Sel::Object(k, id))

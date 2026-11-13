@@ -3854,6 +3854,9 @@ impl ApplicationHandler for App {
                         self.cam.set_pivot(c);
                     }
                 }
+                if alt != self.keys.alt {
+                    self.ed.stop_lateral_key(alt);
+                }
                 self.keys.alt = alt;
             }
             WindowEvent::KeyboardInput { event, .. } => {
