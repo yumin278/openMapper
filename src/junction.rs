@@ -71,22 +71,28 @@ fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm]) -> Option<(Vec<(D
         let into = if a.at_end { c.heading_at(at) } else { c.heading_at(at) + 180.0 };
         let p = c.point_at(at);
         ends.push((p, roads::norm_deg(into), model.half_width as f64, s.file.clone()));
-        let mirror = if s.mirror { -1.0 } else { 1.0 };
-        lanes.extend(lanes_at(&model, mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at)));
+        lanes.extend(lanes_at(&model, s.mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at)));
     }
     Some((ends, lanes))
 }
 
 /// The lanes of a road type where it meets a junction: `place(x, z)` is where a lane at
 /// lateral place `x` (and height `z`) ends, `along` the heading of the road's own way there.
-fn lanes_at(model: &SplineModel, mirror: f64, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64) -> Vec<LaneEnd> {
+fn lanes_at(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64) -> Vec<LaneEnd> {
     let mut lanes = Vec::new();
+    let lateral_sign = if mirrored { -1.0 } else { 1.0 };
     for path in &model.def.paths {
-        let x = path.start[0] as f64 * mirror;
+        let x = path.start[0] as f64 * lateral_sign;
         let z = path.start[2] as f64;
         let pos = place(x, z);
+        // A mirrored spline moves each lane across the road and reverses its flow.
+        let direction = match (path.direction, mirrored) {
+            (0, true) => 1,
+            (1, true) => 0,
+            (d, _) => d,
+        };
         // along the spline: 0 forwards, 1 backwards, 2 both ways; (incoming, flow)
-        let ways: Vec<(bool, f64)> = match path.direction {
+        let ways: Vec<(bool, f64)> = match direction {
             0 => vec![(at_end, along)],
             1 => vec![(!at_end, along + 180.0)],
             _ => vec![(true, if at_end { along } else { along + 180.0 }), (false, if at_end { along + 180.0 } else { along })],
@@ -1519,7 +1525,7 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
         let along = if a.at_end { roads::norm_deg(a.out + 180.0) } else { a.out };
         let r = roads::right(along);
         geo.push(arm_geo_of(&model, false, a.at_end, end, a.out, 0.0));
-        lanes.extend(lanes_at(&model, 1.0, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along));
+        lanes.extend(lanes_at(&model, false, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along));
     }
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
@@ -1789,6 +1795,63 @@ mod tests {
         // it rounds the corner through its inside
         let mid = segs[segs.len() / 2].point(segs[segs.len() / 2].length * 0.5);
         assert!(mid.x > 4.0 && mid.y > 4.0 && mid.x < 12.0 && mid.y < 12.0, "{mid:?}");
+    }
+
+    #[test]
+    fn mirrored_junction_lanes_follow_the_placed_spline() {
+        let roots = crate::doc::tests::scratch("junction-mirrored-lanes");
+        let mut doc = crate::selection::tests::flat_map(1);
+        let key = (0, 0);
+        let id = 1;
+        crate::selection::tests::add_spline(&mut doc, key, id, 100.0, 100.0, 0.0, 20.0, 0, 0);
+        let mut road = test_road();
+        road.def.paths.push(omsi_scenery::PathDef {
+            kind: 1,
+            start: [3.0, 0.0, 0.25],
+            width: 1.0,
+            direction: 2,
+            ..Default::default()
+        });
+        let mut assets = Assets::new(roots.omsi, roots.content);
+        assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(road)));
+
+        // Columns: world x, world y, height, heading, and whether the lane enters the junction.
+        let cases = [
+            (false, false, vec![
+                (102.0, 100.0, 0.0, 0.0, false),
+                (98.0, 100.0, 0.0, 180.0, true),
+                (103.0, 100.0, 0.25, 180.0, true),
+                (103.0, 100.0, 0.25, 0.0, false),
+            ]),
+            (false, true, vec![
+                (102.0, 120.0, 0.0, 0.0, true),
+                (98.0, 120.0, 0.0, 180.0, false),
+                (103.0, 120.0, 0.25, 0.0, true),
+                (103.0, 120.0, 0.25, 180.0, false),
+            ]),
+            (true, false, vec![
+                (98.0, 100.0, 0.0, 180.0, true),
+                (102.0, 100.0, 0.0, 0.0, false),
+                (97.0, 100.0, 0.25, 180.0, true),
+                (97.0, 100.0, 0.25, 0.0, false),
+            ]),
+            (true, true, vec![
+                (98.0, 120.0, 0.0, 180.0, false),
+                (102.0, 120.0, 0.0, 0.0, true),
+                (97.0, 120.0, 0.25, 0.0, true),
+                (97.0, 120.0, 0.25, 180.0, false),
+            ]),
+        ];
+        for left_hand in [false, true] {
+            doc.global.left_hand_traffic = left_hand;
+            for (mirrored, at_end, expected) in &cases {
+                doc.tiles.get_mut(&key).unwrap().tile.splines[0].mirror = *mirrored;
+                let (_, lanes) = arm_ends(&doc, &mut assets, &[Arm { key, id, at_end: *at_end }]).unwrap();
+                let actual: Vec<_> = lanes.iter().map(|l| (l.pos.x, l.pos.y, l.pos.z, l.flow, l.incoming)).collect();
+                println!("left_hand={left_hand}, mirror={mirrored}, at_end={at_end}\n  actual: {actual:?}\n  expected: {expected:?}");
+                assert_eq!(&actual, expected);
+            }
+        }
     }
 
     fn test_road() -> SplineModel {
