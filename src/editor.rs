@@ -2861,6 +2861,10 @@ impl Editor {
         self.ghost_pos = None;
         self.stop_twin = None;
         self.align_guide = None;
+        // Never capture a stale lane if the cursor has left the path's snap range.
+        if self.stop_lateral.is_none() {
+            self.stop_hover_lane = None;
+        }
         if self.tool == Tool::Objects && self.plant_brush {
             return;
         }
