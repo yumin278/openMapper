@@ -1236,6 +1236,8 @@ Zebra crossings	Passadeiras
 Road	Estrada
 Build it again	Construir de novo
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refaz a placa, os lancis e as faixas para as estradas como estão agora
+Persist junction	Guardar o cruzamento
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Guarda este cruzamento como um objeto de cenário normal na instalação do OMSI. Guarda o mapa para manter a nova referência.
 Linked objects	Objetos ligados
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Um objeto pode obter o seu estado de outro ([varparent]): um semáforo mostra uma luz do programa do seu cruzamento, o ecrã de uma paragem a sua paragem.
 Takes its state from	Obtém o seu estado de

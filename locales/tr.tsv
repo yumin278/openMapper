@@ -1236,6 +1236,8 @@ Zebra crossings	Yaya geçitleri
 Road	Yol
 Build it again	Yeniden yap
 Makes the plate, its kerbs and lanes again for the roads as they are now	Yolların şu anki haline göre platformu, kaldırım kenarlarını ve şeritleri yeniden yapar
+Persist junction	Kavşağı kalıcı olarak kaydet
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Bu kavşağı OMSI kurulum klasörüne sıradan bir sahne nesnesi olarak kaydedin. Yeni başvuruyu korumak için haritayı kaydedin.
 Linked objects	Bağlı nesneler
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Bir nesne durumunu başkasından alabilir ([varparent]): sinyal başlığı kavşağın programından bir ışık gösterir, durak ekranı kendi durağını.
 Takes its state from	Durumu şundan alır:

@@ -1699,9 +1699,9 @@ impl App {
                     match self.ed.persist_junction(roots, k, id) {
                         Ok(file) => {
                             self.lib.start_scan(roots);
-                            self.ed.toast(format!("{} {file}", tr("Junction saved:", "Перекрёсток сохранён:")));
+                            self.ed.toast(format!("{} {file}", tr("Saved:", "Сохранено:")));
                         }
-                        Err(e) => self.ed.error(format!("{}: {e:#}", tr("Could not persist the junction", "Не удалось сохранить перекрёсток"))),
+                        Err(e) => self.ed.error(format!("{}: {e:#}", tr("Could not save (the changes are still here, nothing is lost)", "Не удалось сохранить (изменения остались здесь, ничего не потеряно)"))),
                     }
                 } else {
                     self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));

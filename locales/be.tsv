@@ -1236,6 +1236,8 @@ Zebra crossings	Пешаходныя пераходы
 Road	Дарога
 Build it again	Пабудаваць нанова
 Makes the plate, its kerbs and lanes again for the roads as they are now	Нанова будуе пляцоўку, бардзюры і паласы пад дарогі, як яны цяпер
+Persist junction	Захаваць скрыжаванне
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Захаваць гэтае скрыжаванне як звычайны аб’ект у папцы ўсталёўкі OMSI. Захавайце карту, каб запісаць новую спасылку.
 Linked objects	Звязаныя аб'екты
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Аб'ект можа браць стан ад іншага ([varparent]): святлафор паказвае сігнал праграмы свайго скрыжавання, табло прыпынку — свой прыпынак.
 Takes its state from	Бярэ стан ад

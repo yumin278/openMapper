@@ -1236,6 +1236,8 @@ Zebra crossings	ज़ेब्रा क्रॉसिंग
 Road	सड़क
 Build it again	फिर से बनाएँ
 Makes the plate, its kerbs and lanes again for the roads as they are now	सड़कों के अभी के रूप के हिसाब से प्लेट, उसके कर्ब और लेन फिर से बनाता है
+Persist junction	चौराहा सहेजें
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	इस चौराहे को OMSI की स्थापना में एक सामान्य दृश्य वस्तु के रूप में सहेजें। नया संदर्भ रखने के लिए नक्शा सहेजें।
 Linked objects	जुड़े ऑब्जेक्ट
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	ऑब्जेक्ट दूसरे से अपनी स्थिति ले सकता है ([varparent]): सिग्नल हेड अपने चौराहे के प्रोग्राम की रोशनी दिखाता है, स्टॉप का डिस्प्ले अपना स्टॉप।
 Takes its state from	स्थिति लेता है

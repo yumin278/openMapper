@@ -1236,6 +1236,8 @@ Zebra crossings	Zebrapaden
 Road	Weg
 Build it again	Opnieuw bouwen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Maakt de plaat, zijn stoepranden en rijstroken opnieuw voor de wegen zoals ze nu zijn
+Persist junction	Kruispunt blijvend opslaan
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Sla dit kruispunt op als een normaal landschapsobject in de OMSI-installatie. Sla de kaart op om de nieuwe verwijzing te bewaren.
 Linked objects	Gekoppelde objecten
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Een object kan zijn toestand van een ander nemen ([varparent]): een seinkop toont een licht van het programma van zijn kruising, het display van een halte zijn halte.
 Takes its state from	Neemt zijn toestand van

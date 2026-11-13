@@ -1236,6 +1236,8 @@ Zebra crossings	Penyeberangan zebra
 Road	Jalan
 Build it again	Bangun ulang
 Makes the plate, its kerbs and lanes again for the roads as they are now	Membuat ulang pelat, tepi jalan, dan lajurnya untuk jalan seperti sekarang
+Persist junction	Simpan persimpangan
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Simpan persimpangan ini sebagai objek pemandangan biasa di folder instalasi OMSI. Simpan peta untuk mempertahankan referensi baru.
 Linked objects	Objek tertaut
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Objek dapat mengambil statusnya dari objek lain ([varparent]): lampu sinyal menampilkan cahaya program persimpangannya, layar halte menampilkan haltenya.
 Takes its state from	Mengambil status dari

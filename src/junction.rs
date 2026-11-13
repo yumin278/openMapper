@@ -1083,7 +1083,7 @@ pub fn persist(roots: &crate::install::Roots, file: &str, map: &str, id: i64) ->
     let source_dir = source.parent().context("junction source directory")?;
     let sco = omsi_scenery::SceneryObject::parse(&omsi_cfg::CfgFile::from_bytes(&source, &sco_bytes));
     let [mesh] = sco.model.meshes.as_slice() else {
-        anyhow::bail!("{}: {}", source.display(), crate::i18n::tr("Expected one generated junction mesh", "Ожидалась одна модель перекрёстка"));
+        anyhow::bail!("Expected one generated junction mesh: {}", source.display());
     };
     anyhow::ensure!(!mesh.file.contains(['/', '\\', ':']) && mesh.file != "." && mesh.file != "..", "Invalid junction mesh name: {}", mesh.file);
     let model_dir = omsi_cfg::resolve_path(source_dir, "model");
@@ -1110,7 +1110,7 @@ pub fn persist(roots: &crate::install::Roots, file: &str, map: &str, id: i64) ->
                 textures.entry(dest.join(path.file_name().unwrap())).or_insert(path);
             }
         }
-        anyhow::ensure!(found, "{}: {}", crate::i18n::tr("Missing junction texture", "Не найдена текстура перекрёстка"), mat.texture);
+        anyhow::ensure!(found, "{}: {}", crate::i18n::tr("file not found", "файл не найден"), mat.texture);
     }
 
     // Reserve a folder per instance. A previous save or another editor can already own

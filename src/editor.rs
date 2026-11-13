@@ -8873,16 +8873,16 @@ impl Editor {
     /// change its file to the standalone copy only after all assets have been written.
     pub fn persist_junction(&mut self, roots: &crate::install::Roots, k: TileKey, id: i64) -> anyhow::Result<String> {
         let Some(doc) = self.doc.as_ref() else {
-            anyhow::bail!("{}", tr("Open a map first", "Сначала откройте карту"));
+            anyhow::bail!("{}", tr("Open a map", "Открыть карту"));
         };
         let Some(o) = doc.object(k, id).filter(|o| is_own_junction(&o.file)) else {
-            anyhow::bail!("{}", tr("Select an automatic junction", "Выберите автоматический перекрёсток"));
+            anyhow::bail!("{}", tr("select an object first", "сначала выделите объект"));
         };
         let map = doc.dir.file_name().and_then(|name| name.to_str()).unwrap_or("map");
         let file = crate::junction::persist(roots, &o.file, map, id)?;
 
         let doc = self.doc.as_mut().unwrap();
-        self.history.begin(tr("Persist junction", "Сохранение перекрёстка"));
+        self.history.begin(tr("Persist junction", "Сохранить как объект"));
         self.history.touch_tile(doc, k);
         doc.object_mut(k, id).unwrap().file = file.clone();
         doc.tiles.get_mut(&k).unwrap().touch_content();

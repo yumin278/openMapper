@@ -1236,6 +1236,8 @@ Zebra crossings	Přechody pro chodce
 Road	Silnice
 Build it again	Postavit znovu
 Makes the plate, its kerbs and lanes again for the roads as they are now	Znovu vytvoří desku, obrubníky a pruhy pro silnice tak, jak jsou nyní
+Persist junction	Uložit křižovatku
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Uloží tuto křižovatku jako běžný objekt scenérie do instalace OMSI. Uložením mapy zachováte nový odkaz.
 Linked objects	Provázané objekty
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Objekt může přebírat stav od jiného ([varparent]): hlava návěstidla zobrazuje světlo z programu své křižovatky, displej zastávky svou zastávku.
 Takes its state from	Přebírá stav od
