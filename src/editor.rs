@@ -8869,6 +8869,36 @@ impl Editor {
         self.pending_rebuild.push(id);
     }
 
+    /// Keep the same map object (including the IDCode used by its signal heads) and
+    /// change its file to the standalone copy only after all assets have been written.
+    pub fn persist_junction(&mut self, roots: &crate::install::Roots, k: TileKey, id: i64) -> anyhow::Result<String> {
+        let Some(doc) = self.doc.as_ref() else {
+            anyhow::bail!("{}", tr("Open a map first", "Сначала откройте карту"));
+        };
+        let Some(o) = doc.object(k, id).filter(|o| is_own_junction(&o.file)) else {
+            anyhow::bail!("{}", tr("Select an automatic junction", "Выберите автоматический перекрёсток"));
+        };
+        let map = doc.dir.file_name().and_then(|name| name.to_str()).unwrap_or("map");
+        let file = crate::junction::persist(roots, &o.file, map, id)?;
+
+        let doc = self.doc.as_mut().unwrap();
+        self.history.begin(tr("Persist junction", "Сохранение перекрёстка"));
+        self.history.touch_tile(doc, k);
+        doc.object_mut(k, id).unwrap().file = file.clone();
+        doc.tiles.get_mut(&k).unwrap().touch_content();
+        self.history.commit();
+        self.junction_options.remove(&id);
+        self.pending_options.remove(&id);
+        self.pending_arms.remove(&id);
+        self.pending_rebuild.retain(|&queued| queued != id);
+        for plate in [&mut self.road_plate_start, &mut self.road_plate_end, &mut self.reshape_plate] {
+            if plate.is_some_and(|(junction, _, _)| junction == id) {
+                *plate = None;
+            }
+        }
+        Ok(file)
+    }
+
     /// After a save: the junction files of this map that nothing uses any more (not a tile,
     /// not a tile undo or redo may bring back, not an earlier version kept by a save, and not
     /// one made in this session) are deleted.
@@ -8942,7 +8972,7 @@ impl Editor {
         let follow = self.follow_ground;
         let was_selected = self.selection().iter().any(|s| matches!(s, Sel::Object(_, x) if *x == id));
         let Some(doc) = self.doc.as_mut() else { return };
-        let Some((jk, o)) = doc.tiles.iter().find_map(|(k, t)| t.tile.objects.iter().find(|o| o.id == id).map(|o| (*k, o.clone()))) else { return };
+        let Some((jk, o)) = doc.tiles.iter().find_map(|(k, t)| t.tile.objects.iter().find(|o| o.id == id && is_own_junction(&o.file)).map(|o| (*k, o.clone()))) else { return };
         let mut arms: Vec<crate::junction::Arm> = Vec::new();
         // (a plate whose file is gone, a map moved without them: the roads that end facing
         // its middle are its arms; it stood at its own height)
@@ -8958,11 +8988,10 @@ impl Editor {
                 }
                 abs
             }
-            None if is_own_junction(&o.file) => {
+            None => {
                 arms = ends_facing(doc, tile_origin(jk) + DVec2::new(o.pos[0], o.pos[1]), 30.0);
                 true
             }
-            None => return,
         };
         for a in self.pending_arms.remove(&id).unwrap_or_default() {
             if doc.spline(a.key, a.id).is_some() && !arms.iter().any(|x| x.id == a.id && x.at_end == a.at_end) {

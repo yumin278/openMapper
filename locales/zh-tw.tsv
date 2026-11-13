@@ -1245,6 +1245,10 @@ Zebra crossings	斑馬線
 Road	道路
 Build it again	重新建立
 Makes the plate, its kerbs and lanes again for the roads as they are now	依道路的目前狀態重新建立路口底板、路緣與行車線
+Persist junction	持久化保存
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	將這座路口儲存為 OMSI 安裝目錄中的一般景物。請儲存地圖以寫入新的參照路徑。
+Junction saved:	已儲存路口：
+Could not persist the junction	無法持久化保存路口
 Linked objects	連結的物件
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	物件可從另一物件取得狀態 ([varparent])：交通燈燈頭顯示其路口程式的燈號，站牌顯示器顯示其站牌。
 Takes its state from	取得狀態自

@@ -1076,7 +1076,7 @@ pub fn road_entry(ctx: &egui::Context, ed: &mut Editor, view: egui::Rect, action
 }
 
 /// The lights and crossings of one of openMapper's junctions (it is made again with them).
-pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64) {
+pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
     let Some(o) = doc.object(k, id) else { return };
     if !crate::editor::is_own_junction(&o.file) {
@@ -1140,6 +1140,12 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
     let rebuild = ui.button(icons::labelled(Icon::Junction, tr("Build it again", "Построить заново"))).on_hover_text(tr("Makes the plate, its kerbs and lanes again for the roads as they are now", "Заново строит площадку, бордюры и полосы под дороги, как они сейчас")).clicked();
     if (apply && new != opts) || rebuild {
         ed.set_junction_options(id, new);
+    }
+    if ui.button(icons::labelled(Icon::Save, tr("Persist junction", "Сохранить как объект")))
+        .on_hover_text(tr("Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.", "Сохранить этот перекрёсток как обычный объект в папке OMSI. Сохраните карту, чтобы записать новую ссылку."))
+        .clicked()
+    {
+        actions.push(crate::ui::Action::PersistJunction(k, id));
     }
 }
 

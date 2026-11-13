@@ -1070,6 +1070,90 @@ pub fn folder_name(doc: &Document) -> String {
     doc.dir.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "map".into()).chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect()
 }
 
+/// Snapshot a generated plate into the OMSI installation with its own model and textures.
+/// The SCO bytes carry the original paths, light program, and spline-helper convention.
+pub fn persist(roots: &crate::install::Roots, file: &str, map: &str, id: i64) -> anyhow::Result<String> {
+    use anyhow::Context as _;
+    use crate::doc::safe::own_path;
+
+    anyhow::ensure!(!map.contains(['/', '\\', ':']), "Invalid map folder name: {map}");
+    let source = roots.resolve(file);
+    let read = |path: &Path| omsi_cfg::vfs::read(path).with_context(|| path.display().to_string());
+    let sco_bytes = read(&source)?;
+    let source_dir = source.parent().context("junction source directory")?;
+    let sco = omsi_scenery::SceneryObject::parse(&omsi_cfg::CfgFile::from_bytes(&source, &sco_bytes));
+    let [mesh] = sco.model.meshes.as_slice() else {
+        anyhow::bail!("{}: {}", source.display(), crate::i18n::tr("Expected one generated junction mesh", "Ожидалась одна модель перекрёстка"));
+    };
+    anyhow::ensure!(!mesh.file.contains(['/', '\\', ':']) && mesh.file != "." && mesh.file != "..", "Invalid junction mesh name: {}", mesh.file);
+    let model_dir = omsi_cfg::resolve_path(source_dir, "model");
+    let model = omsi_cfg::resolve_path(&model_dir, &mesh.file);
+    let model_bytes = read(&model)?;
+    let parsed = omsi_o3d::load_mesh(&model).with_context(|| model.display().to_string())?;
+
+    let dirs = crate::assets::texture_dirs(&roots.omsi, &roots.content, source_dir);
+    let dirs: Vec<&Path> = dirs.iter().map(PathBuf::as_path).collect();
+    let mut textures = std::collections::BTreeMap::new();
+    let seasons = [None, Some("Spring"), Some("Fall"), Some("Winter"), Some("WinterSnow"), Some("WinterSnowfall"), Some("SummerDry")];
+    for mat in parsed.materials.iter().filter(|m| !m.texture.trim().is_empty()) {
+        let mut found = false;
+        for season in seasons {
+            let Some(tex) = omsi_texture::find_texture_in_look(&mat.texture, &dirs, season) else { continue };
+            found = true;
+            let mut dest = PathBuf::from("texture");
+            if let Some(sub) = tex.parent().and_then(Path::file_name).and_then(|f| f.to_str()) {
+                if seasons.iter().flatten().any(|s| s.eq_ignore_ascii_case(sub)) {
+                    dest.push(sub);
+                }
+            }
+            for path in std::iter::once(tex.clone()).chain(companions(&tex)) {
+                textures.entry(dest.join(path.file_name().unwrap())).or_insert(path);
+            }
+        }
+        anyhow::ensure!(found, "{}: {}", crate::i18n::tr("Missing junction texture", "Не найдена текстура перекрёстка"), mat.texture);
+    }
+
+    // Reserve a folder per instance. A previous save or another editor can already own
+    // that ID's folder, including a copy in the higher-priority content root.
+    let base = format!("Sceneryobjects\\openMapper-Persisted\\{map}");
+    std::fs::create_dir_all(own_path(&roots.omsi, &base))?;
+    let mut serial = 1;
+    let (rel_dir, dir) = loop {
+        let suffix = if serial == 1 { String::new() } else { format!("-{serial}") };
+        let rel = format!("{base}\\Junction-{id}{suffix}");
+        serial += 1;
+        if omsi_cfg::vfs::exists(&roots.resolve(&rel)) {
+            continue;
+        }
+        let dir = own_path(&roots.omsi, &rel);
+        match std::fs::create_dir(&dir) {
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            result => result.with_context(|| dir.display().to_string())?,
+        }
+        break (rel, dir);
+    };
+
+    let name = format!("Junction-{id}.sco");
+    let result = (|| -> anyhow::Result<()> {
+        let model_dir = dir.join("model");
+        std::fs::create_dir(&model_dir)?;
+        std::fs::write(model_dir.join(&mesh.file), &model_bytes)?;
+        for (rel, source) in textures {
+            let dest = dir.join(rel);
+            std::fs::create_dir_all(dest.parent().unwrap())?;
+            std::fs::write(&dest, read(&source)?).with_context(|| dest.display().to_string())?;
+        }
+        crate::doc::safe::write_atomic(&dir.join(&name), &sco_bytes)?;
+        Ok(())
+    })();
+    if let Err(e) = result {
+        let _ = std::fs::remove_dir_all(&dir);
+        return Err(e).with_context(|| dir.display().to_string());
+    }
+    crate::hot::own_change();
+    Ok(format!("{rel_dir}\\{name}"))
+}
+
 /// A road coming into a drawn junction: its road type, where it ends (in the drawing's frame)
 /// and the heading out along it.
 #[derive(Debug, Clone, PartialEq)]
@@ -1398,6 +1482,108 @@ mod tests {
         }
         let id = make_with(doc, assets, content, None, DVec3::new(centre.x, centre.y, 0.0), &arms, &Options::default()).unwrap();
         doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap().clone()
+    }
+
+    #[test]
+    fn persisting_a_junction_keeps_its_sco_and_signal_links() {
+        use crate::doc::{Sel, safe::own_path, tile_text};
+        use crate::editor::{Editor, is_own_junction};
+
+        let roots = crate::doc::tests::scratch("persist-junction");
+        let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+        assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(test_road())));
+        let mut doc = crate::selection::tests::flat_map(2);
+        doc.dir = roots.content.join("maps").join("Test Junction");
+        let k = (0, 0);
+        let signal_tile = (1, 0);
+        let centre = DVec3::new(294.0, 100.0, 1.0);
+        let asphalt = roots.content.join("asphalt.png");
+        image::RgbaImage::from_pixel(8, 8, image::Rgba([70, 70, 70, 255])).save(&asphalt).unwrap();
+        std::fs::write(asphalt.with_extension("surf"), b"surface").unwrap();
+        let arms: Vec<_> = [0.0, 90.0, 270.0].into_iter().zip(1..).map(|(out, id)| {
+            let p = centre.truncate() + roads::dir(out) * 10.0;
+            crate::selection::tests::add_spline(&mut doc, k, id, p.x, p.y, out, 20.0, 0, 0);
+            Arm { key: k, id, at_end: false }
+        }).collect();
+        let opts = Options { lights: true, crossings: vec![0.0], ..Default::default() };
+        let id = make_with(&mut doc, &mut assets, &roots.content, Some(&asphalt), centre, &arms, &opts).unwrap();
+        let original = doc.object(k, id).unwrap().clone();
+        let shared_id = doc.new_id();
+        doc.tiles.get_mut(&k).unwrap().tile.objects.push(MapObject { id: shared_id, pos: [100.0, 200.0, 1.0], ..original.clone() });
+        let before = [k, signal_tile].map(|key| tile_text(&doc.tiles[&key].tile));
+        let next_id = doc.global.next_id_code;
+        let signals = children(&doc, id);
+        assert_eq!(signals.len(), 6);
+        assert!(signals.iter().any(|(key, _)| *key == signal_tile));
+        assert!(signals.iter().any(|&(key, id)| doc.object(key, id).unwrap().extra == ["1"]));
+
+        let source = roots.resolve(&original.file);
+        let sco_before = std::fs::read(&source).unwrap();
+        let model_name = source.with_extension("x").file_name().unwrap().to_owned();
+        let model = source.parent().unwrap().join("model").join(&model_name);
+        let old_model = model.with_extension("x.missing");
+        let textures = source.parent().unwrap().join("texture");
+        let winter = textures.join("WinterSnow");
+        std::fs::create_dir(&winter).unwrap();
+        std::fs::copy(&asphalt, winter.join("asphalt.png")).unwrap();
+        std::fs::write(textures.join("unrelated.png"), b"unrelated").unwrap();
+        let old = omsi_cfg::decode_text(&sco_before);
+        for tag in ["[path]", "[use_traffic_light]", "[traffic_lights_group]", "[splinehelper]"] {
+            assert!(old.contains(tag), "Missing {tag}");
+        }
+        let mut ed = Editor::default();
+        ed.open(doc);
+        ed.select(Some(Sel::Object(k, id)));
+
+        std::fs::rename(&model, &old_model).unwrap();
+        let error = ed.persist_junction(&roots, k, id).unwrap_err();
+        println!("Missing model result: {error:#}");
+        assert_eq!(ed.doc.as_ref().unwrap().object(k, id).unwrap(), &original);
+        assert!(!roots.omsi.join("Sceneryobjects").exists());
+        std::fs::rename(&old_model, &model).unwrap();
+
+        assert!(ed.remake_junction(id)); // A pending rebuild must not replace the saved plate.
+        let rel = ed.persist_junction(&roots, k, id).unwrap();
+        assert_eq!(rel, format!("Sceneryobjects\\openMapper-Persisted\\Test Junction\\Junction-{id}\\Junction-{id}.sco"));
+        let target = own_path(&roots.omsi, &rel);
+        let target_dir = target.parent().unwrap();
+        let sco_after = std::fs::read(&target).unwrap();
+        println!("Before SCO ({})\n{old}\nAfter SCO ({})\n{}", source.display(), target.display(), omsi_cfg::decode_text(&sco_after));
+        assert_eq!(sco_before, sco_after);
+        assert_eq!(std::fs::read(&model).unwrap(), std::fs::read(target_dir.join("model").join(model_name)).unwrap());
+        for file in ["asphalt.png", "asphalt.surf", "om_zebra_white.png", "WinterSnow/asphalt.png"] {
+            assert_eq!(std::fs::read(textures.join(file)).unwrap(), std::fs::read(target_dir.join("texture").join(file)).unwrap());
+        }
+        assert!(!target_dir.join("texture/unrelated.png").exists());
+
+        ed.tick(&mut assets, 0.0, false);
+        assert_eq!(ed.selected, Some(Sel::Object(k, id)));
+        assert!(!is_own_junction(&rel) && !ed.remake_junction(id));
+        let doc = ed.doc.as_mut().unwrap();
+        let expected = MapObject { file: rel.clone(), ..original.clone() };
+        assert_eq!(doc.object(k, id).unwrap(), &expected);
+        assert_eq!(doc.object(k, shared_id).unwrap().file, original.file);
+        assert_eq!(doc.global.next_id_code, next_id);
+        assert_eq!(children(doc, id), signals);
+        let after = [k, signal_tile].map(|key| tile_text(&doc.tiles[&key].tile));
+        println!("Before tile 0\n{}\nAfter tile 0\n{}\nBefore tile 1\n{}\nAfter tile 1\n{}", before[0], after[0], before[1], after[1]);
+        assert_eq!(after[0], before[0].replacen(&original.file, &rel, 1));
+        assert_eq!(after[1], before[1]);
+        ed.history.undo(doc);
+        assert_eq!(doc.object(k, id).unwrap(), &original);
+        ed.history.redo(doc);
+        assert_eq!(doc.object(k, id).unwrap(), &expected);
+        crate::doc::save(doc).unwrap();
+        let reloaded = Document::load(&roots, &doc.dir.join("global.cfg"), |_| {}).unwrap();
+        assert_eq!(reloaded.object(k, id).unwrap(), &expected);
+        assert_eq!(children(&reloaded, id), signals);
+
+        let stock = crate::assets::load_object(&target, &roots.omsi, &roots.content).unwrap();
+        assert!(!stock.parts.is_empty() && !stock.helpers.is_empty());
+        assert!(stock.parts.iter().flat_map(|p| &p.materials).all(|m| m.texture.as_ref().is_some_and(|p| p.starts_with(target_dir))));
+        ed.open(reloaded);
+        assert_eq!(ed.remake_all_junctions(), 1); // Only the other instance remains automatic.
+        std::fs::remove_dir_all(&roots.content).unwrap();
     }
 
     /// The same roads meeting at the same angles make one object, wherever the junction lies, whichever
