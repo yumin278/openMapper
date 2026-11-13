@@ -330,7 +330,7 @@ impl RoadTypes {
                         ui.add_space(6.0);
                         ui.horizontal(|ui| {
                             if ui.button(icons::labelled(Icon::CheckCircle, tr("Create the road type", "Создать тип дороги"))).clicked() {
-                                match spec.write(&roots.content, left_hand) {
+                                match spec.write_with_traffic(&roots.content, left_hand) {
                                     Ok(rel) => {
                                         if spec.pocket > 0.0 {
                                             ed.pocket_type = Some(rel.clone());

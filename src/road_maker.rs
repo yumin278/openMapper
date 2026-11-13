@@ -536,9 +536,15 @@ impl RoadSpec {
         s
     }
 
+    /// Write a right-hand road for tests that build spline fixtures.
+    #[cfg(test)]
+    pub fn write(&self, content: &Path) -> anyhow::Result<String> {
+        self.write_with_traffic(content, false)
+    }
+
     /// Write it into the content folder with its textures; returns its relative path
     /// (`Splines\openMapper\<name>.sli`).
-    pub fn write(&self, content: &Path, left_hand: bool) -> anyhow::Result<String> {
+    pub fn write_with_traffic(&self, content: &Path, left_hand: bool) -> anyhow::Result<String> {
         anyhow::ensure!(self.lanes_fwd + self.lanes_back > 0, "a road needs a lane");
         anyhow::ensure!(self.roadway_tex.is_file(), "the roadway texture is missing");
         let dir = content.join("Splines").join("openMapper");
@@ -697,7 +703,7 @@ mod tests {
             };
             let read = |left_hand| {
                 let content = dir.join(if left_hand { "lht" } else { "rht" });
-                spec.write(&content, left_hand).unwrap();
+                spec.write_with_traffic(&content, left_hand).unwrap();
                 let path = content.join("Splines/openMapper").join(format!("{}.sli", spec.file_stem()));
                 let json = std::fs::read(path.with_extension("road.json")).unwrap();
                 let text = std::fs::read_to_string(&path).unwrap();
@@ -734,7 +740,7 @@ mod tests {
         image::RgbaImage::from_pixel(4, 4, image::Rgba([150, 150, 150, 255])).save(&side).unwrap();
         let spec = RoadSpec { name: "Main street 4".into(), lanes_fwd: 2, lanes_back: 2, lane_width: 3.25, median: 1.0, footway: 2.5, kerb: 0.15, roadway_tex: tex, footway_tex: side, ..Default::default() };
         let content = dir.join("content");
-        let rel = spec.write(&content, false).unwrap();
+        let rel = spec.write(&content).unwrap();
         assert_eq!(rel, "Splines\\openMapper\\Main_street_4.sli");
         let path = content.join("Splines/openMapper/Main_street_4.sli");
         let s = omsi_scenery::Spline::load(&path).unwrap();
@@ -770,7 +776,7 @@ mod tests {
         spec.footway_tex = mk("f.png", 150);
         spec.median_tex = mk("g.png", 100);
         let content = dir.join("content");
-        spec.write(&content, false).unwrap();
+        spec.write(&content).unwrap();
         let s = omsi_scenery::Spline::load(&content.join("Splines/openMapper/Avenue.sli")).unwrap();
         assert_eq!(s.paths.iter().filter(|p| p.kind == 0).count(), 4);
         // one footway only, on the right
@@ -796,7 +802,7 @@ mod tests {
         };
         let spec = RoadSpec { name: "Uneven".into(), lanes_fwd: 2, lanes_back: 3, lane_width: 3.0, median: 2.0, median_raised: true, footway: 2.0, roadway_tex: mk("a.png", 80), footway_tex: mk("f.png", 150), median_tex: mk("g.png", 100), ..Default::default() };
         let content = dir.join("content");
-        spec.write(&content, false).unwrap();
+        spec.write(&content).unwrap();
         let s = omsi_scenery::Spline::load(&content.join("Splines/openMapper/Uneven.sli")).unwrap();
         let half = spec.roadway_width() / 2.0;
         let (ml, mr) = spec.median_edges();
@@ -828,7 +834,7 @@ mod tests {
         let spec = RoadSpec { name: "Bay".into(), pocket: 3.0, footway: 2.0, roadway_tex: mk("a.png", 80), footway_tex: mk("f.png", 150), ..Default::default() };
         assert!((spec.total_width() - (7.0 + 3.0 + 4.0)).abs() < 1e-6);
         let content = dir.join("content");
-        spec.write(&content, false).unwrap();
+        spec.write(&content).unwrap();
         let s = omsi_scenery::Spline::load(&content.join("Splines/openMapper/Bay.sli")).unwrap();
         // the two through lanes and the pocket's, with the road's way, right of the roadway's edge (3.5)
         let cars: Vec<_> = s.paths.iter().filter(|p| p.kind == 0).collect();
@@ -865,7 +871,7 @@ mod tests {
         // (and plain asphalt where no line is)
         assert_eq!(img.get_pixel(img.width() / 4, 3).0[0], 80);
         let content = dir.join("content");
-        spec.write(&content, false).unwrap();
+        spec.write(&content).unwrap();
         assert!(content.join("Splines/openMapper/texture/Lined_lines.bmp").is_file());
         let s = omsi_scenery::Spline::load(&content.join("Splines/openMapper/Lined.sli")).unwrap();
         assert!(s.textures[0].file.eq_ignore_ascii_case("Lined_lines.bmp"), "{}", s.textures[0].file);
@@ -904,7 +910,7 @@ mod tests {
         let img = spec.painted_roadway().unwrap();
         assert!(img.get_pixel(px, 41).0[0] > 150);
         let content = dir.join("content");
-        spec.write(&content, false).unwrap();
+        spec.write(&content).unwrap();
         let back = RoadSpec::of(&content.join("Splines/openMapper/Drawn.sli")).unwrap();
         assert_eq!(back.hand, spec.hand);
         let _ = std::fs::remove_dir_all(dir);
