@@ -363,7 +363,7 @@ fn arm_geo_of(model: &SplineModel, mirrored: bool, at_end: bool, end: DVec3, out
     let lane_mid = lanes.iter().map(|(x, _)| *x).find(|x| *x > xl && *x < xr).unwrap_or((xl + xr) * 0.5);
     let central = profs.iter().filter(|p| inside(&p.1)).find(|p| p.1.iter().any(|q| q.0 <= lane_mid) && p.1.iter().any(|q| q.0 >= lane_mid)).or_else(|| profs.iter().find(|p| inside(&p.1)));
     let side = |right: bool| -> Vec<SideProfile> {
-        profs
+        let mut profiles = profs
             .iter()
             .filter(|(_, pts)| if right { pts.iter().all(|q| q.0 >= xr - 0.05) } else { pts.iter().all(|q| q.0 <= xl + 0.05) })
             .map(|(t, pts)| {
@@ -373,7 +373,22 @@ fn arm_geo_of(model: &SplineModel, mirrored: bool, at_end: bool, end: DVec3, out
                 }
                 SideProfile { texture: model.materials.get(*t).and_then(|m| m.texture.clone()), points }
             })
-            .collect()
+            .collect::<Vec<_>>();
+        // The .sli profile order may run outer-to-inner on the left, but the
+        // junction blends strips by index. Always match inner-to-outer strips.
+        profiles.sort_by(|a, b| {
+            let key = |p: &SideProfile| {
+                (
+                    p.points.first().unwrap().0,
+                    p.points.last().unwrap().0,
+                    p.points.iter().map(|q| q.1).fold(f64::INFINITY, f64::min),
+                )
+            };
+            let (a0, a1, az) = key(a);
+            let (b0, b1, bz) = key(b);
+            a0.total_cmp(&b0).then_with(|| a1.total_cmp(&b1)).then_with(|| az.total_cmp(&bz))
+        });
+        profiles
     };
     let (spline_right, spline_left) = (side(true), side(false));
     // (looking out along an arm whose end is at the junction, the spline's right is our left)
@@ -1428,6 +1443,156 @@ mod tests {
             assert!(inner.iter().all(|e| e.linked), "{centre:?} {inner:?}");
         }
         let _ = std::fs::remove_dir_all(&content);
+    }
+
+
+    /// Synthetic .sli sections in their real file order: left side outer-to-inner,
+    /// road surface, then right side inner-to-outer. Texture slot 3 is the kerb,
+    /// slot 2 the footway, and slot 0 the road surface.
+    fn profile_order_road(bus_bay: bool) -> SplineModel {
+        let mut profiles = Vec::new();
+        let mut add = |texture: usize, coords: &[(f32, f32)]| {
+            profiles.push(omsi_scenery::SplineProfile {
+                texture,
+                points: coords.iter().map(|&(x, z)| omsi_scenery::SplineProfilePoint {
+                    x, z, u: x * 0.1, v_scale: 0.2, ..Default::default()
+                }).collect(),
+            });
+        };
+        let (kerb, edge, outer, walk) = if bus_bay { (5.5, 5.65, 9.5, 7.5) } else { (3.5, 3.65, 7.5, 5.5) };
+        add(2, &[(-7.5, 0.25), (-3.65, 0.25)]);
+        add(3, &[(-3.65, 0.25), (-3.5, 0.25)]);
+        add(3, &[(-3.5, 0.25), (-3.5, 0.1)]);
+        add(0, &[(-3.5, 0.1), (0.0, 0.1)]);
+        add(0, &[(0.0, 0.1), (3.5, 0.1)]);
+        if bus_bay {
+            add(0, &[(3.5, 0.1), (5.5, 0.1)]);
+        }
+        add(3, &[(kerb, 0.1), (kerb, 0.25)]);
+        add(3, &[(kerb, 0.25), (edge, 0.25)]);
+        add(2, &[(edge, 0.25), (outer, 0.25)]);
+        let mut paths = Vec::new();
+        let mut path = |kind: i32, x: f32, width: f32, direction: i32| {
+            paths.push(omsi_scenery::PathDef {
+                kind, start: [x, 0.0, 0.0], width, direction, ..Default::default()
+            });
+        };
+        path(1, -5.5, 1.5, 2);
+        path(0, -1.75, 2.5, if bus_bay { 1 } else { 0 });
+        path(0, 1.75, 2.5, if bus_bay { 1 } else { 0 });
+        if bus_bay {
+            path(0, 4.5, 1.8, 1);
+        }
+        path(1, walk, 1.5, 2);
+        let material = |name: &str| crate::assets::Material {
+            texture: Some(PathBuf::from(name)),
+            color: [1.0; 4],
+            alpha: crate::assets::Alpha::Opaque,
+            glow: None,
+        };
+        SplineModel {
+            def: omsi_scenery::Spline { profiles, paths, ..Default::default() },
+            materials: vec![
+                material("road.bmp"), material("unused.bmp"),
+                material("str_side2.bmp"), material("str_side1.bmp"),
+            ],
+            half_width: outer,
+        }
+    }
+
+    fn profile_order_log(side: &[SideProfile]) -> Vec<(String, f64, f64)> {
+        side.iter().map(|p| (
+            p.texture.as_ref().and_then(|t| t.file_name()).unwrap().to_string_lossy().into_owned(),
+            p.points.first().unwrap().0, p.points.last().unwrap().0,
+        )).collect()
+    }
+
+    /// Width of one texture's triangles at a given arm's actual road interface:
+    /// only vertices at that interface, on the specified outward side of the kerb.
+    fn profile_order_width(mesh: &Mesh, arm: &ArmGeo, right: bool, texture: &str) -> Option<f64> {
+        let axis = roads::dir(arm.out);
+        let lateral = roads::right(arm.out);
+        let sign = if right { 1.0 } else { -1.0 };
+        let kerb = arm.end.truncate() + lateral * if right { arm.right_w } else { -arm.left_w };
+        let mut values = Vec::new();
+        for (tri, mat) in &mesh.tris {
+            if mesh.textures[*mat].as_ref().and_then(|p| p.file_name()).and_then(|n| n.to_str()) != Some(texture) {
+                continue;
+            }
+            for idx in tri {
+                let v = mesh.verts[*idx].0;
+                let delta = DVec2::new(v[0], v[1]) - kerb;
+                let d = delta.dot(lateral) * sign;
+                if delta.dot(axis).abs() < 1e-4 && (-1e-4..=5.0).contains(&d) {
+                    values.push(d);
+                }
+            }
+        }
+        if values.is_empty() {
+            None
+        } else {
+            Some(values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                - values.iter().copied().fold(f64::INFINITY, f64::min))
+        }
+    }
+
+    #[test]
+    fn two_arm_profile_strips_match_by_kerb_distance_in_both_directions() {
+        let a = profile_order_road(false);
+        let b = profile_order_road(true);
+        let roots = crate::doc::tests::scratch("junction-profile-order");
+        let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+        assets.splines.insert("splines\\profile-a.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(profile_order_road(false))));
+        assets.splines.insert("splines\\profile-b.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(profile_order_road(true))));
+        let names = |s: &[SideProfile]| -> Vec<String> {
+            s.iter().map(|p| p.texture.as_ref().unwrap().file_name().unwrap().to_string_lossy().into_owned()).collect()
+        };
+        let expected = vec!["str_side1.bmp", "str_side1.bmp", "str_side2.bmp"];
+        for b_at_end in [false, true] {
+            let case = if b_at_end { "A end -> B end (B reversed)" } else { "A end -> B start (same spline direction)" };
+            let g_a = arm_geo_of(&a, false, true, DVec3::new(0.0, -10.0, 0.0), 180.0, 0.0);
+            let g_b = arm_geo_of(&b, false, b_at_end, DVec3::new(0.0, 10.0, 0.0), 0.0, 0.0);
+            let corrected = [g_a, g_b];
+            for side in [&corrected[0].left, &corrected[0].right] {
+                assert_eq!(names(side), expected);
+            }
+            let mut original = corrected.clone();
+            // The left-hand .sli profiles were written outer-to-inner; their
+            // pre-fix side() order is exactly the reverse of the sorted strips.
+            for (g, at_end) in original.iter_mut().zip([true, b_at_end]) {
+                if at_end { g.right.reverse(); } else { g.left.reverse(); }
+            }
+            for (i, (old, new)) in original.iter().zip(corrected.iter()).enumerate() {
+                for (label, before, after) in [("left", &old.left, &new.left), ("right", &old.right, &new.right)] {
+                    println!("{case}, arm {i} {label} BEFORE (texture,inner,outer) = {:?}", profile_order_log(before));
+                    println!("{case}, arm {i} {label} AFTER  (texture,inner,outer) = {:?}", profile_order_log(after));
+                }
+            }
+            let arms = [
+                PlateArm { file: "splines\\profile-a.sli".into(), pos: DVec2::new(0.0, -10.0), out: 180.0, at_end: true },
+                PlateArm { file: "splines\\profile-b.sli".into(), pos: DVec2::new(0.0, 10.0), out: 0.0, at_end: b_at_end },
+            ];
+            let plate = layout_plate(&mut assets, &arms, None, None).expect("both arms produce a plate");
+            assert!(!plate.mesh.tris.is_empty(), "{case}: plate has triangles");
+            let previous = junction_mesh(&original, DVec3::ZERO, None, 8.0, 0.0);
+            let mut old_wedge = false;
+            for (i, arm) in corrected.iter().enumerate() {
+                for (label, right) in [("left", false), ("right", true)] {
+                    let old_kerb = profile_order_width(&previous, arm, right, "str_side1.bmp");
+                    let old_walk = profile_order_width(&previous, arm, right, "str_side2.bmp");
+                    let kerb = profile_order_width(&plate.mesh, arm, right, "str_side1.bmp").expect("kerb triangles reach the interface");
+                    let walk = profile_order_width(&plate.mesh, arm, right, "str_side2.bmp").expect("footway triangles reach the interface");
+                    println!("{case}, arm {i} {label} interface: BEFORE side1={old_kerb:?} side2={old_walk:?}; AFTER side1={kerb:.3}m side2={walk:.3}m");
+                    old_wedge |= old_kerb.is_some_and(|v| v > 0.2)
+                        || old_walk.is_some_and(|v| (v - 3.85).abs() > 0.05);
+                    assert!(kerb <= 0.2, "{case} arm {i} {label}: kerb width {kerb}");
+                    assert!((walk - 3.85).abs() <= 0.05, "{case} arm {i} {label}: footway width {walk}");
+                }
+            }
+            if b_at_end {
+                assert!(old_wedge, "reversed B should reproduce the original material wedge");
+            }
+        }
     }
 
     #[test]
