@@ -76,6 +76,7 @@ mod scaled;
 mod scripting;
 mod selection;
 mod signals;
+mod signal_sets;
 mod stops;
 mod switches;
 mod texts;

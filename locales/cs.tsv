@@ -1236,6 +1236,8 @@ Zebra crossings	Přechody pro chodce
 Road	Silnice
 Build it again	Postavit znovu
 Makes the plate, its kerbs and lanes again for the roads as they are now	Znovu vytvoří desku, obrubníky a pruhy pro silnice tak, jak jsou nyní
+Persist junction	Uložit křižovatku
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Uloží tuto křižovatku jako běžný objekt scenérie do instalace OMSI. Uložením mapy zachováte nový odkaz.
 Linked objects	Provázané objekty
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Objekt může přebírat stav od jiného ([varparent]): hlava návěstidla zobrazuje světlo z programu své křižovatky, displej zastávky svou zastávku.
 Takes its state from	Přebírá stav od
@@ -2396,6 +2398,7 @@ Advanced users	Pokročilí uživatelé
 Controls as in OMSI 2's editor	Ovládání jako v editoru OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Ve výchozím stavu vypnuto. Prostřední tlačítko otáčí pohled, podržené pravé tlačítko posouvané nahoru a dolů přibližuje, pravé kliknutí na terén tam přejde (Shift + pravé kliknutí: nabídka), šipky posouvají kameru, kolečko přibližuje
 Bay width	Šířka zálivu
+Bay width per side	Šířka zálivu na každé straně
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Typ silnice s tímto pruhem zálivu se vytvoří z vybraného (z tvůrce silnic), pokud nemá tuto šířku
 Tapers in metres	Zúžení v metrech
 Give the length of each taper in metres instead of a ratio	Zadejte délku každého zúžení v metrech místo poměru
@@ -2785,3 +2788,20 @@ no track within 15 m	do 15 m nejsou koleje
 the tracks are not joined, or run the other way (see View > AI lanes)	koleje nejsou spojeny nebo vedou opačně (viz Zobrazení > Pruhy AI)
 no track beside	žádné koleje vedle
 Drives on	Jezdí po
+Footway paths round the corners (AI)	Pěší cesty v rozích (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Vypnuto: v rozích nejsou cesty pro AI, přechody ale stále spojují chodníky. Propojte rohy ručně (např. neviditelnou křivkou cesty).
+Open in text editor	Otevřít v textovém editoru
+Open the saved .ttp file	Otevřít uložený soubor .ttp
+Could not open the trip file	Soubor spoje se nepodařilo otevřít
+Save the map to create this trip's .ttp file first.	Nejprve uložte mapu, aby se vytvořil soubor .ttp tohoto spoje.
+Change ID	Změnit ID
+New stop ID	Nové ID zastávky
+Timetable name: {name}	Název v jízdním řádu: {name}
+No stop with this ID on the map	Na mapě není zastávka s tímto ID
+Confirm	Potvrdit
+Also apply to other trips with this ID ({count})	Použít i na ostatní spoje s tímto ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID zastávky {old} změněno na {new} ({name}) u spojů: {count}
+Insert before: click a stop on the map to insert it before this one	Vložit před: klikněte na mapě na zastávku, kterou chcete vložit před tuto
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Klikněte na mapě na zastávku, kterou chcete vložit před „{stop}“ (Esc zruší výběr)
+That stop is already next to the insertion point.	Tato zastávka už sousedí s místem vložení.
+Insert stop before	Vložit zastávku před tuto

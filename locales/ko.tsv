@@ -1236,6 +1236,8 @@ Zebra crossings	횡단보도
 Road	도로
 Build it again	다시 만들기
 Makes the plate, its kerbs and lanes again for the roads as they are now	지금 도로에 맞춰 판, 연석, 차선을 다시 만듭니다
+Persist junction	교차로 영구 저장
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	이 교차로를 일반 풍경 오브젝트로 OMSI 설치 폴더에 저장합니다. 새 참조를 유지하려면 지도를 저장하세요.
 Linked objects	연결된 오브젝트
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	오브젝트는 다른 오브젝트에서 상태([varparent])를 받을 수 있습니다. 신호등은 교차로 프로그램의 신호를, 정류장 표시판은 해당 정류장을 표시합니다.
 Takes its state from	상태를 받는 곳
@@ -2396,6 +2398,7 @@ Advanced users	고급 사용자
 Controls as in OMSI 2's editor	OMSI 2 편집기와 같은 조작
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	기본값은 꺼짐. 가운데 버튼은 시점을 회전하고, 오른쪽 버튼을 누른 채 위아래로 움직이면 확대/축소하며, 지면을 오른쪽 클릭하면 그곳으로 이동합니다 (Shift + 오른쪽 클릭: 메뉴). 화살표 키는 카메라를 이동하고 휠은 확대/축소합니다
 Bay width	포켓 폭
+Bay width per side	한쪽당 버스 정차 공간 너비
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	이 포켓 차선이 있는 도로 유형은 선택한 도로 유형(도로 메이커의 것)에서 만들어집니다. 폭이 다를 경우에만 해당합니다
 Tapers in metres	테이퍼 길이(미터)
 Give the length of each taper in metres instead of a ratio	비율 대신 각 테이퍼의 길이를 미터로 지정합니다
@@ -2785,3 +2788,20 @@ no track within 15 m	15 m 이내에 선로 없음
 the tracks are not joined, or run the other way (see View > AI lanes)	선로가 연결되지 않았거나 반대 방향입니다(보기 > AI 차선 참조)
 no track beside	옆에 선로 없음:
 Drives on	운행 경로
+Footway paths round the corners (AI)	모퉁이 보행자 경로(AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	끔: 모퉁이에 AI 경로가 없지만 횡단보도는 계속 인도를 연결합니다. 모퉁이는 직접 연결하세요(예: 보이지 않는 경로 스플라인 사용).
+Open in text editor	텍스트 편집기에서 열기
+Open the saved .ttp file	저장된 .ttp 파일 열기
+Could not open the trip file	운행 파일을 열 수 없습니다
+Save the map to create this trip's .ttp file first.	이 운행의 .ttp 파일을 만들려면 먼저 지도를 저장하세요.
+Change ID	ID 변경
+New stop ID	새 정류장 ID
+Timetable name: {name}	시간표에 표시되는 이름: {name}
+No stop with this ID on the map	지도에 이 ID의 정류장이 없습니다
+Confirm	확인
+Also apply to other trips with this ID ({count})	이 ID가 포함된 다른 운행에도 적용({count}개)
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	정류장 ID {old}을(를) {new}({name})(으)로 변경했습니다(운행 {count}개)
+Insert before: click a stop on the map to insert it before this one	앞에 삽입: 지도에서 정류장을 클릭하여 이 정류장 앞에 넣으세요
+Click a stop on the map to insert it before {stop} (Esc to cancel)	지도에서 정류장을 클릭하여 ‘{stop}’ 앞에 삽입하세요(Esc로 취소)
+That stop is already next to the insertion point.	해당 정류장은 이미 삽입 위치 바로 옆에 있습니다.
+Insert stop before	이 정류장 앞에 삽입

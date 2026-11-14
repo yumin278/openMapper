@@ -1236,6 +1236,8 @@ Zebra crossings	Fußgängerüberwege
 Road	Straße
 Build it again	Neu bauen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Baut die Platte, ihre Bordsteine und Spuren für die Straßen, wie sie jetzt sind, neu
+Persist junction	Kreuzung dauerhaft speichern
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Diese Kreuzung als normales Szenerieobjekt in der OMSI-Installation speichern. Speichern Sie die Karte, um den neuen Verweis zu übernehmen.
 Linked objects	Verknüpfte Objekte
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Ein Objekt kann seinen Zustand von einem anderen übernehmen ([varparent]): Ein Signalkopf zeigt ein Licht des Programms seiner Kreuzung, die Anzeige einer Haltestelle ihre Haltestelle.
 Takes its state from	Übernimmt seinen Zustand von
@@ -2396,6 +2398,7 @@ Advanced users	Fortgeschrittene Nutzer
 Controls as in OMSI 2's editor	Steuerung wie im Editor von OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Standardmäßig aus. Die mittlere Taste dreht die Ansicht, die gedrückte rechte Taste nach oben und unten bewegt zoomt, ein Rechtsklick auf den Boden springt dorthin (Umschalt + Rechtsklick: das Menü), die Pfeiltasten bewegen die Kamera, das Mausrad zoomt
 Bay width	Buchtbreite
+Bay width per side	Breite der Busbucht je Seite
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Ein Straßentyp mit diesem Buchtstreifen wird aus dem gewählten (dem des Straßen-Editors) erstellt, wenn er nicht diese Breite hat
 Tapers in metres	Verjüngungen in Metern
 Give the length of each taper in metres instead of a ratio	Länge jeder Verjüngung in Metern statt als Verhältnis angeben
@@ -2783,3 +2786,20 @@ no track within 15 m	kein Gleis im Umkreis von 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	die Gleise sind nicht verbunden oder verlaufen in die andere Richtung (siehe Ansicht > KI-Spuren)
 no track beside	kein Gleis neben
 Drives on	Fährt auf
+Footway paths round the corners (AI)	Fußwege an den Ecken (KI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Aus: An den Ecken gibt es keine KI-Wege. Die Überwege verbinden weiterhin die Gehwege der Straßen. Verbinde die Ecken selbst (z. B. mit einem unsichtbaren Pfad-Spline).
+Open in text editor	Im Texteditor öffnen
+Open the saved .ttp file	Gespeicherte .ttp-Datei öffnen
+Could not open the trip file	Die Fahrtdatei konnte nicht geöffnet werden
+Save the map to create this trip's .ttp file first.	Speichere zuerst die Karte, um die .ttp-Datei dieser Fahrt zu erstellen.
+Change ID	ID ändern
+New stop ID	Neue Haltestellen-ID
+Timetable name: {name}	Name im Fahrplan: {name}
+No stop with this ID on the map	Auf der Karte gibt es keine Haltestelle mit dieser ID
+Confirm	Bestätigen
+Also apply to other trips with this ID ({count})	Auch auf andere Fahrten mit dieser ID anwenden ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Haltestellen-ID {old} in {count} Fahrten zu {new} ({name}) geändert
+Insert before: click a stop on the map to insert it before this one	Davor einfügen: Wähle auf der Karte eine Haltestelle aus, um sie vor dieser einzufügen
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Wähle auf der Karte eine Haltestelle aus, um sie vor „{stop}“ einzufügen (Esc zum Abbrechen)
+That stop is already next to the insertion point.	Diese Haltestelle grenzt bereits an die Einfügestelle.
+Insert stop before	Haltestelle davor einfügen

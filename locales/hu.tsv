@@ -1236,6 +1236,8 @@ Zebra crossings	Gyalogátkelők
 Road	Út
 Build it again	Újraépítés
 Makes the plate, its kerbs and lanes again for the roads as they are now	Újra elkészíti a lapot, a szegélyeket és a sávokat az utakhoz, ahogy most vannak
+Persist junction	Csomópont végleges mentése
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	A csomópont mentése szokásos tereptárgyként az OMSI telepítési mappájába. Az új hivatkozás megőrzéséhez mentse a térképet.
 Linked objects	Kapcsolt objektumok
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Egy objektum átveheti az állapotát egy másiktól ([varparent]): a jelzőfej a kereszteződés programjának fényét mutatja, a megálló kijelzője a megállóját.
 Takes its state from	Az állapotát innen veszi:
@@ -2396,6 +2398,7 @@ Advanced users	Haladó felhasználók
 Controls as in OMSI 2's editor	Vezérlés az OMSI 2 szerkesztőjéhez hasonlóan
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Alapból ki van kapcsolva. A középső gomb forgatja a nézetet, a lenyomva tartott jobb gomb fel-le mozgatása nagyít, a talajra jobb kattintva odaugrik (Shift + jobb kattintás: a menü), a nyilak mozgatják a kamerát, a görgő nagyít
 Bay width	Öböl szélessége
+Bay width per side	A buszöböl szélessége oldalanként
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Az ilyen öbölsávos útpályatípus a kiválasztottból (az útkészítőből) készül, ha annak nem ez a szélessége
 Tapers in metres	Szűkítések méterben
 Give the length of each taper in metres instead of a ratio	Az arány helyett az egyes szűkítések hosszát adja meg méterben
@@ -2785,3 +2788,20 @@ no track within 15 m	15 m-en belül nincs sín
 the tracks are not joined, or run the other way (see View > AI lanes)	a sínek nincsenek összekötve, vagy másfelé futnak (lásd Nézet > MI-sávok)
 no track beside	nincs sín mellette:
 Drives on	Közlekedik
+Footway paths round the corners (AI)	Gyalogos útvonalak a sarkokon (MI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kikapcsolva: a sarkokon nincs MI-útvonal, de az átkelők továbbra is összekötik a járdákat. Kösd össze a sarkokat kézzel (például láthatatlan útvonalspline-nal).
+Open in text editor	Megnyitás szövegszerkesztőben
+Open the saved .ttp file	A mentett .ttp-fájl megnyitása
+Could not open the trip file	A járatfájl nem nyitható meg
+Save the map to create this trip's .ttp file first.	A járat .ttp-fájljának létrehozásához előbb mentsd a térképet.
+Change ID	ID módosítása
+New stop ID	Új megálló-ID
+Timetable name: {name}	Név a menetrendben: {name}
+No stop with this ID on the map	Nincs ilyen ID-jű megálló a térképen
+Confirm	Megerősítés
+Also apply to other trips with this ID ({count})	Alkalmazás a többi, ilyen ID-t tartalmazó járatra is ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	A(z) {old} megálló-ID {new} ({name}) értékre módosult {count} járatban
+Insert before: click a stop on the map to insert it before this one	Beszúrás elé: válassz egy megállót a térképen, amelyet ez elé szúrsz be
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Válassz a térképen egy megállót, hogy „{stop}” elé szúrd be (Esc: mégse)
+That stop is already next to the insertion point.	Ez a megálló már a beszúrás helye mellett van.
+Insert stop before	Megálló beszúrása elé

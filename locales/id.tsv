@@ -1236,6 +1236,8 @@ Zebra crossings	Penyeberangan zebra
 Road	Jalan
 Build it again	Bangun ulang
 Makes the plate, its kerbs and lanes again for the roads as they are now	Membuat ulang pelat, tepi jalan, dan lajurnya untuk jalan seperti sekarang
+Persist junction	Simpan persimpangan
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Simpan persimpangan ini sebagai objek pemandangan biasa di folder instalasi OMSI. Simpan peta untuk mempertahankan referensi baru.
 Linked objects	Objek tertaut
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Objek dapat mengambil statusnya dari objek lain ([varparent]): lampu sinyal menampilkan cahaya program persimpangannya, layar halte menampilkan haltenya.
 Takes its state from	Mengambil status dari
@@ -2396,6 +2398,7 @@ Advanced users	Pengguna mahir
 Controls as in OMSI 2's editor	Kontrol seperti di editor OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Nonaktif secara default. Tombol tengah memutar tampilan, tombol kanan ditahan dan digerakkan naik turun untuk zoom, klik kanan pada tanah menuju ke sana (Shift + klik kanan: menu), tombol panah menggerakkan kamera, roda mouse untuk zoom
 Bay width	Lebar kantong
+Bay width per side	Lebar teluk bus per sisi
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Tipe jalan dengan lajur kantong ini dibuat dari tipe yang dipilih (milik pembuat jalan), jika lebarnya bukan itu
 Tapers in metres	Runcing dalam meter
 Give the length of each taper in metres instead of a ratio	Berikan panjang setiap runcing dalam meter, bukan rasio
@@ -2785,3 +2788,20 @@ no track within 15 m	tidak ada rel dalam 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	rel tidak tersambung, atau berlawanan arah (lihat Tampilan > Lajur AI)
 no track beside	tidak ada rel di samping
 Drives on	Berjalan di
+Footway paths round the corners (AI)	Jalur pejalan kaki di tikungan (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Nonaktif: tikungan tidak memiliki jalur AI, tetapi penyeberangan tetap menghubungkan trotoar. Hubungkan tikungan secara manual (misalnya dengan spline jalur tak terlihat).
+Open in text editor	Buka di editor teks
+Open the saved .ttp file	Buka berkas .ttp yang tersimpan
+Could not open the trip file	Berkas perjalanan tidak dapat dibuka
+Save the map to create this trip's .ttp file first.	Simpan peta terlebih dahulu untuk membuat berkas .ttp perjalanan ini.
+Change ID	Ubah ID
+New stop ID	ID halte baru
+Timetable name: {name}	Nama di jadwal: {name}
+No stop with this ID on the map	Tidak ada halte dengan ID ini di peta
+Confirm	Konfirmasi
+Also apply to other trips with this ID ({count})	Terapkan juga ke perjalanan lain dengan ID ini ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID halte {old} diubah menjadi {new} ({name}) pada {count} perjalanan
+Insert before: click a stop on the map to insert it before this one	Sisipkan sebelum: pilih halte di peta untuk disisipkan sebelum halte ini
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Pilih halte di peta untuk disisipkan sebelum “{stop}” (Esc untuk membatalkan)
+That stop is already next to the insertion point.	Halte itu sudah berada di sebelah titik penyisipan.
+Insert stop before	Sisipkan halte sebelumnya

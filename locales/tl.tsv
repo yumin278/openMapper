@@ -1236,6 +1236,8 @@ Zebra crossings	Mga tawiran
 Road	Kalsada
 Build it again	Buuin muli
 Makes the plate, its kerbs and lanes again for the roads as they are now	Muling ginagawa ang plate, mga kerb at lane para sa mga kalsada ayon sa kasalukuyan
+Persist junction	I-save ang interseksyon
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	I-save ang interseksyon bilang karaniwang bagay sa tanawin sa folder ng instalasyon ng OMSI. I-save ang mapa upang mapanatili ang bagong sanggunian.
 Linked objects	Mga naka-link na object
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Maaaring kunin ng object ang state nito sa iba ([varparent]): ang signal head ay nagpapakita ng ilaw mula sa program ng crossing nito, ang display ng hintuan ay ang hintuan nito.
 Takes its state from	Kinukuha ang state mula sa
@@ -2396,6 +2398,7 @@ Advanced users	Mga advanced na user
 Controls as in OMSI 2's editor	Mga kontrol tulad ng sa editor ng OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Naka-off bilang default. Ang gitnang button ay iniikot ang view, ang kanang button na hawak at ginagalaw pataas at pababa ay nagzo-zoom, ang right click sa lupa ay pupunta roon (Shift + right click: ang menu), ang mga arrow ay gumagalaw sa camera, ang wheel ay nagzo-zoom
 Bay width	Lapad ng pocket
+Bay width per side	Lapad ng hintuan ng bus sa bawat gilid
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Ang uri ng kalsada na may ganitong pocket lane ay ginagawa mula sa napili (sa road maker), kung hindi ito ang lapad nito
 Tapers in metres	Mga taper sa metro
 Give the length of each taper in metres instead of a ratio	Ibigay ang haba ng bawat taper sa metro sa halip na ratio
@@ -2785,3 +2788,20 @@ no track within 15 m	walang riles sa loob ng 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	hindi nakakabit ang mga riles, o kabilang direksyon ang takbo (tingnan ang View > Mga AI lane)
 no track beside	walang riles sa tabi ng
 Drives on	Tumatakbo sa
+Footway paths round the corners (AI)	Mga daanan ng tao sa mga kanto (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Naka-off: walang daanan ng AI sa mga kanto, pero magkadugtong pa rin ang mga bangketa sa mga tawiran. Ikonekta ang mga kanto nang mano-mano (halimbawa, gamit ang hindi nakikitang spline ng daanan).
+Open in text editor	Buksan sa text editor
+Open the saved .ttp file	Buksan ang naka-save na .ttp file
+Could not open the trip file	Hindi mabuksan ang file ng biyahe
+Save the map to create this trip's .ttp file first.	I-save muna ang mapa para malikha ang .ttp file ng biyaheng ito.
+Change ID	Palitan ang ID
+New stop ID	Bagong ID ng hintuan
+Timetable name: {name}	Pangalan sa iskedyul: {name}
+No stop with this ID on the map	Walang hintuan sa mapa na may ganitong ID
+Confirm	Kumpirmahin
+Also apply to other trips with this ID ({count})	Ilapat din sa ibang biyaheng may ganitong ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Pinalitan ang ID ng hintuan mula {old} patungong {new} ({name}) sa {count} biyahe
+Insert before: click a stop on the map to insert it before this one	Isingit bago rito: pumili ng hintuan sa mapa para isingit bago sa hintuang ito
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Pumili ng hintuan sa mapa para isingit bago sa “{stop}” (Esc para kanselahin)
+That stop is already next to the insertion point.	Katabi na ng pagsisingitan ang hintuang iyon.
+Insert stop before	Isingit ang hintuan bago rito

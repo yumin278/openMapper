@@ -1236,6 +1236,8 @@ Zebra crossings	ज़ेब्रा क्रॉसिंग
 Road	सड़क
 Build it again	फिर से बनाएँ
 Makes the plate, its kerbs and lanes again for the roads as they are now	सड़कों के अभी के रूप के हिसाब से प्लेट, उसके कर्ब और लेन फिर से बनाता है
+Persist junction	चौराहा सहेजें
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	इस चौराहे को OMSI की स्थापना में एक सामान्य दृश्य वस्तु के रूप में सहेजें। नया संदर्भ रखने के लिए नक्शा सहेजें।
 Linked objects	जुड़े ऑब्जेक्ट
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	ऑब्जेक्ट दूसरे से अपनी स्थिति ले सकता है ([varparent]): सिग्नल हेड अपने चौराहे के प्रोग्राम की रोशनी दिखाता है, स्टॉप का डिस्प्ले अपना स्टॉप।
 Takes its state from	स्थिति लेता है
@@ -2396,6 +2398,7 @@ Advanced users	एडवांस्ड उपयोगकर्ता
 Controls as in OMSI 2's editor	OMSI 2 के एडिटर जैसे नियंत्रण
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	डिफ़ॉल्ट रूप से बंद। बीच का बटन दृश्य घुमाता है, दायाँ बटन दबाकर ऊपर-नीचे हिलाने से ज़ूम होता है, ज़मीन पर दायाँ क्लिक वहाँ जाता है (Shift + दायाँ क्लिक: मेनू), तीर कुंजियाँ कैमरा हिलाती हैं, व्हील ज़ूम करता है
 Bay width	पॉकेट की चौड़ाई
+Bay width per side	प्रति ओर बस बे की चौड़ाई
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	इस पॉकेट लेन वाला सड़क प्रकार चुने गए प्रकार (रोड मेकर वाले) से बनाया जाता है, यदि उसकी चौड़ाई यह नहीं है
 Tapers in metres	मीटर में टेपर
 Give the length of each taper in metres instead of a ratio	अनुपात के बजाय हर टेपर की लंबाई मीटर में दें
@@ -2785,3 +2788,20 @@ no track within 15 m	15 m के भीतर ट्रैक नहीं
 the tracks are not joined, or run the other way (see View > AI lanes)	ट्रैक जुड़े नहीं हैं, या उल्टी दिशा में हैं (व्यू > AI लेन देखें)
 no track beside	पास में ट्रैक नहीं:
 Drives on	किस पर चलती है
+Footway paths round the corners (AI)	कोनों पर पैदल पथ (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	बंद: कोनों पर AI के लिए पथ नहीं हैं, लेकिन क्रॉसिंग अब भी सड़कों के फुटपाथ जोड़ती हैं। कोनों को खुद जोड़ें (जैसे किसी अदृश्य पथ स्प्लाइन से)।
+Open in text editor	टेक्स्ट एडिटर में खोलें
+Open the saved .ttp file	सहेजी गई .ttp फ़ाइल खोलें
+Could not open the trip file	यात्रा की फ़ाइल नहीं खुल सकी
+Save the map to create this trip's .ttp file first.	इस यात्रा की .ttp फ़ाइल बनाने के लिए पहले नक्शा सहेजें।
+Change ID	ID बदलें
+New stop ID	स्टॉप का नया ID
+Timetable name: {name}	समय-सारणी में नाम: {name}
+No stop with this ID on the map	नक्शे पर इस ID का कोई स्टॉप नहीं है
+Confirm	पुष्टि करें
+Also apply to other trips with this ID ({count})	इस ID वाली अन्य यात्राओं पर भी लागू करें ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	{count} यात्राओं में स्टॉप का ID {old} से {new} ({name}) किया गया
+Insert before: click a stop on the map to insert it before this one	पहले जोड़ें: नक्शे पर किसी स्टॉप को चुनकर इस स्टॉप से पहले जोड़ें
+Click a stop on the map to insert it before {stop} (Esc to cancel)	नक्शे पर किसी स्टॉप को चुनकर उसे “{stop}” से पहले जोड़ें (रद्द करने के लिए Esc)
+That stop is already next to the insertion point.	यह स्टॉप पहले से ही जोड़ने की जगह के पास है।
+Insert stop before	इससे पहले स्टॉप जोड़ें

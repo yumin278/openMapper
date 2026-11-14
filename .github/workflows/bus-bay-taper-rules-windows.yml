@@ -1,0 +1,50 @@
+name: Windows x64 junction build
+
+on:
+  push:
+    branches:
+      - feature/bus-bay-taper-rules
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-bus-bay-taper-rules-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-x64-bus-bay-taper-rules
+
+      - name: Junction tests
+        run: cargo test --release --locked junction -- --nocapture
+
+      - name: Build portable Windows x64 ZIP
+        shell: pwsh
+        run: ./tools/package-windows.ps1 -Target x86_64-pc-windows-msvc
+
+      - name: Upload portable build
+        uses: actions/upload-artifact@v7
+        with:
+          name: openMapper-windows-x64-bus-bay-taper-rules
+          path: target/package/openMapper-*-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14

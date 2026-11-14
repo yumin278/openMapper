@@ -1236,6 +1236,8 @@ Zebra crossings	Жаяу жүргіншілер өткелдері
 Road	Жол
 Build it again	Қайта салу
 Makes the plate, its kerbs and lanes again for the roads as they are now	Алаңды, оның жиектері мен жолақтарын жолдарға қазіргі күйінде қайта жасайды
+Persist junction	Қиылысты сақтау
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Бұл қиылысты OMSI орнатылған қалтаға кәдімгі көрініс нысаны ретінде сақтаңыз. Жаңа сілтемені сақтау үшін картаны сақтаңыз.
 Linked objects	Байланысқан нысандар
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Нысан күйін басқасынан алуы мүмкін ([varparent]): бағдаршам басы өз қиылысы бағдарламасының жарығын көрсетеді, аялдама табло — өз аялдамасын.
 Takes its state from	Күйін мұнан алады
@@ -2396,6 +2398,7 @@ Advanced users	Тәжірибелі пайдаланушылар
 Controls as in OMSI 2's editor	OMSI 2 редакторындағыдай басқару
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Әдепкіде өшірулі. Ортаңғы батырма көріністі айналдырады, оң батырманы басып жоғары-төмен жылжыту масштабтайды, жерге оң шерту сол жерге апарады (Shift + оң шерту: мәзір), көрсеткілер камераны жылжытады, дөңгелек масштабтайды
 Bay width	Қалта ені
+Bay width per side	Әр жақтағы автобус қалтасының ені
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Осы қалта жолағы бар жол түрі таңдалған түрден (жол конструкторындағыдан) жасалады, егер оның ені басқа болса
 Tapers in metres	Тарылтулар метрмен
 Give the length of each taper in metres instead of a ratio	Қатынастың орнына әр тарылтудың ұзындығын метрмен беріңіз
@@ -2785,3 +2788,20 @@ no track within 15 m	15 м ішінде рельс жоқ
 the tracks are not joined, or run the other way (see View > AI lanes)	рельстер жалғанбаған немесе кері жаққа кетеді (Көрініс > ЖИ жолақтары қараңыз)
 no track beside	жанында рельс жоқ:
 Drives on	Жүретін жолы
+Footway paths round the corners (AI)	Бұрыштардағы жаяу жүргінші жолдары (ЖИ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Өшірулі: бұрыштарда ЖИ жолдары жоқ, бірақ өткелдер тротуарларды байланыстыра береді. Бұрыштарды қолмен қосыңыз (мысалы, көрінбейтін жол сплайнымен).
+Open in text editor	Мәтін өңдегіште ашу
+Open the saved .ttp file	Сақталған .ttp файлын ашу
+Could not open the trip file	Рейс файлын ашу мүмкін болмады
+Save the map to create this trip's .ttp file first.	Осы рейстің .ttp файлын жасау үшін алдымен картаны сақтаңыз.
+Change ID	ID өзгерту
+New stop ID	Аялдаманың жаңа ID-і
+Timetable name: {name}	Кестедегі атауы: {name}
+No stop with this ID on the map	Картада бұл ID бар аялдама жоқ
+Confirm	Растау
+Also apply to other trips with this ID ({count})	Осы ID бар басқа рейстерге де қолдану ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Аялдаманың {old} ID-і {count} рейсте {new} ({name}) болып өзгертілді
+Insert before: click a stop on the map to insert it before this one	Алдына кірістіру: осы аялдаманың алдына қосу үшін картадан аялдама таңдаңыз
+Click a stop on the map to insert it before {stop} (Esc to cancel)	«{stop}» алдына кірістіру үшін картадан аялдама таңдаңыз (Esc — бас тарту)
+That stop is already next to the insertion point.	Бұл аялдама кірістіру орнына іргелес тұр.
+Insert stop before	Аялдаманы алдына кірістіру

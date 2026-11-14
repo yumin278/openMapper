@@ -1236,6 +1236,8 @@ Zebra crossings	Пешаходныя пераходы
 Road	Дарога
 Build it again	Пабудаваць нанова
 Makes the plate, its kerbs and lanes again for the roads as they are now	Нанова будуе пляцоўку, бардзюры і паласы пад дарогі, як яны цяпер
+Persist junction	Захаваць скрыжаванне
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Захаваць гэтае скрыжаванне як звычайны аб’ект у папцы ўсталёўкі OMSI. Захавайце карту, каб запісаць новую спасылку.
 Linked objects	Звязаныя аб'екты
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Аб'ект можа браць стан ад іншага ([varparent]): святлафор паказвае сігнал праграмы свайго скрыжавання, табло прыпынку — свой прыпынак.
 Takes its state from	Бярэ стан ад
@@ -2396,6 +2398,7 @@ Advanced users	Дасведчаныя карыстальнікі
 Controls as in OMSI 2's editor	Кіраванне як у рэдактары OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Выключана па змаўчанні. Сярэдняя кнопка круціць выгляд, правая кнопка з рухам уверх і ўніз маштабуе, правы клік па зямлі вядзе туды (Shift + правы клік: меню), стрэлкі рухаюць камеру, кола маштабуе
 Bay width	Шырыня кішэні
+Bay width per side	Шырыня кішэні з кожнага боку
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Тып дарогі з такой паласой кішэні ствараецца з абранага (з канструктара дарогі), калі ён не мае гэтай шырыні
 Tapers in metres	Звужэнні ў метрах
 Give the length of each taper in metres instead of a ratio	Задайце даўжыню кожнага звужэння ў метрах замест прапорцыі
@@ -2785,3 +2788,20 @@ no track within 15 m	у 15 м няма рэек
 the tracks are not joined, or run the other way (see View > AI lanes)	рэйкі не злучаны або ідуць у іншы бок (Выгляд > Паласы ШІ)
 no track beside	няма рэек ля
 Drives on	Ездзіць па
+Footway paths round the corners (AI)	Пешаходныя шляхі на вуглах (ІІ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Выключана: на вуглах няма шляхоў ІІ, але пераходы ўсё яшчэ злучаюць тратуары дарог. Злучыце вуглы самастойна (напрыклад, нябачным сплайнам шляху).
+Open in text editor	Адкрыць у тэкставым рэдактары
+Open the saved .ttp file	Адкрыць захаваны файл .ttp
+Could not open the trip file	Не ўдалося адкрыць файл рэйса
+Save the map to create this trip's .ttp file first.	Спачатку захавайце карту, каб стварыць файл .ttp гэтага рэйса.
+Change ID	Замяніць ID
+New stop ID	Новы ID прыпынку
+Timetable name: {name}	Назва ў раскладзе: {name}
+No stop with this ID on the map	На карце няма прыпынку з такім ID
+Confirm	Пацвердзіць
+Also apply to other trips with this ID ({count})	Ужыць таксама да іншых рэйсаў з гэтым ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID прыпынку {old} заменены на {new} ({name}) у рэйсах: {count}
+Insert before: click a stop on the map to insert it before this one	Уставіць перад: выберыце прыпынак на карце, каб уставіць яго перад гэтым
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Выберыце прыпынак на карце, каб уставіць яго перад «{stop}» (Esc — скасаваць)
+That stop is already next to the insertion point.	Гэты прыпынак ужо побач з месцам устаўкі.
+Insert stop before	Уставіць прыпынак перад гэтым

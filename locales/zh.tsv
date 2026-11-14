@@ -1241,6 +1241,8 @@ Zebra crossings	斑马线
 Road	道路
 Build it again	重新建造
 Makes the plate, its kerbs and lanes again for the roads as they are now	按道路当前状态重新生成底板、路缘和车道
+Persist junction	持久化保存
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	将此路口保存为 OMSI 安装目录中的普通景物。保存地图以保留新的引用路径。
 Linked objects	关联物体
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	物体可以从另一个物体获取状态（[varparent]）：信号灯显示其路口程序的灯色，站牌显示屏显示其站点。
 Takes its state from	状态来自
@@ -2401,6 +2403,7 @@ Preset Key Shortcut (from other applications)	其他应用程式的预设快捷�
 Controls as in OMSI 2's editor	操作方式与 OMSI 2 的编辑器相同
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	默认关闭。中键旋转视角，按住右键上下移动可缩放，在地面单击右键前往该处（Shift + 右键：菜单），方向键移动摄像机，滚轮缩放
 Bay width	停靠港湾宽度
+Bay width per side	每侧港湾宽度
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	若所选道路类型（道路制作器中的）宽度不同，则由它创建具有此停靠港湾车道的道路类型
 Tapers in metres	锥化长度（米）
 Give the length of each taper in metres instead of a ratio	以米指定每段锥化的长度，而非比例
@@ -2781,3 +2784,20 @@ no track within 15 m	15 m 内没有轨道
 the tracks are not joined, or run the other way (see View > AI lanes)	轨道未连接，或方向相反（见 视图 > AI 车道）
 no track beside	旁边没有轨道：
 Drives on	行驶于
+Footway paths round the corners (AI)	转角人行道 AI 路径
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	关闭后，转角不生成 AI 路径，但人行横道仍会连接道路的人行道。请自行连接转角（例如使用隐形路径样条）。
+Open in text editor	在文本编辑器中打开
+Open the saved .ttp file	打开已保存的 .ttp 文件
+Could not open the trip file	无法打开行程文件
+Save the map to create this trip's .ttp file first.	请先保存地图，以创建此行程的 .ttp 文件。
+Change ID	更换 ID
+New stop ID	新站点 ID
+Timetable name: {name}	时刻表名称：{name}
+No stop with this ID on the map	地图上没有此 ID 的站点
+Confirm	确认
+Also apply to other trips with this ID ({count})	同时应用到其他包含此 ID 的行程（{count} 个）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	已将站点 ID 从 {old} 改为 {new}（{name}），影响 {count} 个行程
+Insert before: click a stop on the map to insert it before this one	插入到此站之前：在地图上选择站点，将其插入到此站之前
+Click a stop on the map to insert it before {stop} (Esc to cancel)	在地图上选择站点，将其插入到“{stop}”之前（Esc 取消）
+That stop is already next to the insertion point.	该站点已与插入位置相邻。
+Insert stop before	插入到此站之前

@@ -1236,6 +1236,8 @@ Zebra crossings	横断歩道
 Road	道路
 Build it again	再作成
 Makes the plate, its kerbs and lanes again for the roads as they are now	現在の道路に合わせて、プレート、縁石、車線を作り直します
+Persist junction	交差点を永続化
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	この交差点を通常の景観オブジェクトとして OMSI のインストール先に保存します。新しい参照先を保持するにはマップを保存してください。
 Linked objects	リンクされたオブジェクト
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	オブジェクトは別のオブジェクトから状態を取得できます（[varparent]）：信号灯器は交差点のプログラムの点灯、停留所の表示器はその停留所を表示します。
 Takes its state from	状態の取得元
@@ -2396,6 +2398,7 @@ Advanced users	上級者向け
 Controls as in OMSI 2's editor	OMSI 2 のエディタと同じ操作
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	初期設定ではオフ。中ボタンで視点を回転、右ボタンを押したまま上下に動かすとズーム、地面を右クリックでその場所へ移動 (Shift + 右クリック: メニュー)、矢印キーでカメラを移動、ホイールでズーム
 Bay width	ポケットの幅
+Bay width per side	片側あたりのバスベイ幅
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	このポケット車線を持つ道路タイプは、選んだ道路タイプ（道路メーカーのもの）から作られます。幅が異なる場合に限ります
 Tapers in metres	先細りをメートルで指定
 Give the length of each taper in metres instead of a ratio	比率ではなく、各先細りの長さをメートルで指定します
@@ -2785,3 +2788,20 @@ no track within 15 m	15 m以内に線路がありません
 the tracks are not joined, or run the other way (see View > AI lanes)	線路が接続されていないか、逆向きです（表示 > AI車線を参照）
 no track beside	線路なし：
 Drives on	走行
+Footway paths round the corners (AI)	角の歩行者経路（AI）
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	オフにすると角の AI 経路は作成されません。横断歩道は引き続き歩道につながります。角は手動で接続してください（例：非表示の経路スプライン）。
+Open in text editor	テキストエディターで開く
+Open the saved .ttp file	保存済みの .ttp ファイルを開く
+Could not open the trip file	便のファイルを開けませんでした
+Save the map to create this trip's .ttp file first.	先にマップを保存して、この便の .ttp ファイルを作成してください。
+Change ID	ID を変更
+New stop ID	新しい停留所 ID
+Timetable name: {name}	時刻表での名称：{name}
+No stop with this ID on the map	この ID の停留所はマップにありません
+Confirm	確定
+Also apply to other trips with this ID ({count})	この ID を含むほかの便にも適用（{count} 件）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	停留所 ID を {old} から {new}（{name}）に変更しました（{count} 件）
+Insert before: click a stop on the map to insert it before this one	この停留所の前に挿入：マップ上の停留所をクリックして選択
+Click a stop on the map to insert it before {stop} (Esc to cancel)	マップ上の停留所をクリックして「{stop}」の前に挿入（Esc でキャンセル）
+That stop is already next to the insertion point.	この停留所はすでに挿入位置の隣にあります。
+Insert stop before	この停留所の前に挿入

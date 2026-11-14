@@ -1236,6 +1236,8 @@ Zebra crossings	Övergångsställen
 Road	Väg
 Build it again	Bygg den igen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Gör plattan, dess trottoarkanter och körfält igen för vägarna som de är nu
+Persist junction	Spara korsningen permanent
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Spara korsningen som ett vanligt sceneryobjekt i OMSI-installationen. Spara kartan för att behålla den nya referensen.
 Linked objects	Länkade objekt
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Ett objekt kan ta sitt tillstånd från ett annat ([varparent]): ett signalhuvud visar ett ljus från sin korsnings program, en hållplatsdisplay sin hållplats.
 Takes its state from	Tar sitt tillstånd från
@@ -2396,6 +2398,7 @@ Advanced users	Avancerade användare
 Controls as in OMSI 2's editor	Kontroller som i OMSI 2:s editor
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Av som standard. Mittknappen vrider vyn, högerknappen hållen och förd upp och ned zoomar, ett högerklick på marken går dit (Shift + högerklick: menyn), piltangenterna flyttar kameran, hjulet zoomar
 Bay width	Fickans bredd
+Bay width per side	Bredd på bussfickan per sida
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	En vägtyp med detta fickfält skapas av den valda (den från väggeneratorn), om den inte har den bredden
 Tapers in metres	Avsmalningar i meter
 Give the length of each taper in metres instead of a ratio	Ange längden på varje avsmalning i meter i stället för en proportion
@@ -2785,3 +2788,20 @@ no track within 15 m	inget spår inom 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	spåren är inte sammanfogade, eller går åt andra hållet (se Visa > AI-körfält)
 no track beside	inget spår vid
 Drives on	Kör på
+Footway paths round the corners (AI)	Gångvägar runt hörnen (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Av: hörnen saknar AI-vägar, men övergångsställena förbinder fortfarande trottoarerna. Anslut hörnen manuellt (t.ex. med en osynlig vägspline).
+Open in text editor	Öppna i textredigerare
+Open the saved .ttp file	Öppna den sparade .ttp-filen
+Could not open the trip file	Det gick inte att öppna turfilen
+Save the map to create this trip's .ttp file first.	Spara kartan först för att skapa turens .ttp-fil.
+Change ID	Ändra ID
+New stop ID	Nytt hållplats-ID
+Timetable name: {name}	Namn i tidtabellen: {name}
+No stop with this ID on the map	Det finns ingen hållplats med detta ID på kartan
+Confirm	Bekräfta
+Also apply to other trips with this ID ({count})	Tillämpa också på andra turer med detta ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Hållplats-ID {old} ändrades till {new} ({name}) i {count} turer
+Insert before: click a stop on the map to insert it before this one	Infoga före: välj en hållplats på kartan för att infoga den före denna
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Välj en hållplats på kartan för att infoga den före ”{stop}” (Esc för att avbryta)
+That stop is already next to the insertion point.	Hållplatsen ligger redan intill infogningspunkten.
+Insert stop before	Infoga hållplats före denna

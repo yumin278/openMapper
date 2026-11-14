@@ -1236,6 +1236,8 @@ Zebra crossings	Passages piétons
 Road	Route
 Build it again	Reconstruire
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refait la plateforme, ses bordures et ses voies pour les routes telles qu'elles sont maintenant
+Persist junction	Enregistrer le carrefour
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Enregistre ce carrefour comme objet de décor standard dans l’installation d’OMSI. Enregistrez la carte pour conserver la nouvelle référence.
 Linked objects	Objets liés
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Un objet peut tirer son état d'un autre ([varparent]) : un feu affiche une lumière du programme de son carrefour, l'afficheur d'un arrêt son arrêt.
 Takes its state from	Tire son état de
@@ -2396,6 +2398,7 @@ Advanced users	Utilisateurs avancés
 Controls as in OMSI 2's editor	Commandes comme dans l'éditeur d'OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Désactivé par défaut. Le bouton central fait tourner la vue, le bouton droit maintenu et déplacé de haut en bas zoome, un clic droit sur le sol y va (Shift + clic droit : le menu), les flèches déplacent la caméra, la molette zoome
 Bay width	Largeur de la baie
+Bay width per side	Largeur de la baie par côté
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Un type de route avec cette voie de baie est créé à partir de celui choisi (celui du créateur de route), s'il n'a pas cette largeur
 Tapers in metres	Effilements en mètres
 Give the length of each taper in metres instead of a ratio	Indiquez la longueur de chaque effilement en mètres au lieu d'une proportion
@@ -2783,3 +2786,20 @@ no track within 15 m	aucune voie ferrée à moins de 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	les voies ne sont pas jointes, ou vont dans l'autre sens (voir Vue > Voies IA)
 no track beside	pas de voie ferrée près de
 Drives on	Circule sur
+Footway paths round the corners (AI)	Chemins piétons dans les angles (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Désactivé : les angles sont dépourvus de chemins IA, mais les passages relient toujours les trottoirs des routes. Reliez vous-même les angles (p. ex. avec une spline de chemin invisible).
+Open in text editor	Ouvrir dans un éditeur de texte
+Open the saved .ttp file	Ouvrir le fichier .ttp enregistré
+Could not open the trip file	Impossible d’ouvrir le fichier du trajet
+Save the map to create this trip's .ttp file first.	Enregistrez d’abord la carte pour créer le fichier .ttp de ce trajet.
+Change ID	Changer l’ID
+New stop ID	Nouvel ID d’arrêt
+Timetable name: {name}	Nom dans les horaires : {name}
+No stop with this ID on the map	Aucun arrêt avec cet ID sur la carte
+Confirm	Confirmer
+Also apply to other trips with this ID ({count})	Appliquer aussi aux autres trajets avec cet ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	L’ID d’arrêt {old} a été remplacé par {new} ({name}) dans {count} trajets
+Insert before: click a stop on the map to insert it before this one	Insérer avant : choisissez un arrêt sur la carte pour l’insérer avant celui-ci
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Choisissez un arrêt sur la carte pour l’insérer avant « {stop} » (Échap pour annuler)
+That stop is already next to the insertion point.	Cet arrêt est déjà à côté du point d’insertion.
+Insert stop before	Insérer un arrêt avant celui-ci

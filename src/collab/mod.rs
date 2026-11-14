@@ -461,6 +461,7 @@ fn placeholder() -> Document {
         traffic: Default::default(),
         descriptions: Default::default(),
         groups: Vec::new(),
+        signal_sets: Default::default(),
     }
 }
 
