@@ -3,7 +3,7 @@
 //! (a bus's day of trips with their departure times). The trip being edited is drawn in the
 //! view.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 use egui::{Color32, RichText, Sense, Vec2};
@@ -42,6 +42,13 @@ struct MapStop {
     kind: crate::stops::StopKind,
 }
 
+struct ReplaceStopId {
+    index: usize,
+    old_id: i64,
+    input: String,
+    all: bool,
+}
+
 /// What the window keeps between frames.
 #[derive(Default)]
 pub struct TimetableUi {
@@ -56,6 +63,10 @@ pub struct TimetableUi {
     tour: Option<usize>,
     /// Clicking stops on the map adds them to the trip.
     picking: bool,
+    replace_id: Option<ReplaceStopId>,
+    insert_before: Option<usize>,
+    pending_insert: Option<(usize, i64)>,
+    stop_edit_undo: Option<&'static str>,
     line_name: String,
     trip_name: String,
     stop_filter: String,
@@ -85,10 +96,67 @@ pub struct TimetableUi {
     /// The year the holidays are shown of.
     holiday_year: i32,
     holidays_open: bool,
+    /// Bulk rerouting is destructive to shared station links, so require confirmation.
+    confirm_recalculate: bool,
+    bulk_report: Option<String>,
+    /// Route-only edits need a timetable snapshot for Undo as well.
+    bulk_changed: bool,
+    /// Trips deliberately left unchanged by a bulk operation: avoid a subsequent
+    /// automatic stale-route pass silently bypassing the shared-link safeguards.
+    bulk_blocked: HashSet<String>,
 }
 
 fn lower(s: &str) -> String {
     s.to_lowercase()
+}
+
+/// A newly calculated trip track and the station links between its stops.
+type PlannedRoute = (String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>);
+
+/// Type-2 stop IDs can be routed using station links; legacy track stop records cannot.
+fn eligible_for_batch(trip: &Trip) -> bool {
+    trip.stations.len() >= 2 && trip.stations_legacy.is_empty()
+}
+
+/// Station links belong to the whole map and are keyed only by their two stop IDs.
+/// Do not pick an arbitrary winner when two trips calculate different paths between
+/// the same stops. Nor replace a link used by a trip that could not be recalculated.
+fn conflicting_batch_routes(
+    planned: &[PlannedRoute],
+    original: &[omsi_timetable::StnLink],
+    protected: &HashSet<(i64, i64)>,
+) -> HashSet<usize> {
+    let mut uses: HashMap<(i64, i64), Vec<(usize, &omsi_timetable::StnLink)>> = HashMap::new();
+    for (index, (_, _, links)) in planned.iter().enumerate() {
+        for link in links {
+            uses.entry((link.from_id, link.to_id)).or_default().push((index, link));
+        }
+    }
+    let mut protected = protected.clone();
+    let mut conflicts = HashSet::new();
+    loop {
+        let mut added = false;
+        for (pair, group) in &uses {
+            let first = group[0].1;
+            let disagree = group.iter().any(|(_, link)| *link != first);
+            let would_change_protected = protected.contains(pair)
+                && original.iter().any(|link| (link.from_id, link.to_id) == *pair && link != first);
+            if disagree || would_change_protected {
+                for (index, _) in group {
+                    added |= conflicts.insert(*index);
+                }
+            }
+        }
+        if !added {
+            break;
+        }
+        // A skipped trip must also retain any other shared links it depends on.
+        // Propagate its protection until no additional trip would change those links.
+        for &index in &conflicts {
+            protected.extend(planned[index].2.iter().map(|link| (link.from_id, link.to_id)));
+        }
+    }
+    conflicts
 }
 
 /// What trip `name` drives on: as set here, else as its saved way does (None: as its stops
@@ -120,6 +188,98 @@ fn line_trips(tt: &Timetable, line: &Line) -> Vec<String> {
 
 fn small_button(ui: &mut egui::Ui, icon: Icon, hint: &str) -> bool {
     ui.add(egui::Button::new(icon.text(16.0)).frame(false).min_size(Vec2::new(20.0, 20.0))).on_hover_text(hint).clicked()
+}
+
+fn other_trip_uses_id(trip: &Trip, current: &str, id: i64) -> bool {
+    !trip.name.eq_ignore_ascii_case(current) && trip.stations_legacy.is_empty() && trip.stations.contains(&id)
+}
+
+fn replace_station_id(
+    trips: &mut [Trip], current: &str, index: usize, old: i64, new: i64, all: bool,
+    old_names: &[&str], new_name: &str,
+) -> Vec<(String, Vec<usize>)> {
+    if old == new || !trips.iter().any(|t| {
+        t.name.eq_ignore_ascii_case(current) && t.stations_legacy.is_empty() && t.stations.get(index) == Some(&old)
+    }) {
+        return Vec::new();
+    }
+
+    let mut changed = Vec::new();
+    for trip in trips {
+        let indices = if trip.name.eq_ignore_ascii_case(current) {
+            trip.stations[index] = new;
+            vec![index]
+        } else if all && other_trip_uses_id(trip, current, old) {
+            trip.stations.iter_mut().enumerate().filter_map(|(i, id)| {
+                if *id != old {
+                    return None;
+                }
+                *id = new;
+                Some(i)
+            }).collect()
+        } else {
+            continue;
+        };
+        let sign = trip.terminus.trim();
+        if indices.last().is_some_and(|&i| i + 1 == trip.stations.len()) && (sign.is_empty() || old_names.contains(&sign)) {
+            trip.terminus = new_name.to_string();
+        }
+        changed.push((trip.name.clone(), indices));
+    }
+    changed
+}
+
+/// Move profile entries with their old rows, even when a stop ID occurs more than once.
+/// An inserted row has no old index and gets its stopping rule from the map.
+fn remap_station_profiles(
+    profiles: &mut [omsi_timetable::TripProfile], old_len: usize, stations: &[i64],
+    old_rows: &[Option<usize>], default_serve: impl Fn(i64) -> Option<i32>,
+) {
+    let mut new_rows = vec![None; old_len];
+    for (new, old) in old_rows.iter().enumerate() {
+        if let Some(old) = *old {
+            new_rows[old] = Some(new);
+        }
+    }
+    let remap_time = |list: &mut Vec<(i32, f32)>| {
+        list.retain_mut(|(i, _)| {
+            let Some(new) = new_rows.get(*i as usize).copied().flatten().filter(|k| k + 1 < stations.len()) else { return false };
+            *i = new as i32;
+            true
+        });
+        list.sort_by_key(|x| x.0);
+    };
+    for profile in profiles {
+        // The final stop's arrival is represented by the trip's duration.
+        profile.man_arr_time.retain(|(i, _)| Some(*i as usize) != old_len.checked_sub(1));
+        remap_time(&mut profile.man_arr_time);
+        remap_time(&mut profile.man_dep_time);
+        let old_serve = std::mem::take(&mut profile.other_stopping);
+        profile.other_stopping = old_rows.iter().enumerate().filter_map(|(new, old)| {
+            let serve = match old {
+                Some(old) => old_serve.iter().find(|(i, _)| *i as usize == *old).map(|(_, v)| *v),
+                None => default_serve(stations[new]),
+            }?;
+            (serve != 0).then_some((new as i32, serve))
+        }).collect();
+    }
+}
+
+fn open_text_file(path: &std::path::Path) -> std::io::Result<()> {
+    use std::process::Command;
+
+    #[cfg(target_os = "windows")]
+    let mut editor = Command::new("notepad.exe");
+    #[cfg(target_os = "macos")]
+    let mut editor = {
+        let mut cmd = Command::new("open");
+        cmd.arg("-t");
+        cmd
+    };
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut editor = Command::new("xdg-open");
+
+    editor.arg(path).spawn().map(|_| ())
 }
 
 /// A check box like the rest of the interface's.
@@ -268,6 +428,8 @@ impl TimetableUi {
         let Some(net) = &self.net else { return };
         let names: Vec<String> = std::mem::take(&mut doc.timetable.reroute).into_iter().collect();
         for name in names {
+            // An explicit stop edit is a new request to route this trip.
+            self.bulk_blocked.remove(&lower(&name));
             let Some(trip) = doc.timetable.trip(&name).cloned() else { continue };
             if trip.stations.len() < 2 {
                 self.problems.remove(&name);
@@ -287,6 +449,78 @@ impl TimetableUi {
         }
     }
 
+    /// Explicitly reroute all station-link trips, even when their saved .ttr still fits.
+    /// The normal stale-trip check cannot be used for this: it prefers an existing .ttr.
+    /// Calculate everything first, then avoid replacing shared links inconsistently.
+    fn recalculate_all(&mut self, doc: &mut Document) -> String {
+        let Some(net) = &self.net else {
+            return "Road and track network unavailable / 道路與軌道網路無法使用".to_string();
+        };
+        let stop_positions: HashMap<i64, DVec3> = self.stops.iter().map(|s| (s.id, s.pos)).collect();
+        self.bulk_blocked.clear();
+        let mut planned: Vec<PlannedRoute> = Vec::new();
+        let mut protected: HashSet<(i64, i64)> = HashSet::new();
+        let mut failures = Vec::new();
+        let mut skipped = 0;
+        for trip in &doc.timetable.trips {
+            // A legacy [station] trip specifies a track and its own stop records.
+            // Never convert it to [station_typ2] as a side effect of this action.
+            if !eligible_for_batch(trip) {
+                skipped += 1;
+                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                continue;
+            }
+            let positions: Vec<Option<DVec3>> = trip.stations.iter()
+                .map(|id| stop_positions.get(id).copied())
+                .collect();
+            let route = route::find(net, &positions, doc.global.left_hand_traffic, ways_for(&self.ways, doc, net, &trip.name));
+            if route.ok() {
+                planned.push((trip.name.clone(), route.track(net, &doc.order), route.links(net, &doc.order, &trip.stations)));
+            } else {
+                failures.push(trip.name.clone());
+                self.bulk_blocked.insert(lower(&trip.name));
+                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                self.problems.insert(lower(&trip.name), route.problems.clone());
+                log::warn!("timetable: batch route for {} not found: {:?}", trip.name, route.problems);
+            }
+        }
+
+        let conflicts = conflicting_batch_routes(&planned, &doc.timetable.links, &protected);
+        let conflicting = conflicts.len();
+        let conflict_samples: Vec<String> = planned.iter().enumerate()
+            .filter(|(index, _)| conflicts.contains(index))
+            .map(|(_, (name, _, _))| name.clone()).take(5).collect();
+        let mut completed = 0;
+        for (index, (name, track, links)) in planned.into_iter().enumerate() {
+            if conflicts.contains(&index) {
+                self.bulk_blocked.insert(lower(&name));
+                log::warn!("timetable: batch route for {name} skipped: conflicting shared station link");
+                continue;
+            }
+            doc.timetable.set_route(&name, track, links);
+            doc.timetable.reroute.remove(&lower(&name));
+            self.problems.remove(&lower(&name));
+            self.routed.insert(lower(&name), self.net_key);
+            completed += 1;
+        }
+        if !failures.is_empty() {
+            log::warn!("timetable: batch route failures: {}", failures.join(", "));
+        }
+        self.shown = None;
+        self.bulk_changed |= completed > 0;
+        let mut report = format!(
+            "Recalculated / 已重算: {completed}  |  Failed / 失敗（保留原檔）: {}  |  Conflicts / 衝突（保留原檔）: {conflicting}  |  Skipped / 略過: {skipped}",
+            failures.len(),
+        );
+        if !failures.is_empty() {
+            report.push_str(&format!("\nFailed / 失敗: {}", failures.iter().take(5).cloned().collect::<Vec<_>>().join(", ")));
+        }
+        if !conflict_samples.is_empty() {
+            report.push_str(&format!("\nConflicts / 衝突: {}", conflict_samples.join(", ")));
+        }
+        report
+    }
+
     /// Before the map is saved: the stop list follows the map's stops, and the routes of
     /// the trips made here are found again where the roads changed since.
     pub fn before_save(&mut self, doc: &mut Document, roots: Option<&Roots>) {
@@ -302,15 +536,19 @@ impl TimetableUi {
             let on_map: std::collections::HashSet<i64> = doc.tiles.values().flat_map(|t| t.tile.splines.iter().filter(|s| !s.deleted).map(|s| s.id).chain(t.tile.objects.iter().map(|o| o.id))).collect();
             let changed: std::collections::HashSet<usize> = doc.order.iter().enumerate().filter(|(_, k)| doc.tiles.get(k).map(|t| t.dirty).unwrap_or(false)).map(|(i, _)| i).collect();
             for name in route::stale_trips(&doc.timetable, net, &doc.order, &on_map, &changed) {
+                if self.bulk_blocked.contains(&lower(&name)) {
+                    continue;
+                }
                 log::info!("timetable: the way of {name} is found again (its roads changed)");
                 doc.timetable.reroute.insert(name.to_lowercase());
             }
         }
         for (name, key) in &self.routed {
-            if *key != self.net_key {
+            if *key != self.net_key && !self.bulk_blocked.contains(name) {
                 doc.timetable.reroute.insert(name.clone());
             }
         }
+        doc.timetable.reroute.retain(|name| !self.bulk_blocked.contains(name));
         self.reroute(doc);
         let ids: Vec<(TileKey, i64)> = self.stops.iter().map(|s| (s.tile, s.id)).collect();
         let entries = timetable::stop_entries(doc, &ids);
@@ -346,7 +584,7 @@ impl TimetableUi {
             let _ = (name, doc);
         }
         // the stops that can be picked
-        if self.picking {
+        if self.picking || self.insert_before.is_some() {
             for s in &self.stops {
                 crate::editor::disc(&mut x.overlay, cam, s.pos + DVec3::Z * 0.2, w * 8.0, [0.96, 0.5, 0.19, 0.35]);
             }
@@ -356,6 +594,8 @@ impl TimetableUi {
     pub fn window(&mut self, ctx: &egui::Context, ed: &mut Editor, roots: Option<&Roots>, actions: &mut Vec<Action>) {
         let Some(dir) = ed.doc.as_ref().map(|d| d.dir.clone()) else {
             self.open = false;
+            self.clear_stop_edits();
+            ed.pick_mode = false;
             return;
         };
         if self.map.as_ref() != Some(&dir) {
@@ -365,6 +605,7 @@ impl TimetableUi {
         }
         if !self.open {
             self.picking = false;
+            self.clear_stop_edits();
             ed.pick_mode = false;
             return;
         }
@@ -380,9 +621,17 @@ impl TimetableUi {
             self.select_line(tt, l);
             self.tour = tt.lines.iter().find(|l| Some(&l.name) == self.line.as_ref()).filter(|l| !l.tours.is_empty()).map(|_| 0);
         }
+        if (self.replace_id.is_some() || self.insert_before.is_some())
+            && !self.line.as_ref().is_some_and(|name| ed.doc.as_ref().unwrap().timetable.lines.iter().any(|l| &l.name == name))
+        {
+            self.clear_stop_edits();
+        }
         // (what it was before this frame's edits, for undo)
         let before = ed.doc.as_ref().unwrap().timetable.clone();
         let traffic_before = ed.doc.as_ref().unwrap().traffic.clone();
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.clear_stop_edits();
+        }
         self.pick_from_view(ed);
         let mut open = self.open;
         egui::Window::new(icons::labelled(Icon::Bus, tr("Lines and timetable", "Линии и расписание")))
@@ -396,23 +645,30 @@ impl TimetableUi {
         self.open = open;
         if !open {
             self.picking = false;
-            ed.pick_mode = false;
+            self.clear_stop_edits();
+        }
+        ed.pick_mode = self.picking || self.insert_before.is_some();
+        if self.insert_before.is_some() && ed.tool != Tool::Select {
+            ed.set_tool(Tool::Select);
         }
         let doc = ed.doc.as_ref().unwrap();
         // (a depot added for tours that all name a group changes only the traffic: a step too)
-        let timetable = !before.same_content(&doc.timetable);
+        let timetable = self.bulk_changed || !before.same_content(&doc.timetable);
+        self.bulk_changed = false;
         let traffic = (traffic_before != doc.traffic).then_some(traffic_before);
+        let label = self.stop_edit_undo.take().unwrap_or_else(|| tr("Edit timetable", "Правка расписания"));
         if timetable || traffic.is_some() {
-            ed.history.push_snapshot(tr("Edit timetable", "Правка расписания"), crate::history::Snapshot { timetable: timetable.then_some(before), traffic, ..Default::default() });
+            ed.history.push_snapshot(label, crate::history::Snapshot { timetable: timetable.then_some(before), traffic, ..Default::default() });
         }
         self.update_shown(ed);
     }
 
     /// While picking, a click on the map (the editor's pick mode: nothing is selected or
     /// moved) adds the stop under the cursor, or the one nearest it, to the trip.
+    /// Inserting queues the stop for the same profile remapping as edits in the stop list.
     fn pick_from_view(&mut self, ed: &mut Editor) {
-        ed.pick_mode = self.picking;
-        if !self.picking {
+        ed.pick_mode = self.picking || self.insert_before.is_some();
+        if !ed.pick_mode {
             ed.picked = None;
             return;
         }
@@ -432,6 +688,19 @@ impl TimetableUi {
             return;
         };
         let Some(doc) = ed.doc.as_mut() else { return };
+        if let Some(index) = self.insert_before {
+            let target = doc.timetable.trip(&trip).filter(|t| t.stations_legacy.is_empty()).and_then(|t| {
+                let next = t.stations.get(index)?;
+                let previous = index.checked_sub(1).and_then(|i| t.stations.get(i));
+                Some(*next == id || previous == Some(&id))
+            });
+            match target {
+                Some(false) => self.pending_insert = Some((index, id)),
+                Some(true) => ed.error(tr("That stop is already next to the insertion point.", "Эта остановка уже рядом с местом вставки.")),
+                None => self.insert_before = None,
+            }
+            return;
+        }
         let terminus = self.stop_name(&doc.timetable, id);
         if let Some(t) = doc.timetable.trip_mut(&trip) {
             if t.stations.last() == Some(&id) {
@@ -467,6 +736,38 @@ impl TimetableUi {
         }
         if self.stops.len() < 2 {
             ui.label(RichText::new(tr("A line needs at least two bus stops on the map: place them with Game logic > Bus stops, beside a road.", "Линии нужны хотя бы две остановки на карте: поставьте их через Служебное > Остановки, рядом с дорогой.")).color(WARN));
+        }
+        let eligible = doc.timetable.trips.iter()
+            .filter(|t| eligible_for_batch(t)).count();
+        if eligible > 0 {
+            ui.horizontal(|ui| {
+                if ui.add_enabled(self.net.is_some(), egui::Button::new(
+                    icons::labelled(Icon::Route, "Recalculate all trips / 批次重算")
+                )).clicked() {
+                    self.confirm_recalculate = true;
+                    self.bulk_report = None;
+                }
+                ui.label(format!("Eligible trips / 可重算班次: {eligible}"));
+            });
+            if self.confirm_recalculate {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    ui.label("Recalculate all station-link trips and replace successful trips' .ttr and shared StnLinks.cfg. Unroutable/conflicting trips retain their data; save the map afterward. / 批次重算所有站間連結路線，成功的班次會更新 .ttr 與共用 StnLinks.cfg；失敗或路徑衝突的班次保留原資料。完成後請存檔。");
+                    ui.horizontal(|ui| {
+                        if ui.button("Confirm recalculation / 確認重算").clicked() {
+                            self.confirm_recalculate = false;
+                            let report = self.recalculate_all(doc);
+                            self.bulk_report = Some(report);
+                        }
+                        if ui.button(tr("Cancel", "Отмена")).clicked() {
+                            self.confirm_recalculate = false;
+                        }
+                    });
+                });
+            }
+            if let Some(report) = &self.bulk_report {
+                ui.label(report);
+            }
+            ui.separator();
         }
         ui.horizontal_top(|ui| {
             // the lines
@@ -523,6 +824,72 @@ impl TimetableUi {
         self.trip_name = name.clone().unwrap_or_default();
         self.trip = name;
         self.picking = false;
+        self.clear_stop_edits();
+    }
+
+    fn clear_stop_edits(&mut self) {
+        self.replace_id = None;
+        self.insert_before = None;
+        self.pending_insert = None;
+    }
+
+    fn replace_stop_id_panel(
+        &mut self, ui: &mut egui::Ui, tt: &mut Timetable, current: &str, toasts: &mut Vec<crate::editor::Toast>,
+    ) -> bool {
+        let mut edit = self.replace_id.take().unwrap();
+        let other_count = tt.trips.iter().filter(|t| other_trip_uses_id(t, current, edit.old_id)).count();
+        let mut replacement = None;
+        let mut cancel = false;
+        ui.indent("tt replace stop id", |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(tr("New stop ID", "Новый ID остановки"));
+                ui.add(egui::TextEdit::singleline(&mut edit.input).desired_width(105.0));
+                let found = edit.input.trim().parse::<i64>().ok().and_then(|id| self.stops.iter().find(|s| s.id == id));
+                if let Some(stop) = found {
+                    ui.label(RichText::new(format!("→ {}", stop.name)).color(GOOD));
+                    if let Some(name) = tt.stop_name(stop.id).filter(|n| *n != stop.name) {
+                        ui.label(tr("Timetable name: {name}", "Название в расписании: {name}").replace("{name}", name));
+                    }
+                } else {
+                    ui.label(RichText::new(tr("No stop with this ID on the map", "На карте нет остановки с таким ID")).color(WARN));
+                }
+                let valid = found.filter(|s| s.id != edit.old_id);
+                if ui.add_enabled(valid.is_some(), egui::Button::new(tr("Confirm", "Подтвердить"))).clicked() {
+                    replacement = valid;
+                }
+                cancel = ui.button(tr("Cancel", "Отмена")).clicked();
+            });
+            if other_count > 0 {
+                let label = tr("Also apply to other trips with this ID ({count})", "Применить также к другим рейсам с этим ID ({count})")
+                    .replace("{count}", &other_count.to_string());
+                ui.checkbox(&mut edit.all, label);
+            }
+        });
+        let Some(stop) = replacement else {
+            if !cancel {
+                self.replace_id = Some(edit);
+            }
+            return false;
+        };
+
+        let old = edit.old_id;
+        let new = stop.id;
+        let old_name = self.stop_name(tt, old);
+        let timetable_name = tt.stop_name(old).unwrap_or_default().trim().to_string();
+        let old_names = [old_name.trim(), timetable_name.as_str()];
+        let affected = replace_station_id(&mut tt.trips, current, edit.index, old, new, edit.all, &old_names, &stop.name);
+        for (trip, indices) in &affected {
+            tt.touch_route(trip);
+            log::info!("timetable: replaced stop ID {old} with {new} ({:?}) in trip {trip:?} at indices {indices:?}", stop.name);
+        }
+        if !affected.is_empty() {
+            let text = tr("Changed stop ID {old} to {new} ({name}) in {count} trip(s)", "ID остановки {old} заменён на {new} ({name}) в рейсах: {count}")
+                .replace("{old}", &old.to_string()).replace("{new}", &new.to_string())
+                .replace("{count}", &affected.len().to_string()).replace("{name}", &stop.name);
+            toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: false });
+            self.stop_edit_undo = Some(tr("Change ID", "Заменить ID"));
+        }
+        !affected.is_empty()
     }
 
     fn line_panel(&mut self, ui: &mut egui::Ui, doc: &mut Document, line: &str, toasts: &mut Vec<crate::editor::Toast>, actions: &mut Vec<Action>) {
@@ -533,7 +900,10 @@ impl TimetableUi {
             let r = ui.add(egui::TextEdit::singleline(&mut self.line_name).desired_width(90.0));
             if r.lost_focus() && self.line_name != line {
                 match doc.timetable.rename_line(line, &self.line_name) {
-                    Some(n) => self.line = Some(n),
+                    Some(n) => {
+                        self.line = Some(n);
+                        self.clear_stop_edits();
+                    }
                     None => {
                         toast(toasts, tr("That name is taken or can't be a file name", "Это имя занято или не годится для файла"));
                         self.line_name = line.to_string();
@@ -544,14 +914,14 @@ impl TimetableUi {
                 if let Some(n) = doc.timetable.duplicate_line(line) {
                     self.line_name = n.clone();
                     self.line = Some(n);
-                    self.trip = None;
+                    self.select_trip(None);
                     return;
                 }
             }
             if small_button(ui, Icon::Delete, tr("Delete the line and its trips", "Удалить линию и её рейсы")) {
                 doc.timetable.delete_line(line);
                 self.line = None;
-                self.trip = None;
+                self.select_trip(None);
             }
         });
         let Some(li) = doc.timetable.lines.iter().position(|l| Some(&l.name) == self.line.as_ref()) else { return };
@@ -573,11 +943,13 @@ impl TimetableUi {
                 self.tours_tab = true;
                 self.vehicles_tab = false;
                 self.picking = false;
+                self.clear_stop_edits();
             }
             if ui.add(egui::Button::selectable(self.vehicles_tab, icons::labelled(Icon::Bus, tr("Vehicles", "Транспорт")))).on_hover_text(tr("Which buses drive this line", "Какие автобусы ходят по этой линии")).clicked() {
                 self.vehicles_tab = !self.vehicles_tab;
                 self.tours_tab = false;
                 self.picking = false;
+                self.clear_stop_edits();
             }
         });
         ui.separator();
@@ -632,7 +1004,7 @@ impl TimetableUi {
                     self.trip_panel(ui, doc, &line, &t, toasts, actions);
                 });
             } else {
-                self.trip = None;
+                self.select_trip(None);
             }
         }
 
@@ -640,7 +1012,7 @@ impl TimetableUi {
 
     fn trip_panel(&mut self, ui: &mut egui::Ui, doc: &mut Document, line: &str, trip: &str, toasts: &mut Vec<crate::editor::Toast>, actions: &mut Vec<Action>) {
         let tt = &mut doc.timetable;
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(tr("Trip", "Рейс"));
             let r = ui.add(egui::TextEdit::singleline(&mut self.trip_name).desired_width(140.0));
             if r.lost_focus() && self.trip_name != trip {
@@ -653,6 +1025,7 @@ impl TimetableUi {
                             self.ways.insert(lower(&n), w);
                         }
                         self.trip = Some(n);
+                        self.clear_stop_edits();
                     }
                     None => {
                         toasts.push(crate::editor::Toast { text: tr("That name is taken or can't be a file name", "Это имя занято или не годится для файла").into(), at: std::time::Instant::now(), error: true });
@@ -662,7 +1035,20 @@ impl TimetableUi {
             }
             if small_button(ui, Icon::Delete, tr("Delete the trip", "Удалить рейс")) {
                 tt.delete_trip(trip);
-                self.trip = None;
+                self.select_trip(None);
+            }
+            if let Some(t) = self.trip.as_deref().and_then(|name| tt.trip(name)) {
+                let response = ui.button(tr("Open in text editor", "Открыть в текстовом редакторе"))
+                    .on_hover_text(tr("Open the saved .ttp file", "Открыть сохранённый файл .ttp"));
+                if response.clicked() {
+                    let result = match timetable::saved_trip_path(&doc.dir, doc.source.as_deref(), doc.fresh, &t.name) {
+                        Some(path) => open_text_file(&path).map_err(|e| format!("{}: {} ({e})", tr("Could not open the trip file", "Не удалось открыть файл рейса"), path.display())),
+                        None => Err(tr("Save the map to create this trip's .ttp file first.", "Сначала сохраните карту, чтобы создать файл .ttp этого рейса.").into()),
+                    };
+                    if let Err(text) = result {
+                        toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: true });
+                    }
+                }
             }
         });
         let Some(name) = self.trip.clone() else { return };
@@ -676,6 +1062,7 @@ impl TimetableUi {
             }
         });
         if !t.stations_legacy.is_empty() {
+            self.clear_stop_edits();
             ui.label(RichText::new(tr("This trip runs on a track of its own (a train): its stops are kept as they are.", "Этот рейс идёт по своему пути (поезд): его остановки остаются как есть.")).color(TEXT_DIM));
             return;
         }
@@ -697,37 +1084,66 @@ impl TimetableUi {
         // the stops
         ui.add_space(4.0);
         let mut stations = t.stations.clone();
+        let mut old_rows: Vec<_> = (0..stations.len()).map(Some).collect();
         let mut changed = false;
         let n = stations.len();
         let mut fly = None;
+        if self.insert_before.is_some_and(|i| i >= n) {
+            self.clear_stop_edits();
+        }
+        if self.replace_id.as_ref().is_some_and(|edit| {
+            stations.get(edit.index) != Some(&edit.old_id) || self.stops.iter().any(|s| s.id == edit.old_id)
+        }) {
+            self.replace_id = None;
+        }
         for i in 0..n {
             let id = stations[i];
             ui.horizontal(|ui| {
-                let dot = if i == 0 { GOOD } else if i + 1 == n { Color32::from_rgb(235, 90, 80) } else { Color32::from_gray(220) };
+                let inserting = self.insert_before == Some(i);
+                let dot = if inserting { ACCENT } else if i == 0 { GOOD } else if i + 1 == n { Color32::from_rgb(235, 90, 80) } else { Color32::from_gray(220) };
                 ui.label(RichText::new(format!("{:>2}.", i + 1)).color(dot).monospace());
                 let known = self.stops.iter().any(|s| s.id == id);
                 let mut name = self.stop_name(tt, id);
                 if !known {
                     name = format!("{name} ({})", tr("not on the map", "нет на карте"));
                 }
-                ui.add(egui::Label::new(RichText::new(name).color(if known { Color32::from_gray(225) } else { WARN })).truncate()).on_hover_text(format!("ID {id}"));
+                let label = RichText::new(name).color(if inserting { ACCENT } else if known { Color32::from_gray(225) } else { WARN });
+                let label = if inserting { label.strong().background_color(ui.visuals().selection.bg_fill) } else { label };
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if small_button(ui, Icon::Delete, tr("Take out", "Убрать")) {
                         stations.remove(i);
+                        old_rows.remove(i);
                         changed = true;
                     } else if i + 1 < n && small_button(ui, Icon::Lower, tr("Move down", "Ниже")) {
                         stations.swap(i, i + 1);
+                        old_rows.swap(i, i + 1);
                         changed = true;
                     } else if i > 0 && small_button(ui, Icon::Raise, tr("Move up", "Выше")) {
                         stations.swap(i, i - 1);
+                        old_rows.swap(i, i - 1);
                         changed = true;
                     } else if known && small_button(ui, Icon::Focus, tr("Show on the map", "Показать на карте")) {
                         fly = Some(id);
+                    } else if small_button(ui, Icon::Add, tr("Insert before: click a stop on the map to insert it before this one", "Вставить перед: выберите остановку на карте, чтобы вставить её перед этой")) {
+                        self.clear_stop_edits();
+                        self.picking = false;
+                        self.insert_before = Some(i);
+                    } else if !known && small_button(ui, Icon::Swap, tr("Change ID", "Заменить ID")) {
+                        self.clear_stop_edits();
+                        self.picking = false;
+                        self.replace_id = Some(ReplaceStopId { index: i, old_id: id, input: String::new(), all: false });
                     }
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        ui.add(egui::Label::new(label).truncate()).on_hover_text(format!("ID {id}"));
+                    });
                 });
             });
             if changed {
+                self.clear_stop_edits();
                 break;
+            }
+            if self.replace_id.as_ref().is_some_and(|edit| edit.index == i) && self.replace_stop_id_panel(ui, tt, &name, toasts) {
+                return;
             }
         }
         if let Some(id) = fly {
@@ -741,6 +1157,7 @@ impl TimetableUi {
         ui.horizontal(|ui| {
             let label = if self.picking { tr("Done picking", "Готово") } else { tr("Pick stops on the map", "Выбрать на карте") };
             if ui.add(egui::Button::selectable(self.picking, icons::labelled(Icon::Select, label))).on_hover_text(tr("Click the stops in the view one after the other, in the order the bus calls at them", "Кликайте остановки в окне карты одну за другой, в том порядке, в каком их проезжает автобус")).clicked() {
+                self.clear_stop_edits();
                 self.picking = !self.picking;
             }
             let mut add = None;
@@ -754,12 +1171,28 @@ impl TimetableUi {
                 }
             });
             if let Some(id) = add {
+                self.clear_stop_edits();
                 stations.push(id);
+                old_rows.push(None);
                 changed = true;
             }
         });
+        if let Some((index, id)) = self.pending_insert.take() {
+            stations.insert(index, id);
+            old_rows.insert(index, None);
+            changed = true;
+            self.insert_before = None;
+            self.stop_edit_undo = Some(tr("Insert stop before", "Вставить остановку перед"));
+            let stop = self.stop_name(tt, id);
+            log::info!("timetable: inserted stop ID {id} ({stop:?}) in trip {name:?} at index {index}");
+        }
         if self.picking {
             ui.label(RichText::new(tr("Click stops on the map (they are marked orange)…", "Кликайте остановки на карте (отмечены оранжевым)…")).color(ACCENT));
+        } else if let Some(index) = self.insert_before {
+            let stop = self.stop_name(tt, stations[index]);
+            let hint = tr("Click a stop on the map to insert it before {stop} (Esc to cancel)", "Выберите остановку на карте, чтобы вставить её перед «{stop}» (Esc — отмена)")
+                .replace("{stop}", &stop);
+            ui.label(RichText::new(hint).color(ACCENT));
         }
         if changed {
             let terminus = stations.last().map(|id| self.stop_name(tt, *id));
@@ -771,29 +1204,10 @@ impl TimetableUi {
                     tm.terminus = term;
                 }
             }
-            // (times fixed at a stop stay with it where it moved to; a stop taken out
-            // takes its time along, and the last stop keeps none but the trip's time)
-            let old = std::mem::replace(&mut tm.stations, stations.clone());
-            let n = stations.len();
-            let remap = |list: &mut Vec<(i32, f32)>| {
-                *list = list.iter().filter_map(|&(i, m)| old.get(i as usize).and_then(|id| stations.iter().position(|x| x == id)).filter(|k| k + 1 < n).map(|k| (k as i32, m))).collect();
-                list.sort_by_key(|x| x.0);
-            };
-            // (how a station is served stays with it too; a stop put in is served as its kind says)
-            let kinds: Vec<(i64, i32)> = tm.profiles.first().map(|p| p.other_stopping.iter().filter_map(|&(i, v)| old.get(i as usize).map(|id| (*id, v))).collect()).unwrap_or_default();
-            for p in &mut tm.profiles {
-                remap(&mut p.man_dep_time);
-                p.man_arr_time.retain(|x| x.0 as usize + 1 != old.len());
-                remap(&mut p.man_arr_time);
-                p.other_stopping = stations
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(k, id)| {
-                        let v = kinds.iter().find(|x| x.0 == *id).map(|x| x.1).or_else(|| (!old.contains(id)).then(|| self.stops.iter().find(|s| s.id == *id).map(|s| s.kind.serve())).flatten().filter(|v| *v != 0))?;
-                        Some((k as i32, v))
-                    })
-                    .collect();
-            }
+            remap_station_profiles(&mut tm.profiles, tm.stations.len(), &stations, &old_rows, |id| {
+                self.stops.iter().find(|s| s.id == id).map(|s| s.kind.serve())
+            });
+            tm.stations.clone_from(&stations);
             tt.touch_route(&name);
         }
 
@@ -854,7 +1268,7 @@ impl TimetableUi {
                 Some(r) => r.legs.clone(),
                 None => stations.windows(2).map(|w| tt.links.iter().find(|l| l.from_id == w[0] && l.to_id == w[1]).map(|l| l.length).unwrap_or(0.0)).collect(),
             };
-            let mut p = t.profiles.first().cloned().unwrap_or_default();
+            let mut p = tt.trip(&name).and_then(|t| t.profiles.first()).cloned().unwrap_or_default();
             p.factor = minutes(&t);
             let n = stations.len();
             let times = timetable::stop_times(n, &legs, &p);
@@ -1429,4 +1843,274 @@ fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
     ui.label(":");
     ui.add(egui::DragValue::new(&mut t.1).range(0..=59).custom_formatter(|v, _| format!("{:02}", v as i32)));
     ui.spacing_mut().item_spacing.x = 8.0;
+}
+
+#[cfg(test)]
+mod station_edit_tests {
+    use super::*;
+    use omsi_timetable::TripProfile;
+
+    fn profile() -> TripProfile {
+        TripProfile {
+            name: "standard".into(),
+            factor: 20.0,
+            man_dep_time: vec![(0, 1.0), (1, 7.0)],
+            man_arr_time: vec![(0, 0.5), (1, 6.0), (2, 20.0)],
+            other_stopping: vec![(0, 2), (1, 3), (2, 1)],
+        }
+    }
+
+    fn trip(name: &str, stations: &[i64], terminus: &str) -> Trip {
+        Trip { name: name.into(), stations: stations.into(), terminus: terminus.into(), profiles: vec![profile()], ..Default::default() }
+    }
+
+    fn print_trips(label: &str, trips: &[Trip]) {
+        for trip in trips {
+            println!("{label} {}.ttp:\n{}", trip.name, timetable::trip_text(trip));
+        }
+    }
+
+    #[test]
+    fn replace_station_id_updates_only_the_selected_row_and_keeps_profiles() {
+        let mut trips = [trip("current", &[10, 11, 10], "Old"), trip("other", &[10, 10], "Old")];
+        let before = trips.clone();
+        print_trips("Before", &before);
+        assert_eq!(
+            replace_station_id(&mut trips, "CURRENT", 0, 10, 20, false, &["Old"], "New"),
+            vec![("current".into(), vec![0])],
+        );
+        print_trips("After", &trips);
+        assert_eq!(trips[0].stations, [20, 11, 10]);
+        assert_eq!(trips[0].terminus, "Old");
+        assert_eq!(trips[0].profiles, before[0].profiles);
+        assert_eq!(trips[1], before[1]);
+    }
+
+    #[test]
+    fn replace_station_id_updates_other_trips_but_skips_legacy_and_preserves_custom_signs() {
+        let mut trips = [
+            trip("current", &[10, 11, 10], " Old on map "),
+            trip("other", &[10, 11, 10], "Old in timetable"),
+            trip("blank", &[11, 11, 10], " "),
+            trip("custom", &[11, 10, 10], "Depot"),
+            trip("legacy", &[10, 11, 10], "Old on map"),
+            trip("unrelated", &[21, 22, 23], "Old on map"),
+        ];
+        trips[4].stations_legacy.push(vec!["legacy stop".into()]);
+        let before = trips.clone();
+        print_trips("Before", &before);
+        let edited = replace_station_id(&mut trips, "current", 2, 10, 20, true, &["Old on map", "Old in timetable"], "New");
+        println!("Changed trip rows (zero-based): {edited:?}");
+        print_trips("After", &trips);
+        assert_eq!(edited, [("current".into(), vec![2]), ("other".into(), vec![0, 2]), ("blank".into(), vec![2]), ("custom".into(), vec![1, 2])]);
+        assert_eq!(trips[0].stations, [10, 11, 20]);
+        assert_eq!(trips[1].stations, [20, 11, 20]);
+        assert_eq!(trips[2].stations, [11, 11, 20]);
+        assert_eq!(trips[3].stations, [11, 20, 20]);
+        assert_eq!(trips[..3].iter().map(|t| t.terminus.as_str()).collect::<Vec<_>>(), ["New"; 3]);
+        assert_eq!(trips[3].terminus, "Depot");
+        assert_eq!(trips[4..], before[4..]);
+        for (old, new) in before.iter().zip(&trips) {
+            assert_eq!(old.profiles, new.profiles);
+        }
+        assert!(replace_station_id(&mut trips, "current", 2, 10, 21, true, &[], "Invalid").is_empty());
+    }
+
+    #[test]
+    fn inserting_at_the_start_middle_and_before_the_last_stop_shifts_profiles() {
+        for index in 0..3 {
+            // Stop 10 occurs twice with different fixed times and stopping rules.
+            let mut trip = trip("loop", &[10, 11, 10], "Loop terminus");
+            let mut second = profile();
+            second.name = "evening".into();
+            second.other_stopping = vec![(0, 1), (2, 2)];
+            trip.profiles.push(second);
+            print_trips(&format!("Before insertion at {index}"), std::slice::from_ref(&trip));
+            let mut old_rows = vec![Some(0), Some(1), Some(2)];
+            old_rows.insert(index, None);
+            trip.stations.insert(index, 12);
+            remap_station_profiles(&mut trip.profiles, 3, &trip.stations, &old_rows, |id| {
+                assert_eq!(id, 12);
+                Some(crate::stops::StopKind::Regular.serve())
+            });
+            print_trips(&format!("After insertion at {index}"), std::slice::from_ref(&trip));
+            let shift = |old: i32| old + i32::from(old as usize >= index);
+            let standard = &trip.profiles[0];
+            assert_eq!(standard.man_dep_time, [(shift(0), 1.0), (shift(1), 7.0)]);
+            assert_eq!(standard.man_arr_time, [(shift(0), 0.5), (shift(1), 6.0)]);
+            assert_eq!(standard.factor, 20.0);
+            let mut expected = vec![(shift(0), 2), (shift(1), 3), (shift(2), 1)];
+            expected.insert(index, (index as i32, 1));
+            assert_eq!(standard.other_stopping, expected);
+            let mut expected = vec![(shift(0), 1), (index as i32, 1), (shift(2), 2)];
+            expected.sort_by_key(|row| row.0);
+            assert_eq!(trip.profiles[1].other_stopping, expected);
+        }
+    }
+
+    fn frame(ctx: &egui::Context, ui: &mut TimetableUi, ed: &mut Editor, events: Vec<egui::Event>) -> egui::FullOutput {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, Vec2::new(1400.0, 900.0))),
+            events,
+            ..Default::default()
+        };
+        ctx.run_ui(input, |root| ui.window(root.ctx(), ed, None, &mut Vec::new()))
+    }
+
+    fn editor_fixture() -> (Editor, TimetableUi, egui::Context) {
+        let dir = std::env::temp_dir().join("openmapper-station-edit-test");
+        let roots = Roots { omsi: dir.join("omsi"), content: dir.join("content") };
+        let mut doc = Document::new_map(&roots, "stop-edit-test", "stop-edit-test", 1);
+        let line = doc.timetable.add_line("73E");
+        for mut t in [trip("current", &[10, 11, 10], "Old"), trip("other", &[10, 10], "Old")] {
+            t.line = line.clone();
+            doc.timetable.trips.push(t);
+        }
+        let mut ui = TimetableUi { open: true, map: Some(doc.dir.clone()), ..TimetableUi::new() };
+        ui.select_line(&doc.timetable, Some(line));
+        ui.stops = [11, 12].into_iter().map(|id| MapStop {
+            tile: (0, 0), id, name: format!("Stop {id}"), pos: DVec3::ZERO, kind: crate::stops::StopKind::Regular,
+        }).collect();
+        let mut ed = Editor::default();
+        ed.doc = Some(doc);
+        let ctx = egui::Context::default();
+        ctx.set_fonts(icons::fonts());
+        (ed, ui, ctx)
+    }
+
+    #[test]
+    fn map_insertion_and_id_replacement_each_undo_through_the_timetable_window() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        let before = ed.doc.as_ref().unwrap().timetable.clone();
+        ui.insert_before = Some(1);
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        assert!(ed.pick_mode);
+        assert!(ui.replace_id.is_none());
+        ed.picked = Some((Some(Sel::Object((0, 0), 11)), None));
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        assert_eq!(ui.insert_before, Some(1));
+        assert!(ed.toasts.last().unwrap().error);
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&before));
+
+        ed.picked = Some((Some(Sel::Object((0, 0), 12)), None));
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        assert!(!ed.pick_mode);
+        let inserted = ed.doc.as_ref().unwrap().timetable.clone();
+        assert_eq!(inserted.trip("current").unwrap().stations, [10, 12, 11, 10]);
+        print_trips("After map click", &inserted.trips);
+        ed.undo();
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&before));
+        ed.redo();
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&inserted));
+
+        ui.replace_id = Some(ReplaceStopId { index: 3, old_id: 10, input: "12".into(), all: true });
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let confirm = output.shapes.iter().find_map(|shape| match &shape.shape {
+            egui::Shape::Text(text) if text.galley.text() == tr("Confirm", "Подтвердить") => Some(text.pos + text.galley.size() * 0.5),
+            _ => None,
+        }).expect("the replacement editor shows the confirmation button");
+        let click = |pressed| egui::Event::PointerButton {
+            pos: confirm, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default(),
+        };
+        frame(&ctx, &mut ui, &mut ed, vec![egui::Event::PointerMoved(confirm), click(true)]);
+        frame(&ctx, &mut ui, &mut ed, vec![click(false)]);
+        let replaced = ed.doc.as_ref().unwrap().timetable.clone();
+        print_trips("After Confirm", &replaced.trips);
+        assert_eq!(replaced.trip("current").unwrap().stations, [10, 12, 11, 12]);
+        assert_eq!(replaced.trip("other").unwrap().stations, [12, 12]);
+        assert!(replaced.reroute.contains("current") && replaced.reroute.contains("other"));
+        assert_eq!(ed.history.undo_label(), Some(tr("Change ID", "Заменить ID")));
+        ed.undo();
+        print_trips("After Undo", &ed.doc.as_ref().unwrap().timetable.trips);
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&inserted));
+        ed.redo();
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&replaced));
+    }
+
+    #[test]
+    fn escape_cancels_the_map_pick_and_line_selection_clears_station_edits() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        let before = ed.doc.as_ref().unwrap().timetable.clone();
+        ui.insert_before = Some(1);
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        ed.picked = Some((Some(Sel::Object((0, 0), 12)), None));
+        let escape = egui::Event::Key {
+            key: egui::Key::Escape, physical_key: Some(egui::Key::Escape), pressed: true, repeat: false, modifiers: egui::Modifiers::default(),
+        };
+        frame(&ctx, &mut ui, &mut ed, vec![escape]);
+        assert!(!ed.pick_mode && ed.picked.is_none() && ui.insert_before.is_none());
+        let tt = &ed.doc.as_ref().unwrap().timetable;
+        print_trips("After Escape", &tt.trips);
+        assert!(tt.same_content(&before));
+        ui.replace_id = Some(ReplaceStopId { index: 0, old_id: 10, input: "12".into(), all: true });
+        ui.select_line(tt, None);
+        assert!(ui.replace_id.is_none() && ui.insert_before.is_none() && ui.pending_insert.is_none());
+    }
+}
+
+
+#[cfg(test)]
+mod batch_route_tests {
+    use super::{conflicting_batch_routes, eligible_for_batch, PlannedRoute};
+    use std::collections::HashSet;
+
+    fn link(from_id: i64, to_id: i64, length: f64) -> omsi_timetable::StnLink {
+        omsi_timetable::StnLink { from_id, to_id, length, ..Default::default() }
+    }
+
+    fn plan(name: &str, links: Vec<omsi_timetable::StnLink>) -> PlannedRoute {
+        (name.to_string(), Vec::new(), links)
+    }
+
+    #[test]
+    fn v2_station_link_trips_are_eligible_but_legacy_tracks_are_not() {
+        let mut trip = omsi_timetable::Trip {
+            stations: vec![5521173, 5521015, 5537684, 2354518],
+            ..Default::default()
+        };
+        assert!(eligible_for_batch(&trip));
+        trip.stations_legacy.push(vec!["legacy".into()]);
+        assert!(!eligible_for_batch(&trip));
+        trip.stations_legacy.clear();
+        trip.stations.truncate(1);
+        assert!(!eligible_for_batch(&trip));
+    }
+
+    #[test]
+    fn identical_shared_links_are_safe() {
+        let same = link(1, 2, 120.0);
+        let plans = vec![plan("a", vec![same.clone()]), plan("b", vec![same])];
+        assert!(conflicting_batch_routes(&plans, &[], &HashSet::new()).is_empty());
+    }
+
+    #[test]
+    fn disagreeing_shared_links_skip_both_trips() {
+        let plans = vec![plan("a", vec![link(1, 2, 120.0)]), plan("b", vec![link(1, 2, 200.0)])];
+        assert_eq!(conflicting_batch_routes(&plans, &[], &HashSet::new()), HashSet::from([0, 1]));
+    }
+
+    #[test]
+    fn a_conflict_protects_all_other_links_of_the_skipped_trip() {
+        let plans = vec![
+            plan("a", vec![link(1, 2, 120.0), link(2, 3, 150.0)]),
+            plan("b", vec![link(1, 2, 200.0)]),
+            plan("c", vec![link(2, 3, 150.0)]),
+        ];
+        // Trip a is skipped because it conflicts with b on 1->2. Trip c must
+        // also be skipped, because it would change a's original 2->3 link.
+        let original = vec![link(2, 3, 100.0)];
+        assert_eq!(conflicting_batch_routes(&plans, &original, &HashSet::new()), HashSet::from([0, 1, 2]));
+    }
+
+    #[test]
+    fn a_failed_trip_keeps_its_existing_shared_link() {
+        let original = link(1, 2, 120.0);
+        let protected = HashSet::from([(1, 2)]);
+        let plans = vec![plan("a", vec![link(1, 2, 130.0)])];
+        assert_eq!(conflicting_batch_routes(&plans, &[original.clone()], &protected), HashSet::from([0]));
+        let plans = vec![plan("a", vec![original.clone()])];
+        assert!(conflicting_batch_routes(&plans, &[original], &protected).is_empty());
+    }
 }

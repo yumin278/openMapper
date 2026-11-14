@@ -1245,6 +1245,8 @@ Zebra crossings	斑馬線
 Road	道路
 Build it again	重新建立
 Makes the plate, its kerbs and lanes again for the roads as they are now	依道路的目前狀態重新建立路口底板、路緣與行車線
+Persist junction	持久化保存
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	將這座路口儲存為 OMSI 安裝目錄中的一般景物。請儲存地圖以寫入新的參照路徑。
 Linked objects	連結的物件
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	物件可從另一物件取得狀態 ([varparent])：交通燈燈頭顯示其路口程式的燈號，站牌顯示器顯示其站牌。
 Takes its state from	取得狀態自
@@ -2405,6 +2407,7 @@ Preset Key Shortcut (from other applications)	其他應用程式的預設快速�
 Controls as in OMSI 2's editor	操作方式與 OMSI 2 的編輯器相同
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	預設為關閉。中鍵旋轉視角，按住右鍵上下移動可縮放，在地面按一下右鍵前往該處（Shift + 右鍵：選單），方向鍵移動攝影機，滾輪縮放
 Bay width	停車灣闊度
+Bay width per side	每側停車灣闊度
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	若所選道路類型（道路製作器中的）闊度不同，則由它建立具有此停車灣行車線的道路類型
 Tapers in metres	錐化長度（公尺）
 Give the length of each taper in metres instead of a ratio	以公尺指定每段錐化的長度，而非比例
@@ -2781,3 +2784,20 @@ no track within 15 m	15 m 內沒有軌道
 the tracks are not joined, or run the other way (see View > AI lanes)	軌道未相連，或方向相反（見 檢視 > AI 行車線）
 no track beside	旁邊沒有軌道：
 Drives on	行駛於
+Footway paths round the corners (AI)	轉角行人路 AI 路徑
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	關閉後，轉角不會生成 AI 路徑，行人穿越道仍會連接道路兩側的行人路。請自行連接轉角，例如使用隱形路徑曲線。
+Open in text editor	在文字編輯器開啟
+Open the saved .ttp file	開啟已儲存的 .ttp 檔案
+Could not open the trip file	無法開啟 Trip 檔案
+Save the map to create this trip's .ttp file first.	請先儲存地圖，以建立此 Trip 的 .ttp 檔案。
+Change ID	更換 ID
+New stop ID	新站點 ID
+Timetable name: {name}	時刻表名稱：{name}
+No stop with this ID on the map	地圖上沒有此 ID 的站點
+Confirm	確定
+Also apply to other trips with this ID ({count})	同時套用到其他含此 ID 的 Trip（{count} 個）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	已將 ID {old} 改為 {new}（{name}），影響 {count} 個 Trip
+Insert before: click a stop on the map to insert it before this one	插入於此站前：點選地圖上的站點，將它插入此站之前
+Click a stop on the map to insert it before {stop} (Esc to cancel)	點選地圖上的站點，將插入於「{stop}」之前（Esc 取消）
+That stop is already next to the insertion point.	該站點已在插入位置旁。
+Insert stop before	插入於此站前

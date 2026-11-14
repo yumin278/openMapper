@@ -357,6 +357,28 @@ pub(crate) fn attach_hint(n: usize) -> &'static str {
     }
 }
 
+/// A stop's selected lane and its transverse-only Alt adjustment.
+#[derive(Clone)]
+struct StopLateral {
+    lane: crate::lanes::Lane,
+    /// Mouse position at the start of this Alt adjustment.
+    pointer: DVec2,
+    /// The longitudinal point and heading frozen while Alt is down.
+    anchor: DVec3,
+    heading: f64,
+    /// Lateral distance from the traffic lane when Alt went down.
+    initial_offset: f64,
+    adjusting: bool,
+}
+
+impl StopLateral {
+    fn offset_at(&self, cursor: DVec2, lht: bool) -> f64 {
+        let flow = if self.lane.direction == 1 { roads::norm_deg(self.heading + 180.0) } else { self.heading };
+        let side = roads::right(flow) * if lht { -1.0 } else { 1.0 };
+        self.initial_offset + (cursor - self.pointer).dot(side)
+    }
+}
+
 pub struct Editor {
     pub doc: Option<Document>,
     pub history: History,
@@ -506,6 +528,7 @@ pub struct Editor {
     pub use_custom: bool,
     pub pocket_type: Option<String>,
     pub pocket_len: f64,
+    pub pocket_both_sides: bool,
     /// The taper into and out of a bay: metres of road per metre the width changes, and
     /// whether the two ends are kept alike. Both ends are always tapered (never a step).
     pub pocket_taper_in: f64,
@@ -515,8 +538,7 @@ pub struct Editor {
     pub pocket_metres: bool,
     pub pocket_in_m: f64,
     pub pocket_out_m: f64,
-    /// The width of the bay (m, 0: as the road type has it): a road type made in the road
-    /// maker is written again with this pocket lane.
+    /// The width added per side (m, 0: use 3 m).
     pub pocket_width: f32,
     /// Shift the bay along the road to where it fits, if the click is too near a road's end
     /// for the tapers.
@@ -620,6 +642,12 @@ pub struct Editor {
     pub road_setback: f64,
     /// The road point an aligned object was set against (for the guide line).
     align_guide: Option<(DVec3, DVec3)>,
+    /// Current candidate for a bus stop; replaced as the mouse moves normally.
+    stop_hover_lane: Option<crate::lanes::Lane>,
+    /// The lane stays selected during/after Alt until the stop is placed or cancelled.
+    stop_lateral: Option<StopLateral>,
+    /// Distance outward from the lane, preserved when Alt is released (m).
+    stop_lateral_offset: f64,
     /// Shift is held (places an object freely, not aligned).
     pub shift_held: bool,
     /// A press on what is selected and a drag of it moves it. False in OMSI 2's and Blender's
@@ -786,6 +814,7 @@ impl Default for Editor {
             use_custom: true,
             pocket_type: None,
             pocket_len: 20.0,
+            pocket_both_sides: false,
             pocket_taper_in: POCKET_TAPER,
             pocket_taper_out: POCKET_TAPER,
             pocket_alike: true,
@@ -846,6 +875,9 @@ impl Default for Editor {
             align_front: true,
             road_setback: 2.0,
             align_guide: None,
+            stop_hover_lane: None,
+            stop_lateral: None,
+            stop_lateral_offset: 3.2,
             shift_held: false,
             plant_brush: false,
             plant_erase: false,
@@ -1395,6 +1427,9 @@ impl Editor {
 
     /// Stop what the tool is in the middle of.
     pub fn cancel(&mut self) {
+        self.stop_lateral = None;
+        self.stop_hover_lane = None;
+        self.stop_lateral_offset = 3.2;
         // (a grab or a turn taken hold of by R is called off: nothing of it stands)
         if self.grab.take().is_some() || self.rot.take().is_some() {
             if let Some(doc) = &mut self.doc {
@@ -1473,6 +1508,9 @@ impl Editor {
         self.session_first_id = doc.global.next_id_code;
         let mut doc = doc;
         doc.groups = crate::mapgroups::load(&doc.dir);
+        if let Some(content) = self.content_dir.as_deref() {
+            doc.signal_sets.reload(&doc.dir, content);
+        }
         self.doc = Some(doc);
     }
 
@@ -2802,10 +2840,35 @@ impl Editor {
 
     // ---------------------------------------------------------------- objects
 
+    /// Alt changes only a bus stop's cross-path displacement. Left-click placement is
+    /// unchanged; releasing Alt preserves the displacement and resumes along-path movement.
+    pub fn stop_lateral_key(&mut self, alt: bool) {
+        if !alt {
+            if let Some(s) = &mut self.stop_lateral {
+                s.adjusting = false;
+            }
+            return;
+        }
+        if self.tool != Tool::Logic || self.logic != LogicMode::Stops || !self.align_to_road || self.shift_held {
+            return;
+        }
+        let Some(lane) = self.stop_lateral.as_ref().map(|s| &s.lane).or(self.stop_hover_lane.as_ref()).cloned() else { return };
+        let Some(cursor) = self.cursor else { return };
+        let Some((anchor, heading, _, _)) = lane.nearest(cursor.truncate()) else { return };
+        self.stop_lateral = Some(StopLateral {
+            lane, pointer: cursor.truncate(), anchor, heading,
+            initial_offset: self.stop_lateral_offset, adjusting: true,
+        });
+    }
+
     fn plan_object(&mut self, assets: &mut Assets, lib: &Library) {
         self.ghost_pos = None;
         self.stop_twin = None;
         self.align_guide = None;
+        // Never capture a stale lane if the cursor has left the path's snap range.
+        if self.stop_lateral.is_none() {
+            self.stop_hover_lane = None;
+        }
         if self.tool == Tool::Objects && self.plant_brush {
             return;
         }
@@ -2822,13 +2885,38 @@ impl Editor {
         if self.align_to_road && !self.shift_held && (entry || park || stop) {
             if let Some(doc) = self.doc.as_ref() {
                 let lht = doc.global.left_hand_traffic;
-                let (lanes, _) = crate::lanes::near(doc, assets, c.truncate(), 25.0);
-                let best = lanes.iter().filter(|l| l.kind == 0).filter_map(|l| l.nearest(c.truncate()).map(|n| (n, l.direction))).filter(|(n, _)| n.2 < 12.0).min_by(|a, b| a.0 .2.total_cmp(&b.0 .2));
-                if let Some(((q, h, _, _), dir)) = best {
-                    let flow = if dir == 1 { roads::norm_deg(h + 180.0) } else { h };
+                // Keep the selected lane when the pointer moves sideways with Alt,
+                // even if it goes beyond the normal 12 m candidate search radius.
+                let search_at = self.stop_lateral.as_ref().filter(|_| stop)
+                    .and_then(|s| s.lane.nearest(c.truncate()).map(|n| n.0.truncate()))
+                    .unwrap_or(c.truncate());
+                let (lanes, _) = crate::lanes::near(doc, assets, search_at, 25.0);
+                let locked = self.stop_lateral.as_ref().filter(|_| stop).and_then(|s| {
+                    if s.adjusting {
+                        Some(((s.anchor, s.heading, 0.0, None), s.lane.clone()))
+                    } else {
+                        s.lane.nearest(c.truncate()).map(|n| (n, s.lane.clone()))
+                    }
+                });
+                let best = locked.or_else(|| lanes.iter()
+                    .filter(|l| l.kind == 0)
+                    .filter_map(|l| l.nearest(c.truncate()).map(|n| (n, l.clone())))
+                    .filter(|(n, _)| n.2 < 12.0)
+                    .min_by(|a, b| a.0 .2.total_cmp(&b.0 .2)));
+                if let Some(((q, h, _, _), lane)) = best {
+                    if stop {
+                        self.stop_hover_lane = Some(lane.clone());
+                    }
+                    let flow = if lane.direction == 1 { roads::norm_deg(h + 180.0) } else { h };
                     // (the kerb: right of the traffic where it keeps right)
                     let kerb = roads::right(flow) * if lht { -1.0 } else { 1.0 };
-                    let at = if entry { q.truncate() } else if park { q.truncate() + kerb * 2.6 } else { q.truncate() + kerb * 3.2 };
+                    let offset = if entry { 0.0 } else if park { 2.6 } else {
+                        if let Some(s) = self.stop_lateral.as_ref().filter(|s| s.adjusting) {
+                            self.stop_lateral_offset = s.offset_at(c.truncate(), lht);
+                        }
+                        self.stop_lateral_offset
+                    };
+                    let at = q.truncate() + kerb * offset;
                     let z = doc.ground(at);
                     let pos = DVec3::new(at.x, at.y, z);
                     self.align_guide = Some((DVec3::new(q.x, q.y, z), pos));
@@ -3192,6 +3280,12 @@ impl Editor {
         }
         if let Some(n) = linked_to {
             self.toast(format!("{} «{n}»: {}", tr("Linked to", "Связан с"), tr("choose its light in its properties", "сигнал выберите в его свойствах")));
+        }
+        // The next stop starts with the stock 3.2 m distance, not the last stop's edit.
+        if is_stop {
+            self.stop_lateral = None;
+            self.stop_hover_lane = None;
+            self.stop_lateral_offset = 3.2;
         }
         // (the tool goes on placing: the caller chooses whether to take what was put)
         Some(Sel::Object(k, id))
@@ -4644,15 +4738,9 @@ impl Editor {
                 continue;
             }
             let opts = style_options(doc, &styles, &arms, centre);
-            match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                Ok(_) => {
-                    made += 1;
-                    if follow {
-                        let e = arm_ends_world(doc, &arms);
-                        let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                        conform_disc(doc, centre, reach, &e);
-                    }
-                }
+            let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+            match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                Ok(_) => made += 1,
                 Err(e) => log::warn!("junction at a node: {e}"),
             }
         }
@@ -4710,15 +4798,9 @@ impl Editor {
             let arms: Vec<crate::junction::Arm> = arms.iter().flatten().map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             if arms.len() >= 3 {
                 let opts = style_options(doc, &styles, &arms, centre);
-                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                    Ok(_) => {
-                        count += 1;
-                        if follow {
-                            let ends = arm_ends_world(doc, &arms);
-                            let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                            conform_disc(doc, centre, reach, &ends);
-                        }
-                    }
+                let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                    Ok(_) => count += 1,
                     Err(e) => log::warn!("junction: {e}"),
                 }
             } else if arms.len() == 2 {
@@ -4803,15 +4885,9 @@ impl Editor {
             let arms: Vec<crate::junction::Arm> = arms.iter().flatten().map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             if arms.len() >= 3 {
                 let opts = style_options(doc, &styles, &arms, centre);
-                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                    Ok(_) => {
-                        count += 1;
-                        if follow {
-                            let ends = arm_ends_world(doc, &arms);
-                            let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                            conform_disc(doc, centre, reach, &ends);
-                        }
-                    }
+                let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                    Ok(_) => count += 1,
                     Err(e) => log::warn!("junction: {e}"),
                 }
             } else if arms.len() == 2 {
@@ -8870,6 +8946,36 @@ impl Editor {
         self.pending_rebuild.push(id);
     }
 
+    /// Keep the same map object (including the IDCode used by its signal heads) and
+    /// change its file to the standalone copy only after all assets have been written.
+    pub fn persist_junction(&mut self, roots: &crate::install::Roots, k: TileKey, id: i64) -> anyhow::Result<String> {
+        let Some(doc) = self.doc.as_ref() else {
+            anyhow::bail!("{}", tr("Open a map", "Открыть карту"));
+        };
+        let Some(o) = doc.object(k, id).filter(|o| is_own_junction(&o.file)) else {
+            anyhow::bail!("{}", tr("select an object first", "сначала выделите объект"));
+        };
+        let map = doc.dir.file_name().and_then(|name| name.to_str()).unwrap_or("map");
+        let file = crate::junction::persist(roots, &o.file, map, id)?;
+
+        let doc = self.doc.as_mut().unwrap();
+        self.history.begin(tr("Persist junction", "Сохранить как объект"));
+        self.history.touch_tile(doc, k);
+        doc.object_mut(k, id).unwrap().file = file.clone();
+        doc.tiles.get_mut(&k).unwrap().touch_content();
+        self.history.commit();
+        self.junction_options.remove(&id);
+        self.pending_options.remove(&id);
+        self.pending_arms.remove(&id);
+        self.pending_rebuild.retain(|&queued| queued != id);
+        for plate in [&mut self.road_plate_start, &mut self.road_plate_end, &mut self.reshape_plate] {
+            if plate.is_some_and(|(junction, _, _)| junction == id) {
+                *plate = None;
+            }
+        }
+        Ok(file)
+    }
+
     /// After a save: the junction files of this map that nothing uses any more (not a tile,
     /// not a tile undo or redo may bring back, not an earlier version kept by a save, and not
     /// one made in this session) are deleted.
@@ -8943,7 +9049,7 @@ impl Editor {
         let follow = self.follow_ground;
         let was_selected = self.selection().iter().any(|s| matches!(s, Sel::Object(_, x) if *x == id));
         let Some(doc) = self.doc.as_mut() else { return };
-        let Some((jk, o)) = doc.tiles.iter().find_map(|(k, t)| t.tile.objects.iter().find(|o| o.id == id).map(|o| (*k, o.clone()))) else { return };
+        let Some((jk, o)) = doc.tiles.iter().find_map(|(k, t)| t.tile.objects.iter().find(|o| o.id == id && is_own_junction(&o.file)).map(|o| (*k, o.clone()))) else { return };
         let mut arms: Vec<crate::junction::Arm> = Vec::new();
         // (a plate whose file is gone, a map moved without them: the roads that end facing
         // its middle are its arms; it stood at its own height)
@@ -8959,11 +9065,10 @@ impl Editor {
                 }
                 abs
             }
-            None if is_own_junction(&o.file) => {
+            None => {
                 arms = ends_facing(doc, tile_origin(jk) + DVec2::new(o.pos[0], o.pos[1]), 30.0);
                 true
             }
-            None => return,
         };
         for a in self.pending_arms.remove(&id).unwrap_or_default() {
             if doc.spline(a.key, a.id).is_some() && !arms.iter().any(|x| x.id == a.id && x.at_end == a.at_end) {
@@ -8977,16 +9082,19 @@ impl Editor {
             self.history.touch_tile(doc, a.key);
         }
         self.history.touch_global(doc);
-        // its signal heads go with it (new ones are put up for the new plate)
-        for (k, c) in crate::junction::children(doc, id) {
-            self.history.touch_tile(doc, k);
-            doc.delete_object(k, c);
-        }
-        doc.delete_object(jk, id);
+        let children = crate::junction::children(doc, id);
+        let remove = |doc: &mut Document, history: &mut History| {
+            for &(k, child) in &children {
+                history.touch_tile(doc, k);
+                doc.delete_object(k, child);
+            }
+            doc.delete_object(jk, id);
+        };
         self.junction_options.remove(&id);
         match arms.len() {
-            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
+            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), ..Default::default() }) {
                 Ok(new) => {
+                    remove(doc, &mut self.history);
                     if was_selected {
                         let k = doc.tiles.iter().find(|(_, t)| t.tile.objects.iter().any(|o| o.id == new)).map(|(k, _)| *k).unwrap_or(jk);
                         let v: Vec<Sel> = self.selection().into_iter().map(|s| if s == Sel::Object(jk, id) { Sel::Object(k, new) } else { s }).collect();
@@ -8994,21 +9102,18 @@ impl Editor {
                     }
                 }
                 Err(e) => {
-                    // (the plate as it was, rather than none)
                     log::warn!("junction: {e}");
-                    if let Some(t) = doc.tiles.get_mut(&jk) {
-                        t.tile.objects.push(o);
-                        t.touch_content();
-                    }
                 }
             },
             2 => {
+                remove(doc, &mut self.history);
                 join_two(doc, assets, adapt, follow, &content, asphalt.as_deref(), &arms[0], &arms[1]);
                 if was_selected {
                     self.select(None);
                 }
             }
             _ => {
+                remove(doc, &mut self.history);
                 if was_selected {
                     self.select(None);
                 }
@@ -9305,10 +9410,8 @@ impl Editor {
             self.toast(tr("This stretch is already of the pocket's road type", "Этот участок уже того типа, что карман"));
             return;
         }
-        // (the bay's road type: the road's own, widened along the kerb its traffic keeps to; the
-        // other side is left as it is)
         let width = if self.pocket_width > 0.0 { self.pocket_width } else { 3.0 };
-        let (cfg, _) = match crate::pocket::bay_type(assets, &content, &main_file, mirrored, left_hand, width) {
+        let cfg = match crate::pocket::bay_type(assets, &content, &main_file, mirrored, left_hand, width, self.pocket_both_sides) {
             Ok(v) => v,
             Err(e) => {
                 self.error(format!("{}: {e}", tr("The bus pocket could not be made", "Не удалось сделать автобусный карман")));
@@ -9323,6 +9426,7 @@ impl Editor {
         let Some(main_model) = assets.spline(&main_file) else { return };
         let pocket_paths = crate::pocket::bay_path_indices(&main_model, &bay_model);
         let Some(doc) = self.doc.as_ref() else { return };
+        // The adapter measures the largest change at either edge, which is the width of one bay.
         let step = width as f64;
         let ratio_in = self.pocket_taper_in.clamp(1.0, 12.0);
         let ratio_out = if self.pocket_alike { ratio_in } else { self.pocket_taper_out.clamp(1.0, 12.0) };
@@ -9575,7 +9679,11 @@ fn ball(out: &mut Vec<OverlayPoint>, c: DVec3, r: f64, color: [f32; 4]) {
 /// zebra on every arm if any road does.
 fn style_options(doc: &Document, styles: &crate::road_maker::Styles, arms: &[crate::junction::Arm], centre: DVec3) -> crate::junction::Options {
     let st: Vec<crate::road_maker::JunctionStyle> = arms.iter().filter_map(|a| doc.spline(a.key, a.id)).map(|s| styles.get(&s.file)).collect();
-    let mut o = crate::junction::Options { lights: st.iter().any(|s| s.lights), ..Default::default() };
+    let mut o = crate::junction::Options {
+        lights: st.iter().any(|s| s.lights),
+        corner_walks: st.iter().all(|s| s.corner_walks),
+        ..Default::default()
+    };
     if st.iter().any(|s| s.crossings) {
         o.crossings = arm_ends_world(doc, arms).iter().map(|e| roads::heading_of(e.truncate() - centre.truncate())).collect();
     }
@@ -9647,12 +9755,8 @@ fn join_two_with_pocket(doc: &mut Document, assets: &mut Assets, adapt: bool, fo
         let ends = arm_ends_world(doc, &[*a, *b]);
         if ends.len() == 2 {
             let centre = (ends[0] + ends[1]) * 0.5;
-            let arms = [*a, *b];
-            let result = match pocket_paths {
-                Some(paths) => crate::junction::make_pocket_taper(doc, assets, content, asphalt, centre, &arms, paths),
-                None => crate::junction::make_with(doc, assets, content, asphalt, centre, &arms, &crate::junction::Options::default()),
-            };
-            match result {
+            let edit = crate::junction::MakeEdit { pocket_paths: pocket_paths.cloned(), ..Default::default() };
+            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default(), edit) {
                 Ok(_) => {
                     if follow {
                         let reach = crate::junction::reach(doc, assets, centre, &[*a, *b]).max(4.0);
@@ -10722,6 +10826,76 @@ fn path_ends_at(doc: &Document, assets: &mut Assets, held: &Origin, pos: DVec2, 
 mod tests {
     use super::*;
     use crate::selection::tests::{add_object, add_spline, flat_map};
+
+    #[test]
+    fn stop_alt_lateral_moves_only_across_the_path_and_survives_release() {
+        let lane = crate::lanes::Lane {
+            pts: vec![DVec3::new(0.0, 0.0, 0.0), DVec3::new(0.0, 100.0, 0.0)],
+            kind: 0, direction: 0, spline: None, object: None, index: 0,
+        };
+        let mut ed = Editor::default();
+        ed.tool = Tool::Logic;
+        ed.logic = LogicMode::Stops;
+        ed.cursor = Some(DVec3::new(2.0, 50.0, 0.0));
+        ed.stop_hover_lane = Some(lane.clone());
+
+        let before = DVec2::new(3.2, 50.0);
+        ed.stop_lateral_key(true);
+        ed.cursor = Some(DVec3::new(5.0, 73.0, 0.0));
+        let session = ed.stop_lateral.as_ref().expect("Alt locks a vehicle lane");
+        let offset = session.offset_at(ed.cursor.unwrap().truncate(), false);
+        let during = session.anchor.truncate() + roads::right(0.0) * offset;
+        println!("RHT path={:?} original={before:?} pointer_start={:?} pointer_now={:?} locked_path_point={:?} offset_before={} offset_during={} preview_during={during:?}",
+            lane.pts, session.pointer, ed.cursor.unwrap(), session.anchor, session.initial_offset, offset);
+        assert!((offset - 6.2).abs() < 1e-9, "Alt changed only cross-path displacement");
+        assert!((during.x - 6.2).abs() < 1e-9);
+        assert!((during.y - 50.0).abs() < 1e-9, "Alt never moves longitudinally");
+
+        ed.stop_lateral_offset = offset;
+        ed.stop_lateral_key(false);
+        assert!(!ed.stop_lateral.as_ref().unwrap().adjusting);
+        let next_path_point = ed.stop_lateral.as_ref().unwrap().lane.nearest(DVec2::new(5.0, 90.0)).unwrap().0;
+        let after = next_path_point.truncate() + roads::right(0.0) * ed.stop_lateral_offset;
+        println!("Alt released: offset={} along_path_point={next_path_point:?} final_preview={after:?}", ed.stop_lateral_offset);
+        assert!((after.x - 6.2).abs() < 1e-9, "lateral offset persists");
+        assert!((after.y - 90.0).abs() < 1e-9, "normal movement resumes along the selected path");
+
+        ed.cancel();
+        println!("After cancel: offset={} session={}", ed.stop_lateral_offset, ed.stop_lateral.is_some());
+        assert!(ed.stop_lateral.is_none());
+        assert_eq!(ed.stop_lateral_offset, 3.2);
+    }
+
+    #[test]
+    fn stop_alt_lateral_respects_left_hand_and_reverse_flow() {
+        let lane = crate::lanes::Lane {
+            pts: vec![DVec3::new(0.0, 0.0, 0.0), DVec3::new(0.0, 100.0, 0.0)],
+            kind: 0, direction: 0, spline: None, object: None, index: 0,
+        };
+        for (direction, lht, dx, expected) in [
+            (0, false, 2.0, 5.2),
+            (0, true, -2.0, 5.2),
+            (1, false, -2.0, 5.2),
+            (1, true, 2.0, 5.2),
+        ] {
+            let mut ed = Editor::default();
+            ed.tool = Tool::Logic;
+            ed.logic = LogicMode::Stops;
+            ed.cursor = Some(DVec3::new(0.0, 20.0, 0.0));
+            ed.stop_hover_lane = Some(crate::lanes::Lane { direction, ..lane.clone() });
+            ed.stop_lateral_key(true);
+            let session = ed.stop_lateral.as_ref().unwrap();
+            let pointer_after = session.pointer + DVec2::new(dx, 19.0);
+            let offset = session.offset_at(pointer_after, lht);
+            let flow = if direction == 1 { 180.0 } else { 0.0 };
+            let side = roads::right(flow) * if lht { -1.0 } else { 1.0 };
+            let preview = session.anchor.truncate() + side * offset;
+            println!("direction={direction} lht={lht} lane={:?} pointer_before={:?} pointer_after={pointer_after:?} anchor={:?} offset_before={} offset_after={offset} preview={preview:?}",
+                lane.pts, session.pointer, session.anchor, session.initial_offset);
+            assert!((offset - expected).abs() < 1e-9);
+            assert!((preview.y - 20.0).abs() < 1e-9);
+        }
+    }
 
     #[test]
     fn a_click_on_the_drawn_surface_meets_it_and_the_centre_line_does_not() {
@@ -14818,7 +14992,7 @@ mod tests {
     fn a_bus_pocket_taper_junction_restricts_every_piece_of_each_bay_connection() {
         let (mut assets, dir, plain, _) = pocket_fixture("taper-rules");
         let content = dir.join("content");
-        for (heading, start_x) in [(90.0, 60.0), (270.0, 240.0)] {
+        for (heading, start_x, both) in [(90.0, 60.0, false), (270.0, 240.0, false), (90.0, 60.0, true)] {
             let mut doc = flat_map(1);
             doc.dir = content.join("maps").join("Pocket");
             doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
@@ -14830,6 +15004,7 @@ mod tests {
             ed.open(doc);
             ed.set_tool(Tool::Roads);
             ed.bus_pocket = true;
+            ed.pocket_both_sides = both;
             ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
             ed.left_press(&mut assets, &Library::default(), false);
 
@@ -14840,7 +15015,7 @@ mod tests {
             // The plate at the start of the spline comes first, regardless of heading.
             plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
             assert_eq!(plates.len(), 2);
-            for (plate, indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
+            for (plate, single_indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
                 let path = omsi_cfg::resolve_path(&content, &plate.file);
                 let sco = omsi_cfg::vfs::read_text(&path).unwrap();
                 let mut before = String::new();
@@ -14850,7 +15025,8 @@ mod tests {
                 crate::doc::save::object(&mut before, &plain, false);
                 crate::doc::save::object(&mut after, plate, false);
                 println!("Heading {heading}, plate {}\n{sco}\nBefore:\n{before}\nAfter:\n{after}", plate.id);
-                let expected: Vec<_> = indices.into_iter().flat_map(|index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                let indices: &[i32] = if both { &[0, 1, 4, 5] } else { &single_indices };
+                let expected: Vec<_> = indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
                     path_index: index, kind: kind.into(), ..Default::default()
                 })).collect();
                 assert_eq!(plate.rules, expected);
@@ -14871,7 +15047,7 @@ mod tests {
     fn an_ordinary_width_adapter_junction_does_not_add_bus_pocket_rules() {
         let (mut assets, dir, plain, _) = pocket_fixture("ordinary-adapter");
         let content = dir.join("content");
-        let (bay, _) = crate::pocket::bay_type(&mut assets, &content, &plain, false, false, 3.0).unwrap();
+        let bay = crate::pocket::bay_type(&mut assets, &content, &plain, false, false, 3.0, false).unwrap();
         assert!(assets.spline_wait(&bay, 5000).is_some());
         let mut doc = flat_map(1);
         doc.dir = content.join("maps").join("Ordinary");
@@ -14926,6 +15102,65 @@ mod tests {
         assert!((me.0 - oe.0).abs() < 1e-3, "the left side stays: {me:?} {oe:?}");
         assert!((me.1 - oe.1 - 3.0).abs() < 1e-3, "the right side is 3 m wider: {me:?} {oe:?}");
         assert!(made.len() > own.len());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_bus_pocket_on_both_sides_shares_its_width_length_and_junction_tapers() {
+        let (mut assets, dir, plain, _) = pocket_fixture("both-sides");
+        let content = dir.join("content");
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Pocket");
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
+            file: plain.clone(), id: 1, pos: [150.0, 60.0, 0.0], heading: 0.0, length: 180.0,
+            ..Default::default()
+        });
+        let mut ed = Editor::default();
+        assert!(!ed.pocket_both_sides);
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        ed.bus_pocket = true;
+        ed.pocket_both_sides = true;
+        ed.pocket_width = 3.25;
+        ed.pocket_len = 24.0;
+        ed.pocket_alike = false;
+        ed.pocket_metres = true;
+        ed.pocket_in_m = 14.0;
+        ed.pocket_out_m = 22.0;
+        ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+
+        let own = assets.spline_wait(&plain, 5000).unwrap();
+        ed.left_press(&mut assets, &Library::default(), false);
+        let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        let bays: Vec<_> = t.splines.iter().filter(|s| !s.deleted && s.file.contains("_bay_both_")).collect();
+        let plates: Vec<_> = t.objects.iter().filter(|o| o.file.contains("junction_")).collect();
+        println!("After placing: splines={:#?}, tapers={:#?}", t.splines, plates);
+        assert_eq!(bays.len(), 1);
+        let bay = bays[0];
+        let widened = assets.spline_wait(&bay.file, 5000).unwrap();
+        let (before, after) = (crate::pocket::extent(&own).unwrap(), crate::pocket::extent(&widened).unwrap());
+        println!("Original extent {before:?}, paths {:#?}", own.def.paths);
+        println!("Double bay extent {after:?}, paths {:#?}", widened.def.paths);
+        assert!((before.0 - after.0 - 3.25).abs() < 1e-3 && (after.1 - before.1 - 3.25).abs() < 1e-3);
+        assert!((bay.pos[0] - 150.0).abs() < 0.01 && (bay.pos[1] - 138.0).abs() < 0.01);
+        assert!((bay.length - 24.0).abs() < 0.01);
+        assert_eq!(plates.len(), 2);
+        let mut taper_lengths = Vec::new();
+        for plate in plates {
+            let path = omsi_cfg::resolve_path(&content, &plate.file);
+            let taper = omsi_scenery::SceneryObject::load(&path).unwrap();
+            println!("{}: helpers {:#?}, paths {:#?}", plate.file, taper.spline_helpers, taper.paths);
+            assert_eq!(taper.spline_helpers.len(), 2);
+            taper_lengths.push((taper.spline_helpers[0].z - taper.spline_helpers[1].z).abs());
+        }
+        taper_lengths.sort_by(f32::total_cmp);
+        assert_eq!(taper_lengths, [14.0, 22.0]);
+
+        ed.undo();
+        let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        assert_eq!(t.splines.iter().filter(|s| !s.deleted).count(), 1);
+        assert!(!t.objects.iter().any(|o| o.file.contains("junction_")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

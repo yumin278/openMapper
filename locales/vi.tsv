@@ -1236,6 +1236,8 @@ Zebra crossings	Vạch qua đường
 Road	Đường
 Build it again	Xây lại
 Makes the plate, its kerbs and lanes again for the roads as they are now	Tạo lại tấm nền, lề đường và làn cho các đường như hiện tại
+Persist junction	Lưu cố định giao lộ
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Lưu giao lộ này dưới dạng vật thể cảnh quan thông thường trong thư mục cài đặt OMSI. Lưu bản đồ để giữ tham chiếu mới.
 Linked objects	Đối tượng liên kết
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Một đối tượng có thể lấy trạng thái từ đối tượng khác ([varparent]): đèn tín hiệu hiện đèn của chương trình ngã tư, màn hình điểm dừng hiện điểm dừng của nó.
 Takes its state from	Lấy trạng thái từ
@@ -2396,6 +2398,7 @@ Advanced users	Người dùng nâng cao
 Controls as in OMSI 2's editor	Điều khiển như trong trình chỉnh sửa của OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Mặc định tắt. Nút giữa xoay góc nhìn, giữ nút phải và di chuyển lên xuống để thu phóng, nhấp chuột phải vào mặt đất để đến đó (Shift + nhấp chuột phải: menu), phím mũi tên di chuyển camera, con lăn để thu phóng
 Bay width	Chiều rộng ô đỗ
+Bay width per side	Chiều rộng vịnh dừng xe buýt mỗi bên
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Loại đường có làn ô đỗ này được tạo từ loại đã chọn (của trình tạo đường), nếu nó không có chiều rộng này
 Tapers in metres	Thu hẹp tính bằng mét
 Give the length of each taper in metres instead of a ratio	Nhập chiều dài mỗi đoạn thu hẹp bằng mét thay vì tỉ lệ
@@ -2785,3 +2788,20 @@ no track within 15 m	không có đường ray trong 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	các đường ray chưa nối, hoặc chạy ngược chiều (xem Xem > Làn AI)
 no track beside	không có đường ray bên cạnh
 Drives on	Chạy trên
+Footway paths round the corners (AI)	Lối đi bộ quanh góc đường (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Tắt: không có đường AI ở góc đường, nhưng lối sang đường vẫn nối các vỉa hè. Hãy tự nối các góc (ví dụ bằng spline đường đi vô hình).
+Open in text editor	Mở trong trình soạn thảo văn bản
+Open the saved .ttp file	Mở tệp .ttp đã lưu
+Could not open the trip file	Không mở được tệp lượt chạy
+Save the map to create this trip's .ttp file first.	Lưu bản đồ trước để tạo tệp .ttp của lượt chạy này.
+Change ID	Đổi ID
+New stop ID	ID điểm dừng mới
+Timetable name: {name}	Tên trong thời gian biểu: {name}
+No stop with this ID on the map	Không có điểm dừng nào mang ID này trên bản đồ
+Confirm	Xác nhận
+Also apply to other trips with this ID ({count})	Áp dụng cả cho các lượt chạy khác có ID này ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Đã đổi ID điểm dừng từ {old} thành {new} ({name}) trong {count} lượt chạy
+Insert before: click a stop on the map to insert it before this one	Chèn trước: chọn một điểm dừng trên bản đồ để chèn trước điểm này
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Chọn một điểm dừng trên bản đồ để chèn trước “{stop}” (Esc để hủy)
+That stop is already next to the insertion point.	Điểm dừng đó đã nằm ngay cạnh vị trí chèn.
+Insert stop before	Chèn điểm dừng trước điểm này

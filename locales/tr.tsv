@@ -1236,6 +1236,8 @@ Zebra crossings	Yaya geçitleri
 Road	Yol
 Build it again	Yeniden yap
 Makes the plate, its kerbs and lanes again for the roads as they are now	Yolların şu anki haline göre platformu, kaldırım kenarlarını ve şeritleri yeniden yapar
+Persist junction	Kavşağı kalıcı olarak kaydet
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Bu kavşağı OMSI kurulum klasörüne sıradan bir sahne nesnesi olarak kaydedin. Yeni başvuruyu korumak için haritayı kaydedin.
 Linked objects	Bağlı nesneler
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Bir nesne durumunu başkasından alabilir ([varparent]): sinyal başlığı kavşağın programından bir ışık gösterir, durak ekranı kendi durağını.
 Takes its state from	Durumu şundan alır:
@@ -2396,6 +2398,7 @@ Advanced users	Gelişmiş kullanıcılar
 Controls as in OMSI 2's editor	OMSI 2'nin düzenleyicisindeki gibi kontroller
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Varsayılan olarak kapalı. Orta tuş görünümü döndürür, basılı tutulup yukarı aşağı hareket ettirilen sağ tuş yakınlaştırır, zemine sağ tık oraya gider (Shift + sağ tık: menü), ok tuşları kamerayı hareket ettirir, tekerlek yakınlaştırır
 Bay width	Cep genişliği
+Bay width per side	Her taraftaki otobüs cebi genişliği
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Bu cep şeridine sahip bir yol türü, seçilen türden (yol yapıcıdaki) oluşturulur; genişliği bu değilse
 Tapers in metres	Daralmalar metre olarak
 Give the length of each taper in metres instead of a ratio	Oran yerine her daralmanın uzunluğunu metre olarak girin
@@ -2785,3 +2788,20 @@ no track within 15 m	15 m içinde ray yok
 the tracks are not joined, or run the other way (see View > AI lanes)	raylar bağlı değil ya da ters yöne gidiyor (Görünüm > YZ şeritleri)
 no track beside	yanında ray yok:
 Drives on	Gittiği yol
+Footway paths round the corners (AI)	Köşelerdeki yaya yolları (YZ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kapalı: köşelerde YZ yolu yoktur, ancak geçitler kaldırımları bağlamaya devam eder. Köşeleri kendiniz bağlayın (ör. görünmez bir yol eğrisiyle).
+Open in text editor	Metin düzenleyicide aç
+Open the saved .ttp file	Kaydedilmiş .ttp dosyasını aç
+Could not open the trip file	Sefer dosyası açılamadı
+Save the map to create this trip's .ttp file first.	Bu seferin .ttp dosyasını oluşturmak için önce haritayı kaydedin.
+Change ID	ID’yi değiştir
+New stop ID	Yeni durak ID’si
+Timetable name: {name}	Tarifedeki ad: {name}
+No stop with this ID on the map	Haritada bu ID’ye sahip durak yok
+Confirm	Onayla
+Also apply to other trips with this ID ({count})	Bu ID’nin geçtiği diğer seferlere de uygula ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	{count} seferde durak ID’si {old} yerine {new} ({name}) olarak değiştirildi
+Insert before: click a stop on the map to insert it before this one	Önüne ekle: bu durağın önüne eklemek için haritada bir durağa tıklayın
+Click a stop on the map to insert it before {stop} (Esc to cancel)	“{stop}” durağının önüne eklemek için haritada bir durağa tıklayın (iptal için Esc)
+That stop is already next to the insertion point.	Bu durak ekleme noktasının hemen yanında zaten var.
+Insert stop before	Önüne durak ekle

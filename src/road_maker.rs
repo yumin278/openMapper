@@ -410,7 +410,7 @@ impl RoadSpec {
     }
 
     /// The `.sli` text (OMSI's own keywords; `\n`, turned into CR LF when written).
-    pub fn sli(&self) -> String {
+    pub fn sli(&self, left_hand: bool) -> String {
         let rw = self.roadway_width();
         let (xl, xr) = (-rw / 2.0, rw / 2.0);
         let (fl, fr) = (self.footway_left(), self.footway_right());
@@ -509,8 +509,9 @@ impl RoadSpec {
             let u0 = (0.5 / lanes - span / 2.0).clamp(0.0, (1.0 - span).max(0.0));
             profile(&mut s, 0, (xr, road_h, u0, rv), (xr2, road_h, u0 + span, rv));
         }
-        // lanes: against the road's way left of its middle, with it right of it (as OMSI 2's
-        // roads are laid out where traffic keeps right; a left-hand map mirrors the spline)
+        // Left-hand traffic reverses the vehicle paths on the same cross-section.
+        let forward = u8::from(left_hand);
+        let backward = u8::from(!left_hand);
         let mid_gap = mid / 2.0;
         let offset = self.centerline();
         let one_way = self.lanes_back == 0 || self.lanes_fwd == 0;
@@ -519,15 +520,15 @@ impl RoadSpec {
         }
         for i in 0..self.lanes_back {
             let x = if one_way { xl + (i as f32 + 0.5) * self.lane_width } else { offset - mid_gap - (self.lanes_back - i) as f32 * self.lane_width + self.lane_width / 2.0 };
-            let _ = write!(s, "[path]\n0\n{}\n{}\n{}\n1\n\n", num(x), num(road_h), num(self.lane_width * 0.9));
+            let _ = write!(s, "[path]\n0\n{}\n{}\n{}\n{backward}\n\n", num(x), num(road_h), num(self.lane_width * 0.9));
         }
         for i in 0..self.lanes_fwd {
             let x = if one_way { xl + (i as f32 + 0.5) * self.lane_width } else { offset + mid_gap + (i as f32 + 0.5) * self.lane_width };
-            let _ = write!(s, "[path]\n0\n{}\n{}\n{}\n0\n\n", num(x), num(road_h), num(self.lane_width * 0.9));
+            let _ = write!(s, "[path]\n0\n{}\n{}\n{}\n{forward}\n\n", num(x), num(road_h), num(self.lane_width * 0.9));
         }
         if pw > 0.0 {
-            // (traffic with the road's way: right of its middle)
-            let _ = write!(s, "[path]\n0\n{}\n{}\n{}\n0\n\n", num(xr + pw / 2.0), num(road_h), num(pw * 0.9));
+            // The pocket follows the direction of the forward lane group.
+            let _ = write!(s, "[path]\n0\n{}\n{}\n{}\n{forward}\n\n", num(xr + pw / 2.0), num(road_h), num(pw * 0.9));
         }
         if fr > 0.0 {
             let _ = write!(s, "[path]\n1\n{}\n{}\n{}\n2\n\n", num(xr2 + fr / 2.0), num(side_h), num(fr * 0.4));
@@ -535,9 +536,15 @@ impl RoadSpec {
         s
     }
 
+    /// Write a right-hand road for tests that build spline fixtures.
+    #[cfg(test)]
+    pub fn write(&self, content: &Path) -> anyhow::Result<String> {
+        self.write_with_traffic(content, false)
+    }
+
     /// Write it into the content folder with its textures; returns its relative path
     /// (`Splines\openMapper\<name>.sli`).
-    pub fn write(&self, content: &Path) -> anyhow::Result<String> {
+    pub fn write_with_traffic(&self, content: &Path, left_hand: bool) -> anyhow::Result<String> {
         anyhow::ensure!(self.lanes_fwd + self.lanes_back > 0, "a road needs a lane");
         anyhow::ensure!(self.roadway_tex.is_file(), "the roadway texture is missing");
         let dir = content.join("Splines").join("openMapper");
@@ -562,7 +569,7 @@ impl RoadSpec {
             image::DynamicImage::ImageRgba8(img).to_rgb8().save(tex_dir.join(self.roadway_tex_name()))?;
         }
         let path = dir.join(format!("{stem}.sli"));
-        crate::doc::safe::write_atomic(&path, &omsi_cfg::encode_text(&self.sli().replace('\n', "\r\n")))?;
+        crate::doc::safe::write_atomic(&path, &omsi_cfg::encode_text(&self.sli(left_hand).replace('\n', "\r\n")))?;
         // (the spec beside it, so the road can be opened in the maker again)
         crate::doc::safe::write_atomic(&dir.join(format!("{stem}.road.json")), serde_json::to_string_pretty(self)?.as_bytes())?;
         let marks = dir.join(format!("{stem}.marks.png"));
@@ -598,13 +605,15 @@ pub struct JunctionStyle {
     /// New junctions with this road get traffic lights / zebra crossings on every arm.
     pub lights: bool,
     pub crossings: bool,
+    /// Generate corner-to-corner AI footway paths for new junctions.
+    pub corner_walks: bool,
     /// Where it meets another road a junction is made at all (else the roads only cross).
     pub junctions: bool,
 }
 
 impl Default for JunctionStyle {
     fn default() -> Self {
-        JunctionStyle { corner: 1.0, lights: false, crossings: false, junctions: true }
+        JunctionStyle { corner: 1.0, lights: false, crossings: false, corner_walks: true, junctions: true }
     }
 }
 
@@ -671,6 +680,55 @@ impl Styles {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn left_hand_traffic_reverses_vehicle_paths_in_the_written_sli() {
+        let dir = std::env::temp_dir().join(format!("om-roadmaker-lht-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let texture = dir.join("asph.png");
+        image::RgbaImage::from_pixel(4, 4, image::Rgba([80, 80, 80, 255])).save(&texture).unwrap();
+        for (name, lanes_fwd, lanes_back, pocket, directions) in [
+            ("symmetric", 1, 1, 0.0, vec![2, 1, 0, 2]),
+            ("asymmetric with pocket", 2, 1, 3.0, vec![2, 1, 0, 0, 0, 2]),
+            ("forward only", 2, 0, 0.0, vec![2, 0, 0, 2]),
+            ("backward only", 0, 2, 0.0, vec![2, 1, 1, 2]),
+        ] {
+            let spec = RoadSpec {
+                name: name.into(),
+                lanes_fwd,
+                lanes_back,
+                pocket,
+                roadway_tex: texture.clone(),
+                ..Default::default()
+            };
+            let read = |left_hand| {
+                let content = dir.join(if left_hand { "lht" } else { "rht" });
+                spec.write_with_traffic(&content, left_hand).unwrap();
+                let path = content.join("Splines/openMapper").join(format!("{}.sli", spec.file_stem()));
+                let json = std::fs::read(path.with_extension("road.json")).unwrap();
+                let text = std::fs::read_to_string(&path).unwrap();
+                let spline = omsi_scenery::Spline::load(&path).unwrap();
+                (json, text, spline.paths)
+            };
+            let (rht_json, rht_text, rht_paths) = read(false);
+            let (lht_json, lht_text, lht_paths) = read(true);
+            let (rht_geometry, rht_blocks) = rht_text.split_once("[path]").unwrap();
+            let (lht_geometry, lht_blocks) = lht_text.split_once("[path]").unwrap();
+            println!("{name} RHT:\n[path]{rht_blocks}{name} LHT:\n[path]{lht_blocks}");
+            assert_eq!(lht_json, rht_json);
+            assert_eq!(lht_geometry, rht_geometry);
+            assert_eq!(rht_paths.iter().map(|path| path.direction).collect::<Vec<_>>(), directions);
+            assert_eq!(lht_paths.len(), rht_paths.len());
+            for (rht, lht) in rht_paths.iter().zip(&lht_paths) {
+                assert_eq!(lht.kind, rht.kind);
+                assert_eq!(lht.start, rht.start);
+                assert_eq!(lht.width, rht.width);
+                let expected = if rht.kind == 0 { 1 - rht.direction } else { rht.direction };
+                assert_eq!(lht.direction, expected);
+            }
+        }
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn a_made_road_reads_back_as_omsi_reads_it() {

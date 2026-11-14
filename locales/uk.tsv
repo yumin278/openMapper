@@ -1236,6 +1236,8 @@ Zebra crossings	Пішохідні переходи
 Road	Дорога
 Build it again	Побудувати заново
 Makes the plate, its kerbs and lanes again for the roads as they are now	Заново будує майданчик, бордюри й смуги під дороги, як вони зараз
+Persist junction	Зберегти перехрестя
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Збережіть це перехрестя як звичайний об’єкт сцени в папці встановлення OMSI. Збережіть карту, щоб записати нове посилання.
 Linked objects	Пов'язані об'єкти
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Об'єкт може брати стан від іншого ([varparent]): світлофор показує сигнал програми свого перехрестя, табло зупинки — свою зупинку.
 Takes its state from	Бере стан від
@@ -2396,6 +2398,7 @@ Advanced users	Досвідчені користувачі
 Controls as in OMSI 2's editor	Керування як у редакторі OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Типово вимкнено. Середня кнопка обертає вигляд, права кнопка з рухом угору й униз масштабує, правий клік по землі веде туди (Shift + правий клік: меню), стрілки рухають камеру, колесо масштабує
 Bay width	Ширина кишені
+Bay width per side	Ширина автобусної кишені з кожного боку
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Тип дороги з такою смугою кишені створюється з обраного (з конструктора дороги), якщо він не має такої ширини
 Tapers in metres	Звуження в метрах
 Give the length of each taper in metres instead of a ratio	Вкажіть довжину кожного звуження в метрах замість пропорції
@@ -2783,3 +2786,20 @@ no track within 15 m	у 15 м немає рейок
 the tracks are not joined, or run the other way (see View > AI lanes)	рейки не з'єднані або йдуть в інший бік (Вигляд > Смуги ШІ)
 no track beside	немає рейок біля
 Drives on	Їздить по
+Footway paths round the corners (AI)	Пішохідні шляхи на кутах (ШІ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Вимкнено: на кутах немає шляхів ШІ, але переходи й далі з’єднують тротуари. З’єднайте кути вручну (наприклад, невидимим сплайном шляху).
+Open in text editor	Відкрити в текстовому редакторі
+Open the saved .ttp file	Відкрити збережений файл .ttp
+Could not open the trip file	Не вдалося відкрити файл рейсу
+Save the map to create this trip's .ttp file first.	Спочатку збережіть мапу, щоб створити файл .ttp цього рейсу.
+Change ID	Змінити ID
+New stop ID	Новий ID зупинки
+Timetable name: {name}	Назва в розкладі: {name}
+No stop with this ID on the map	На мапі немає зупинки з таким ID
+Confirm	Підтвердити
+Also apply to other trips with this ID ({count})	Застосувати також до інших рейсів із цим ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID зупинки змінено з {old} на {new} ({name}). Кількість рейсів: {count}
+Insert before: click a stop on the map to insert it before this one	Вставити перед: виберіть зупинку на мапі, щоб вставити її перед цією
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Виберіть зупинку на мапі, щоб вставити її перед «{stop}» (Esc — скасувати)
+That stop is already next to the insertion point.	Ця зупинка вже поруч із місцем вставлення.
+Insert stop before	Вставити зупинку перед цією

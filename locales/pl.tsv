@@ -1236,6 +1236,8 @@ Zebra crossings	Przejścia dla pieszych
 Road	Droga
 Build it again	Zbuduj od nowa
 Makes the plate, its kerbs and lanes again for the roads as they are now	Tworzy od nowa płytę, krawężniki i pasy dla dróg w obecnym kształcie
+Persist junction	Zapisz skrzyżowanie na stałe
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Zapisz to skrzyżowanie jako zwykły obiekt scenerii w folderze instalacyjnym OMSI. Zapisz mapę, aby zachować nowe odwołanie.
 Linked objects	Powiązane obiekty
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Obiekt może brać stan od innego ([varparent]): głowica sygnalizatora pokazuje światło z programu swojego skrzyżowania, wyświetlacz przystanku swój przystanek.
 Takes its state from	Bierze stan od
@@ -2396,6 +2398,7 @@ Advanced users	Zaawansowani użytkownicy
 Controls as in OMSI 2's editor	Sterowanie jak w edytorze OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Domyślnie wyłączone. Środkowy przycisk obraca widok, przytrzymany prawy przycisk przesuwany w górę i w dół przybliża, kliknięcie prawym na terenie przenosi w to miejsce (Shift + prawy klik: menu), strzałki przesuwają kamerę, kółko przybliża
 Bay width	Szerokość zatoki
+Bay width per side	Szerokość zatoki autobusowej na stronę
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Typ drogi z tym pasem zatoki jest tworzony z wybranego (z kreatora drogi), jeśli nie ma takiej szerokości
 Tapers in metres	Zwężenia w metrach
 Give the length of each taper in metres instead of a ratio	Podaj długość każdego zwężenia w metrach zamiast proporcji
@@ -2785,3 +2788,20 @@ no track within 15 m	w promieniu 15 m brak torów
 the tracks are not joined, or run the other way (see View > AI lanes)	tory nie są połączone lub biegną w drugą stronę (zobacz Widok > Pasy AI)
 no track beside	brak torów przy
 Drives on	Jeździ po
+Footway paths round the corners (AI)	Ścieżki pieszych na narożnikach (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Wyłączone: narożniki nie mają ścieżek AI, ale przejścia nadal łączą chodniki. Połącz narożniki ręcznie (np. niewidoczną krzywą ścieżki).
+Open in text editor	Otwórz w edytorze tekstu
+Open the saved .ttp file	Otwórz zapisany plik .ttp
+Could not open the trip file	Nie udało się otworzyć pliku kursu
+Save the map to create this trip's .ttp file first.	Najpierw zapisz mapę, aby utworzyć plik .ttp tego kursu.
+Change ID	Zmień ID
+New stop ID	Nowe ID przystanku
+Timetable name: {name}	Nazwa w rozkładzie: {name}
+No stop with this ID on the map	Na mapie nie ma przystanku o tym ID
+Confirm	Potwierdź
+Also apply to other trips with this ID ({count})	Zastosuj też do innych kursów z tym ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Zmieniono ID przystanku z {old} na {new} ({name}). Liczba kursów: {count}
+Insert before: click a stop on the map to insert it before this one	Wstaw przed: kliknij przystanek na mapie, aby wstawić go przed tym
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Kliknij przystanek na mapie, aby wstawić go przed „{stop}” (Esc anuluje)
+That stop is already next to the insertion point.	Ten przystanek już sąsiaduje z miejscem wstawienia.
+Insert stop before	Wstaw przystanek przed tym

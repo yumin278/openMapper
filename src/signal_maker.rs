@@ -1,7 +1,7 @@
 //! Objects with lamps made in one click, ready to edit further: a signal head of chosen lamps
-//! on a pole (it links to a crossing's light program like OMSI 2's `Ampel_Kfz_1`: its lenses
-//! face -y, lit by its script from the crossing's phase), and a street lamp that glows and
-//! lights the ground at night.
+//! on a pole, and a street lamp that glows and lights the ground at night. The generated head
+//! links to a crossing's light program like OMSI 2's `Ampel_Kfz_1`. The stock head faces local
+//! +y (O3D +z, along the object's heading), while the generated head faces local -y.
 
 use glam::{Mat4, Vec3};
 use openmapper_mesh::primitives::Primitive;

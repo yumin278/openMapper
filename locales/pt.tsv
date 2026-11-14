@@ -1236,6 +1236,8 @@ Zebra crossings	Faixas de pedestres
 Road	Estrada
 Build it again	Construir de novo
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refaz a placa, seus meios-fios e faixas para as estradas como estão agora
+Persist junction	Salvar o cruzamento
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Salva este cruzamento como um objeto de cenário comum na instalação do OMSI. Salve o mapa para manter a nova referência.
 Linked objects	Objetos vinculados
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Um objeto pode tomar seu estado de outro ([varparent]): um foco de semáforo mostra uma luz do programa do seu cruzamento, o painel de um ponto mostra o seu ponto.
 Takes its state from	Toma o estado de
@@ -2396,6 +2398,7 @@ Advanced users	Usuários avançados
 Controls as in OMSI 2's editor	Controles como no editor do OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Desativado por padrão. O botão do meio gira a vista, o botão direito mantido e movido para cima e para baixo dá zoom, um clique direito no terreno vai até lá (Shift + clique direito: o menu), as setas movem a câmera, a roda dá zoom
 Bay width	Largura da baia
+Bay width per side	Largura da baia por lado
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Um tipo de via com esta faixa da baia é criado a partir do escolhido (o do construtor de estradas), se não tiver essa largura
 Tapers in metres	Afunilamentos em metros
 Give the length of each taper in metres instead of a ratio	Informe o comprimento de cada afunilamento em metros em vez de uma proporção
@@ -2785,3 +2788,20 @@ no track within 15 m	nenhum trilho a 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	os trilhos não estão unidos ou seguem no outro sentido (veja Exibir > Faixas de IA)
 no track beside	sem trilho junto a
 Drives on	Circula por
+Footway paths round the corners (AI)	Caminhos de pedestres nas esquinas (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desativado: não há caminhos de IA nas esquinas, mas as faixas ainda conectam as calçadas. Conecte as esquinas manualmente (por exemplo, com uma spline de caminho invisível).
+Open in text editor	Abrir no editor de texto
+Open the saved .ttp file	Abrir o arquivo .ttp salvo
+Could not open the trip file	Não foi possível abrir o arquivo da viagem
+Save the map to create this trip's .ttp file first.	Salve primeiro o mapa para criar o arquivo .ttp desta viagem.
+Change ID	Alterar ID
+New stop ID	Novo ID da parada
+Timetable name: {name}	Nome no horário: {name}
+No stop with this ID on the map	Não há nenhuma parada com esse ID no mapa
+Confirm	Confirmar
+Also apply to other trips with this ID ({count})	Aplicar também às outras viagens com esse ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	O ID da parada foi alterado de {old} para {new} ({name}) em {count} viagens
+Insert before: click a stop on the map to insert it before this one	Inserir antes: escolha uma parada no mapa para inseri-la antes desta
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Escolha uma parada no mapa para inseri-la antes de “{stop}” (Esc para cancelar)
+That stop is already next to the insertion point.	Essa parada já está ao lado do ponto de inserção.
+Insert stop before	Inserir parada antes desta

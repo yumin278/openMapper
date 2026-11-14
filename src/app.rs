@@ -16,7 +16,7 @@ use winit::window::{Window, WindowId};
 use crate::assets::Assets;
 use crate::camera::Camera;
 use crate::doc::{tile_origin, tile_size, Document, Sel};
-use crate::editor::{Editor, Tool};
+use crate::editor::{Editor, LogicMode, Tool};
 use crate::gpu::Gpu;
 use crate::i18n::{self, tr};
 use crate::install::{self, Prefs, Roots};
@@ -1692,6 +1692,21 @@ impl App {
             }
             Action::RoadTypes => self.road_types.open = !self.road_types.open,
             Action::ComplexJunctions => self.cj.open = !self.cj.open,
+            Action::PersistJunction(k, id) => {
+                if self.collab.is_guest() {
+                    self.ed.error(tr("In multiplayer the host saves the map. Leave the session to save this as a copy of your own.", "В совместной правке карту сохраняет хост. Выйдите из сессии, чтобы сохранить копию для себя."));
+                } else if let Some(roots) = &self.roots {
+                    match self.ed.persist_junction(roots, k, id) {
+                        Ok(file) => {
+                            self.lib.start_scan(roots);
+                            self.ed.toast(format!("{} {file}", tr("Saved:", "Сохранено:")));
+                        }
+                        Err(e) => self.ed.error(format!("{}: {e:#}", tr("Could not save (the changes are still here, nothing is lost)", "Не удалось сохранить (изменения остались здесь, ничего не потеряно)"))),
+                    }
+                } else {
+                    self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
+                }
+            }
             Action::CrossingPaths => {
                 // (its copy of the object would be on this disk only, and the map's others would get a path they lack)
                 if self.collab.is_guest() {
@@ -3847,12 +3862,18 @@ impl ApplicationHandler for App {
                 self.ed.ctrl_held = self.keys.ctrl;
                 self.ed.shift_held = self.keys.shift;
                 let alt = m.state().alt_key();
-                // (Alt / Option goes down: the camera will orbit round the point under the cursor;
-                // Unity orbits round the point looked at)
-                if alt && !self.keys.alt && !self.mouse.over_ui && !self.fly_style() {
+                // Alt in aligned stop placement is a lateral-axis constraint: do not
+                // re-aim the camera when starting the adjustment.
+                let stop_axis = self.ed.tool == Tool::Logic && self.ed.logic == LogicMode::Stops
+                    && self.ed.align_to_road && !self.ed.shift_held;
+                // Otherwise Alt / Option keeps its usual camera orbit pivot.
+                if alt && !self.keys.alt && !stop_axis && !self.mouse.over_ui && !self.fly_style() {
                     if let Some(c) = self.ed.cursor {
                         self.cam.set_pivot(c);
                     }
+                }
+                if alt != self.keys.alt {
+                    self.ed.stop_lateral_key(alt);
                 }
                 self.keys.alt = alt;
             }

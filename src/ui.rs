@@ -96,6 +96,8 @@ pub enum Action {
     ComplexJunctions,
     /// The crossing path editor window on the picked object (or a crossing picked there).
     CrossingPaths,
+    /// Save the selected automatic junction as a standalone OMSI object.
+    PersistJunction(crate::doc::TileKey, i64),
     /// Put the crossing being edited in the middle of the map's view, close enough that its
     /// paths fill it.
     CrossingFrame,
@@ -2746,7 +2748,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
     }
     match sel {
         Sel::Object(k, id) => {
-            crate::ui_edit::junction_section(ui, ed, k, id);
+            crate::ui_edit::junction_section(ui, ed, k, id, actions);
             crate::ui_edit::array_section(ui, ed, lib);
             crate::ui_edit::link_section(ui, ed, lib, k, id, obj_info.as_ref(), parent_lights.as_ref());
             if has_paths {

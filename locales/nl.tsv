@@ -1236,6 +1236,8 @@ Zebra crossings	Zebrapaden
 Road	Weg
 Build it again	Opnieuw bouwen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Maakt de plaat, zijn stoepranden en rijstroken opnieuw voor de wegen zoals ze nu zijn
+Persist junction	Kruispunt blijvend opslaan
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Sla dit kruispunt op als een normaal landschapsobject in de OMSI-installatie. Sla de kaart op om de nieuwe verwijzing te bewaren.
 Linked objects	Gekoppelde objecten
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Een object kan zijn toestand van een ander nemen ([varparent]): een seinkop toont een licht van het programma van zijn kruising, het display van een halte zijn halte.
 Takes its state from	Neemt zijn toestand van
@@ -2396,6 +2398,7 @@ Advanced users	Gevorderde gebruikers
 Controls as in OMSI 2's editor	Besturing zoals in de editor van OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Standaard uit. De middelste knop draait het beeld, de ingedrukte rechterknop op en neer bewegen zoomt, een rechtsklik op de grond gaat erheen (Shift + rechtsklik: het menu), de pijltjes bewegen de camera, het wiel zoomt
 Bay width	Havenbreedte
+Bay width per side	Breedte van de haltehaven per zijde
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Een wegtype met deze havenstrook wordt gemaakt van het gekozen type (dat van de wegbouwer), als het niet deze breedte heeft
 Tapers in metres	Versmallingen in meters
 Give the length of each taper in metres instead of a ratio	Geef de lengte van elke versmalling in meters in plaats van een verhouding
@@ -2785,3 +2788,20 @@ no track within 15 m	geen spoor binnen 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	de sporen zijn niet verbonden, of lopen de andere kant op (zie Beeld > AI-rijstroken)
 no track beside	geen spoor naast
 Drives on	Rijdt over
+Footway paths round the corners (AI)	Voetpaden bij de hoeken (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Uit: er zijn geen AI-paden bij de hoeken, maar de oversteekplaatsen verbinden de trottoirs nog steeds. Verbind de hoeken zelf (bijvoorbeeld met een onzichtbare padspline).
+Open in text editor	Openen in teksteditor
+Open the saved .ttp file	Opgeslagen .ttp-bestand openen
+Could not open the trip file	Het ritbestand kon niet worden geopend
+Save the map to create this trip's .ttp file first.	Sla de kaart eerst op om het .ttp-bestand van deze rit te maken.
+Change ID	ID wijzigen
+New stop ID	Nieuwe halte-ID
+Timetable name: {name}	Naam in de dienstregeling: {name}
+No stop with this ID on the map	Geen halte met deze ID op de kaart
+Confirm	Bevestigen
+Also apply to other trips with this ID ({count})	Ook toepassen op andere ritten met deze ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Halte-ID {old} gewijzigd in {new} ({name}) in {count} ritten
+Insert before: click a stop on the map to insert it before this one	Ervoor invoegen: klik op een halte op de kaart om die vóór deze in te voegen
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Klik op een halte op de kaart om die vóór ‘{stop}’ in te voegen (Esc om te annuleren)
+That stop is already next to the insertion point.	Die halte staat al naast het invoegpunt.
+Insert stop before	Halte ervoor invoegen

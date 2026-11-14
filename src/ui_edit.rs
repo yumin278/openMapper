@@ -984,21 +984,31 @@ pub fn road_options(ui: &mut egui::Ui, ed: &mut Editor) {
 /// there, again and again, until it is switched off.
 pub fn pocket_options(ui: &mut egui::Ui, ed: &mut Editor) {
     let r = check(ui, &mut ed.bus_pocket, icons::labelled(Icon::Road, tr("Bus Pocket Tool", "Инструмент «Автобусный карман»")));
-    r.on_hover_text(tr("Tick it, then press on a road: a bus pocket is laid there, on the kerb the road's own traffic keeps to. It stays on, pocket after pocket, until you untick it", "Включите и нажимайте на дорогу: там появится автобусный карман, со стороны бордюра, к которому прижимается движение дороги. Инструмент работает, пока вы его не выключите"));
+    if !ed.bus_pocket || !ed.pocket_both_sides {
+        r.on_hover_text(tr("Tick it, then press on a road: a bus pocket is laid there, on the kerb the road's own traffic keeps to. It stays on, pocket after pocket, until you untick it", "Включите и нажимайте на дорогу: там появится автобусный карман, со стороны бордюра, к которому прижимается движение дороги. Инструмент работает, пока вы его не выключите"));
+    }
     if !ed.bus_pocket {
         return;
     }
     egui::Frame::new().inner_margin(Margin { left: 18, ..Default::default() }).show(ui, |ui| {
+        check(ui, &mut ed.pocket_both_sides, tr("Both sides", "С обеих сторон"));
         ui.horizontal(|ui| {
             ui.label(tr("Full width over", "Полная ширина на"));
             ui.add(egui::DragValue::new(&mut ed.pocket_len).range(4.0..=80.0).speed(0.5).suffix(" m"));
         });
         ui.horizontal(|ui| {
-            ui.label(tr("Bay width", "Ширина кармана"));
+            ui.label(if ed.pocket_both_sides {
+                tr("Bay width per side", "Ширина кармана с каждой стороны")
+            } else {
+                tr("Bay width", "Ширина кармана")
+            });
             if ed.pocket_width <= 0.0 {
                 ed.pocket_width = 3.0;
             }
-            ui.add(egui::DragValue::new(&mut ed.pocket_width).range(1.5..=6.0).speed(0.05).suffix(" m")).on_hover_text(tr("How much wider the road is along the bay, on the kerb its traffic keeps to; the other side stays as it is", "На сколько дорога шире у кармана, со стороны бордюра её полосы движения; другая сторона не меняется"));
+            let width = ui.add(egui::DragValue::new(&mut ed.pocket_width).range(1.5..=6.0).speed(0.05).suffix(" m"));
+            if !ed.pocket_both_sides {
+                width.on_hover_text(tr("How much wider the road is along the bay, on the kerb its traffic keeps to; the other side stays as it is", "На сколько дорога шире у кармана, со стороны бордюра её полосы движения; другая сторона не меняется"));
+            }
         });
         check(ui, &mut ed.pocket_metres, tr("Tapers in metres", "Переходы в метрах")).on_hover_text(tr("Give the length of each taper in metres instead of a ratio", "Задавать длину каждого перехода в метрах, а не отношением"));
         ui.horizontal(|ui| {
@@ -1024,7 +1034,9 @@ pub fn pocket_options(ui: &mut egui::Ui, ed: &mut Editor) {
         check(ui, &mut ed.pocket_alike, tr("Both ends alike", "Оба конца одинаковые"));
         check(ui, &mut ed.pocket_fit, tr("Slide the bay to where it fits", "Сдвигать карман туда, где он помещается")).on_hover_text(tr("Near the end of a road or a junction there is no room for the taper at both ends: the bay is moved along the road to where there is", "У конца дороги или перекрёстка нет места для перехода с обеих сторон: карман сдвигается вдоль дороги туда, где место есть"));
         ui.label(RichText::new(tr("A bay always gets a taper at both ends; where one cannot be laid nothing is changed.", "Карман всегда получает переход с обеих сторон; если один уложить нельзя, ничего не меняется.")).small().color(TEXT_DIM));
-        ui.label(RichText::new(tr("The stretch is cut out of the road and given the bay along its kerb, its ends tapering to the road's width. The road's own type is widened: nothing to pick.", "Участок вырезается из дороги и получает карман вдоль бордюра, концы сужаются до ширины дороги. Тип дороги расширяется сам: выбирать ничего не нужно.")).small().color(TEXT_DIM));
+        if !ed.pocket_both_sides {
+            ui.label(RichText::new(tr("The stretch is cut out of the road and given the bay along its kerb, its ends tapering to the road's width. The road's own type is widened: nothing to pick.", "Участок вырезается из дороги и получает карман вдоль бордюра, концы сужаются до ширины дороги. Тип дороги расширяется сам: выбирать ничего не нужно.")).small().color(TEXT_DIM));
+        }
     });
 }
 
@@ -1076,7 +1088,7 @@ pub fn road_entry(ctx: &egui::Context, ed: &mut Editor, view: egui::Rect, action
 }
 
 /// The lights and crossings of one of openMapper's junctions (it is made again with them).
-pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64) {
+pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
     let Some(o) = doc.object(k, id) else { return };
     if !crate::editor::is_own_junction(&o.file) {
@@ -1100,6 +1112,10 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
             apply = true;
         }
         if new.lights {
+            if let Some(doc) = ed.doc.as_ref() {
+                let (set, _) = doc.signal_sets.resolve(&opts.signal_set);
+                ui.label(RichText::new(format!("{} ({})", set.name, set.id)).small().color(TEXT_DIM));
+            }
             if arms.len() < 3 {
                 ui.label(RichText::new(tr("Lights need three roads or more", "Светофорам нужно не меньше трёх дорог")).small().color(TEXT_DIM));
             }
@@ -1136,10 +1152,20 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
                 apply = true;
             }
         }
+        if check(ui, &mut new.corner_walks, tr("Footway paths round the corners (AI)", "Пешеходные пути вокруг углов (ИИ)")).changed() {
+            apply = true;
+        }
+        ui.label(RichText::new(tr("Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).", "Выкл.: без путей ИИ на углах; переходы по-прежнему соединены с тротуарами дорог. Соедините углы сами (например, невидимым сплайном пути).")).small().color(TEXT_DIM));
     });
     let rebuild = ui.button(icons::labelled(Icon::Junction, tr("Build it again", "Построить заново"))).on_hover_text(tr("Makes the plate, its kerbs and lanes again for the roads as they are now", "Заново строит площадку, бордюры и полосы под дороги, как они сейчас")).clicked();
     if (apply && new != opts) || rebuild {
         ed.set_junction_options(id, new);
+    }
+    if ui.button(icons::labelled(Icon::Save, tr("Persist junction", "Сохранить как объект")))
+        .on_hover_text(tr("Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.", "Сохранить этот перекрёсток как обычный объект в папке OMSI. Сохраните карту, чтобы записать новую ссылку."))
+        .clicked()
+    {
+        actions.push(crate::ui::Action::PersistJunction(k, id));
     }
 }
 
