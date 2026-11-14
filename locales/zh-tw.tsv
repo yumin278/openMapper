@@ -2783,8 +2783,8 @@ no track within 15 m	15 m 內沒有軌道
 the tracks are not joined, or run the other way (see View > AI lanes)	軌道未相連，或方向相反（見 檢視 > AI 行車線）
 no track beside	旁邊沒有軌道：
 Drives on	行駛於
-Footway paths round the corners (AI)	轉角人行道 AI 路徑
-Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	關閉後，轉角不會生成 AI 路徑，行人穿越道仍會連接道路兩側的人行道。請自行連接轉角，例如使用隱形路徑曲線。
+Footway paths round the corners (AI)	轉角行人路 AI 路徑
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	關閉後，轉角不會生成 AI 路徑，行人穿越道仍會連接道路兩側的行人路。請自行連接轉角，例如使用隱形路徑曲線。
 Open in text editor	在文字編輯器開啟
 Open the saved .ttp file	開啟已儲存的 .ttp 檔案
 Could not open the trip file	無法開啟 Trip 檔案
