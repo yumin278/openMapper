@@ -102,6 +102,7 @@ pub fn snapshot(doc: &Document) -> Snapshot {
         traffic: if doc.traffic.dirty { doc.traffic.clone() } else { Default::default() },
         descriptions: if doc.descriptions.dirty { doc.descriptions.clone() } else { Default::default() },
         groups: Vec::new(),
+        signal_sets: Default::default(),
     };
     Snapshot { doc: copy, tiles: doc.tiles.keys().copied().collect(), epoch: *EPOCH.lock().unwrap_or_else(|e| e.into_inner()) }
 }
@@ -338,6 +339,7 @@ mod tests {
             traffic: Default::default(),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
         };
         doc.global.name = "M".into();
         for k in [(0, 0), (1, 0)] {

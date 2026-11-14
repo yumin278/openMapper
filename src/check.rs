@@ -1394,6 +1394,7 @@ mod tests {
             traffic: Default::default(),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
         };
         for k in tiles {
             doc.tiles.insert(*k, crate::doc::TileDoc::new_flat(0.0));

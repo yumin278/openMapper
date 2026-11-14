@@ -212,6 +212,7 @@ pub struct Document {
     pub descriptions: crate::descriptions::Descriptions,
     /// Things kept together (openMapper's own: `openMapper/groups.json` beside the map).
     pub groups: Vec<crate::mapgroups::MapGroup>,
+    pub(crate) signal_sets: crate::signal_sets::SignalSets,
 }
 
 impl Document {
@@ -247,6 +248,7 @@ impl Document {
             traffic: crate::traffic::Traffic::load(&template),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
             source: Some(template),
             global_dirty: true,
             fresh: true,
@@ -346,6 +348,7 @@ impl Document {
             traffic,
             descriptions,
             groups: Vec::new(),
+            signal_sets: Default::default(),
         })
     }
 
@@ -397,6 +400,7 @@ impl Document {
             traffic: self.traffic.clone(),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
         }
     }
 
