@@ -4,7 +4,7 @@
 //! on the map as it is, as ordinary splines (a complex junction), or saved as a custom
 //! junction the Roads tool's automatic junctions can use (see `cjunction`).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use egui::{Color32, Pos2, RichText, Sense, Stroke, Vec2};
 use glam::DVec2;
@@ -206,7 +206,7 @@ impl ComplexJunctions {
                 ui.separator();
                 ui.vertical(|ui| {
                     self.toolbar(ui);
-                    self.canvas(ui, lib, &mut assets);
+                    self.canvas(ui, lib, &mut assets, ed.doc.as_ref().map(|doc| doc.dir.as_path()), ed.asphalt.as_deref());
                     ui.add_space(4.0);
                     self.bottom(ui, ed, content, actions);
                 });
@@ -856,7 +856,7 @@ impl ComplexJunctions {
     }
 
     /// The drawing, seen from above.
-    fn canvas(&mut self, ui: &mut egui::Ui, lib: &Library, assets: &mut Option<&mut Assets>) {
+    fn canvas(&mut self, ui: &mut egui::Ui, lib: &Library, assets: &mut Option<&mut Assets>, map_dir: Option<&Path>, installed_asphalt: Option<&Path>) {
         let size = Vec2::new(ui.available_width().max(300.0), (ui.available_height() - 100.0).max(300.0));
         let (rect, resp) = ui.allocate_exact_size(size, Sense::click_and_drag());
         self.canvas = rect.size();
@@ -942,12 +942,10 @@ impl ComplexJunctions {
         // the junctions as the Roads tool makes them (made again only when the drawing changes)
         let stale = self.plate.as_ref().map(|p| p.0 != self.layout.pieces || p.1 != self.layout.build).unwrap_or(true);
         if stale {
-            // (the roadway's asphalt is cut as it is for the map, into a folder of its own, so that the drawing shows it)
-            let preview_dir = std::env::temp_dir().join("openmapper-junction-preview");
-            let _ = std::fs::create_dir_all(&preview_dir);
+            let asphalt = crate::junction::junction_asphalt(map_dir, installed_asphalt);
             let resolved = self.layout.resolve(&|f| is_road(lib, f), &|f| half_of(lib, f));
             self.skipped = resolved.skipped;
-            let plates: Option<Vec<_>> = resolved.plates.iter().map(|arms| assets.as_deref_mut().and_then(|a| crate::junction::layout_plate(a, arms, Some(&preview_dir), None)).map(|p| (p.flat_textured(), p.lanes))).collect();
+            let plates: Option<Vec<_>> = resolved.plates.iter().map(|arms| assets.as_deref_mut().and_then(|a| crate::junction::layout_plate(a, arms, asphalt.as_deref())).map(|p| (p.flat_textured(), p.lanes))).collect();
             // (a road type not loaded yet: made again next frame)
             self.plate = plates.map(|pl| {
                 let lanes = pl.iter().flat_map(|p| p.1.iter().copied()).collect();

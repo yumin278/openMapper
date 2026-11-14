@@ -700,6 +700,13 @@ impl Mesh {
     }
 }
 
+/// The widest arm with a roadway texture supplies the existing UV direction.
+fn asphalt_heading(arms: &[ArmGeo]) -> f64 {
+    arms.iter().filter(|g| g.road_tex.is_some())
+        .max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)))
+        .map(|g| g.out).unwrap_or(0.0)
+}
+
 /// Build the mesh: the roadway in the middle, and round each corner the kerb and footway
 /// of the roads, swept along a smooth curve from one arm's kerb line to the next's.
 /// `along`: the heading the roadway's texture runs (the widest road's), so its slabs and
@@ -941,29 +948,6 @@ fn mesh_x(m: &Mesh, names: &[String]) -> String {
     x
 }
 
-/// A plain square of a road's own surface, `period` metres a side (what the texture spans
-/// along the road): `band_m` metres of a lane's middle (no markings), as wide as it is on
-/// the road, mirrored to and fro across so it tiles without a seam, and the texture's full
-/// length along. The junction's roadway, laid flat at the same scale, then has the roads'
-/// grain and colour, not a stretched smear.
-fn clean_asphalt(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64, out: &Path) -> Option<()> {
-    let buf = clean_asphalt_image(tex, u, u_per_m, period, lane_m)?;
-    save_like(&buf, out)
-}
-
-/// Save a picture in the format its file name says (the road's own texture is a .bmp, .dds,
-/// .tga or .jpg, and what is made from it is written as one too); a name of another kind
-/// gets a PNG.
-fn save_like(buf: &image::RgbaImage, out: &Path) -> Option<()> {
-    let ext = out.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
-    match ext.as_str() {
-        "dds" => std::fs::write(out, crate::doc::dds::rgba(buf.width(), buf.height(), buf.as_raw())).ok(),
-        "bmp" | "jpg" | "jpeg" => image::DynamicImage::ImageRgba8(buf.clone()).to_rgb8().save(out).ok(),
-        "tga" | "png" => buf.save(out).ok(),
-        _ => buf.save_with_format(out, image::ImageFormat::Png).ok(),
-    }
-}
-
 /// The files that go with a texture (`name_wintersnow.dds`, `name.bmp.cfg`, `name.surf`…):
 /// everything beside it that starts with its name and then an underscore or a dot.
 pub fn companions(tex: &Path) -> Vec<PathBuf> {
@@ -986,6 +970,10 @@ pub fn companions(tex: &Path) -> Vec<PathBuf> {
 /// its .cfg and .surf), under its own name.
 pub fn copy_texture(tex: &Path, to_dir: &Path) {
     let Some(name) = tex.file_name() else { return };
+    copy_texture_as(tex, to_dir, name);
+}
+
+fn copy_texture_as(tex: &Path, to_dir: &Path, name: &std::ffi::OsStr) {
     let to = to_dir.join(name);
     if !to.exists() {
         let _ = std::fs::copy(tex, &to);
@@ -999,78 +987,19 @@ pub fn copy_texture(tex: &Path, to_dir: &Path) {
     }
 }
 
-/// The plain asphalt made from `tex` as `<stem>_junction.<same extension>` in `to_dir`, with
-/// the same made from each of its companions (its winter pictures, in their formats) and the
-/// others (.cfg, .surf) copied under the new name. Gives the main picture's path.
-fn plain_like(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64, to_dir: &Path) -> Option<PathBuf> {
-    let stem = tex.file_stem()?.to_string_lossy().to_string();
-    let ext = tex.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "png".into());
-    let new_stem = format!("{stem}_junction");
-    let out = to_dir.join(format!("{new_stem}.{ext}"));
-    // (one cut short, a full disk say, is made again)
-    if out.exists() && omsi_texture::decode_file(&out).is_err() {
-        let _ = std::fs::remove_file(&out);
-    }
-    if !out.exists() {
-        clean_asphalt(tex, u, u_per_m, period, lane_m, &out)?;
-    }
-    for c in companions(tex) {
-        let Some(name) = c.file_name().map(|f| f.to_string_lossy().to_string()) else { continue };
-        let to = to_dir.join(format!("{new_stem}{}", &name[stem.len().min(name.len())..]));
-        if to.exists() {
-            continue;
+/// Write map asphalt under the same name regardless of the map file's spelling.
+fn export_texture(tex: &Path, to_dir: &Path) -> String {
+    let Some(name) = tex.file_name().map(|name| name.to_string_lossy()) else { return String::new() };
+    if name.eq_ignore_ascii_case(MAP_ASPHALT) {
+        if tex.parent() != Some(to_dir) || name != MAP_ASPHALT {
+            copy_texture_as(tex, to_dir, MAP_ASPHALT.as_ref());
         }
-        let image_ext = c.extension().map(|e| matches!(e.to_string_lossy().to_lowercase().as_str(), "bmp" | "dds" | "tga" | "jpg" | "jpeg" | "png")).unwrap_or(false);
-        // (a picture made the same way, else the file as it is)
-        let done = image_ext && c.file_name().map(|f| !f.to_string_lossy().to_lowercase().ends_with(".cfg")).unwrap_or(false) && clean_asphalt(&c, u, u_per_m, period, lane_m, &to).is_some();
-        if !done {
-            let _ = std::fs::copy(&c, &to);
-        }
+        return MAP_ASPHALT.to_owned();
     }
-    Some(out)
-}
-
-fn clean_asphalt_image(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64) -> Option<image::RgbaImage> {
-    let img = omsi_texture::decode_file(tex).ok()?;
-    let (w, h) = (img.width as usize, img.height as usize);
-    let col = |uu: f64| -> f64 {
-        let sx = ((uu.rem_euclid(1.0) * w as f64) as usize).min(w - 1);
-        (0..h).step_by((h / 64).max(1)).map(|y| { let p = &img.rgba[(y * w + sx) * 4..][..3]; (p[0] as f64 + p[1] as f64 + p[2] as f64) / 765.0 }).sum::<f64>() / (h as f64 / (h / 64).max(1) as f64)
-    };
-    // painted lines at the lane's edges (brighter than its middle) stay out: a band of its
-    // middle, mirrored to and fro; joints or nothing there: the whole lane, repeated, so
-    // slabs keep their grid
-    let half_u = lane_m * 0.5 * u_per_m;
-    let mid = col(u);
-    let edge = (0..=6).map(|i| col(u - half_u + half_u * 0.08 * i as f64)).chain((0..=6).map(|i| col(u + half_u - half_u * 0.08 * i as f64))).fold(0.0, f64::max);
-    let painted = edge > mid + 0.12;
-    let (band_m, mirror) = if painted { ((lane_m * 0.5).clamp(0.8, 2.0), true) } else { (lane_m.clamp(1.0, 5.0), false) };
-    let band_u = (band_m * u_per_m).max(0.002);
-    let size = 512usize;
-    let mut buf = image::RgbaImage::new(size as u32, size as u32);
-    // (each band side by side taken from another stretch of the road, so its patches and
-    // slabs do not stand in rows of the same one)
-    let bands = (period / band_m).round().max(1.0) as usize;
-    let band_m = period / bands as f64;
-    for y in 0..size {
-        for x in 0..size {
-            let m = x as f64 / size as f64 * period;
-            let j = ((m / band_m) as usize).min(bands - 1);
-            let shift = if j == 0 { 0.0 } else { (j as f64 * 0.618_034).fract() };
-            let sy = (((y as f64 / size as f64 + shift).fract() * h as f64) as usize).min(h - 1);
-            let t = if mirror {
-                let f = (m / band_m).rem_euclid(2.0);
-                if f < 1.0 { f } else { 2.0 - f }
-            } else {
-                (m / band_m).rem_euclid(1.0)
-            };
-            let uu = (u - band_u * 0.5 + band_u * t).rem_euclid(1.0);
-            let sx = ((uu * w as f64) as usize).min(w - 1);
-            let p = &img.rgba[(sy * w + sx) * 4..][..4];
-            buf.put_pixel(x as u32, y as u32, image::Rgba([p[0], p[1], p[2], 255]));
-        }
+    if tex.parent() != Some(to_dir) {
+        copy_texture(tex, to_dir);
     }
-    Some(buf)
+    name.into_owned()
 }
 
 fn num(v: f64) -> String {
@@ -1223,22 +1152,9 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
     let tex_dir = dir.join("texture");
     std::fs::create_dir_all(dir.join("model"))?;
     std::fs::create_dir_all(&tex_dir)?;
-    // the roadway's texture: the asphalt of the roads that meet (a plate in the colour of its
-    // roads, cut so that no patch comes along in rows), else the installation's own junction
-    // asphalt
-    let widest = plate.arms.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
-    let road_tex = widest.and_then(|g| g.road_tex.clone());
-    let (core_tex, period) = match road_tex {
-        Some((tex, u, range, period, width, lane)) => {
-            // (most of a lane: slabs and patches keep their size; the markings at its edges
-            // stay out. Named, formatted and accompanied as the road's own texture is)
-            let out = plain_like(&tex, u, range / width, period.clamp(2.0, 40.0), lane, &tex_dir);
-            (out.or_else(|| asphalt.map(Path::to_path_buf)), period.clamp(2.0, 40.0))
-        }
-        None => (asphalt.map(Path::to_path_buf), 8.0),
-    };
-    let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, period, along);
+    let core_tex = junction_asphalt(Some(&doc.dir), asphalt);
+    let along = asphalt_heading(&plate.arms);
+    let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
     let zebra_arms: Vec<bool> = plate.arms.iter().map(|g| opts.crossing_at(g.out)).collect();
     let mut recs = paths(
@@ -1293,11 +1209,7 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
             names.push(String::new());
             continue;
         };
-        let name = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
-        if p.parent() != Some(tex_dir.as_path()) {
-            copy_texture(p, &tex_dir);
-        }
-        names.push(name);
+        names.push(export_texture(p, &tex_dir));
     }
     // (the plate is written from what it is made of, in its own frame: junctions that come out
     // the same share one object file, one model and one set of textures, so the game loads and
@@ -1413,10 +1325,9 @@ pub struct Plate {
     pub lanes: Vec<(Seg, i32, i32)>,
 }
 
-/// The plate between `arms` (the roads end at their points, which the plate meets). `tex_dir`
-/// is where the roadway's own asphalt is written (None: nothing is written, the roadway has no
-/// texture: for a drawing on screen). None when fewer than two arms, or a road type is not loaded.
-pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Path>, asphalt: Option<&Path>) -> Option<Plate> {
+/// The plate between `arms` using the caller's asphalt texture. None when fewer than
+/// two arms, or a road type is not loaded.
+pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], asphalt: Option<&Path>) -> Option<Plate> {
     if arms.len() < 2 {
         return None;
     }
@@ -1435,17 +1346,9 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
     let centre = DVec3::new(mid.x, mid.y, 0.0);
     // The complex plate editor has no automatic zebra crossings.
     // Build the kerbs first, and reuse their exact tangent lengths for AI paths.
-    let widest = geo.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
-    let (core_tex, period) = match (widest.and_then(|g| g.road_tex.clone()), tex_dir) {
-        (Some((tex, u, range, period, width, lane)), Some(dir)) => {
-            let out = plain_like(&tex, u, range / width, period.clamp(2.0, 40.0), lane, dir);
-            (out.or_else(|| asphalt.map(Path::to_path_buf)), period.clamp(2.0, 40.0))
-        }
-        (_, Some(_)) => (asphalt.map(Path::to_path_buf), 8.0),
-        _ => (None, 8.0),
-    };
-    let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, period.max(1.0), along);
+    let core_tex = asphalt.map(Path::to_path_buf);
+    let along = asphalt_heading(&geo);
+    let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
     let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true,
         &kerb_lead, &vec![false; arms.len()], &kerb_corners, false);
@@ -1520,10 +1423,7 @@ impl Plate {
                 names.push(String::new());
                 continue;
             };
-            if p.parent() != Some(tex_dir.as_path()) {
-                copy_texture(p, &tex_dir);
-            }
-            names.push(p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());
+            names.push(export_texture(p, &tex_dir));
         }
         let x_text = mesh_x(&self.mesh, &names);
         let hash = {
@@ -1611,6 +1511,38 @@ pub fn polyline(c: &SplineCurve) -> Vec<(DVec2, f64)> {
         let s = c.length * i as f64 / n as f64;
         (c.point_at(s).truncate(), s)
     }).collect()
+}
+
+const MAP_ASPHALT: &str = "plain_asphalt_texture.bmp";
+const ASPHALT_PERIOD: f64 = 8.0;
+
+/// Find a file in the map's texture folder, ignoring case in both names.
+pub fn map_texture(map_dir: &Path, name: &str) -> Option<PathBuf> {
+    let dir = std::fs::read_dir(map_dir).ok()?.flatten().map(|e| e.path()).find(|p| {
+        p.is_dir() && p.file_name().is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case("texture"))
+    })?;
+    std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
+        p.is_file() && p.file_name().is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case(name))
+    })
+}
+
+pub fn map_asphalt(map_dir: &Path) -> Option<PathBuf> {
+    map_texture(map_dir, MAP_ASPHALT)
+}
+
+/// Prefer the map's asphalt to the installation's junction texture.
+pub fn junction_asphalt(map_dir: Option<&Path>, installed: Option<&Path>) -> Option<PathBuf> {
+    let map = map_dir.and_then(map_asphalt);
+    let reason = if map.is_some() {
+        "map override"
+    } else if installed.is_some() {
+        "installation fallback; map override unavailable"
+    } else {
+        "map override and installation texture unavailable"
+    };
+    let chosen = map.or_else(|| installed.map(Path::to_path_buf));
+    log::info!("junction asphalt texture: {chosen:?} ({reason})");
+    chosen
 }
 
 /// The asphalt texture junction plates are drawn with: the installation's own.
