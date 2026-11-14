@@ -2151,6 +2151,116 @@ mod tests {
     }
 
 
+    #[test]
+    fn junction_uses_map_asphalt_and_zebra_textures_independently() {
+        // Run every case in its own map/output directory, so a stale file cannot
+        // satisfy a copy assertion. The spline's own BMP is available throughout.
+        let cases = [
+            ("map", "Texture", Some(MAP_ASPHALT), true, Some(MAP_ZEBRA), true),
+            ("mixed-case", "tEXture", Some("PLAIN_Asphalt_Texture.BMP"), true, Some("Zebra_TEXTURE.BMP"), true),
+            ("installed", "Texture", None, true, Some(MAP_ZEBRA), true),
+            ("untextured", "Texture", None, false, Some(MAP_ZEBRA), true),
+            ("white-stripes", "Texture", Some(MAP_ASPHALT), false, None, true),
+            ("stripes-disabled", "Texture", Some(MAP_ASPHALT), true, Some(MAP_ZEBRA), false),
+        ];
+        let save_bmp = |path: &Path, rgb| {
+            image::RgbImage::from_pixel(2, 2, image::Rgb(rgb))
+                .save_with_format(path, image::ImageFormat::Bmp).unwrap();
+        };
+        for (name, folder, asphalt_name, have_stock, zebra_name, stripes) in cases {
+            let roots = crate::doc::tests::scratch(&format!("junction-texture-{name}"));
+            let mut doc = crate::selection::tests::flat_map(1);
+            doc.dir = roots.content.join("maps").join(name);
+            let map_tex_dir = doc.dir.join(folder);
+            std::fs::create_dir_all(&map_tex_dir).unwrap();
+            let map_asphalt = asphalt_name.map(|file| {
+                let p = map_tex_dir.join(file);
+                save_bmp(&p, [61, 62, 63]);
+                p
+            });
+            let map_zebra = zebra_name.map(|file| {
+                let p = map_tex_dir.join(file);
+                save_bmp(&p, [205, 206, 207]);
+                p
+            });
+            if have_stock {
+                let stock_dir = roots.omsi.join("Texture");
+                std::fs::create_dir_all(&stock_dir).unwrap();
+                save_bmp(&stock_dir.join("str_asphdrk.bmp"), [76, 77, 78]);
+            }
+            let installed = asphalt_texture(&roots.omsi);
+
+            let spline_tex = roots.content.join("spline-road.bmp");
+            save_bmp(&spline_tex, [88, 89, 90]);
+            let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+            let centre = DVec3::new(100.0, 100.0, 0.0);
+            let arms: Vec<_> = [0.0, 90.0, 180.0, 270.0].into_iter().enumerate().map(|(i, out)| {
+                let id = 100 + i as i64;
+                let p = centre.truncate() + roads::dir(out) * 10.0;
+                let width = if i == 0 { 4.0 } else { 3.5 };
+                let mut road = arm_profile_road(&[[(-width, 0.1), (width, 0.1)]], &[-1.5, 1.5]);
+                road.materials[0].texture = Some(spline_tex.clone());
+                let points = &mut road.def.profiles[0].points;
+                points[0].v_scale = 0.25;
+                points[1].v_scale = 0.25;
+                points[1].u = 1.0;
+                let file = format!("Splines\\road-{i}.sli");
+                assets.splines.insert(file.to_lowercase(), crate::assets::Slot::Ready(std::sync::Arc::new(road)));
+                crate::selection::tests::add_spline(&mut doc, (0, 0), id, p.x, p.y, out, 20.0, 0, 0);
+                doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.last_mut().unwrap().file = file;
+                Arm { key: (0, 0), id, at_end: false }
+            }).collect();
+            let opts = Options { crossings: vec![0.0], zebra_texture: stripes, ..Default::default() };
+            let id = make_with(&mut doc, &mut assets, &roots.content, installed.as_deref(), centre, &arms, &opts).unwrap();
+            let obj = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let sco = omsi_cfg::resolve_path(&roots.content, &obj.file);
+            let model = std::fs::read_to_string(sco.parent().unwrap().join("model").join(sco.with_extension("x").file_name().unwrap())).unwrap();
+            let tex_dir = sco.parent().unwrap().join("texture");
+
+            let mut textures: Vec<_> = std::fs::read_dir(&tex_dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+            textures.sort();
+            let materials: Vec<_> = model.split("  Material {").skip(1).map(|m| {
+                m.split("\n  }").next().unwrap().lines().skip_while(|l| l.trim() != "TextureFilename {")
+                    .nth(1).map(|l| l.trim().trim_end_matches(';').trim_matches('"'))
+            }).collect();
+            let asphalt = map_asphalt.as_ref().or(installed.as_ref());
+            let asphalt_ref = asphalt.map(|p| if map_asphalt.is_some() { MAP_ASPHALT } else { p.file_name().unwrap().to_str().unwrap() });
+            let zebra_ref = stripes.then_some(if map_zebra.is_some() { MAP_ZEBRA } else { "om_zebra_white.png" });
+            println!(
+                "{name}: spline asphalt before={spline_tex:?}, period=4.0 m; map asphalt={map_asphalt:?}; installed={installed:?}; map stripes={map_zebra:?}; zebra_tex={stripes}; selected asphalt={asphalt:?}; selected zebra={:?}; .x TextureFilename={materials:?}; texture directory {tex_dir:?}={textures:?}",
+                zebra_ref.map(|file| map_zebra.clone().unwrap_or_else(|| tex_dir.join(file))),
+            );
+            assert_eq!(junction_asphalt(Some(&doc.dir), installed.as_deref()).as_ref(), asphalt);
+            assert_eq!(materials[0], asphalt_ref);
+            assert_eq!(materials.iter().flatten().copied().collect::<Vec<_>>(),
+                asphalt_ref.into_iter().chain(zebra_ref).collect::<Vec<_>>());
+            let x_files: std::collections::BTreeSet<_> = materials.into_iter().flatten().map(std::ffi::OsStr::new).collect();
+            assert_eq!(textures.iter().map(|f| f.as_os_str()).collect::<std::collections::BTreeSet<_>>(), x_files);
+            if let (Some(source), Some(file)) = (asphalt, asphalt_ref) {
+                assert_eq!(std::fs::read(tex_dir.join(file)).unwrap(), std::fs::read(source).unwrap());
+            }
+            if let Some(file) = zebra_ref {
+                if let Some(source) = map_zebra {
+                    assert_eq!(std::fs::read(tex_dir.join(file)).unwrap(), std::fs::read(source).unwrap());
+                } else {
+                    let pixels = image::open(tex_dir.join(file)).unwrap().into_rgba8();
+                    assert_eq!(pixels.dimensions(), (8, 8));
+                    assert!(pixels.pixels().all(|p| p.0 == [235, 235, 230, 255]));
+                }
+            }
+
+            // The widest arm points north. Its right pavement edge (4, 10, 0.1)
+            // is written in .x order (x, height, north), with U=4/8 and V=-10/8.
+            let vertex = model.lines().skip_while(|l| l.trim() != "Mesh {").skip(2)
+                .position(|l| l.trim().starts_with("4.0000;0.1000;10.0000;")).unwrap();
+            let uv = model.lines().skip_while(|l| l.trim() != "MeshTextureCoords {")
+                .nth(vertex + 2).unwrap().trim();
+            println!("{name}: .x vertex (4, 0.1, 10) UV={uv}; expected=(0.5, -1.25), period=8.0 m");
+            assert_eq!(uv, "0.50000;-1.25000;,");
+            std::fs::remove_dir_all(&roots.content).unwrap();
+        }
+    }
+
     /// Signal phases and pedestrian paths must work without any generated signal
     /// objects or white stripe polygons. The two switches are independent.
     #[test]
