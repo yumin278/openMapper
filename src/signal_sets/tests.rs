@@ -16,7 +16,7 @@ fn fixture(id: &str) -> Value {
         "id": id, "name": "Fixture lamp",
         "head": "Sceneryobjects/Fixtures/Head.sco",
         "pole": r"Sceneryobjects\Fixtures\Pole.sco",
-        "head_height": 2.55, "pole_offset": [0.0, 0.47, -2.55]
+        "head_height": 2.55, "pole_offset": [0.0, -0.47, -2.55]
     })
 }
 
@@ -143,22 +143,28 @@ fn junction_signal_pole_is_behind_the_head_at_omsi_headings() {
     let sets = SignalSets::default();
     let mut set = sets.builtin;
     let head = DVec3::new(20.0, 30.0, 14.55);
-    for (heading, expected) in [
-        (0.0, [0.0, 0.47, -2.55]),
-        (90.0, [0.47, 0.0, -2.55]),
-        (180.0, [0.0, -0.47, -2.55]),
-        (270.0, [-0.47, 0.0, -2.55]),
+    let mut old = set.clone();
+    old.pole_offset[1] = 0.47;
+    for (heading, expected_xy) in [
+        (0.0, [0.0, -0.47]),
+        (90.0, [-0.47, 0.0]),
+        (180.0, [0.0, 0.47]),
+        (270.0, [0.47, 0.0]),
     ] {
         let pole = set.pole_position(head, heading, false);
         let offset = pole - head;
         let renderer_offset =
             omsi_geometry::object_rotation(omsi_geometry::map_rotation([heading, 0.0, 0.0]))
                 .transform_vector3(DVec3::from_array(set.pole_offset).as_vec3());
+        let expected = DVec2::from_array(expected_xy).extend(-2.55);
         println!(
-            "heading={heading} head={head:?} old pole={:?} new pole={pole:?}, offset={offset:?}, renderer={renderer_offset:?}",
-            head - DVec3::Z * 2.55
+            "heading={heading} head={head:?} old local={:?} old pole={:?} new local={:?} new pole={pole:?} expected={:?} renderer offset={renderer_offset:?}",
+            old.pole_offset,
+            old.pole_position(head, heading, false),
+            set.pole_offset,
+            head + expected,
         );
-        assert!((offset - DVec3::from_array(expected)).length() < 1e-9);
+        assert!((offset - expected).length() < 1e-9);
         assert!((offset - renderer_offset.as_dvec3()).length() < 1e-6);
     }
     set.pole_offset[0] = 0.31;
@@ -168,8 +174,8 @@ fn junction_signal_pole_is_behind_the_head_at_omsi_headings() {
         "heading=90 head={head:?} local={:?}, RHT pole={right:?}, LHT pole={left:?}",
         set.pole_offset
     );
-    assert!((right - head - DVec3::new(0.47, -0.31, -2.55)).length() < 1e-9);
-    assert!((left - head - DVec3::new(0.47, 0.31, -2.55)).length() < 1e-9);
+    assert!((right - head - DVec3::new(-0.47, -0.31, -2.55)).length() < 1e-9);
+    assert!((left - head - DVec3::new(-0.47, 0.31, -2.55)).length() < 1e-9);
     set.mirror_x_lht = false;
     assert_eq!(set.pole_position(head, 90.0, true), right);
 }
@@ -190,7 +196,7 @@ fn junction_signal_pair_uses_two_tiles_and_undoes_together() {
     let at = || Placement {
         junction: 123,
         light: 1,
-        heading: 90.0,
+        heading: 270.0,
         head,
     };
     let old_next_id = doc.global.next_id_code;
@@ -220,6 +226,7 @@ fn junction_signal_pair_uses_two_tiles_and_undoes_together() {
         (1, &["1".to_string()][..], Some(123))
     );
     assert_eq!((p.flag, p.extra.len(), p.var_parent), (0, 0, Some(123)));
+    assert_eq!(h.rot, [270.0, 0.0, 0.0]);
     assert_eq!(h.rot, p.rot);
     history.undo(&mut doc);
     assert!(crate::junction::children(&doc, 123).is_empty());

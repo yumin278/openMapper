@@ -19,6 +19,7 @@ pub(crate) struct SignalSet {
     head: String,
     pole: String,
     pub head_height: f64,
+    /// From the head to the pole in the head's frame: +x right, +y forward, +z up.
     pole_offset: [f64; 3],
     #[serde(default = "mirror_by_default")]
     mirror_x_lht: bool,
@@ -59,7 +60,7 @@ impl Default for SignalSets {
                 head: r"Sceneryobjects\Verkehrszeichen_MC\Ampel_Kfz_1.sco".into(),
                 pole: r"Sceneryobjects\Verkehrszeichen_MC\Mast_Ampel_klein_1.sco".into(),
                 head_height: 2.55,
-                pole_offset: [0.0, 0.47, -2.55],
+                pole_offset: [0.0, -0.47, -2.55],
                 mirror_x_lht: true,
             },
         }

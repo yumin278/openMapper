@@ -2460,7 +2460,7 @@ mod tests {
         std::fs::write(sco_dir.join("Pole.sco"), "[friendlyname]\nPole\n").unwrap();
         let config_dir = doc.dir.join("openMapper");
         std::fs::create_dir_all(&config_dir).unwrap();
-        let config = r#"{"version":1,"default":"fixture","sets":[{"id":"fixture","name":"Fixture","head":"Sceneryobjects/Fixture/Head.sco","pole":"Sceneryobjects/Fixture/Pole.sco","head_height":2.55,"pole_offset":[0,0.47,-2.55]}]}"#;
+        let config = r#"{"version":1,"default":"fixture","sets":[{"id":"fixture","name":"Fixture","head":"Sceneryobjects/Fixture/Head.sco","pole":"Sceneryobjects/Fixture/Pole.sco","head_height":2.55,"pole_offset":[0.0,-0.47,-2.55]}]}"#;
         std::fs::write(config_dir.join("signal_sets.json"), config).unwrap();
         doc.signal_sets.reload(&doc.dir, content);
         let mut assets = Assets::new(roots.omsi.clone(), content.clone());
@@ -2496,10 +2496,22 @@ mod tests {
             let arm_z = match heading as i32 { 0 => 11.0, 90 => 12.0, 270 => 13.0, _ => panic!("{heading}") };
             let ground = doc.ground(world.truncate());
             let is_head = child.file.ends_with("Head.sco");
-            let old_stored_z = if is_head { 2.55 } else { 0.0 };
-            let expect_z = arm_z + 0.25 + old_stored_z;
-            println!("arm_z={arm_z} profile_z=0.25 centre={centre:?} ground={ground} old world z={} new world={world:?} tile={key:?} object={child:?}", ground + old_stored_z);
-            assert!((world.z - expect_z).abs() < 1e-9);
+            let head_xy = match heading as i32 {
+                0 => DVec2::new(94.8, 109.0),
+                90 => DVec2::new(109.0, 105.2),
+                270 => DVec2::new(91.0, 94.8),
+                _ => panic!("{heading}"),
+            };
+            let road_z = arm_z + 0.25;
+            let (before, expected) = if is_head {
+                let head = head_xy.extend(road_z + 2.55);
+                (head, head)
+            } else {
+                let forward = roads::dir(heading) * 0.47;
+                ((head_xy + forward).extend(road_z), (head_xy - forward).extend(road_z))
+            };
+            println!("heading={heading} arm_z={arm_z} profile_z=0.25 ground={ground} before={before:?} after={world:?} expected={expected:?} tile={key:?} object={child:?}");
+            assert!((world - expected).length() < 1e-9);
         }
         let _ = std::fs::remove_dir_all(content);
     }
