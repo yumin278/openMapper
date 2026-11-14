@@ -2787,3 +2787,9 @@ no track within 15 m	cap via a menys de 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	les vies no estan unides o van en sentit contrari (vegeu Vista > Carrils d'IA)
 no track beside	cap via al costat de
 Drives on	Circula per
+Footway paths round the corners (AI)	Camins de vianants a les cantonades (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desactivat: no hi ha camins d’IA a les cantonades, però els passos de vianants encara connecten les voreres. Connecteu les cantonades manualment (p. ex., amb una spline de camí invisible).
+Open in text editor	Obre en un editor de text
+Open the saved .ttp file	Obre el fitxer .ttp desat
+Could not open the trip file	No s’ha pogut obrir el fitxer del trajecte
+Save the map to create this trip's .ttp file first.	Deseu el mapa per crear el fitxer .ttp d’aquest trajecte.

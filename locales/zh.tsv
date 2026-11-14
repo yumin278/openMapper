@@ -2783,3 +2783,9 @@ no track within 15 m	15 m 内没有轨道
 the tracks are not joined, or run the other way (see View > AI lanes)	轨道未连接，或方向相反（见 视图 > AI 车道）
 no track beside	旁边没有轨道：
 Drives on	行驶于
+Footway paths round the corners (AI)	转角人行道 AI 路径
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	关闭后，转角不生成 AI 路径，但人行横道仍会连接道路的人行道。请自行连接转角（例如使用隐形路径样条）。
+Open in text editor	在文本编辑器中打开
+Open the saved .ttp file	打开已保存的 .ttp 文件
+Could not open the trip file	无法打开行程文件
+Save the map to create this trip's .ttp file first.	请先保存地图，以创建此行程的 .ttp 文件。

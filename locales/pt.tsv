@@ -2787,3 +2787,9 @@ no track within 15 m	nenhum trilho a 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	os trilhos não estão unidos ou seguem no outro sentido (veja Exibir > Faixas de IA)
 no track beside	sem trilho junto a
 Drives on	Circula por
+Footway paths round the corners (AI)	Caminhos de pedestres nas esquinas (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desativado: não há caminhos de IA nas esquinas, mas as faixas ainda conectam as calçadas. Conecte as esquinas manualmente (por exemplo, com uma spline de caminho invisível).
+Open in text editor	Abrir no editor de texto
+Open the saved .ttp file	Abrir o arquivo .ttp salvo
+Could not open the trip file	Não foi possível abrir o arquivo da viagem
+Save the map to create this trip's .ttp file first.	Salve primeiro o mapa para criar o arquivo .ttp desta viagem.

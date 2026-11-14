@@ -2787,3 +2787,9 @@ no track within 15 m	15 m के भीतर ट्रैक नहीं
 the tracks are not joined, or run the other way (see View > AI lanes)	ट्रैक जुड़े नहीं हैं, या उल्टी दिशा में हैं (व्यू > AI लेन देखें)
 no track beside	पास में ट्रैक नहीं:
 Drives on	किस पर चलती है
+Footway paths round the corners (AI)	कोनों पर पैदल पथ (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	बंद: कोनों पर AI के लिए पथ नहीं हैं, लेकिन क्रॉसिंग अब भी सड़कों के फुटपाथ जोड़ती हैं। कोनों को खुद जोड़ें (जैसे किसी अदृश्य पथ स्प्लाइन से)।
+Open in text editor	टेक्स्ट एडिटर में खोलें
+Open the saved .ttp file	सहेजी गई .ttp फ़ाइल खोलें
+Could not open the trip file	यात्रा की फ़ाइल नहीं खुल सकी
+Save the map to create this trip's .ttp file first.	इस यात्रा की .ttp फ़ाइल बनाने के लिए पहले नक्शा सहेजें।

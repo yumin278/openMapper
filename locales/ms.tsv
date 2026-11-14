@@ -2787,3 +2787,9 @@ no track within 15 m	tiada landasan dalam 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	landasan tidak bercantum, atau menuju arah lain (lihat Lihat > Lorong AI)
 no track beside	tiada landasan di sebelah
 Drives on	Bergerak di
+Footway paths round the corners (AI)	Laluan pejalan kaki di sudut (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Mati: sudut tiada laluan AI, tetapi lintasan masih menghubungkan laluan pejalan kaki. Sambungkan sudut secara manual (misalnya dengan splin laluan halimunan).
+Open in text editor	Buka dalam penyunting teks
+Open the saved .ttp file	Buka fail .ttp yang disimpan
+Could not open the trip file	Fail perjalanan tidak dapat dibuka
+Save the map to create this trip's .ttp file first.	Simpan peta dahulu untuk mencipta fail .ttp perjalanan ini.

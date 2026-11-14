@@ -2787,3 +2787,9 @@ no track within 15 m	15 м ішінде рельс жоқ
 the tracks are not joined, or run the other way (see View > AI lanes)	рельстер жалғанбаған немесе кері жаққа кетеді (Көрініс > ЖИ жолақтары қараңыз)
 no track beside	жанында рельс жоқ:
 Drives on	Жүретін жолы
+Footway paths round the corners (AI)	Бұрыштардағы жаяу жүргінші жолдары (ЖИ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Өшірулі: бұрыштарда ЖИ жолдары жоқ, бірақ өткелдер тротуарларды байланыстыра береді. Бұрыштарды қолмен қосыңыз (мысалы, көрінбейтін жол сплайнымен).
+Open in text editor	Мәтін өңдегіште ашу
+Open the saved .ttp file	Сақталған .ttp файлын ашу
+Could not open the trip file	Рейс файлын ашу мүмкін болмады
+Save the map to create this trip's .ttp file first.	Осы рейстің .ttp файлын жасау үшін алдымен картаны сақтаңыз.

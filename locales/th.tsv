@@ -2787,3 +2787,9 @@ no track within 15 m	ไม่มีรางภายใน 15 ม.
 the tracks are not joined, or run the other way (see View > AI lanes)	รางไม่ได้เชื่อมกันหรือวิ่งไปอีกทาง (ดู มุมมอง > เลน AI)
 no track beside	ไม่มีรางข้าง
 Drives on	วิ่งบน
+Footway paths round the corners (AI)	ทางเดินเท้าตรงมุมถนน (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	ปิด: ไม่มีเส้นทาง AI ตรงมุมถนน แต่ทางข้ามยังเชื่อมทางเท้าอยู่ ให้เชื่อมมุมถนนเอง (เช่น ใช้สปลายน์เส้นทางที่มองไม่เห็น)
+Open in text editor	เปิดในโปรแกรมแก้ไขข้อความ
+Open the saved .ttp file	เปิดไฟล์ .ttp ที่บันทึกไว้
+Could not open the trip file	เปิดไฟล์เที่ยวเดินรถไม่ได้
+Save the map to create this trip's .ttp file first.	บันทึกแผนที่ก่อนเพื่อสร้างไฟล์ .ttp ของเที่ยวนี้

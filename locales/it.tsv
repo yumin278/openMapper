@@ -2787,3 +2787,9 @@ no track within 15 m	nessun binario entro 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	i binari non sono collegati, o vanno nell'altro verso (vedi Vista > Corsie IA)
 no track beside	nessun binario accanto a
 Drives on	Corre su
+Footway paths round the corners (AI)	Percorsi pedonali agli angoli (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Disattivato: agli angoli non ci sono percorsi IA, ma gli attraversamenti collegano ancora i marciapiedi. Collega gli angoli manualmente (ad es. con una spline di percorso invisibile).
+Open in text editor	Apri in un editor di testo
+Open the saved .ttp file	Apri il file .ttp salvato
+Could not open the trip file	Impossibile aprire il file della corsa
+Save the map to create this trip's .ttp file first.	Salva prima la mappa per creare il file .ttp di questa corsa.

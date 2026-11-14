@@ -2785,3 +2785,9 @@ no track within 15 m	aucune voie ferrée à moins de 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	les voies ne sont pas jointes, ou vont dans l'autre sens (voir Vue > Voies IA)
 no track beside	pas de voie ferrée près de
 Drives on	Circule sur
+Footway paths round the corners (AI)	Chemins piétons dans les angles (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Désactivé : les angles sont dépourvus de chemins IA, mais les passages relient toujours les trottoirs des routes. Reliez vous-même les angles (p. ex. avec une spline de chemin invisible).
+Open in text editor	Ouvrir dans un éditeur de texte
+Open the saved .ttp file	Ouvrir le fichier .ttp enregistré
+Could not open the trip file	Impossible d’ouvrir le fichier du trajet
+Save the map to create this trip's .ttp file first.	Enregistrez d’abord la carte pour créer le fichier .ttp de ce trajet.

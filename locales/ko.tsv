@@ -2787,3 +2787,9 @@ no track within 15 m	15 m 이내에 선로 없음
 the tracks are not joined, or run the other way (see View > AI lanes)	선로가 연결되지 않았거나 반대 방향입니다(보기 > AI 차선 참조)
 no track beside	옆에 선로 없음:
 Drives on	운행 경로
+Footway paths round the corners (AI)	모퉁이 보행자 경로(AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	끔: 모퉁이에 AI 경로가 없지만 횡단보도는 계속 인도를 연결합니다. 모퉁이는 직접 연결하세요(예: 보이지 않는 경로 스플라인 사용).
+Open in text editor	텍스트 편집기에서 열기
+Open the saved .ttp file	저장된 .ttp 파일 열기
+Could not open the trip file	운행 파일을 열 수 없습니다
+Save the map to create this trip's .ttp file first.	이 운행의 .ttp 파일을 만들려면 먼저 지도를 저장하세요.

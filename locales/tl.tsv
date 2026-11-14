@@ -2787,3 +2787,9 @@ no track within 15 m	walang riles sa loob ng 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	hindi nakakabit ang mga riles, o kabilang direksyon ang takbo (tingnan ang View > Mga AI lane)
 no track beside	walang riles sa tabi ng
 Drives on	Tumatakbo sa
+Footway paths round the corners (AI)	Mga daanan ng tao sa mga kanto (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Naka-off: walang daanan ng AI sa mga kanto, pero magkadugtong pa rin ang mga bangketa sa mga tawiran. Ikonekta ang mga kanto nang mano-mano (halimbawa, gamit ang hindi nakikitang spline ng daanan).
+Open in text editor	Buksan sa text editor
+Open the saved .ttp file	Buksan ang naka-save na .ttp file
+Could not open the trip file	Hindi mabuksan ang file ng biyahe
+Save the map to create this trip's .ttp file first.	I-save muna ang mapa para malikha ang .ttp file ng biyaheng ito.

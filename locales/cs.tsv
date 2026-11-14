@@ -2787,3 +2787,9 @@ no track within 15 m	do 15 m nejsou koleje
 the tracks are not joined, or run the other way (see View > AI lanes)	koleje nejsou spojeny nebo vedou opačně (viz Zobrazení > Pruhy AI)
 no track beside	žádné koleje vedle
 Drives on	Jezdí po
+Footway paths round the corners (AI)	Pěší cesty v rozích (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Vypnuto: v rozích nejsou cesty pro AI, přechody ale stále spojují chodníky. Propojte rohy ručně (např. neviditelnou křivkou cesty).
+Open in text editor	Otevřít v textovém editoru
+Open the saved .ttp file	Otevřít uložený soubor .ttp
+Could not open the trip file	Soubor spoje se nepodařilo otevřít
+Save the map to create this trip's .ttp file first.	Nejprve uložte mapu, aby se vytvořil soubor .ttp tohoto spoje.

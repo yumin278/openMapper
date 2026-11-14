@@ -2787,3 +2787,9 @@ no track within 15 m	у 15 м няма рэек
 the tracks are not joined, or run the other way (see View > AI lanes)	рэйкі не злучаны або ідуць у іншы бок (Выгляд > Паласы ШІ)
 no track beside	няма рэек ля
 Drives on	Ездзіць па
+Footway paths round the corners (AI)	Пешаходныя шляхі на вуглах (ІІ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Выключана: на вуглах няма шляхоў ІІ, але пераходы ўсё яшчэ злучаюць тратуары дарог. Злучыце вуглы самастойна (напрыклад, нябачным сплайнам шляху).
+Open in text editor	Адкрыць у тэкставым рэдактары
+Open the saved .ttp file	Адкрыць захаваны файл .ttp
+Could not open the trip file	Не ўдалося адкрыць файл рэйса
+Save the map to create this trip's .ttp file first.	Спачатку захавайце карту, каб стварыць файл .ttp гэтага рэйса.

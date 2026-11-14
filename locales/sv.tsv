@@ -2787,3 +2787,9 @@ no track within 15 m	inget spår inom 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	spåren är inte sammanfogade, eller går åt andra hållet (se Visa > AI-körfält)
 no track beside	inget spår vid
 Drives on	Kör på
+Footway paths round the corners (AI)	Gångvägar runt hörnen (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Av: hörnen saknar AI-vägar, men övergångsställena förbinder fortfarande trottoarerna. Anslut hörnen manuellt (t.ex. med en osynlig vägspline).
+Open in text editor	Öppna i textredigerare
+Open the saved .ttp file	Öppna den sparade .ttp-filen
+Could not open the trip file	Det gick inte att öppna turfilen
+Save the map to create this trip's .ttp file first.	Spara kartan först för att skapa turens .ttp-fil.

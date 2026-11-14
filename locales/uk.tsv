@@ -2785,3 +2785,9 @@ no track within 15 m	у 15 м немає рейок
 the tracks are not joined, or run the other way (see View > AI lanes)	рейки не з'єднані або йдуть в інший бік (Вигляд > Смуги ШІ)
 no track beside	немає рейок біля
 Drives on	Їздить по
+Footway paths round the corners (AI)	Пішохідні шляхи на кутах (ШІ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Вимкнено: на кутах немає шляхів ШІ, але переходи й далі з’єднують тротуари. З’єднайте кути вручну (наприклад, невидимим сплайном шляху).
+Open in text editor	Відкрити в текстовому редакторі
+Open the saved .ttp file	Відкрити збережений файл .ttp
+Could not open the trip file	Не вдалося відкрити файл рейсу
+Save the map to create this trip's .ttp file first.	Спочатку збережіть мапу, щоб створити файл .ttp цього рейсу.

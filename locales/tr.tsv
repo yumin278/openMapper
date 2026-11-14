@@ -2787,3 +2787,9 @@ no track within 15 m	15 m içinde ray yok
 the tracks are not joined, or run the other way (see View > AI lanes)	raylar bağlı değil ya da ters yöne gidiyor (Görünüm > YZ şeritleri)
 no track beside	yanında ray yok:
 Drives on	Gittiği yol
+Footway paths round the corners (AI)	Köşelerdeki yaya yolları (YZ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kapalı: köşelerde YZ yolu yoktur, ancak geçitler kaldırımları bağlamaya devam eder. Köşeleri kendiniz bağlayın (ör. görünmez bir yol eğrisiyle).
+Open in text editor	Metin düzenleyicide aç
+Open the saved .ttp file	Kaydedilmiş .ttp dosyasını aç
+Could not open the trip file	Sefer dosyası açılamadı
+Save the map to create this trip's .ttp file first.	Bu seferin .ttp dosyasını oluşturmak için önce haritayı kaydedin.

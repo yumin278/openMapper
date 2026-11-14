@@ -2787,3 +2787,9 @@ no track within 15 m	15 m-en belül nincs sín
 the tracks are not joined, or run the other way (see View > AI lanes)	a sínek nincsenek összekötve, vagy másfelé futnak (lásd Nézet > MI-sávok)
 no track beside	nincs sín mellette:
 Drives on	Közlekedik
+Footway paths round the corners (AI)	Gyalogos útvonalak a sarkokon (MI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kikapcsolva: a sarkokon nincs MI-útvonal, de az átkelők továbbra is összekötik a járdákat. Kösd össze a sarkokat kézzel (például láthatatlan útvonalspline-nal).
+Open in text editor	Megnyitás szövegszerkesztőben
+Open the saved .ttp file	A mentett .ttp-fájl megnyitása
+Could not open the trip file	A járatfájl nem nyitható meg
+Save the map to create this trip's .ttp file first.	A járat .ttp-fájljának létrehozásához előbb mentsd a térképet.

@@ -2787,3 +2787,9 @@ no track within 15 m	tidak ada rel dalam 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	rel tidak tersambung, atau berlawanan arah (lihat Tampilan > Lajur AI)
 no track beside	tidak ada rel di samping
 Drives on	Berjalan di
+Footway paths round the corners (AI)	Jalur pejalan kaki di tikungan (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Nonaktif: tikungan tidak memiliki jalur AI, tetapi penyeberangan tetap menghubungkan trotoar. Hubungkan tikungan secara manual (misalnya dengan spline jalur tak terlihat).
+Open in text editor	Buka di editor teks
+Open the saved .ttp file	Buka berkas .ttp yang tersimpan
+Could not open the trip file	Berkas perjalanan tidak dapat dibuka
+Save the map to create this trip's .ttp file first.	Simpan peta terlebih dahulu untuk membuat berkas .ttp perjalanan ini.
