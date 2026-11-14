@@ -548,6 +548,15 @@ fn find_file(dir: &Path, lower: &str) -> Option<std::path::PathBuf> {
     std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase() == lower).unwrap_or(false))
 }
 
+/// The trip file in the folder the map was read from, or in its working copy after saving.
+pub(crate) fn saved_trip_path(map_dir: &Path, source: Option<&Path>, fresh: bool, name: &str) -> Option<std::path::PathBuf> {
+    if fresh {
+        return None;
+    }
+    let dir = find_file(source.unwrap_or(map_dir), "ttdata")?;
+    find_file(&dir, &key(&format!("{name}.ttp"))).filter(|p| p.is_file())
+}
+
 /// The text as OMSI 2 writes TTData: Windows-1252 with CR LF; text that code page cannot
 /// hold (Cyrillic stop names) as UTF-16 with a byte order mark, which openOMSI reads too.
 pub fn encode(text: &str) -> Vec<u8> {

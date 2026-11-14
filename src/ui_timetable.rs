@@ -179,6 +179,23 @@ fn small_button(ui: &mut egui::Ui, icon: Icon, hint: &str) -> bool {
     ui.add(egui::Button::new(icon.text(16.0)).frame(false).min_size(Vec2::new(20.0, 20.0))).on_hover_text(hint).clicked()
 }
 
+fn open_text_file(path: &std::path::Path) -> std::io::Result<()> {
+    use std::process::Command;
+
+    #[cfg(target_os = "windows")]
+    let mut editor = Command::new("notepad.exe");
+    #[cfg(target_os = "macos")]
+    let mut editor = {
+        let mut cmd = Command::new("open");
+        cmd.arg("-t");
+        cmd
+    };
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let mut editor = Command::new("xdg-open");
+
+    editor.arg(path).spawn().map(|_| ())
+}
+
 /// A check box like the rest of the interface's.
 fn check(ui: &mut egui::Ui, on: bool, text: &str) -> bool {
     let galley = egui::WidgetText::from(text).into_galley(ui, Some(egui::TextWrapMode::Extend), f32::INFINITY, egui::TextStyle::Button);
@@ -808,7 +825,7 @@ impl TimetableUi {
 
     fn trip_panel(&mut self, ui: &mut egui::Ui, doc: &mut Document, line: &str, trip: &str, toasts: &mut Vec<crate::editor::Toast>, actions: &mut Vec<Action>) {
         let tt = &mut doc.timetable;
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(tr("Trip", "Рейс"));
             let r = ui.add(egui::TextEdit::singleline(&mut self.trip_name).desired_width(140.0));
             if r.lost_focus() && self.trip_name != trip {
@@ -831,6 +848,19 @@ impl TimetableUi {
             if small_button(ui, Icon::Delete, tr("Delete the trip", "Удалить рейс")) {
                 tt.delete_trip(trip);
                 self.trip = None;
+            }
+            if let Some(t) = self.trip.as_deref().and_then(|name| tt.trip(name)) {
+                let response = ui.button(tr("Open in text editor", "Открыть в текстовом редакторе"))
+                    .on_hover_text(tr("Open the saved .ttp file", "Открыть сохранённый файл .ttp"));
+                if response.clicked() {
+                    let result = match timetable::saved_trip_path(&doc.dir, doc.source.as_deref(), doc.fresh, &t.name) {
+                        Some(path) => open_text_file(&path).map_err(|e| format!("{}: {} ({e})", tr("Could not open the trip file", "Не удалось открыть файл рейса"), path.display())),
+                        None => Err(tr("Save the map to create this trip's .ttp file first.", "Сначала сохраните карту, чтобы создать файл .ttp этого рейса.").into()),
+                    };
+                    if let Err(text) = result {
+                        toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: true });
+                    }
+                }
             }
         });
         let Some(name) = self.trip.clone() else { return };

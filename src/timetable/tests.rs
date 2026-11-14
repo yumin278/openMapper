@@ -111,6 +111,44 @@ fn only_what_changed_is_written() {
     let _ = std::fs::remove_dir_all(&out);
 }
 
+#[test]
+fn open_trip_in_text_editor_uses_the_saved_station_list() {
+    let source = scratch("open-trip-source");
+    let working = scratch("open-trip-working");
+    let trip = "73E_ba-gb";
+    let mut tt = Timetable::default();
+    let line = tt.add_line("73E");
+    tt.add_trip(&line, trip, vec![11, 12, 13]);
+    let look_up = |source_dir: Option<&Path>, fresh, name| saved_trip_path(&working, source_dir, fresh, name);
+
+    std::fs::write(working.join("TTData").join(format!("{trip}.ttl")), "not the trip file").unwrap();
+    let before = look_up(None, false, trip);
+    println!("Before saving {trip} with stations [11, 12, 13]: {before:?}");
+    assert_eq!(before, None);
+
+    save_to(&mut tt, &source, &[]).unwrap();
+    let source_file = source.join("TTData").join(format!("{trip}.ttp"));
+    assert_eq!(look_up(Some(&source), false, trip), Some(source_file.clone()));
+    assert_eq!(look_up(Some(&source), true, trip), None);
+
+    tt.trip_mut(trip).unwrap().stations.reverse();
+    tt.touch_trip(trip);
+    save_to(&mut tt, &working, &[]).unwrap();
+    let working_file = working.join("TTData").join(format!("{trip}.ttp"));
+    assert_eq!(look_up(Some(&source), false, trip), Some(source_file.clone()));
+    assert_eq!(look_up(None, false, "73e_BA-GB"), Some(working_file.clone()));
+    assert_eq!(look_up(None, false, "73E_unsaved"), None);
+
+    for (path, expected) in [(source_file, vec![11, 12, 13]), (working_file, vec![13, 12, 11])] {
+        let text = std::fs::read_to_string(&path).unwrap();
+        println!("Opened {}:\n{text}", path.display());
+        let trip = omsi_timetable::Trip::load(&path).unwrap();
+        assert_eq!(trip.stations, expected);
+    }
+    std::fs::remove_dir_all(source).unwrap();
+    std::fs::remove_dir_all(working).unwrap();
+}
+
 /// A tour without a depot (a new map's ailists.cfg has none) keeps its days.
 #[test]
 fn a_tour_without_depot_reads_back() {
