@@ -2396,6 +2396,7 @@ Advanced users	Utilizadores avançados
 Controls as in OMSI 2's editor	Controlos como no editor do OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Desativado por predefinição. O botão do meio roda a vista, o botão direito premido e movido para cima e para baixo faz zoom, um clique direito no terreno vai até lá (Shift + clique direito: o menu), as setas movem a câmara, a roda faz zoom
 Bay width	Largura da bolsa
+Bay width per side	Largura da baía por lado
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Um tipo de estrada com esta faixa da bolsa é criado a partir do escolhido (o do criador de estradas), se não tiver esta largura
 Tapers in metres	Afunilamentos em metros
 Give the length of each taper in metres instead of a ratio	Indique o comprimento de cada afunilamento em metros em vez de uma proporção

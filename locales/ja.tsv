@@ -2396,6 +2396,7 @@ Advanced users	上級者向け
 Controls as in OMSI 2's editor	OMSI 2 のエディタと同じ操作
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	初期設定ではオフ。中ボタンで視点を回転、右ボタンを押したまま上下に動かすとズーム、地面を右クリックでその場所へ移動 (Shift + 右クリック: メニュー)、矢印キーでカメラを移動、ホイールでズーム
 Bay width	ポケットの幅
+Bay width per side	片側あたりのバスベイ幅
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	このポケット車線を持つ道路タイプは、選んだ道路タイプ（道路メーカーのもの）から作られます。幅が異なる場合に限ります
 Tapers in metres	先細りをメートルで指定
 Give the length of each taper in metres instead of a ratio	比率ではなく、各先細りの長さをメートルで指定します
