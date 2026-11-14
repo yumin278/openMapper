@@ -40,6 +40,8 @@ struct LaneEnd {
     side: f64,
     /// Traffic comes into the junction here (else it leaves; footways: both).
     incoming: bool,
+    /// This end belongs to a lane added by the bus pocket tool for this taper.
+    pocket: bool,
 }
 
 /// Room a junction needs round its centre for these roads (m): the widest of them plus
@@ -60,7 +62,7 @@ pub fn radius_at(half_widths: &[f64], angle: f64) -> f64 {
 }
 
 /// The arms' geometry: where each ends, which way it goes in, its half width and lanes.
-fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm]) -> Option<(Vec<(DVec3, f64, f64, String)>, Vec<LaneEnd>)> {
+fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm], pocket_paths: Option<&std::ops::Range<usize>>) -> Option<(Vec<(DVec3, f64, f64, String)>, Vec<LaneEnd>)> {
     let mut ends = Vec::new();
     let mut lanes = Vec::new();
     for (ai, a) in arms.iter().enumerate() {
@@ -72,16 +74,17 @@ fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm]) -> Option<(Vec<(D
         let p = c.point_at(at);
         ends.push((p, roads::norm_deg(into), model.half_width as f64, s.file.clone()));
         let mirror = if s.mirror { -1.0 } else { 1.0 };
-        lanes.extend(lanes_at(&model, mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at)));
+        let paths = pocket_paths.filter(|_| ai == 1);
+        lanes.extend(lanes_at(&model, mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at), paths));
     }
     Some((ends, lanes))
 }
 
 /// The lanes of a road type where it meets a junction: `place(x, z)` is where a lane at
 /// lateral place `x` (and height `z`) ends, `along` the heading of the road's own way there.
-fn lanes_at(model: &SplineModel, mirror: f64, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64) -> Vec<LaneEnd> {
+fn lanes_at(model: &SplineModel, mirror: f64, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64, pocket_paths: Option<&std::ops::Range<usize>>) -> Vec<LaneEnd> {
     let mut lanes = Vec::new();
-    for path in &model.def.paths {
+    for (index, path) in model.def.paths.iter().enumerate() {
         let x = path.start[0] as f64 * mirror;
         let z = path.start[2] as f64;
         let pos = place(x, z);
@@ -93,8 +96,9 @@ fn lanes_at(model: &SplineModel, mirror: f64, ai: usize, at_end: bool, place: im
         };
         // lateral place seen from the arm's way into the junction
         let side = if at_end { x } else { -x };
+        let pocket = path.kind == 0 && pocket_paths.is_some_and(|paths| paths.contains(&index));
         for (incoming, flow) in ways {
-            lanes.push(LaneEnd { arm: ai, pos, flow: roads::norm_deg(flow), kind: path.kind, width: path.width as f64, side, incoming });
+            lanes.push(LaneEnd { arm: ai, pos, flow: roads::norm_deg(flow), kind: path.kind, width: path.width as f64, side, incoming, pocket });
         }
     }
     lanes
@@ -111,6 +115,8 @@ struct PathRec {
     blinker: i32,
     /// The light its traffic waits at (`[use_traffic_light]`), if any.
     light: Option<usize>,
+    /// This path directly touches a bus pocket lane at the edge of the taper.
+    pocket: bool,
 }
 
 /// What a junction has besides its roads: traffic lights (a plan of two phases, the main
@@ -240,13 +246,15 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
                 let Some(segs) = segs else { continue };
                 let total: f64 = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
                 let mut acc = 0.0;
+                let last = segs.len().saturating_sub(1);
                 for (n, s) in segs.into_iter().enumerate() {
                     let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
                     acc += s.length;
                     let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
                     // (traffic waits where it comes in: the light is on the way's first piece)
                     let light = if n == 0 { light_of.get(i).copied().flatten() } else { None };
-                    out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light });
+                    let pocket = (a.pocket && n == 0) || (b.pocket && n == last);
+                    out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light, pocket });
                 }
             }
         }
@@ -280,7 +288,7 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
                 let pa = a.pos.truncate() - c2;
                 let pb = b.pos.truncate() - c2;
                 if let Some(s) = roads::straight(pa, pb) {
-                    out.push(PathRec { seg: s, z0: a.pos.z - centre.z, z1: b.pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None });
+                    out.push(PathRec { seg: s, z0: a.pos.z - centre.z, z1: b.pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None, pocket: false });
                 }
             }
         }
@@ -895,7 +903,16 @@ pub fn reach(doc: &Document, assets: &mut Assets, centre: DVec3, arms: &[Arm]) -
 
 /// The same with lights and crossings as `opts` says.
 pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm], opts: &Options) -> anyhow::Result<i64> {
-    let (_, lanes) = arm_ends(doc, assets, arms).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
+    make_plate(doc, assets, content, asphalt, centre, arms, opts, None)
+}
+
+/// A taper placed by the bus pocket tool. The new bay is the second arm.
+pub fn make_pocket_taper(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm; 2], pocket_paths: &std::ops::Range<usize>) -> anyhow::Result<i64> {
+    make_plate(doc, assets, content, asphalt, centre, arms, &Options::default(), Some(pocket_paths))
+}
+
+fn make_plate(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm], opts: &Options, pocket_paths: Option<&std::ops::Range<usize>>) -> anyhow::Result<i64> {
+    let (_, lanes) = arm_ends(doc, assets, arms, pocket_paths).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
     let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(doc, assets, a)).collect::<Option<_>>().ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
     // (from here on, what goes in the file: in the object's frame, its centre the origin)
     let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).map(|s| s.file.clone()).unwrap_or_default()).collect();
@@ -921,7 +938,7 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
         let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
         if let Some(seg) = roads::straight(a, b) {
             let z = g.end.z;
-            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None });
+            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None, pocket: false });
             zebras.push((mid, g.out, g.left_w, g.right_w));
         }
     }
@@ -1027,7 +1044,12 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
     let org = tile_origin(k);
     let rel = format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco");
     let t = doc.tiles.get_mut(&k).ok_or_else(|| anyhow::anyhow!("no tile"))?;
-    t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], ..Default::default() });
+    let rules = recs.iter().enumerate().filter(|(_, p)| p.pocket).flat_map(|(index, _)| {
+        ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+            path_index: index as i32, kind: kind.into(), ..Default::default()
+        })
+    }).collect();
+    t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], rules, ..Default::default() });
     t.touch_content();
     // the signal heads, on poles, bound to the junction's lights by [varparent]
     let left_hand = doc.global.left_hand_traffic;
@@ -1109,7 +1131,7 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
         let along = if a.at_end { roads::norm_deg(a.out + 180.0) } else { a.out };
         let r = roads::right(along);
         geo.push(arm_geo_of(&model, false, a.at_end, end, a.out, 0.0));
-        lanes.extend(lanes_at(&model, 1.0, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along));
+        lanes.extend(lanes_at(&model, 1.0, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along, None));
     }
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
