@@ -2793,3 +2793,14 @@ Open in text editor	Metin düzenleyicide aç
 Open the saved .ttp file	Kaydedilmiş .ttp dosyasını aç
 Could not open the trip file	Sefer dosyası açılamadı
 Save the map to create this trip's .ttp file first.	Bu seferin .ttp dosyasını oluşturmak için önce haritayı kaydedin.
+Change ID	ID’yi değiştir
+New stop ID	Yeni durak ID’si
+Timetable name: {name}	Tarifedeki ad: {name}
+No stop with this ID on the map	Haritada bu ID’ye sahip durak yok
+Confirm	Onayla
+Also apply to other trips with this ID ({count})	Bu ID’nin geçtiği diğer seferlere de uygula ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	{count} seferde durak ID’si {old} yerine {new} ({name}) olarak değiştirildi
+Insert before: click a stop on the map to insert it before this one	Önüne ekle: bu durağın önüne eklemek için haritada bir durağa tıklayın
+Click a stop on the map to insert it before {stop} (Esc to cancel)	“{stop}” durağının önüne eklemek için haritada bir durağa tıklayın (iptal için Esc)
+That stop is already next to the insertion point.	Bu durak ekleme noktasının hemen yanında zaten var.
+Insert stop before	Önüne durak ekle

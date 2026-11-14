@@ -2793,3 +2793,14 @@ Open in text editor	Otwórz w edytorze tekstu
 Open the saved .ttp file	Otwórz zapisany plik .ttp
 Could not open the trip file	Nie udało się otworzyć pliku kursu
 Save the map to create this trip's .ttp file first.	Najpierw zapisz mapę, aby utworzyć plik .ttp tego kursu.
+Change ID	Zmień ID
+New stop ID	Nowe ID przystanku
+Timetable name: {name}	Nazwa w rozkładzie: {name}
+No stop with this ID on the map	Na mapie nie ma przystanku o tym ID
+Confirm	Potwierdź
+Also apply to other trips with this ID ({count})	Zastosuj też do innych kursów z tym ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Zmieniono ID przystanku z {old} na {new} ({name}). Liczba kursów: {count}
+Insert before: click a stop on the map to insert it before this one	Wstaw przed: kliknij przystanek na mapie, aby wstawić go przed tym
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Kliknij przystanek na mapie, aby wstawić go przed „{stop}” (Esc anuluje)
+That stop is already next to the insertion point.	Ten przystanek już sąsiaduje z miejscem wstawienia.
+Insert stop before	Wstaw przystanek przed tym

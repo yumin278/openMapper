@@ -2793,3 +2793,14 @@ Open in text editor	텍스트 편집기에서 열기
 Open the saved .ttp file	저장된 .ttp 파일 열기
 Could not open the trip file	운행 파일을 열 수 없습니다
 Save the map to create this trip's .ttp file first.	이 운행의 .ttp 파일을 만들려면 먼저 지도를 저장하세요.
+Change ID	ID 변경
+New stop ID	새 정류장 ID
+Timetable name: {name}	시간표에 표시되는 이름: {name}
+No stop with this ID on the map	지도에 이 ID의 정류장이 없습니다
+Confirm	확인
+Also apply to other trips with this ID ({count})	이 ID가 포함된 다른 운행에도 적용({count}개)
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	정류장 ID {old}을(를) {new}({name})(으)로 변경했습니다(운행 {count}개)
+Insert before: click a stop on the map to insert it before this one	앞에 삽입: 지도에서 정류장을 클릭하여 이 정류장 앞에 넣으세요
+Click a stop on the map to insert it before {stop} (Esc to cancel)	지도에서 정류장을 클릭하여 ‘{stop}’ 앞에 삽입하세요(Esc로 취소)
+That stop is already next to the insertion point.	해당 정류장은 이미 삽입 위치 바로 옆에 있습니다.
+Insert stop before	이 정류장 앞에 삽입

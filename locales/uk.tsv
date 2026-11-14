@@ -2791,3 +2791,14 @@ Open in text editor	Відкрити в текстовому редакторі
 Open the saved .ttp file	Відкрити збережений файл .ttp
 Could not open the trip file	Не вдалося відкрити файл рейсу
 Save the map to create this trip's .ttp file first.	Спочатку збережіть мапу, щоб створити файл .ttp цього рейсу.
+Change ID	Змінити ID
+New stop ID	Новий ID зупинки
+Timetable name: {name}	Назва в розкладі: {name}
+No stop with this ID on the map	На мапі немає зупинки з таким ID
+Confirm	Підтвердити
+Also apply to other trips with this ID ({count})	Застосувати також до інших рейсів із цим ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID зупинки змінено з {old} на {new} ({name}). Кількість рейсів: {count}
+Insert before: click a stop on the map to insert it before this one	Вставити перед: виберіть зупинку на мапі, щоб вставити її перед цією
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Виберіть зупинку на мапі, щоб вставити її перед «{stop}» (Esc — скасувати)
+That stop is already next to the insertion point.	Ця зупинка вже поруч із місцем вставлення.
+Insert stop before	Вставити зупинку перед цією

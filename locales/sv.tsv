@@ -2793,3 +2793,14 @@ Open in text editor	Öppna i textredigerare
 Open the saved .ttp file	Öppna den sparade .ttp-filen
 Could not open the trip file	Det gick inte att öppna turfilen
 Save the map to create this trip's .ttp file first.	Spara kartan först för att skapa turens .ttp-fil.
+Change ID	Ändra ID
+New stop ID	Nytt hållplats-ID
+Timetable name: {name}	Namn i tidtabellen: {name}
+No stop with this ID on the map	Det finns ingen hållplats med detta ID på kartan
+Confirm	Bekräfta
+Also apply to other trips with this ID ({count})	Tillämpa också på andra turer med detta ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Hållplats-ID {old} ändrades till {new} ({name}) i {count} turer
+Insert before: click a stop on the map to insert it before this one	Infoga före: välj en hållplats på kartan för att infoga den före denna
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Välj en hållplats på kartan för att infoga den före ”{stop}” (Esc för att avbryta)
+That stop is already next to the insertion point.	Hållplatsen ligger redan intill infogningspunkten.
+Insert stop before	Infoga hållplats före denna

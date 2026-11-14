@@ -2789,3 +2789,14 @@ Open in text editor	在文本编辑器中打开
 Open the saved .ttp file	打开已保存的 .ttp 文件
 Could not open the trip file	无法打开行程文件
 Save the map to create this trip's .ttp file first.	请先保存地图，以创建此行程的 .ttp 文件。
+Change ID	更换 ID
+New stop ID	新站点 ID
+Timetable name: {name}	时刻表名称：{name}
+No stop with this ID on the map	地图上没有此 ID 的站点
+Confirm	确认
+Also apply to other trips with this ID ({count})	同时应用到其他包含此 ID 的行程（{count} 个）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	已将站点 ID 从 {old} 改为 {new}（{name}），影响 {count} 个行程
+Insert before: click a stop on the map to insert it before this one	插入到此站之前：在地图上选择站点，将其插入到此站之前
+Click a stop on the map to insert it before {stop} (Esc to cancel)	在地图上选择站点，将其插入到“{stop}”之前（Esc 取消）
+That stop is already next to the insertion point.	该站点已与插入位置相邻。
+Insert stop before	插入到此站之前

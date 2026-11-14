@@ -2793,3 +2793,14 @@ Open in text editor	Abrir no editor de texto
 Open the saved .ttp file	Abrir o ficheiro .ttp guardado
 Could not open the trip file	Não foi possível abrir o ficheiro da viagem
 Save the map to create this trip's .ttp file first.	Guarde primeiro o mapa para criar o ficheiro .ttp desta viagem.
+Change ID	Alterar ID
+New stop ID	Novo ID da paragem
+Timetable name: {name}	Nome no horário: {name}
+No stop with this ID on the map	Não há nenhuma paragem com este ID no mapa
+Confirm	Confirmar
+Also apply to other trips with this ID ({count})	Aplicar também a outras viagens com este ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	O ID da paragem foi alterado de {old} para {new} ({name}) em {count} viagens
+Insert before: click a stop on the map to insert it before this one	Inserir antes: selecione uma paragem no mapa para a inserir antes desta
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Selecione uma paragem no mapa para a inserir antes de «{stop}» (Esc para cancelar)
+That stop is already next to the insertion point.	Essa paragem já está ao lado do ponto de inserção.
+Insert stop before	Inserir paragem antes desta

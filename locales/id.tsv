@@ -2793,3 +2793,14 @@ Open in text editor	Buka di editor teks
 Open the saved .ttp file	Buka berkas .ttp yang tersimpan
 Could not open the trip file	Berkas perjalanan tidak dapat dibuka
 Save the map to create this trip's .ttp file first.	Simpan peta terlebih dahulu untuk membuat berkas .ttp perjalanan ini.
+Change ID	Ubah ID
+New stop ID	ID halte baru
+Timetable name: {name}	Nama di jadwal: {name}
+No stop with this ID on the map	Tidak ada halte dengan ID ini di peta
+Confirm	Konfirmasi
+Also apply to other trips with this ID ({count})	Terapkan juga ke perjalanan lain dengan ID ini ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID halte {old} diubah menjadi {new} ({name}) pada {count} perjalanan
+Insert before: click a stop on the map to insert it before this one	Sisipkan sebelum: pilih halte di peta untuk disisipkan sebelum halte ini
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Pilih halte di peta untuk disisipkan sebelum “{stop}” (Esc untuk membatalkan)
+That stop is already next to the insertion point.	Halte itu sudah berada di sebelah titik penyisipan.
+Insert stop before	Sisipkan halte sebelumnya

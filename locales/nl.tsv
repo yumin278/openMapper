@@ -2793,3 +2793,14 @@ Open in text editor	Openen in teksteditor
 Open the saved .ttp file	Opgeslagen .ttp-bestand openen
 Could not open the trip file	Het ritbestand kon niet worden geopend
 Save the map to create this trip's .ttp file first.	Sla de kaart eerst op om het .ttp-bestand van deze rit te maken.
+Change ID	ID wijzigen
+New stop ID	Nieuwe halte-ID
+Timetable name: {name}	Naam in de dienstregeling: {name}
+No stop with this ID on the map	Geen halte met deze ID op de kaart
+Confirm	Bevestigen
+Also apply to other trips with this ID ({count})	Ook toepassen op andere ritten met deze ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Halte-ID {old} gewijzigd in {new} ({name}) in {count} ritten
+Insert before: click a stop on the map to insert it before this one	Ervoor invoegen: klik op een halte op de kaart om die vóór deze in te voegen
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Klik op een halte op de kaart om die vóór ‘{stop}’ in te voegen (Esc om te annuleren)
+That stop is already next to the insertion point.	Die halte staat al naast het invoegpunt.
+Insert stop before	Halte ervoor invoegen

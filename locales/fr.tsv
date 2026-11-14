@@ -2791,3 +2791,14 @@ Open in text editor	Ouvrir dans un éditeur de texte
 Open the saved .ttp file	Ouvrir le fichier .ttp enregistré
 Could not open the trip file	Impossible d’ouvrir le fichier du trajet
 Save the map to create this trip's .ttp file first.	Enregistrez d’abord la carte pour créer le fichier .ttp de ce trajet.
+Change ID	Changer l’ID
+New stop ID	Nouvel ID d’arrêt
+Timetable name: {name}	Nom dans les horaires : {name}
+No stop with this ID on the map	Aucun arrêt avec cet ID sur la carte
+Confirm	Confirmer
+Also apply to other trips with this ID ({count})	Appliquer aussi aux autres trajets avec cet ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	L’ID d’arrêt {old} a été remplacé par {new} ({name}) dans {count} trajets
+Insert before: click a stop on the map to insert it before this one	Insérer avant : choisissez un arrêt sur la carte pour l’insérer avant celui-ci
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Choisissez un arrêt sur la carte pour l’insérer avant « {stop} » (Échap pour annuler)
+That stop is already next to the insertion point.	Cet arrêt est déjà à côté du point d’insertion.
+Insert stop before	Insérer un arrêt avant celui-ci

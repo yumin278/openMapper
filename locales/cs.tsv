@@ -2793,3 +2793,14 @@ Open in text editor	Otevřít v textovém editoru
 Open the saved .ttp file	Otevřít uložený soubor .ttp
 Could not open the trip file	Soubor spoje se nepodařilo otevřít
 Save the map to create this trip's .ttp file first.	Nejprve uložte mapu, aby se vytvořil soubor .ttp tohoto spoje.
+Change ID	Změnit ID
+New stop ID	Nové ID zastávky
+Timetable name: {name}	Název v jízdním řádu: {name}
+No stop with this ID on the map	Na mapě není zastávka s tímto ID
+Confirm	Potvrdit
+Also apply to other trips with this ID ({count})	Použít i na ostatní spoje s tímto ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID zastávky {old} změněno na {new} ({name}) u spojů: {count}
+Insert before: click a stop on the map to insert it before this one	Vložit před: klikněte na mapě na zastávku, kterou chcete vložit před tuto
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Klikněte na mapě na zastávku, kterou chcete vložit před „{stop}“ (Esc zruší výběr)
+That stop is already next to the insertion point.	Tato zastávka už sousedí s místem vložení.
+Insert stop before	Vložit zastávku před tuto
