@@ -9315,10 +9315,12 @@ impl Editor {
             }
         };
         crate::hot::own_change();
-        if assets.spline_wait(&cfg, 3000).is_none() {
+        let Some(bay_model) = assets.spline_wait(&cfg, 3000) else {
             self.error(tr("The pocket's road type could not be read", "Не удалось прочитать тип дороги кармана"));
             return;
-        }
+        };
+        let Some(main_model) = assets.spline(&main_file) else { return };
+        let pocket_paths = crate::pocket::bay_path_indices(&main_model, &bay_model);
         let Some(doc) = self.doc.as_ref() else { return };
         let step = width as f64;
         let ratio_in = self.pocket_taper_in.clamp(1.0, 12.0);
@@ -9354,6 +9356,7 @@ impl Editor {
         self.history.touch_global(doc);
         let result = crate::pocket::cut_out(doc, k, id, from, from + stretch).and_then(|cut| {
             let mut inner = crate::pocket::retype(doc, &cut, &cfg, 0.0)?;
+            crate::pocket::set_bay_lane_rules(doc, &inner, pocket_paths);
             // (one piece where the stretch's pieces make one curve: the taper needs length)
             let mut i = 0;
             while i + 1 < inner.len() {
@@ -14765,6 +14768,81 @@ mod tests {
             assert!(assets.spline_wait(rel, 5000).is_some(), "{rel} loads");
         }
         (assets, dir, a, b)
+    }
+
+    #[test]
+    fn a_bus_pocket_with_taper_junctions_restricts_each_middle_spline() {
+        let (_, dir, plain, _) = pocket_fixture("spline-rules");
+        let content = dir.join("content");
+        let path = omsi_cfg::resolve_path(&content, &plain);
+        let mut sli = omsi_cfg::vfs::read_text(&path).unwrap();
+        sli.push_str("\n[path_2]\n1\n4.5\n0.25\n1.0\n2\n0\n");
+        std::fs::write(&path, omsi_cfg::encode_text(&sli)).unwrap();
+        let mut assets = Assets::new(dir.join("omsi"), content.clone());
+        assert_eq!(assets.spline_wait(&plain, 5000).unwrap().def.paths.len(), 5);
+
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Pocket");
+        let road_rule = |index, value| omsi_map::MapRule {
+            path_index: index, kind: "speedlimit".into(), value, ..Default::default()
+        };
+        let mut input = String::new();
+        for (id, y, prev_id, next_id, speed) in [(1, 60.0, 0, 2, 30.0), (2, 150.0, 1, 0, 40.0)] {
+            let spline = MapSpline {
+                file: plain.clone(), id, prev_id, next_id, pos: [150.0, y, 0.0], length: 90.0,
+                rules: vec![road_rule(2, speed), road_rule(4, 20.0)], ..Default::default()
+            };
+            crate::doc::save::spline(&mut input, &spline);
+            doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(spline);
+        }
+        println!("Original spline type and map instances:\n{sli}\n{input}");
+
+        let mut ed = Editor::default();
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        ed.bus_pocket = true;
+        ed.pocket_len = 24.0;
+        ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+        ed.left_press(&mut assets, &Library::default(), false);
+        let doc = ed.doc.as_mut().unwrap();
+        let tile = &doc.tiles[&(0, 0)].tile;
+        let mut splines: Vec<_> = tile.splines.iter().filter(|s| !s.deleted).collect();
+        splines.sort_by(|a, b| a.pos[1].total_cmp(&b.pos[1]));
+        let mut output = String::new();
+        for spline in &splines {
+            crate::doc::save::spline(&mut output, spline);
+        }
+        println!("Generated spline type and map instances:\n{}\n{output}",
+            omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&content, &splines[1].file)).unwrap());
+
+        assert_eq!(splines.len(), 4);
+        assert_eq!(tile.objects.iter().filter(|o| o.file.contains("junction_")).count(), 2);
+        assert_eq!(splines[0].rules, [road_rule(2, 30.0), road_rule(4, 20.0)]);
+        assert_eq!(splines[3].rules, [road_rule(2, 40.0), road_rule(4, 20.0)]);
+        for (spline, speed) in splines[1..3].iter().zip([30.0, 40.0]) {
+            assert!(spline.file.contains("_bay_"));
+            assert_eq!(spline.rules, [
+                road_rule(2, speed), road_rule(5, 20.0),
+                omsi_map::MapRule { path_index: 4, kind: "bus".into(), ..Default::default() },
+                omsi_map::MapRule { path_index: 4, kind: "no_cars".into(), ..Default::default() },
+            ]);
+        }
+        let expected: Vec<_> = splines.iter().map(|s| (s.id, s.rules.clone())).collect();
+        crate::doc::save::save(doc).unwrap();
+        let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
+        for (id, rules) in expected {
+            assert_eq!(reloaded.splines.iter().find(|s| s.id == id).unwrap().rules, rules);
+        }
+        ed.undo();
+        let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        let mut restored = String::new();
+        for spline in tile.splines.iter().filter(|s| !s.deleted) {
+            crate::doc::save::spline(&mut restored, spline);
+        }
+        assert_eq!(restored, input);
+        assert!(tile.objects.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
