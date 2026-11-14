@@ -987,14 +987,13 @@ fn copy_texture_as(tex: &Path, to_dir: &Path, name: &std::ffi::OsStr) {
     }
 }
 
-/// Write map asphalt under the same name regardless of the map file's spelling.
+/// Write map overrides under the same names regardless of the map files' spelling.
 fn export_texture(tex: &Path, to_dir: &Path) -> String {
     let Some(name) = tex.file_name().map(|name| name.to_string_lossy()) else { return String::new() };
-    if name.eq_ignore_ascii_case(MAP_ASPHALT) {
-        if tex.parent() != Some(to_dir) || name != MAP_ASPHALT {
-            copy_texture_as(tex, to_dir, MAP_ASPHALT.as_ref());
-        }
-        return MAP_ASPHALT.to_owned();
+    let canonical = [MAP_ASPHALT, MAP_ZEBRA].into_iter().find(|n| name.eq_ignore_ascii_case(n));
+    if let Some(file) = canonical.filter(|n| name != *n) {
+        copy_texture_as(tex, to_dir, file.as_ref());
+        return file.to_owned();
     }
     if tex.parent() != Some(to_dir) {
         copy_texture(tex, to_dir);
@@ -1194,13 +1193,20 @@ pub fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphal
     }
 
     if opts.zebra_texture && !zebras.is_empty() {
-        let white = tex_dir.join("om_zebra_white.png");
-        if !white.exists() {
-            let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
-        }
+        let stripe_tex = if let Some(texture) = map_texture(&doc.dir, MAP_ZEBRA) {
+            log::info!("junction zebra texture: {texture:?} (map override)");
+            texture
+        } else {
+            let white = tex_dir.join("om_zebra_white.png");
+            if !white.exists() {
+                let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
+            }
+            log::info!("junction zebra texture: {white:?} (default; map override unavailable)");
+            white
+        };
         let mean_end_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / plate.arms.len().max(1) as f64;
         let mean_road_z = plate.arms.iter().map(|g| g.road_z).sum::<f64>() / plate.arms.len().max(1) as f64;
-        paint_zebra_stripes(&mut mesh, &zebras, mean_end_z + mean_road_z + 0.03, white);
+        paint_zebra_stripes(&mut mesh, &zebras, mean_end_z + mean_road_z + 0.03, stripe_tex);
     }
     // every texture beside the object
     let mut names = Vec::new();
@@ -1514,6 +1520,7 @@ pub fn polyline(c: &SplineCurve) -> Vec<(DVec2, f64)> {
 }
 
 const MAP_ASPHALT: &str = "plain_asphalt_texture.bmp";
+const MAP_ZEBRA: &str = "zebra_texture.bmp";
 const ASPHALT_PERIOD: f64 = 8.0;
 
 /// Find a file in the map's texture folder, ignoring case in both names.
