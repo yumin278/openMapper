@@ -4259,12 +4259,12 @@ impl Editor {
     /// old road's ends, as (tile, id, at its end)), cut both back and lay a plate between
     /// them that tapers from one width to the other.
     fn adapt_joints(&mut self, assets: &mut Assets, ends: Vec<(TileKey, i64, bool)>) {
-        self.adapt_joints_by(assets, ends, 5.0);
+        self.adapt_joints_by(assets, ends, 5.0, None);
     }
 
     /// [`Editor::adapt_joints`] with the taper `ratio` as metres cut back per metre of
     /// difference in half width (5: 1:10 over both sides; a bus pocket's is steeper).
-    fn adapt_joints_by(&mut self, assets: &mut Assets, ends: Vec<(TileKey, i64, bool)>, ratio: f64) -> usize {
+    fn adapt_joints_by(&mut self, assets: &mut Assets, ends: Vec<(TileKey, i64, bool)>, ratio: f64, pocket_paths: Option<&std::ops::Range<usize>>) -> usize {
         let (Some(content), asphalt) = (self.content_dir.clone(), self.asphalt.clone()) else { return 0 };
         let follow = self.follow_ground;
         let Some(doc) = self.doc.as_mut() else { return 0 };
@@ -4286,8 +4286,9 @@ impl Editor {
             self.history.touch_global(doc);
             let arms: Vec<crate::junction::Arm> = [(k, id, at_end), (nk, n.id, n_end)].into_iter().filter_map(|(k, id, e)| doc.trim(k, id, e, back)).map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             // (counted only where the plate was laid: a bare bend is no taper)
-            if arms.len() == 2 && join_two(doc, assets, true, follow, &content, asphalt.as_deref(), &arms[0], &arms[1]) {
-                made += 1;
+            if let [a, b] = arms.as_slice() {
+                let placed = join_two_with_pocket(doc, assets, true, follow, &content, asphalt.as_deref(), a, b, pocket_paths);
+                made += usize::from(placed);
             }
         }
         made
@@ -9418,10 +9419,12 @@ impl Editor {
             }
         };
         crate::hot::own_change();
-        if assets.spline_wait(&cfg, 3000).is_none() {
+        let Some(bay_model) = assets.spline_wait(&cfg, 3000) else {
             self.error(tr("The pocket's road type could not be read", "Не удалось прочитать тип дороги кармана"));
             return;
-        }
+        };
+        let Some(main_model) = assets.spline(&main_file) else { return };
+        let pocket_paths = crate::pocket::bay_path_indices(&main_model, &bay_model);
         let Some(doc) = self.doc.as_ref() else { return };
         // The adapter measures the largest change at either edge, which is the width of one bay.
         let step = width as f64;
@@ -9474,11 +9477,11 @@ impl Editor {
                 let (mut laid, mut wanted_plates) = (0, 0);
                 if let (Some((bk, bid)), true) = (before, !inner.is_empty()) {
                     wanted_plates += 1;
-                    laid += self.adapt_joints_by(assets, vec![(bk, bid, true)], ratio_in);
+                    laid += self.adapt_joints_by(assets, vec![(bk, bid, true)], ratio_in, Some(&pocket_paths));
                 }
                 if let (Some((ak, aid)), true) = (after, !inner.is_empty()) {
                     wanted_plates += 1;
-                    laid += self.adapt_joints_by(assets, vec![(ak, aid, false)], ratio_out);
+                    laid += self.adapt_joints_by(assets, vec![(ak, aid, false)], ratio_out, Some(&pocket_paths));
                 }
                 if wanted_plates < 2 || laid < wanted_plates {
                     if let Some(d) = self.doc.as_mut() {
@@ -9744,11 +9747,16 @@ pub(crate) fn reach_along(doc: &Document, k: TileKey, id: i64, at_end: bool) -> 
 /// from the one to the other (as a junction of two roads), else a bend of the first's type.
 /// Gives back whether the plate was laid (false: the ends are only joined by a bend).
 fn join_two(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, content: &Path, asphalt: Option<&Path>, a: &crate::junction::Arm, b: &crate::junction::Arm) -> bool {
+    join_two_with_pocket(doc, assets, adapt, follow, content, asphalt, a, b, None)
+}
+
+fn join_two_with_pocket(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, content: &Path, asphalt: Option<&Path>, a: &crate::junction::Arm, b: &crate::junction::Arm, pocket_paths: Option<&std::ops::Range<usize>>) -> bool {
     if adapt && width_step(doc, assets, a, b).is_some() {
         let ends = arm_ends_world(doc, &[*a, *b]);
         if ends.len() == 2 {
             let centre = (ends[0] + ends[1]) * 0.5;
-            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default(), Default::default()) {
+            let edit = crate::junction::MakeEdit { pocket_paths: pocket_paths.cloned(), ..Default::default() };
+            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default(), edit) {
                 Ok(_) => {
                     if follow {
                         let reach = crate::junction::reach(doc, assets, centre, &[*a, *b]).max(4.0);
@@ -14977,6 +14985,85 @@ mod tests {
         let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
         assert_eq!(t.splines.iter().filter(|s| !s.deleted).count(), 1);
         assert_eq!(t.objects.iter().filter(|o| o.file.contains("junction_")).count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_bus_pocket_taper_junction_restricts_every_piece_of_each_bay_connection() {
+        let (mut assets, dir, plain, _) = pocket_fixture("taper-rules");
+        let content = dir.join("content");
+        for (heading, start_x, both) in [(90.0, 60.0, false), (270.0, 240.0, false), (90.0, 60.0, true)] {
+            let mut doc = flat_map(1);
+            doc.dir = content.join("maps").join("Pocket");
+            doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
+                file: plain.clone(), id: 1, pos: [start_x, 150.0, 0.0], heading, length: 180.0,
+                ..Default::default()
+            });
+            let mut ed = Editor::default();
+            ed.content_dir = Some(content.clone());
+            ed.open(doc);
+            ed.set_tool(Tool::Roads);
+            ed.bus_pocket = true;
+            ed.pocket_both_sides = both;
+            ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+            ed.left_press(&mut assets, &Library::default(), false);
+
+            let doc = ed.doc.as_mut().unwrap();
+            let tile = &doc.tiles[&(0, 0)].tile;
+            assert!(tile.splines.iter().all(|s| s.rules.is_empty()));
+            let mut plates = tile.objects.iter().filter(|o| o.file.contains("junction_")).collect::<Vec<_>>();
+            // The plate at the start of the spline comes first, regardless of heading.
+            plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
+            assert_eq!(plates.len(), 2);
+            for (plate, single_indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
+                let path = omsi_cfg::resolve_path(&content, &plate.file);
+                let sco = omsi_cfg::vfs::read_text(&path).unwrap();
+                let mut before = String::new();
+                let mut after = String::new();
+                let mut plain = plate.clone();
+                plain.rules.clear();
+                crate::doc::save::object(&mut before, &plain, false);
+                crate::doc::save::object(&mut after, plate, false);
+                println!("Heading {heading}, plate {}\n{sco}\nBefore:\n{before}\nAfter:\n{after}", plate.id);
+                let indices: &[i32] = if both { &[0, 1, 4, 5] } else { &single_indices };
+                let expected: Vec<_> = indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                    path_index: index, kind: kind.into(), ..Default::default()
+                })).collect();
+                assert_eq!(plate.rules, expected);
+            }
+            let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
+            crate::doc::save::save(doc).unwrap();
+            let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
+            assert_eq!(reloaded.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
+            ed.undo();
+            let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+            assert!(tile.objects.is_empty());
+            assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 1);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_ordinary_width_adapter_junction_does_not_add_bus_pocket_rules() {
+        let (mut assets, dir, plain, _) = pocket_fixture("ordinary-adapter");
+        let content = dir.join("content");
+        let bay = crate::pocket::bay_type(&mut assets, &content, &plain, false, false, 3.0, false).unwrap();
+        assert!(assets.spline_wait(&bay, 5000).is_some());
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Ordinary");
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.extend([
+            MapSpline { file: plain, id: 1, pos: [150.0, 60.0, 0.0], length: 81.0, ..Default::default() },
+            MapSpline { file: bay, id: 2, pos: [150.0, 159.0, 0.0], length: 80.0, ..Default::default() },
+        ]);
+        let arms = [
+            crate::junction::Arm { key: (0, 0), id: 1, at_end: true },
+            crate::junction::Arm { key: (0, 0), id: 2, at_end: false },
+        ];
+        assert!(join_two(&mut doc, &mut assets, true, false, &content, None, &arms[0], &arms[1]));
+        let objects = &doc.tiles[&(0, 0)].tile.objects;
+        println!("Ordinary adapter joining the same bay spline: {objects:#?}");
+        assert_eq!(objects.len(), 1);
+        assert!(objects[0].rules.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

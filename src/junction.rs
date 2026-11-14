@@ -40,6 +40,8 @@ struct LaneEnd {
     side: f64,
     /// Traffic comes into the junction here (else it leaves; footways: both).
     incoming: bool,
+    /// This end belongs to a lane added by the bus pocket tool for this taper.
+    pocket: bool,
 }
 
 /// Room a junction needs round its centre for these roads (m): the widest of them plus
@@ -60,7 +62,7 @@ pub fn radius_at(half_widths: &[f64], angle: f64) -> f64 {
 }
 
 /// The arms' geometry: where each ends, which way it goes in, its half width and lanes.
-fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm]) -> Option<(Vec<(DVec3, f64, f64, String)>, Vec<LaneEnd>)> {
+fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm], pocket_paths: Option<&std::ops::Range<usize>>) -> Option<(Vec<(DVec3, f64, f64, String)>, Vec<LaneEnd>)> {
     let mut ends = Vec::new();
     let mut lanes = Vec::new();
     for (ai, a) in arms.iter().enumerate() {
@@ -71,17 +73,18 @@ fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm]) -> Option<(Vec<(D
         let into = if a.at_end { c.heading_at(at) } else { c.heading_at(at) + 180.0 };
         let p = c.point_at(at);
         ends.push((p, roads::norm_deg(into), model.half_width as f64, s.file.clone()));
-        lanes.extend(lanes_at(&model, s.mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at)));
+        let paths = pocket_paths.filter(|_| ai == 1);
+        lanes.extend(lanes_at(&model, s.mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at), paths));
     }
     Some((ends, lanes))
 }
 
 /// The lanes of a road type where it meets a junction: `place(x, z)` is where a lane at
 /// lateral place `x` (and height `z`) ends, `along` the heading of the road's own way there.
-fn lanes_at(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64) -> Vec<LaneEnd> {
+fn lanes_at(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64, pocket_paths: Option<&std::ops::Range<usize>>) -> Vec<LaneEnd> {
     let mut lanes = Vec::new();
     let lateral_sign = if mirrored { -1.0 } else { 1.0 };
-    for path in &model.def.paths {
+    for (index, path) in model.def.paths.iter().enumerate() {
         let x = path.start[0] as f64 * lateral_sign;
         let z = path.start[2] as f64;
         let pos = place(x, z);
@@ -99,8 +102,9 @@ fn lanes_at(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place:
         };
         // lateral place seen from the arm's way into the junction
         let side = if at_end { x } else { -x };
+        let pocket = path.kind == 0 && pocket_paths.is_some_and(|paths| paths.contains(&index));
         for (incoming, flow) in ways {
-            lanes.push(LaneEnd { arm: ai, pos, flow: roads::norm_deg(flow), kind: path.kind, width: path.width as f64, side, incoming });
+            lanes.push(LaneEnd { arm: ai, pos, flow: roads::norm_deg(flow), kind: path.kind, width: path.width as f64, side, incoming, pocket });
         }
     }
     lanes
@@ -117,6 +121,8 @@ struct PathRec {
     blinker: i32,
     /// The light its traffic waits at (`[use_traffic_light]`), if any.
     light: Option<usize>,
+    /// This path is part of a connection into or out of a bus pocket lane.
+    pocket: bool,
 }
 
 /// What a junction has besides its roads: traffic lights (a plan of two phases, the main
@@ -432,6 +438,7 @@ fn paths_with_lane_repair(
 
     let mut write = |route: LaneRoute| {
         let (a, b) = (&lanes[route.from], &lanes[route.to]);
+        let pocket = a.pocket || b.pocket;
         let i = a.arm;
         let blinker = route.blinker;
         let j = b.arm;
@@ -481,7 +488,7 @@ fn paths_with_lane_repair(
             let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
             // (traffic waits where it comes in: the light is on the way's first piece)
             let light = if n == 0 { light_of.get(i).copied().flatten() } else { None };
-            out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light });
+            out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light, pocket });
         }
         true
     };
@@ -561,7 +568,7 @@ fn paths_with_lane_repair(
                 let pa = a_pos.truncate() - c2;
                 let pb = b_pos.truncate() - c2;
                 if let Some(s) = roads::straight(pa, pb) {
-                    out.push(PathRec { seg: s, z0: a_pos.z - centre.z, z1: b_pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None });
+                    out.push(PathRec { seg: s, z0: a_pos.z - centre.z, z1: b_pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None, pocket: false });
                 }
             }
         }
@@ -1307,6 +1314,7 @@ fn paint_zebra_stripes(mesh: &mut Mesh, zebras: &[(DVec2, f64, f64, f64)], z: f6
 #[derive(Default)]
 pub(crate) struct MakeEdit<'a> {
     pub history: Option<&'a mut crate::history::History>,
+    pub pocket_paths: Option<std::ops::Range<usize>>,
     /// Conform the terrain before placing lights, extending at least this far from the centre.
     pub conform_min_reach: Option<f64>,
 }
@@ -1324,7 +1332,7 @@ fn write_junction_paths(body: &mut String, recs: &[PathRec]) {
 
 /// The same with lights and crossings as `opts` says.
 pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm], opts: &Options, mut edit: MakeEdit<'_>) -> anyhow::Result<i64> {
-    let (_, lanes) = arm_ends(doc, assets, arms).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
+    let (_, lanes) = arm_ends(doc, assets, arms, edit.pocket_paths.as_ref()).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
     let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(doc, assets, a)).collect::<Option<_>>().ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
     // (from here on, what goes in the file: in the object's frame, its centre the origin)
     let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).map(|s| s.file.clone()).unwrap_or_default()).collect();
@@ -1405,13 +1413,13 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
         let z = g.end.z + g.road_z;
         if let Some(seg) = roads::straight(a, b) {
-            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None });
+            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None, pocket: false });
             for (left, edge) in [(true, a), (false, b)] {
                 if let Some(join) = walk_joins.iter().find(|w| w.arm == i && w.left == left) {
                     if let Some(seg) = roads::straight(edge, join.at_crossing.truncate()) {
                         recs.push(PathRec {
                             seg, z0: z, z1: join.at_crossing.z, kind: 1,
-                            width: join.width, direction: 2, blinker: 0, light: None,
+                            width: join.width, direction: 2, blinker: 0, light: None, pocket: false,
                         });
                     }
                     // The corner path starts at at_crossing; this additional
@@ -1421,7 +1429,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
                         recs.push(PathRec {
                             seg, z0: join.at_arm.z, z1: join.at_crossing.z,
                             kind: 1, width: join.width, direction: 2,
-                            blinker: 0, light: None,
+                            blinker: 0, light: None, pocket: false,
                         });
                     }
                 }
@@ -1492,7 +1500,12 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     }
     let rel = format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco");
     let t = doc.tiles.get_mut(&k).ok_or_else(|| anyhow::anyhow!("no tile"))?;
-    t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], ..Default::default() });
+    let rules = recs.iter().enumerate().filter(|(_, p)| p.pocket).flat_map(|(index, _)| {
+        ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+            path_index: index as i32, kind: kind.into(), ..Default::default()
+        })
+    }).collect();
+    t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], rules, ..Default::default() });
     t.touch_content();
     // Establish the final terrain before storing the heights of ground-relative objects.
     if let Some(min_reach) = edit.conform_min_reach {
@@ -1660,7 +1673,7 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
         let along = if a.at_end { roads::norm_deg(a.out + 180.0) } else { a.out };
         let r = roads::right(along);
         geo.push(arm_geo_of(&model, false, a.at_end, end, a.out, 0.0));
-        lanes.extend(lanes_at(&model, false, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along));
+        lanes.extend(lanes_at(&model, false, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along, None));
     }
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
@@ -1981,7 +1994,7 @@ mod tests {
             doc.global.left_hand_traffic = left_hand;
             for (mirrored, at_end, expected) in &cases {
                 doc.tiles.get_mut(&key).unwrap().tile.splines[0].mirror = *mirrored;
-                let (_, lanes) = arm_ends(&doc, &mut assets, &[Arm { key, id, at_end: *at_end }]).unwrap();
+                let (_, lanes) = arm_ends(&doc, &mut assets, &[Arm { key, id, at_end: *at_end }], None).unwrap();
                 let actual: Vec<_> = lanes.iter().map(|l| (l.pos.x, l.pos.y, l.pos.z, l.flow, l.incoming)).collect();
                 println!("left_hand={left_hand}, mirror={mirrored}, at_end={at_end}\n  actual: {actual:?}\n  expected: {expected:?}");
                 assert_eq!(&actual, expected);
@@ -2022,7 +2035,7 @@ mod tests {
         let end = (roads::dir(out) * if profile.len() == 4 { 24.0 } else { 20.0 }).extend(0.0);
         let along = if at_end { roads::norm_deg(out + 180.0) } else { out };
         let lanes = lanes_at(&model, false, arm, at_end,
-            |x, z| end + (roads::right(along) * x).extend(z), along);
+            |x, z| end + (roads::right(along) * x).extend(z), along, None);
         (arm_geo_of(&model, false, at_end, end, out, 0.0), lanes)
     }
 
@@ -2151,7 +2164,7 @@ mod tests {
             let headings = if entering { [0.0, 175.0, 20.0, 50.0, 50.0] } else { [0.0, 185.0, 340.0, 310.0, 310.0] };
             let lanes: Vec<_> = headings.into_iter().enumerate().map(|(idx, flow)| LaneEnd {
                 arm: idx.min(3), pos: DVec3::ZERO, flow, kind: 0, width: 2.5,
-                side: idx as f64, incoming: if idx == 0 { entering } else { !entering },
+                side: idx as f64, incoming: if idx == 0 { entering } else { !entering }, pocket: false,
             }).collect();
             let same = vec![vec![0], vec![], vec![], vec![]];
             let opposite = vec![vec![], vec![1], vec![2], vec![3, 4]];
@@ -2875,7 +2888,7 @@ mod tests {
 
         // Reconstruct the original make_with() output, preserving its original
         // lane routing and old z formula. This is the before-fix reference.
-        let (_, lanes) = arm_ends(&doc, &mut assets, &arms).unwrap();
+        let (_, lanes) = arm_ends(&doc, &mut assets, &arms, None).unwrap();
         let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
         let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
         let plate = plate_frame(&geo, &files, &lanes, centre, true);
@@ -2889,7 +2902,7 @@ mod tests {
             let seg = roads::straight(a, b).unwrap();
             before_recs.push(PathRec {
                 seg, z0: g.end.z, z1: g.end.z, kind: 1,
-                width: 3.0, direction: 2, blinker: 0, light: None,
+                width: 3.0, direction: 2, blinker: 0, light: None, pocket: false,
             });
             zebras.push((mid, g.out, g.left_w, g.right_w));
         }
@@ -3030,7 +3043,7 @@ mod tests {
                 crossings: vec![0.0, 90.0, 180.0, 270.0],
                 corner_walks, ..Default::default()
             };
-            let (_, lanes) = arm_ends(&doc, &mut assets, &arms).unwrap();
+            let (_, lanes) = arm_ends(&doc, &mut assets, &arms, None).unwrap();
             let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
             let files: Vec<String> = arms.iter().map(|a| doc.spline(a.key, a.id).unwrap().file.clone()).collect();
             let plate = plate_frame(&geo, &files, &lanes, centre, true);
@@ -3149,7 +3162,7 @@ mod tests {
                     lanes.push(LaneEnd {
                         arm: i, pos, flow, kind: 0, width: 2.5,
                         // Right of the *incoming* heading = minus right(out).
-                        side: -offset, incoming,
+                        side: -offset, incoming, pocket: false,
                     });
                 }
             }
@@ -3277,7 +3290,7 @@ mod tests {
         let only_left = |recs: &[PathRec]| record_paths(&recs.iter().filter(|p| p.kind == 0 && p.blinker == 2)
             .map(|p| PathRec {
                 seg: p.seg, z0: p.z0, z1: p.z1, kind: p.kind,
-                width: p.width, direction: p.direction, blinker: p.blinker, light: p.light,
+                width: p.width, direction: p.direction, blinker: p.blinker, light: p.light, pocket: p.pocket,
             }).collect::<Vec<_>>());
         assert_eq!(only_left(&before).as_bytes(), only_left(&after).as_bytes());
         println!("===== ASYMMETRIC / NO ZEBRA LEFT TURNS BEFORE [path] =====\n{}", only_left(&before));

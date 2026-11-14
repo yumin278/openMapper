@@ -431,6 +431,13 @@ fn text_crlf(s: &str) -> String {
     s.replace("\r\n", "\n").replace('\n', "\r\n")
 }
 
+/// Bay lanes are inserted immediately after the last `[path]` in the source spline.
+/// `[path_2]` also counts toward the path index and can follow that insertion point.
+pub fn bay_path_indices(main: &crate::assets::SplineModel, bay: &crate::assets::SplineModel) -> std::ops::Range<usize> {
+    let first = main.def.paths.iter().rposition(|p| p.params.is_empty()).map_or(0, |i| i + 1);
+    first..first + bay.def.paths.len().saturating_sub(main.def.paths.len())
+}
+
 /// The road nearest `p` (within `within` m of its middle) that `wanted` accepts by file name:
 /// tile, id and the distance along it.
 pub fn road_near(doc: &Document, p: DVec2, within: f64, wanted: &mut dyn FnMut(&str) -> bool) -> Option<(TileKey, i64, f64)> {
