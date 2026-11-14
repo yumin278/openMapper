@@ -115,7 +115,7 @@ struct PathRec {
     blinker: i32,
     /// The light its traffic waits at (`[use_traffic_light]`), if any.
     light: Option<usize>,
-    /// This path directly touches a bus pocket lane at the edge of the taper.
+    /// This path is part of a connection into or out of a bus pocket lane.
     pocket: bool,
 }
 
@@ -240,20 +240,19 @@ fn paths(lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>]) -> Vec<Pa
                 (0..ins.len().max(outs.len())).map(|k| (ins[k.min(ins.len() - 1)], outs[k.min(outs.len() - 1)])).collect()
             };
             for (a, b) in pairs {
+                let pocket = a.pocket || b.pocket;
                 let pa = a.pos.truncate() - c2;
                 let pb = b.pos.truncate() - c2;
                 let segs = roads::biarc(pa, a.flow, pb, b.flow).or_else(|| roads::straight(pa, pb).map(|s| vec![s]));
                 let Some(segs) = segs else { continue };
                 let total: f64 = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
                 let mut acc = 0.0;
-                let last = segs.len().saturating_sub(1);
                 for (n, s) in segs.into_iter().enumerate() {
                     let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
                     acc += s.length;
                     let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
                     // (traffic waits where it comes in: the light is on the way's first piece)
                     let light = if n == 0 { light_of.get(i).copied().flatten() } else { None };
-                    let pocket = (a.pocket && n == 0) || (b.pocket && n == last);
                     out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light, pocket });
                 }
             }

@@ -14815,7 +14815,7 @@ mod tests {
     }
 
     #[test]
-    fn a_bus_pocket_taper_junction_restricts_only_the_path_touching_the_bay() {
+    fn a_bus_pocket_taper_junction_restricts_every_piece_of_each_bay_connection() {
         let (mut assets, dir, plain, _) = pocket_fixture("taper-rules");
         let content = dir.join("content");
         for (heading, start_x) in [(90.0, 60.0), (270.0, 240.0)] {
@@ -14840,7 +14840,7 @@ mod tests {
             // The plate at the start of the spline comes first, regardless of heading.
             plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
             assert_eq!(plates.len(), 2);
-            for (plate, index) in plates.into_iter().zip([1, 2]) {
+            for (plate, indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
                 let path = omsi_cfg::resolve_path(&content, &plate.file);
                 let sco = omsi_cfg::vfs::read_text(&path).unwrap();
                 let mut before = String::new();
@@ -14850,9 +14850,10 @@ mod tests {
                 crate::doc::save::object(&mut before, &plain, false);
                 crate::doc::save::object(&mut after, plate, false);
                 println!("Heading {heading}, plate {}\n{sco}\nBefore:\n{before}\nAfter:\n{after}", plate.id);
-                assert_eq!(plate.rules, ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                let expected: Vec<_> = indices.into_iter().flat_map(|index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
                     path_index: index, kind: kind.into(), ..Default::default()
-                }));
+                })).collect();
+                assert_eq!(plate.rules, expected);
             }
             let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
             crate::doc::save::save(doc).unwrap();
