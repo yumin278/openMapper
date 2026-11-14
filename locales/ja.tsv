@@ -1943,6 +1943,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	ビューで信号とその区間を選択
 Delete the route	経路を削除
 Lines and timetable	系統と時刻表
+Convert all Type 1 trips to Type 2	すべてのタイプ1便をタイプ2に変換
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	タイプ1の{count}便の停留所リストを変換してから、マップを保存してください。経路の再計算は別に実行します。
+Converted: {converted}. Skipped: {skipped}.	変換済み：{converted}。スキップ：{skipped}。
 Edit timetable	時刻表を編集
 No bus stop there: click one of the orange marks	そこに停留所がありません：オレンジのマークをクリックしてください
 The roads can't be read without the OMSI 2 folder.	OMSI 2フォルダがないと道路を読み取れません。

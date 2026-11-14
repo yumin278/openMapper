@@ -1943,6 +1943,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Виділити сигнал і його ділянки у вікні виду
 Delete the route	Видалити маршрут
 Lines and timetable	Лінії та розклад
+Convert all Type 1 trips to Type 2	Перетворити всі рейси типу 1 на тип 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Перетворіть списки зупинок для рейсів типу 1 ({count}), а потім збережіть карту. Перерахунок маршрутів запускається окремо.
+Converted: {converted}. Skipped: {skipped}.	Перетворено: {converted}. Пропущено: {skipped}.
 Edit timetable	Правка розкладу
 No bus stop there: click one of the orange marks	Тут немає зупинки: клацніть по помаранчевій мітці
 The roads can't be read without the OMSI 2 folder.	Без теки OMSI 2 дороги не прочитати.

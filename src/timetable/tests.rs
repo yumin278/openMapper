@@ -63,6 +63,81 @@ fn same(a: &Timetable, b: &TimetableData, what: &str) {
 }
 
 #[test]
+fn global_type2_conversion_saves_only_the_converted_trips() {
+    let out = scratch("global-type2");
+    let dir = out.join("TTData");
+    let trip = |track: &str, stations: &str| {
+        format!("[trip]\n{track}\nTerminus\n66\n\n{stations}\n[profile]\nstandard\n18.000\n\n[profile_man_dep_time]\n2\n12.250\n[profile_otherstopping]\n1\n2\n")
+    };
+    let legacy = "[station]\n5521173\n5\nSouth Valley Railway Station\n271\n0.781\n41.792\n11.642\n150.000\n\n[station]\n5521015\n119\nBus Rally\n342\n1.812\n4189.310\n5.810\n150.000\n\n[station]\n5521173\n225\nSouth Valley Railway Station\n271\n0.000\n7912.901\n16.330\n0.000\n";
+    let mut originals = Vec::new();
+    for (file, text) in [
+        ("66.ttp", trip("66", legacy)),
+        ("variant.ttp", trip("66", legacy)),
+        ("converted.ttp", trip("", "[station_typ2]\n42\n\n[station_typ2]\n43\n")),
+        ("invalid.ttp", trip("66", &legacy.replace("5521015", "not an id"))),
+        ("mixed.ttp", trip("66", &format!("[station_typ2]\n42\n\n{legacy}"))),
+        ("rail.ttp", trip("66", &format!("[trainreverse]\n\n{legacy}"))),
+        ("66.ttr", "[track_entry]\n1756623\n58\n271\n144\n3.4700000000\n0\n\n".into()),
+        ("66.ttl", "[userallowed]\n\n[priority]\n1\n\n[newtour]\n1\nBusses\n1023\n\n[addtrip]\n66\n0\n360.000\n".into()),
+        ("StnLinks.cfg", "[StnLink]\n1\n42\n43\n0\n0\n0\n1\n0\n0\n\n[StnLink_entry]\n1756623\n58\n0\n1\n-1\n0\n0\n".into()),
+        ("Busstops.cfg", "[busstop]\nBus Rally\n0\n5521015\n0.0000000000\n0\n0\n\n".into()),
+    ] {
+        let bytes = encode(&text);
+        std::fs::write(dir.join(file), &bytes).unwrap();
+        if !matches!(file, "66.ttp" | "variant.ttp") {
+            originals.push((file, bytes));
+        }
+    }
+    let mut tt = Timetable::load(&out, &[]);
+    let before = tt.trips.clone();
+    tt.reroute.insert("66".into());
+    assert_eq!(tt.convert_all_to_type2(), (2, 3));
+    assert!(tt.reroute.is_empty());
+    assert_eq!(tt.convert_all_to_type2(), (0, 3));
+    save_to(&mut tt, &out, &[]).unwrap();
+    assert!(tt.type2_converted.is_empty());
+    let back = Timetable::load(&out, &[]);
+    for t in before {
+        let after = back.trip(&t.name).unwrap();
+        if matches!(t.name.as_str(), "66" | "variant") {
+            println!("{} before:\n{}\n{} after:\n{}", t.name, trip_text(&t), t.name, trip_text(after));
+            assert_eq!(after, &Trip { display_name: String::new(), stations_legacy: Vec::new(), stations: vec![5521173, 5521015, 5521173], ..t });
+        } else {
+            assert_eq!(after, &t);
+        }
+    }
+    for (file, bytes) in originals {
+        assert_eq!(std::fs::read(dir.join(file)).unwrap(), bytes, "{file}");
+    }
+    let _ = std::fs::remove_dir_all(out);
+}
+
+#[test]
+fn timetable_writes_names_for_stops_attached_to_splines() {
+    let _map = one_map();
+    let out = scratch("attached-stop-name");
+    let roots = crate::install::Roots::new(out.clone());
+    let mut doc = Document::new_map(&roots, "attached-stop", "Attached stop", 1);
+    let k = doc.order[0];
+    let tile = &mut doc.tiles.get_mut(&k).unwrap().tile;
+    let file = "Sceneryobjects\\Generic\\bus_stop.sco";
+    let labels = |name: &str| vec![name.into(), "0".into(), "0".into(), "15.0".into()];
+    tile.objects.push(omsi_map::MapObject { file: file.into(), id: 2544995, extra: labels("Aberdeen Tunnel"), ..Default::default() });
+    tile.spline_attachments.push(omsi_map::SplineAttachment { file: file.into(), id: 2353752, strings: labels("Ocean Park"), ..Default::default() });
+    let ids = [(k, 2544995), (k, 2353752)];
+    let before = stop_entries(&doc, &ids[..1]);
+    let after = stop_entries(&doc, &ids);
+    println!("Before:\n{}\nAfter:\n{}", busstops_text(&before), busstops_text(&after));
+    assert_eq!(after, [before[0].clone(), BusStopEntry { name: "Ocean Park".into(), group: 0, object_id: 2353752, params: [15.0, 0.0, 0.0] }]);
+    doc.timetable.sync_stops(after);
+    save_to(&mut doc.timetable, &out, &doc.order).unwrap();
+    let back = Timetable::load(&out, &doc.order);
+    assert_eq!(back.stop_name(2353752), Some("Ocean Park"));
+    let _ = std::fs::remove_dir_all(out);
+}
+
+#[test]
 fn stock_timetables_round_trip() {
     let Some(root) = omsi_root() else { return };
     for m in ["Grundorf", "Berlin-Spandau"] {
