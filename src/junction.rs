@@ -1432,6 +1432,9 @@ mod tests {
         for point in &mut road.def.profiles[0].points {
             point.z = 0.25;
         }
+        for path in &mut road.def.paths {
+            path.start[2] = 0.25;
+        }
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(road)));
 
         let centre = DVec3::new(100.0, 100.0, 10.0);
