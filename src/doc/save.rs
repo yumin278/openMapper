@@ -110,6 +110,7 @@ pub(crate) fn prepare_save(doc: &Document) -> SaveJob {
         traffic: doc.traffic.clone(),
         descriptions: doc.descriptions.clone(),
         groups: Vec::new(),
+        signal_sets: Default::default(),
     };
     SaveJob { doc: copy, known: doc.tiles.keys().copied().collect(), stamp }
 }
@@ -292,6 +293,12 @@ fn file_of(doc: &Document, k: TileKey) -> String {
 pub(crate) fn copy_missing(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for e in std::fs::read_dir(src)?.flatten() {
+        // The signal presets in a map's openMapper directory are user-authored.
+        if e.file_name().eq_ignore_ascii_case(crate::signal_sets::FILE_NAME)
+            && src.file_name().is_some_and(|name| name.eq_ignore_ascii_case("openMapper"))
+        {
+            continue;
+        }
         let from = e.path();
         let to = dst.join(e.file_name());
         if from.is_dir() {

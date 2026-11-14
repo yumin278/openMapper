@@ -1507,6 +1507,9 @@ impl Editor {
         self.session_first_id = doc.global.next_id_code;
         let mut doc = doc;
         doc.groups = crate::mapgroups::load(&doc.dir);
+        if let Some(content) = self.content_dir.as_deref() {
+            doc.signal_sets.reload(&doc.dir, content);
+        }
         self.doc = Some(doc);
     }
 
@@ -4733,15 +4736,9 @@ impl Editor {
                 continue;
             }
             let opts = style_options(doc, &styles, &arms, centre);
-            match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                Ok(_) => {
-                    made += 1;
-                    if follow {
-                        let e = arm_ends_world(doc, &arms);
-                        let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                        conform_disc(doc, centre, reach, &e);
-                    }
-                }
+            let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+            match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                Ok(_) => made += 1,
                 Err(e) => log::warn!("junction at a node: {e}"),
             }
         }
@@ -4799,15 +4796,9 @@ impl Editor {
             let arms: Vec<crate::junction::Arm> = arms.iter().flatten().map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             if arms.len() >= 3 {
                 let opts = style_options(doc, &styles, &arms, centre);
-                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                    Ok(_) => {
-                        count += 1;
-                        if follow {
-                            let ends = arm_ends_world(doc, &arms);
-                            let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                            conform_disc(doc, centre, reach, &ends);
-                        }
-                    }
+                let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                    Ok(_) => count += 1,
                     Err(e) => log::warn!("junction: {e}"),
                 }
             } else if arms.len() == 2 {
@@ -4892,15 +4883,9 @@ impl Editor {
             let arms: Vec<crate::junction::Arm> = arms.iter().flatten().map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             if arms.len() >= 3 {
                 let opts = style_options(doc, &styles, &arms, centre);
-                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                    Ok(_) => {
-                        count += 1;
-                        if follow {
-                            let ends = arm_ends_world(doc, &arms);
-                            let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                            conform_disc(doc, centre, reach, &ends);
-                        }
-                    }
+                let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                    Ok(_) => count += 1,
                     Err(e) => log::warn!("junction: {e}"),
                 }
             } else if arms.len() == 2 {
@@ -9095,16 +9080,19 @@ impl Editor {
             self.history.touch_tile(doc, a.key);
         }
         self.history.touch_global(doc);
-        // its signal heads go with it (new ones are put up for the new plate)
-        for (k, c) in crate::junction::children(doc, id) {
-            self.history.touch_tile(doc, k);
-            doc.delete_object(k, c);
-        }
-        doc.delete_object(jk, id);
+        let children = crate::junction::children(doc, id);
+        let remove = |doc: &mut Document, history: &mut History| {
+            for &(k, child) in &children {
+                history.touch_tile(doc, k);
+                doc.delete_object(k, child);
+            }
+            doc.delete_object(jk, id);
+        };
         self.junction_options.remove(&id);
         match arms.len() {
-            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
+            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), ..Default::default() }) {
                 Ok(new) => {
+                    remove(doc, &mut self.history);
                     if was_selected {
                         let k = doc.tiles.iter().find(|(_, t)| t.tile.objects.iter().any(|o| o.id == new)).map(|(k, _)| *k).unwrap_or(jk);
                         let v: Vec<Sel> = self.selection().into_iter().map(|s| if s == Sel::Object(jk, id) { Sel::Object(k, new) } else { s }).collect();
@@ -9112,21 +9100,18 @@ impl Editor {
                     }
                 }
                 Err(e) => {
-                    // (the plate as it was, rather than none)
                     log::warn!("junction: {e}");
-                    if let Some(t) = doc.tiles.get_mut(&jk) {
-                        t.tile.objects.push(o);
-                        t.touch_content();
-                    }
                 }
             },
             2 => {
+                remove(doc, &mut self.history);
                 join_two(doc, assets, adapt, follow, &content, asphalt.as_deref(), &arms[0], &arms[1]);
                 if was_selected {
                     self.select(None);
                 }
             }
             _ => {
+                remove(doc, &mut self.history);
                 if was_selected {
                     self.select(None);
                 }
@@ -9763,7 +9748,7 @@ fn join_two(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, 
         let ends = arm_ends_world(doc, &[*a, *b]);
         if ends.len() == 2 {
             let centre = (ends[0] + ends[1]) * 0.5;
-            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default()) {
+            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default(), Default::default()) {
                 Ok(_) => {
                     if follow {
                         let reach = crate::junction::reach(doc, assets, centre, &[*a, *b]).max(4.0);
