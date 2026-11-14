@@ -316,33 +316,192 @@ fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -
     roads::straight(pa, pb).map(|s| vec![s]).unwrap_or_default()
 }
 
+fn turn_blinker(turn: f64) -> i32 {
+    if turn > 30.0 { 3 } else if turn < -30.0 { 2 } else { 0 }
+}
+
+#[derive(Clone, Copy)]
+struct LaneRoute {
+    from: usize,
+    to: usize,
+    turn: f64,
+    blinker: i32,
+}
+
+impl LaneRoute {
+    fn lane(self, incoming: bool) -> usize {
+        if incoming { self.from } else { self.to }
+    }
+
+    fn with_lane(self, incoming: bool, lane: usize) -> Self {
+        if incoming { Self { from: lane, ..self } } else { Self { to: lane, ..self } }
+    }
+}
+
+/// Append a connection for each remaining lane, first exits, then entrances.
+fn fill_vehicle_lanes(
+    lanes: &[LaneEnd], incoming: &[Vec<usize>], outgoing: &[Vec<usize>],
+    used: &mut [bool], routes: &mut Vec<LaneRoute>, mut write: impl FnMut(LaneRoute) -> bool,
+) {
+    for (entering, same, opposite) in [(false, outgoing, incoming), (true, incoming, outgoing)] {
+        // Keep the nearest-lane choice independent of the order of repairs in this pass.
+        let existing = routes.len();
+        for (arm, group) in same.iter().enumerate() {
+            for (rank, &idx) in group.iter().enumerate() {
+                if used[idx] {
+                    continue;
+                }
+                let lane = &lanes[idx];
+                let nearest = routes[..existing].iter().filter_map(|&route| {
+                    let neighbor = &lanes[route.lane(entering)];
+                    (neighbor.arm == arm).then_some((neighbor.pos.distance_squared(lane.pos), route))
+                }).min_by(|a, b| a.0.total_cmp(&b.0));
+
+                let route = nearest.map(|(_, route)| route.with_lane(entering, idx)).or_else(|| {
+                    opposite.iter().enumerate().filter(|(other, _)| *other != arm)
+                        .filter_map(|(_, peers)| {
+                            let peer = &lanes[*peers.first()?];
+                            let turn = if entering {
+                                signed_turn(lane.flow, peer.flow)
+                            } else {
+                                signed_turn(peer.flow, lane.flow)
+                            };
+                            if turn.abs() > 150.0 {
+                                return None;
+                            }
+                            let blinker = turn_blinker(turn);
+                            let other = match blinker {
+                                3 => peers[0],
+                                2 => peers[peers.len() - 1],
+                                _ => peers[rank.min(peers.len() - 1)],
+                            };
+                            let (from, to) = if entering { (idx, other) } else { (other, idx) };
+                            Some(LaneRoute { from, to, turn, blinker })
+                        }).min_by(|a, b| a.turn.abs().total_cmp(&b.turn.abs()))
+                });
+
+                if let Some(route) = route.filter(|&route| write(route)) {
+                    used[route.from] = true;
+                    used[route.to] = true;
+                    routes.push(route);
+                    log::info!(
+                        "junction connected {} lane at arm {} side {:.3}: arm {} side {:.3} {:?} -> arm {} side {:.3} {:?}, turn {:.1}°, blinker {}",
+                        if entering { "incoming" } else { "outgoing" }, arm, lane.side,
+                        lanes[route.from].arm, lanes[route.from].side, lanes[route.from].pos,
+                        lanes[route.to].arm, lanes[route.to].side, lanes[route.to].pos,
+                        signed_turn(lanes[route.from].flow, lanes[route.to].flow), route.blinker
+                    );
+                }
+            }
+        }
+    }
+}
+
 /// The ways through the junction.
 fn paths(
     lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
     corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
     zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
 ) -> Vec<PathRec> {
+    paths_with_lane_repair(lanes, centre, light_of, walk_joins, corner_walks, kerb_lead,
+        zebra_arms, kerb_corners, left_hand_traffic, true)
+}
+
+fn paths_with_lane_repair(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+    repair: bool,
+) -> Vec<PathRec> {
     let mut out = Vec::new();
     let c2 = centre.truncate();
     let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
+    let mut incoming = vec![Vec::new(); arms];
+    let mut outgoing = vec![Vec::new(); arms];
+    for (idx, lane) in lanes.iter().enumerate().filter(|(_, lane)| lane.kind == 0) {
+        let groups = if lane.incoming { &mut incoming } else { &mut outgoing };
+        groups[lane.arm].push(idx);
+    }
+    for group in &mut incoming {
+        group.sort_by(|&a, &b| lanes[b].side.total_cmp(&lanes[a].side));
+    }
+    // Seen leaving: its right is the arm's left coming in.
+    for group in &mut outgoing {
+        group.sort_by(|&a, &b| lanes[a].side.total_cmp(&lanes[b].side));
+    }
+
+    let mut write = |route: LaneRoute| {
+        let (a, b) = (&lanes[route.from], &lanes[route.to]);
+        let i = a.arm;
+        let blinker = route.blinker;
+        let j = b.arm;
+        let turn = route.turn;
+        let pa = a.pos.truncate() - c2;
+        let pb = b.pos.truncate() - c2;
+        let turning = turn.abs() >= 30.0;
+        // The outer kerb is on the right for right-hand traffic, on the
+        // left for left-hand traffic. The paired outermost lane is
+        // already selected above by the existing blinker logic.
+        let outer = if left_hand_traffic { blinker == 2 } else { blinker == 3 };
+        // The mesh's corner runs from i.left to j.right: a right turn
+        // goes i -> j, and a left turn goes j -> i.
+        let corner = if !turning { None } else {
+            kerb_corners.iter().find(|c| if blinker == 3 {
+                c.i == i && c.j == j
+            } else {
+                c.i == j && c.j == i
+            })
+        };
+        let (kerb_a, kerb_b) = if outer {
+            kerb_lead.iter().find_map(|&(ki, kj, li, lj)| {
+                if blinker == 3 && ki == i && kj == j { Some((li, lj)) }
+                else if blinker == 2 && ki == j && kj == i { Some((lj, li)) }
+                else { None }
+            }).unwrap_or((0.0, 0.0))
+        } else { (0.0, 0.0) };
+        let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
+        let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
+        let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
+        if segs.is_empty() { return false; }
+        if let Some(c) = corner {
+            let (distance, position) = path_kerb_clearance(&segs, c);
+            let required = a.width.max(2.5) * 0.5 - 0.1;
+            if distance < required {
+                log::warn!(
+                    "junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
+                    pa, pb, distance, position, required
+                );
+            }
+        }
+        let total: f64 = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
+        let mut acc = 0.0;
+        for (n, s) in segs.into_iter().enumerate() {
+            let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
+            acc += s.length;
+            let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
+            // (traffic waits where it comes in: the light is on the way's first piece)
+            let light = if n == 0 { light_of.get(i).copied().flatten() } else { None };
+            out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light });
+        }
+        true
+    };
+    let mut used = vec![false; lanes.len()];
+    let mut routes = Vec::new();
     // traffic: every lane coming in to the lanes going out of the other arms, matched by
     // their place counted from the right (right turns from the right, left turns from the left)
     for i in 0..arms {
-        let mut ins: Vec<&LaneEnd> = lanes.iter().filter(|l| l.arm == i && l.kind == 0 && l.incoming).collect();
-        ins.sort_by(|a, b| b.side.total_cmp(&a.side));
+        let ins = &incoming[i];
         for j in (0..arms).filter(|j| *j != i) {
-            let mut outs: Vec<&LaneEnd> = lanes.iter().filter(|l| l.arm == j && l.kind == 0 && !l.incoming).collect();
-            // (seen leaving: its right is the arm's left coming in)
-            outs.sort_by(|a, b| a.side.total_cmp(&b.side));
+            let outs = &outgoing[j];
             if ins.is_empty() || outs.is_empty() {
                 continue;
             }
-            let turn = signed_turn(ins[0].flow, outs[0].flow);
+            let turn = signed_turn(lanes[ins[0]].flow, lanes[outs[0]].flow);
             if turn.abs() > 150.0 {
                 continue;
             }
-            let blinker = if turn > 30.0 { 3 } else if turn < -30.0 { 2 } else { 0 };
-            let pairs: Vec<(&LaneEnd, &LaneEnd)> = if blinker == 3 {
+            let blinker = turn_blinker(turn);
+            let pairs: Vec<(usize, usize)> = if blinker == 3 {
                 vec![(ins[0], outs[0])]
             } else if blinker == 2 {
                 vec![(ins[ins.len() - 1], outs[outs.len() - 1])]
@@ -350,55 +509,17 @@ fn paths(
                 (0..ins.len().max(outs.len())).map(|k| (ins[k.min(ins.len() - 1)], outs[k.min(outs.len() - 1)])).collect()
             };
             for (a, b) in pairs {
-                let pa = a.pos.truncate() - c2;
-                let pb = b.pos.truncate() - c2;
-                let turning = turn.abs() >= 30.0;
-                // The outer kerb is on the right for right-hand traffic, on the
-                // left for left-hand traffic. The paired outermost lane is
-                // already selected above by the existing blinker logic.
-                let outer = if left_hand_traffic { blinker == 2 } else { blinker == 3 };
-                // The mesh's corner runs from i.left to j.right: a right turn
-                // goes i -> j, and a left turn goes j -> i.
-                let corner = if !turning { None } else {
-                    kerb_corners.iter().find(|c| if blinker == 3 {
-                        c.i == i && c.j == j
-                    } else {
-                        c.i == j && c.j == i
-                    })
-                };
-                let (kerb_a, kerb_b) = if outer {
-                    kerb_lead.iter().find_map(|&(ki, kj, li, lj)| {
-                        if blinker == 3 && ki == i && kj == j { Some((li, lj)) }
-                        else if blinker == 2 && ki == j && kj == i { Some((lj, li)) }
-                        else { None }
-                    }).unwrap_or((0.0, 0.0))
-                } else { (0.0, 0.0) };
-                let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
-                let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
-                let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
-                if segs.is_empty() { continue; }
-                if let Some(c) = corner {
-                    let (distance, position) = path_kerb_clearance(&segs, c);
-                    let required = a.width.max(2.5) * 0.5 - 0.1;
-                    if distance < required {
-                        log::warn!(
-                            "junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
-                            pa, pb, distance, position, required
-                        );
-                    }
-                }
-                let total: f64 = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
-                let mut acc = 0.0;
-                for (n, s) in segs.into_iter().enumerate() {
-                    let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
-                    acc += s.length;
-                    let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
-                    // (traffic waits where it comes in: the light is on the way's first piece)
-                    let light = if n == 0 { light_of.get(i).copied().flatten() } else { None };
-                    out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light });
+                let route = LaneRoute { from: a, to: b, turn, blinker };
+                if write(route) {
+                    used[a] = true;
+                    used[b] = true;
+                    routes.push(route);
                 }
             }
         }
+    }
+    if repair {
+        fill_vehicle_lanes(lanes, &incoming, &outgoing, &mut used, &mut routes, write);
     }
     // footways round the corners: each arm's outermost footway lane on a side to the
     // nearest one of the next arm round the junction
@@ -1190,6 +1311,17 @@ pub(crate) struct MakeEdit<'a> {
     pub conform_min_reach: Option<f64>,
 }
 
+fn write_junction_paths(body: &mut String, recs: &[PathRec]) {
+    for p in recs {
+        let s = &p.seg;
+        let grad = if s.length > 0.01 { (p.z1 - p.z0) / s.length } else { 0.0 };
+        let _ = write!(body, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n", num(s.start.x), num(s.start.y), num(p.z0), num(s.heading), num(s.radius), num(s.length), num(grad), num(grad), p.kind, num(p.width), p.direction, p.blinker);
+        if let Some(l) = p.light {
+            let _ = write!(body, "[use_traffic_light]\n{l}\n\n");
+        }
+    }
+}
+
 /// The same with lights and crossings as `opts` says.
 pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path, asphalt: Option<&Path>, centre: DVec3, arms: &[Arm], opts: &Options, mut edit: MakeEdit<'_>) -> anyhow::Result<i64> {
     let (_, lanes) = arm_ends(doc, assets, arms).ok_or_else(|| anyhow::anyhow!("a road of the junction is not loaded"))?;
@@ -1334,14 +1466,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         // (OMSI's order: x, height, forward)
         let _ = write!(body, "[splinehelper]\n{file}\n{}\n{}\n{}\n{}\n0.1\n0\n\n", num(p.x), num(p.z), num(p.y), num(roads::norm_deg(g.out + 180.0)));
     }
-    for p in &recs {
-        let s = &p.seg;
-        let grad = if s.length > 0.01 { (p.z1 - p.z0) / s.length } else { 0.0 };
-        let _ = write!(body, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n", num(s.start.x), num(s.start.y), num(p.z0), num(s.heading), num(s.radius), num(s.length), num(grad), num(grad), p.kind, num(p.width), p.direction, p.blinker);
-        if let Some(l) = p.light {
-            let _ = write!(body, "[use_traffic_light]\n{l}\n\n");
-        }
-    }
+    write_junction_paths(&mut body, &recs);
     let hash = {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -1861,6 +1986,185 @@ mod tests {
                 println!("left_hand={left_hand}, mirror={mirrored}, at_end={at_end}\n  actual: {actual:?}\n  expected: {expected:?}");
                 assert_eq!(&actual, expected);
             }
+        }
+    }
+
+    fn lane_connectivity_records(geo: &[ArmGeo], lanes: &[LaneEnd]) -> (Vec<PathRec>, Vec<PathRec>) {
+        let lights: Vec<_> = (0..geo.len()).map(Some).collect();
+        let (_, corners) = junction_mesh(geo, DVec3::ZERO, None, 8.0, 0.0);
+        let leads = corner_leads(&corners);
+        let zebras = vec![true; geo.len()];
+        (
+            paths_with_lane_repair(lanes, DVec3::ZERO, &lights, &[], true,
+                &leads, &zebras, &corners, false, false),
+            paths(lanes, DVec3::ZERO, &lights, &[], true, &leads, &zebras, &corners, false),
+        )
+    }
+
+    fn lane_connectivity_blocks(records: &[PathRec]) -> String {
+        let mut body = String::new();
+        write_junction_paths(&mut body, records);
+        body
+    }
+
+    fn lane_connectivity_arm(
+        arm: usize, out: f64, at_end: bool, profile: &[(f32, f32, i32)],
+    ) -> (ArmGeo, Vec<LaneEnd>) {
+        let mut model = test_road();
+        model.def.paths = profile.iter().map(|&(x, width, direction)| omsi_scenery::PathDef {
+            kind: 0, start: [x, 0.0, 0.0], width, direction, ..Default::default()
+        }).collect();
+        let half_width = if profile.len() == 4 { 12.0 } else { 4.0 };
+        model.half_width = half_width;
+        for (point, x) in model.def.profiles[0].points.iter_mut().zip([-half_width, half_width]) {
+            point.x = x;
+        }
+        let end = (roads::dir(out) * if profile.len() == 4 { 24.0 } else { 20.0 }).extend(0.0);
+        let along = if at_end { roads::norm_deg(out + 180.0) } else { out };
+        let lanes = lanes_at(&model, false, arm, at_end,
+            |x, z| end + (roads::right(along) * x).extend(z), along);
+        (arm_geo_of(&model, false, at_end, end, out, 0.0), lanes)
+    }
+
+    fn lane_connectivity_fixture(t_junction: bool, wide: bool) -> (Vec<ArmGeo>, Vec<LaneEnd>) {
+        let two_way = [(-2.0, 2.5, 1), (2.0, 2.5, 0)];
+        let one_way = [(-2.0, 2.5, 0), (2.0, 2.5, 0)];
+        let three_spur = [
+            (-9.625, 3.03, 0), (-6.375, 3.03, 1), (0.0, 4.04, 1), (7.0, 4.04, 1),
+        ];
+        let mut geo = Vec::new();
+        let mut lanes = Vec::new();
+        for out in [0.0, 90.0, 180.0, 270.0] {
+            if t_junction && out == 180.0 {
+                continue;
+            }
+            let profile: &[_] = if wide && out % 180.0 == 0.0 {
+                &three_spur
+            } else if t_junction && out != 0.0 {
+                &one_way
+            } else {
+                &two_way
+            };
+            let (arm, ends) = lane_connectivity_arm(geo.len(), out, !t_junction || out != 270.0, profile);
+            geo.push(arm);
+            lanes.extend(ends);
+        }
+        (geo, lanes)
+    }
+
+    // Generated segments are emitted consecutively for each lane-to-lane connection.
+    // Match their ends back to the original directed lane ends.
+    fn lane_connectivity_report(label: &str, lanes: &[LaneEnd], records: &[PathRec]) -> Vec<Vec<usize>> {
+        let mut links = vec![Vec::new(); lanes.len()];
+        let mut start = None;
+        let mut previous: Option<DVec3> = None;
+        for record in records.iter().filter(|record| record.kind == 0) {
+            let seg = &record.seg;
+            let matches = |lane: &LaneEnd, p: DVec2, z: f64| {
+                lane.kind == 0 && lane.pos.distance_squared(p.extend(z)) < 1e-6
+            };
+            if let Some(pos) = previous {
+                assert!(pos.distance_squared(seg.start.extend(record.z0)) < 1e-6);
+            }
+            let source = *start.get_or_insert_with(|| lanes.iter()
+                .position(|lane| lane.incoming && matches(lane, seg.start, record.z0)).unwrap());
+            if let Some(target) = lanes.iter().position(|lane| !lane.incoming && matches(lane, seg.end(), record.z1)) {
+                links[source].push(target);
+                links[target].push(source);
+                start = None;
+                previous = None;
+            } else {
+                previous = Some(seg.end().extend(record.z1));
+            }
+        }
+        assert!(start.is_none(), "unfinished route in {label}");
+        println!("{label}");
+        for (idx, lane) in lanes.iter().enumerate() {
+            let peers: Vec<_> = links[idx].iter().map(|&i| (lanes[i].arm, lanes[i].pos)).collect();
+            println!("  arm {} lane {idx} {:?} {} {peers:?}", lane.arm, lane.pos,
+                if lane.incoming { "out to" } else { "in from" });
+        }
+        links
+    }
+
+    #[test]
+    fn lane_connectivity_fills_t_junction_exits() {
+        let (geo, lanes) = lane_connectivity_fixture(true, true);
+        let (before, after) = lane_connectivity_records(&geo, &lanes);
+        let old = lane_connectivity_report("T junction before", &lanes, &before);
+        let new = lane_connectivity_report("T junction after", &lanes, &after);
+        for x in [0.0, -7.0] {
+            let idx = lanes.iter().position(|lane| lane.arm == 0 && !lane.incoming && lane.pos.x == x).unwrap();
+            assert!(old[idx].is_empty());
+            assert_eq!(new[idx].len(), 1);
+            let source = &lanes[new[idx][0]];
+            assert_eq!(source.arm, 1);
+            assert!(after[before.len()..].iter().any(|record| {
+                record.seg.start.distance(source.pos.truncate()) < 1e-6
+                    && record.blinker == 3 && record.light == Some(source.arm)
+            }));
+        }
+        assert!(new.iter().all(|links| !links.is_empty()));
+        let (old_sco, new_sco) = (lane_connectivity_blocks(&before), lane_connectivity_blocks(&after));
+        println!("T junction before [path]\n{old_sco}T junction after [path]\n{new_sco}");
+        assert!(new_sco.starts_with(&old_sco));
+    }
+
+    #[test]
+    fn lane_connectivity_fills_t_junction_entrances() {
+        let (geo, mut lanes) = lane_connectivity_fixture(true, true);
+        for lane in &mut lanes {
+            lane.incoming = !lane.incoming;
+            lane.side = -lane.side;
+            lane.flow = roads::norm_deg(lane.flow + 180.0);
+        }
+        let (before, after) = lane_connectivity_records(&geo, &lanes);
+        let old = lane_connectivity_report("Reversed T junction before", &lanes, &before);
+        let new = lane_connectivity_report("Reversed T junction after", &lanes, &after);
+        assert!(old.iter().any(Vec::is_empty));
+        assert!(new.iter().all(|links| !links.is_empty()));
+        for (idx, lane) in lanes.iter().enumerate().filter(|(idx, _)| old[*idx].is_empty()) {
+            assert!(lane.incoming);
+            assert_eq!(new[idx].len(), 1);
+            assert_eq!(lanes[new[idx][0]].arm, 1);
+        }
+    }
+
+    #[test]
+    fn lane_connectivity_keeps_existing_crossroad_paths_byte_identical() {
+        for wide in [false, true] {
+            let (geo, lanes) = lane_connectivity_fixture(false, wide);
+            let (before, after) = lane_connectivity_records(&geo, &lanes);
+            let old = lane_connectivity_report(&format!("Crossroads wide={wide} before"), &lanes, &before);
+            let new = lane_connectivity_report(&format!("Crossroads wide={wide} after"), &lanes, &after);
+            assert!(old.iter().all(|links| !links.is_empty()));
+            assert_eq!(old, new);
+            let (old_sco, new_sco) = (lane_connectivity_blocks(&before), lane_connectivity_blocks(&after));
+            println!("Crossroads wide={wide} before [path]\n{old_sco}Crossroads wide={wide} after [path]\n{new_sco}");
+            assert_eq!(old_sco.as_bytes(), new_sco.as_bytes());
+        }
+    }
+
+    #[test]
+    fn lane_connectivity_falls_back_to_the_most_in_line_arm() {
+        for entering in [false, true] {
+            let headings = if entering { [0.0, 175.0, 20.0, 50.0, 50.0] } else { [0.0, 185.0, 340.0, 310.0, 310.0] };
+            let lanes: Vec<_> = headings.into_iter().enumerate().map(|(idx, flow)| LaneEnd {
+                arm: idx.min(3), pos: DVec3::ZERO, flow, kind: 0, width: 2.5,
+                side: idx as f64, incoming: if idx == 0 { entering } else { !entering },
+            }).collect();
+            let same = vec![vec![0], vec![], vec![], vec![]];
+            let opposite = vec![vec![], vec![1], vec![2], vec![3, 4]];
+            let (incoming, outgoing) = if entering { (&same, &opposite) } else { (&opposite, &same) };
+            let mut routes = Vec::new();
+            let mut used = vec![true; lanes.len()];
+            used[0] = false;
+            fill_vehicle_lanes(&lanes, incoming, outgoing, &mut used, &mut routes, |_| true);
+            let expected = if entering { (0, 2) } else { (2, 0) };
+            let chosen = routes.iter().find(|route| route.lane(entering) == 0).unwrap();
+            println!("Fallback incoming={entering}, input={lanes:?}, before: no connections; after: {} -> {}, turn={}, blinker={}",
+                chosen.from, chosen.to, chosen.turn, chosen.blinker);
+            assert_eq!((chosen.from, chosen.to, chosen.blinker), (expected.0, expected.1, 0));
         }
     }
 
