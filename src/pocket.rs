@@ -438,6 +438,25 @@ pub fn bay_path_indices(main: &crate::assets::SplineModel, bay: &crate::assets::
     first..first + bay.def.paths.len().saturating_sub(main.def.paths.len())
 }
 
+/// Preserve existing rules on their original paths and restrict the newly inserted bay lanes.
+pub fn set_bay_lane_rules(doc: &mut Document, splines: &[(TileKey, i64)], paths: std::ops::Range<usize>) {
+    let first = paths.start as i32;
+    let added = paths.len() as i32;
+    for &(key, id) in splines {
+        let Some(tile) = doc.tiles.get_mut(&key) else { continue };
+        let Some(spline) = tile.tile.splines.iter_mut().find(|s| s.id == id && !s.deleted) else { continue };
+        for rule in &mut spline.rules {
+            if rule.path_index >= first {
+                rule.path_index = rule.path_index.saturating_add(added);
+            }
+        }
+        spline.rules.extend((first..first + added).flat_map(|path_index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+            path_index, kind: kind.into(), ..Default::default()
+        })));
+        tile.touch_content();
+    }
+}
+
 /// The road nearest `p` (within `within` m of its middle) that `wanted` accepts by file name:
 /// tile, id and the distance along it.
 pub fn road_near(doc: &Document, p: DVec2, within: f64, wanted: &mut dyn FnMut(&str) -> bool) -> Option<(TileKey, i64, f64)> {
