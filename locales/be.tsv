@@ -2398,6 +2398,7 @@ Advanced users	Дасведчаныя карыстальнікі
 Controls as in OMSI 2's editor	Кіраванне як у рэдактары OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Выключана па змаўчанні. Сярэдняя кнопка круціць выгляд, правая кнопка з рухам уверх і ўніз маштабуе, правы клік па зямлі вядзе туды (Shift + правы клік: меню), стрэлкі рухаюць камеру, кола маштабуе
 Bay width	Шырыня кішэні
+Bay width per side	Шырыня кішэні з кожнага боку
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Тып дарогі з такой паласой кішэні ствараецца з абранага (з канструктара дарогі), калі ён не мае гэтай шырыні
 Tapers in metres	Звужэнні ў метрах
 Give the length of each taper in metres instead of a ratio	Задайце даўжыню кожнага звужэння ў метрах замест прапорцыі

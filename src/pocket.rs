@@ -256,13 +256,9 @@ fn items_of(text: &str) -> Vec<Item> {
     items
 }
 
-/// A road type's text made again with a bay of `width` m along its kerb on `side`: everything
-/// beyond the roadway's edge on that side (footway, kerb, its lane) moved out by the width, and
-/// a strip of the roadway's own asphalt, a height profile and a street lane (the nearest
-/// lane's way) laid in the gap. The other side is left as it is. None where the text has no
-/// roadway to widen.
-pub fn bay_sli(text: &str, side: Side, width: f32) -> Option<String> {
-    let mut items = items_of(text);
+/// Move the kerb and footway out and fill the gap with asphalt, a height profile and a lane
+/// going the way of the street lane beside it.
+fn widen_side(items: &mut Vec<Item>, side: Side, width: f32) -> Option<()> {
     let sign = if side == Side::Right { 1.0f32 } else { -1.0 };
     let eps = 0.01;
     // the roadway: the lowest height profiles; its edge on the bay's side
@@ -300,7 +296,7 @@ pub fn bay_sli(text: &str, side: Side, width: f32) -> Option<String> {
     let mut strip: Option<(usize, String, (f32, f32, f32, f32), f32)> = None;
     let mut moved: Vec<usize> = Vec::new();
     for (pix, pts) in &groups {
-        let p: Vec<(f32, f32, f32, f32)> = pts.iter().filter_map(|i| point(&items, *i)).collect();
+        let p: Vec<(f32, f32, f32, f32)> = pts.iter().filter_map(|i| point(items, *i)).collect();
         if p.len() < 2 {
             continue;
         }
@@ -373,9 +369,21 @@ pub fn bay_sli(text: &str, side: Side, width: f32) -> Option<String> {
             items.insert(ix + 1 + k, it);
         }
     }
+    Some(())
+}
+
+fn bay_sli(text: &str, sides: &[Side], width: f32) -> Option<String> {
+    let mut items = items_of(text);
+    for &side in sides {
+        widen_side(&mut items, side, width)?;
+    }
     for i in items.iter_mut().filter(|i| i.tag == "[friendlyname]") {
         if let Some(l) = i.lines.iter_mut().find(|l| !l.trim().is_empty()) {
-            *l = format!("{} bay {:.1} m", l.trim(), width);
+            *l = if sides.len() == 2 {
+                format!("{} bays, {:.3} m each", l.trim(), width)
+            } else {
+                format!("{} bay {:.1} m", l.trim(), width)
+            };
         }
     }
     let mut out = String::new();
@@ -394,15 +402,19 @@ pub fn bay_sli(text: &str, side: Side, width: f32) -> Option<String> {
 
 /// The road type of a bay on `main_rel`'s road (made in the content folder as
 /// `Splines\openMapper\<name>_bay_<side>_<width>.sli`, with its textures beside it): the road
-/// type's own text with the bay along the kerb its traffic keeps to. Gives back its path and
-/// the side. Made once: the same bay is found again.
-pub fn bay_type(assets: &mut crate::assets::Assets, content: &std::path::Path, main_rel: &str, mirrored: bool, left_hand: bool, width: f32) -> Result<(String, Side), String> {
+/// type's own text with a bay along the traffic kerb, or along both kerbs.
+pub fn bay_type(assets: &mut crate::assets::Assets, content: &std::path::Path, main_rel: &str, mirrored: bool, left_hand: bool, width: f32, both_sides: bool) -> Result<String, String> {
     let main = assets.spline_wait(main_rel, 3000).ok_or_else(|| "the road type could not be read".to_string())?;
-    let side = bay_side(&main, mirrored, left_hand);
+    let traffic_side = [bay_side(&main, mirrored, left_hand)];
+    let (sides, suffix): (&[Side], _) = if both_sides {
+        (&[Side::Left, Side::Right], format!("both_{width:.3}m"))
+    } else {
+        (&traffic_side, format!("{}_{width:.1}m", traffic_side[0].name()))
+    };
     let text = omsi_cfg::vfs::read_text(&assets.resolve(main_rel)).map_err(|e| e.to_string())?;
-    let sli = bay_sli(&text, side, width).ok_or_else(|| "the road type has no roadway to widen".to_string())?;
+    let sli = bay_sli(&text, sides, width).ok_or_else(|| "the road type has no roadway to widen".to_string())?;
     let stem: String = std::path::Path::new(&main_rel.replace('\\', "/")).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default().chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let name = format!("{stem}_bay_{}_{:.1}m", side.name(), width);
+    let name = format!("{stem}_bay_{suffix}");
     let dir = content.join("Splines").join("openMapper");
     let tex_dir = dir.join("texture");
     std::fs::create_dir_all(&tex_dir).map_err(|e| e.to_string())?;
@@ -412,7 +424,7 @@ pub fn bay_type(assets: &mut crate::assets::Assets, content: &std::path::Path, m
         }
     }
     crate::doc::safe::write_atomic(&dir.join(format!("{name}.sli")), &omsi_cfg::encode_text(&text_crlf(&sli))).map_err(|e| e.to_string())?;
-    Ok((format!("Splines\\openMapper\\{name}.sli"), side))
+    Ok(format!("Splines\\openMapper\\{name}.sli"))
 }
 
 fn text_crlf(s: &str) -> String {
@@ -528,7 +540,7 @@ mod tests {
         let text = spec.sli(false);
         let ((lo, hi), heights, paths) = extremes(&text);
         for (side, sign) in [(Side::Right, 1.0f32), (Side::Left, -1.0)] {
-            let out = bay_sli(&text, side, 3.0).unwrap();
+            let out = bay_sli(&text, &[side], 3.0).unwrap();
             let ((l2, h2), heights2, paths2) = extremes(&out);
             if sign > 0.0 {
                 assert!((l2 - lo).abs() < 1e-3 && (h2 - hi - 3.0).abs() < 1e-3, "{l2} {h2} from {lo} {hi}");
@@ -539,6 +551,42 @@ mod tests {
             // (a lane for the bay, 3 m wide, with the road's own traffic: out beyond the lanes)
             assert!(out.contains("2.700"));
         }
+    }
+
+    #[test]
+    fn a_bay_on_both_sides_adds_equal_lanes_in_the_adjacent_directions() {
+        let dir = std::env::temp_dir().join(format!("om-bay-both-text-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let tex = dir.join("road.png");
+        image::RgbaImage::from_pixel(8, 8, image::Rgba([80, 80, 80, 255])).save(&tex).unwrap();
+        let spec = crate::road_maker::RoadSpec {
+            name: "T".into(), roadway_tex: tex.clone(), footway_tex: tex,
+            lanes_fwd: 2, lanes_back: 1, footway: 2.0, footway_right: Some(3.0),
+            ..Default::default()
+        };
+        let road = spec.write(&dir).unwrap();
+        let text = omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&dir, &road)).unwrap();
+        let width = 3.25;
+        let out = bay_sli(&text, &[Side::Left, Side::Right], width).unwrap();
+        let ((lo, hi), heights, paths) = extremes(&text);
+        let ((new_lo, new_hi), new_heights, new_paths) = extremes(&out);
+        println!("Before:\n{text}\nAfter:\n{out}");
+        assert!((new_lo - lo + width).abs() < 1e-3 && (new_hi - hi - width).abs() < 1e-3);
+        assert_eq!((new_heights, new_paths), (heights + 2, paths + 2));
+
+        let street_lanes = |s: &str| {
+            items_of(s).iter().filter(|i| i.tag == "[path]").map(Item::values)
+                .filter(|v| v[0].1 == 0.0)
+                .map(|v| (v[1].1, v[2].1, v[3].1, v[4].1))
+                .collect::<Vec<_>>()
+        };
+        let original = street_lanes(&text);
+        let widened = street_lanes(&out);
+        assert_eq!(&widened[..original.len()], original.as_slice());
+        let half = spec.roadway_width() / 2.0;
+        let offset = half + width / 2.0;
+        assert_eq!(&widened[original.len()..], &[(-offset, 0.1, 2.925, 1.0), (offset, 0.1, 2.925, 0.0)]);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

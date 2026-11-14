@@ -2398,6 +2398,7 @@ Advanced users	Utilisateurs avancés
 Controls as in OMSI 2's editor	Commandes comme dans l'éditeur d'OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Désactivé par défaut. Le bouton central fait tourner la vue, le bouton droit maintenu et déplacé de haut en bas zoome, un clic droit sur le sol y va (Shift + clic droit : le menu), les flèches déplacent la caméra, la molette zoome
 Bay width	Largeur de la baie
+Bay width per side	Largeur de la baie par côté
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Un type de route avec cette voie de baie est créé à partir de celui choisi (celui du créateur de route), s'il n'a pas cette largeur
 Tapers in metres	Effilements en mètres
 Give the length of each taper in metres instead of a ratio	Indiquez la longueur de chaque effilement en mètres au lieu d'une proportion

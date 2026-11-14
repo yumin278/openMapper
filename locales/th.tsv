@@ -2398,6 +2398,7 @@ Advanced users	ผู้ใช้ขั้นสูง
 Controls as in OMSI 2's editor	ควบคุมแบบเดียวกับตัวแก้ไขของ OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	ปิดไว้ตามค่าเริ่มต้น ปุ่มกลางหมุนมุมมอง กดปุ่มขวาค้างแล้วเลื่อนขึ้นลงเพื่อซูม คลิกขวาบนพื้นเพื่อไปยังจุดนั้น (Shift + คลิกขวา: เมนู) ปุ่มลูกศรเลื่อนกล้อง ล้อเมาส์ซูม
 Bay width	ความกว้างช่องจอด
+Bay width per side	ความกว้างของช่องจอดรถประจำทางต่อด้าน
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	ประเภทถนนที่มีเลนช่องจอดนี้จะถูกสร้างจากประเภทที่เลือก (ของตัวสร้างถนน) หากไม่ได้มีความกว้างนี้
 Tapers in metres	ความเรียวเป็นเมตร
 Give the length of each taper in metres instead of a ratio	ระบุความยาวของส่วนเรียวแต่ละส่วนเป็นเมตรแทนสัดส่วน

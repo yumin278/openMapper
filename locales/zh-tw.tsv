@@ -2407,6 +2407,7 @@ Preset Key Shortcut (from other applications)	其他應用程式的預設快速�
 Controls as in OMSI 2's editor	操作方式與 OMSI 2 的編輯器相同
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	預設為關閉。中鍵旋轉視角，按住右鍵上下移動可縮放，在地面按一下右鍵前往該處（Shift + 右鍵：選單），方向鍵移動攝影機，滾輪縮放
 Bay width	停車灣闊度
+Bay width per side	每側停車灣闊度
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	若所選道路類型（道路製作器中的）闊度不同，則由它建立具有此停車灣行車線的道路類型
 Tapers in metres	錐化長度（公尺）
 Give the length of each taper in metres instead of a ratio	以公尺指定每段錐化的長度，而非比例

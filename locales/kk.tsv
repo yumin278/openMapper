@@ -2398,6 +2398,7 @@ Advanced users	Тәжірибелі пайдаланушылар
 Controls as in OMSI 2's editor	OMSI 2 редакторындағыдай басқару
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Әдепкіде өшірулі. Ортаңғы батырма көріністі айналдырады, оң батырманы басып жоғары-төмен жылжыту масштабтайды, жерге оң шерту сол жерге апарады (Shift + оң шерту: мәзір), көрсеткілер камераны жылжытады, дөңгелек масштабтайды
 Bay width	Қалта ені
+Bay width per side	Әр жақтағы автобус қалтасының ені
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Осы қалта жолағы бар жол түрі таңдалған түрден (жол конструкторындағыдан) жасалады, егер оның ені басқа болса
 Tapers in metres	Тарылтулар метрмен
 Give the length of each taper in metres instead of a ratio	Қатынастың орнына әр тарылтудың ұзындығын метрмен беріңіз
