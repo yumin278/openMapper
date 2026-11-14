@@ -2396,6 +2396,7 @@ Advanced users	Usuaris avançats
 Controls as in OMSI 2's editor	Controls com a l'editor d'OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Desactivat per defecte. El botó del mig gira la vista, el botó dret mantingut i mogut amunt i avall fa zoom, un clic dret al terreny hi va (Shift + clic dret: el menú), les fletxes mouen la càmera, la roda fa zoom
 Bay width	Amplada del badiu
+Bay width per side	Amplada de la badia per costat
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Un tipus de carretera amb aquest carril de badiu es crea a partir de l'escollit (el del creador de carreteres), si no té aquesta amplada
 Tapers in metres	Estretiments en metres
 Give the length of each taper in metres instead of a ratio	Indiqueu la longitud de cada estretiment en metres en lloc d'una proporció

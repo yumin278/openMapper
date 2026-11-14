@@ -506,6 +506,7 @@ pub struct Editor {
     pub use_custom: bool,
     pub pocket_type: Option<String>,
     pub pocket_len: f64,
+    pub pocket_both_sides: bool,
     /// The taper into and out of a bay: metres of road per metre the width changes, and
     /// whether the two ends are kept alike. Both ends are always tapered (never a step).
     pub pocket_taper_in: f64,
@@ -515,8 +516,7 @@ pub struct Editor {
     pub pocket_metres: bool,
     pub pocket_in_m: f64,
     pub pocket_out_m: f64,
-    /// The width of the bay (m, 0: as the road type has it): a road type made in the road
-    /// maker is written again with this pocket lane.
+    /// The width added per side (m, 0: use 3 m).
     pub pocket_width: f32,
     /// Shift the bay along the road to where it fits, if the click is too near a road's end
     /// for the tapers.
@@ -786,6 +786,7 @@ impl Default for Editor {
             use_custom: true,
             pocket_type: None,
             pocket_len: 20.0,
+            pocket_both_sides: false,
             pocket_taper_in: POCKET_TAPER,
             pocket_taper_out: POCKET_TAPER,
             pocket_alike: true,
@@ -9305,10 +9306,8 @@ impl Editor {
             self.toast(tr("This stretch is already of the pocket's road type", "Этот участок уже того типа, что карман"));
             return;
         }
-        // (the bay's road type: the road's own, widened along the kerb its traffic keeps to; the
-        // other side is left as it is)
         let width = if self.pocket_width > 0.0 { self.pocket_width } else { 3.0 };
-        let (cfg, _) = match crate::pocket::bay_type(assets, &content, &main_file, mirrored, left_hand, width) {
+        let cfg = match crate::pocket::bay_type(assets, &content, &main_file, mirrored, left_hand, width, self.pocket_both_sides) {
             Ok(v) => v,
             Err(e) => {
                 self.error(format!("{}: {e}", tr("The bus pocket could not be made", "Не удалось сделать автобусный карман")));
@@ -9323,6 +9322,7 @@ impl Editor {
         let Some(main_model) = assets.spline(&main_file) else { return };
         let pocket_paths = crate::pocket::bay_path_indices(&main_model, &bay_model);
         let Some(doc) = self.doc.as_ref() else { return };
+        // The adapter measures the largest change at either edge, which is the width of one bay.
         let step = width as f64;
         let ratio_in = self.pocket_taper_in.clamp(1.0, 12.0);
         let ratio_out = if self.pocket_alike { ratio_in } else { self.pocket_taper_out.clamp(1.0, 12.0) };
@@ -14818,7 +14818,7 @@ mod tests {
     fn a_bus_pocket_taper_junction_restricts_only_the_path_touching_the_bay() {
         let (mut assets, dir, plain, _) = pocket_fixture("taper-rules");
         let content = dir.join("content");
-        for (heading, start_x) in [(90.0, 60.0), (270.0, 240.0)] {
+        for (heading, start_x, both) in [(90.0, 60.0, false), (270.0, 240.0, false), (90.0, 60.0, true)] {
             let mut doc = flat_map(1);
             doc.dir = content.join("maps").join("Pocket");
             doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
@@ -14830,6 +14830,7 @@ mod tests {
             ed.open(doc);
             ed.set_tool(Tool::Roads);
             ed.bus_pocket = true;
+            ed.pocket_both_sides = both;
             ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
             ed.left_press(&mut assets, &Library::default(), false);
 
@@ -14840,7 +14841,7 @@ mod tests {
             // The plate at the start of the spline comes first, regardless of heading.
             plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
             assert_eq!(plates.len(), 2);
-            for (plate, index) in plates.into_iter().zip([1, 2]) {
+            for (plate, single_index) in plates.into_iter().zip([1, 2]) {
                 let path = omsi_cfg::resolve_path(&content, &plate.file);
                 let sco = omsi_cfg::vfs::read_text(&path).unwrap();
                 let mut before = String::new();
@@ -14850,9 +14851,11 @@ mod tests {
                 crate::doc::save::object(&mut before, &plain, false);
                 crate::doc::save::object(&mut after, plate, false);
                 println!("Heading {heading}, plate {}\n{sco}\nBefore:\n{before}\nAfter:\n{after}", plate.id);
-                assert_eq!(plate.rules, ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                let indices: &[i32] = if both { &[1, 4] } else { std::slice::from_ref(&single_index) };
+                let expected: Vec<_> = indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
                     path_index: index, kind: kind.into(), ..Default::default()
-                }));
+                })).collect();
+                assert_eq!(plate.rules, expected);
             }
             let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
             crate::doc::save::save(doc).unwrap();
@@ -14870,7 +14873,7 @@ mod tests {
     fn an_ordinary_width_adapter_junction_does_not_add_bus_pocket_rules() {
         let (mut assets, dir, plain, _) = pocket_fixture("ordinary-adapter");
         let content = dir.join("content");
-        let (bay, _) = crate::pocket::bay_type(&mut assets, &content, &plain, false, false, 3.0).unwrap();
+        let bay = crate::pocket::bay_type(&mut assets, &content, &plain, false, false, 3.0, false).unwrap();
         assert!(assets.spline_wait(&bay, 5000).is_some());
         let mut doc = flat_map(1);
         doc.dir = content.join("maps").join("Ordinary");
@@ -14925,6 +14928,65 @@ mod tests {
         assert!((me.0 - oe.0).abs() < 1e-3, "the left side stays: {me:?} {oe:?}");
         assert!((me.1 - oe.1 - 3.0).abs() < 1e-3, "the right side is 3 m wider: {me:?} {oe:?}");
         assert!(made.len() > own.len());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_bus_pocket_on_both_sides_shares_its_width_length_and_junction_tapers() {
+        let (mut assets, dir, plain, _) = pocket_fixture("both-sides");
+        let content = dir.join("content");
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Pocket");
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
+            file: plain.clone(), id: 1, pos: [150.0, 60.0, 0.0], heading: 0.0, length: 180.0,
+            ..Default::default()
+        });
+        let mut ed = Editor::default();
+        assert!(!ed.pocket_both_sides);
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        ed.bus_pocket = true;
+        ed.pocket_both_sides = true;
+        ed.pocket_width = 3.25;
+        ed.pocket_len = 24.0;
+        ed.pocket_alike = false;
+        ed.pocket_metres = true;
+        ed.pocket_in_m = 14.0;
+        ed.pocket_out_m = 22.0;
+        ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+
+        let own = assets.spline_wait(&plain, 5000).unwrap();
+        ed.left_press(&mut assets, &Library::default(), false);
+        let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        let bays: Vec<_> = t.splines.iter().filter(|s| !s.deleted && s.file.contains("_bay_both_")).collect();
+        let plates: Vec<_> = t.objects.iter().filter(|o| o.file.contains("junction_")).collect();
+        println!("After placing: splines={:#?}, tapers={:#?}", t.splines, plates);
+        assert_eq!(bays.len(), 1);
+        let bay = bays[0];
+        let widened = assets.spline_wait(&bay.file, 5000).unwrap();
+        let (before, after) = (crate::pocket::extent(&own).unwrap(), crate::pocket::extent(&widened).unwrap());
+        println!("Original extent {before:?}, paths {:#?}", own.def.paths);
+        println!("Double bay extent {after:?}, paths {:#?}", widened.def.paths);
+        assert!((before.0 - after.0 - 3.25).abs() < 1e-3 && (after.1 - before.1 - 3.25).abs() < 1e-3);
+        assert!((bay.pos[0] - 150.0).abs() < 0.01 && (bay.pos[1] - 138.0).abs() < 0.01);
+        assert!((bay.length - 24.0).abs() < 0.01);
+        assert_eq!(plates.len(), 2);
+        let mut taper_lengths = Vec::new();
+        for plate in plates {
+            let path = omsi_cfg::resolve_path(&content, &plate.file);
+            let taper = omsi_scenery::SceneryObject::load(&path).unwrap();
+            println!("{}: helpers {:#?}, paths {:#?}", plate.file, taper.spline_helpers, taper.paths);
+            assert_eq!(taper.spline_helpers.len(), 2);
+            taper_lengths.push((taper.spline_helpers[0].z - taper.spline_helpers[1].z).abs());
+        }
+        taper_lengths.sort_by(f32::total_cmp);
+        assert_eq!(taper_lengths, [14.0, 22.0]);
+
+        ed.undo();
+        let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        assert_eq!(t.splines.iter().filter(|s| !s.deleted).count(), 1);
+        assert!(!t.objects.iter().any(|o| o.file.contains("junction_")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

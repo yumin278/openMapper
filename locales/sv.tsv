@@ -2396,6 +2396,7 @@ Advanced users	Avancerade användare
 Controls as in OMSI 2's editor	Kontroller som i OMSI 2:s editor
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Av som standard. Mittknappen vrider vyn, högerknappen hållen och förd upp och ned zoomar, ett högerklick på marken går dit (Shift + högerklick: menyn), piltangenterna flyttar kameran, hjulet zoomar
 Bay width	Fickans bredd
+Bay width per side	Bredd på bussfickan per sida
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	En vägtyp med detta fickfält skapas av den valda (den från väggeneratorn), om den inte har den bredden
 Tapers in metres	Avsmalningar i meter
 Give the length of each taper in metres instead of a ratio	Ange längden på varje avsmalning i meter i stället för en proportion

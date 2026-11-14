@@ -2396,6 +2396,7 @@ Advanced users	Pokročilí uživatelé
 Controls as in OMSI 2's editor	Ovládání jako v editoru OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Ve výchozím stavu vypnuto. Prostřední tlačítko otáčí pohled, podržené pravé tlačítko posouvané nahoru a dolů přibližuje, pravé kliknutí na terén tam přejde (Shift + pravé kliknutí: nabídka), šipky posouvají kameru, kolečko přibližuje
 Bay width	Šířka zálivu
+Bay width per side	Šířka zálivu na každé straně
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Typ silnice s tímto pruhem zálivu se vytvoří z vybraného (z tvůrce silnic), pokud nemá tuto šířku
 Tapers in metres	Zúžení v metrech
 Give the length of each taper in metres instead of a ratio	Zadejte délku každého zúžení v metrech místo poměru

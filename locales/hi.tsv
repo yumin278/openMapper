@@ -2396,6 +2396,7 @@ Advanced users	एडवांस्ड उपयोगकर्ता
 Controls as in OMSI 2's editor	OMSI 2 के एडिटर जैसे नियंत्रण
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	डिफ़ॉल्ट रूप से बंद। बीच का बटन दृश्य घुमाता है, दायाँ बटन दबाकर ऊपर-नीचे हिलाने से ज़ूम होता है, ज़मीन पर दायाँ क्लिक वहाँ जाता है (Shift + दायाँ क्लिक: मेनू), तीर कुंजियाँ कैमरा हिलाती हैं, व्हील ज़ूम करता है
 Bay width	पॉकेट की चौड़ाई
+Bay width per side	प्रति ओर बस बे की चौड़ाई
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	इस पॉकेट लेन वाला सड़क प्रकार चुने गए प्रकार (रोड मेकर वाले) से बनाया जाता है, यदि उसकी चौड़ाई यह नहीं है
 Tapers in metres	मीटर में टेपर
 Give the length of each taper in metres instead of a ratio	अनुपात के बजाय हर टेपर की लंबाई मीटर में दें
