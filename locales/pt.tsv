@@ -1941,6 +1941,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Selecionar o sinal e seus trechos na vista
 Delete the route	Excluir a rota
 Lines and timetable	Linhas e horário
+Convert all Type 1 trips to Type 2	Converter todas as viagens do tipo 1 para o tipo 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Converta as listas de paradas de {count} viagens do tipo 1 e salve o mapa. Recalcule as rotas separadamente.
+Converted: {converted}. Skipped: {skipped}.	Convertidas: {converted}. Ignoradas: {skipped}.
 Edit timetable	Editar horário
 No bus stop there: click one of the orange marks	Não há ponto de ônibus aí: clique numa das marcas laranja
 The roads can't be read without the OMSI 2 folder.	As estradas não podem ser lidas sem a pasta do OMSI 2.

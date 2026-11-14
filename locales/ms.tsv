@@ -1941,6 +1941,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Pilih isyarat dan kepingnya dalam pandangan
 Delete the route	Padam laluan
 Lines and timetable	Laluan dan jadual waktu
+Convert all Type 1 trips to Type 2	Tukar semua perjalanan Jenis 1 kepada Jenis 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Tukar senarai hentian bagi {count} perjalanan Jenis 1, kemudian simpan peta. Pengiraan semula laluan dijalankan secara berasingan.
+Converted: {converted}. Skipped: {skipped}.	Ditukar: {converted}. Dilangkau: {skipped}.
 Edit timetable	Edit jadual waktu
 No bus stop there: click one of the orange marks	Tiada perhentian bas di situ: klik salah satu tanda oren
 The roads can't be read without the OMSI 2 folder.	Jalan tidak dapat dibaca tanpa folder OMSI 2.

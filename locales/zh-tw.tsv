@@ -1950,6 +1950,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	在視圖中選取號誌及其軌道段
 Delete the route	刪除路徑
 Lines and timetable	路線與時刻表
+Convert all Type 1 trips to Type 2	將全地圖的 Type 1 班次轉成 Type 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	轉換 {count} 條 Type 1 班次的站序後，請儲存地圖。路徑重算可另外執行。
+Converted: {converted}. Skipped: {skipped}.	已轉換 {converted} 條，略過 {skipped} 條。
 Edit timetable	編輯時刻表
 No bus stop there: click one of the orange marks	該處沒有站牌：請點擊其中一個橘色標記
 The roads can't be read without the OMSI 2 folder.	沒有 OMSI 2 資料夾就無法讀取道路。

@@ -76,6 +76,7 @@ pub struct TimetableUi {
     ways: HashMap<String, Ways>,
     /// The map the state belongs to.
     map: Option<std::path::PathBuf>,
+    confirm_type2_conversion: bool,
     want_line: Option<String>,
     /// The line's tours are shown (else its trips).
     tours_tab: bool,
@@ -85,6 +86,10 @@ pub struct TimetableUi {
     /// The year the holidays are shown of.
     holiday_year: i32,
     holidays_open: bool,
+}
+
+fn type2_conversion_label() -> &'static str {
+    tr("Convert all Type 1 trips to Type 2", "Преобразовать все рейсы типа 1 в тип 2")
 }
 
 fn lower(s: &str) -> String {
@@ -248,7 +253,7 @@ impl TimetableUi {
             .iter()
             .map(|&(tile, id, pos)| {
                 // (the strings of a stop on a spline are its attachment's)
-                let strings: &[String] = doc.object(tile, id).map(|o| o.extra.as_slice()).or_else(|| doc.tiles.get(&tile).and_then(|t| t.tile.spline_attachments.iter().find(|a| a.id == id)).map(|a| a.strings.as_slice())).unwrap_or(&[]);
+                let strings: &[String] = doc.object(tile, id).map(|o| o.extra.as_slice()).or_else(|| doc.attachment(tile, id).map(|a| a.strings.as_slice())).unwrap_or(&[]);
                 MapStop { tile, id, pos, name: strings.first().cloned().unwrap_or_default(), kind: crate::stops::StopSettings::read(strings).kind }
             })
             .collect();
@@ -266,7 +271,7 @@ impl TimetableUi {
     /// Find the routes of the trips whose stops changed and keep them in the timetable.
     fn reroute(&mut self, doc: &mut Document) {
         let Some(net) = &self.net else { return };
-        let names: Vec<String> = std::mem::take(&mut doc.timetable.reroute).into_iter().collect();
+        let names: Vec<String> = std::mem::take(&mut doc.timetable.reroute).into_iter().filter(|name| !doc.timetable.type2_converted.contains(name)).collect();
         for name in names {
             let Some(trip) = doc.timetable.trip(&name).cloned() else { continue };
             if trip.stations.len() < 2 {
@@ -366,6 +371,7 @@ impl TimetableUi {
         if !self.open {
             self.picking = false;
             ed.pick_mode = false;
+            self.confirm_type2_conversion = false;
             return;
         }
         self.roots = roots.map(|r| vec![r.content.clone(), r.omsi.clone()]);
@@ -395,10 +401,17 @@ impl TimetableUi {
             .show(ctx, |ui| self.contents(ui, ed, actions));
         self.open = open;
         if !open {
+            self.confirm_type2_conversion = false;
             self.picking = false;
             ed.pick_mode = false;
         }
         let doc = ed.doc.as_ref().unwrap();
+        if doc.timetable.type2_converted.len() > before.type2_converted.len() {
+            let traffic = (traffic_before != doc.traffic).then_some(traffic_before);
+            ed.history.push_snapshot(type2_conversion_label(), crate::history::Snapshot { timetable: Some(before), traffic, ..Default::default() });
+            self.update_shown(ed);
+            return;
+        }
         // (a depot added for tours that all name a group changes only the traffic: a step too)
         let timetable = !before.same_content(&doc.timetable);
         let traffic = (traffic_before != doc.traffic).then_some(traffic_before);
@@ -460,8 +473,44 @@ impl TimetableUi {
         self.shown = Some((trip.name.clone(), trip.stations.clone(), self.net_key, r));
     }
 
+    fn type2_conversion(&mut self, ui: &mut egui::Ui, doc: &mut Document, toasts: &mut Vec<crate::editor::Toast>) {
+        let count = doc.timetable.trips.iter().filter(|t| !t.stations_legacy.is_empty()).count();
+        if count == 0 {
+            self.confirm_type2_conversion = false;
+            return;
+        }
+        let label = type2_conversion_label();
+        if ui.button(label).clicked() {
+            self.confirm_type2_conversion = true;
+        }
+        if self.confirm_type2_conversion {
+            let modal = egui::Modal::new(egui::Id::new("timetable type 2 conversion")).show(ui.ctx(), |ui| {
+                ui.set_max_width(400.0);
+                ui.label(tr("Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.", "Преобразуйте списки остановок {count} рейсов типа 1, затем сохраните карту. Пересчёт маршрутов запускается отдельно.").replace("{count}", &count.to_string()));
+                ui.horizontal(|ui| {
+                    if ui.button(tr("Cancel", "Отмена")).clicked() {
+                        ui.close();
+                    }
+                    ui.button(label).clicked()
+                }).inner
+            });
+            if modal.inner {
+                self.confirm_type2_conversion = false;
+                let (converted, skipped) = doc.timetable.convert_all_to_type2();
+                self.shown = None;
+                let text = tr("Converted: {converted}. Skipped: {skipped}.", "Преобразовано: {converted}. Пропущено: {skipped}.")
+                    .replace("{converted}", &converted.to_string()).replace("{skipped}", &skipped.to_string());
+                toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: skipped > 0 });
+            } else if modal.should_close() {
+                self.confirm_type2_conversion = false;
+            }
+        }
+        ui.separator();
+    }
+
     fn contents(&mut self, ui: &mut egui::Ui, ed: &mut Editor, actions: &mut Vec<Action>) {
         let Some(doc) = ed.doc.as_mut() else { return };
+        self.type2_conversion(ui, doc, &mut ed.toasts);
         if self.net.is_none() {
             ui.label(RichText::new(tr("The roads can't be read without the OMSI 2 folder.", "Без папки OMSI 2 дороги не прочитать.")).color(WARN));
         }

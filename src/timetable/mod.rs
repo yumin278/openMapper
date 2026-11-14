@@ -5,6 +5,7 @@
 //! trip or tour of it is edited.
 
 pub mod caruse;
+mod convert;
 pub mod network;
 pub mod route;
 
@@ -42,6 +43,8 @@ pub struct Timetable {
     links_changed: bool,
     /// Trips whose route is to be found again (their stops changed).
     pub reroute: BTreeSet<String>,
+    /// Trips converted since the last save, whose existing route is kept on that save.
+    pub type2_converted: BTreeSet<String>,
     /// Public holidays and school holidays (`Holidays.txt`): which tours run on a day.
     pub calendar: omsi_map::Calendar,
     calendar_changed: bool,
@@ -110,6 +113,7 @@ impl Timetable {
     /// A trip's stops changed: its route is found again.
     pub fn touch_route(&mut self, name: &str) {
         self.touch_trip(name);
+        self.type2_converted.remove(&key(name));
         self.reroute.insert(key(name));
     }
 
@@ -258,6 +262,9 @@ impl Timetable {
             return None;
         }
         self.trip_mut(old)?.name = new.to_string();
+        if self.type2_converted.remove(&key(old)) {
+            self.type2_converted.insert(key(new));
+        }
         for ext in ["ttp", "ttr"] {
             self.removed.insert(key(&format!("{old}.{ext}")));
             self.changed.remove(&key(&format!("{old}.{ext}")));
@@ -304,6 +311,7 @@ impl Timetable {
             self.touch_line(&l);
         }
         self.reroute.remove(&key(name));
+        self.type2_converted.remove(&key(name));
         self.mark();
     }
 
@@ -430,10 +438,10 @@ pub fn follow_stop_tiles(doc: &mut Document) {
 pub fn stop_entries(doc: &Document, ids: &[(TileKey, i64)]) -> Vec<BusStopEntry> {
     ids.iter()
         .filter_map(|&(k, id)| {
-            let o = doc.object(k, id)?;
+            let strings = doc.object(k, id).map(|o| &o.extra).or_else(|| doc.attachment(k, id).map(|a| &a.strings))?;
             let tile = doc.order.iter().position(|t| *t == k)?;
-            let name = o.extra.first().map(|s| s.trim().to_string()).unwrap_or_default();
-            let offset = o.extra.get(3).and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(0.0);
+            let name = strings.first().map(|s| s.trim().to_string()).unwrap_or_default();
+            let offset = strings.get(3).and_then(|s| s.trim().parse::<f64>().ok()).unwrap_or(0.0);
             Some(BusStopEntry { name, group: tile as i32, object_id: id, params: [offset, 0.0, 0.0] })
         })
         .collect()
@@ -527,6 +535,7 @@ impl Timetable {
 pub fn saved(tt: &mut Timetable) {
     tt.removed.clear();
     tt.changed.clear();
+    tt.type2_converted.clear();
     tt.stops_changed = false;
     tt.links_changed = false;
     tt.calendar_changed = false;
