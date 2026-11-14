@@ -1100,6 +1100,10 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64)
             apply = true;
         }
         if new.lights {
+            if let Some(doc) = ed.doc.as_ref() {
+                let (set, _) = doc.signal_sets.resolve(&opts.signal_set);
+                ui.label(RichText::new(format!("{} ({})", set.name, set.id)).small().color(TEXT_DIM));
+            }
             if arms.len() < 3 {
                 ui.label(RichText::new(tr("Lights need three roads or more", "Светофорам нужно не меньше трёх дорог")).small().color(TEXT_DIM));
             }
