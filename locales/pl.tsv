@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Wstaw przed:
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Kliknij przystanek na mapie, aby wstawić go przed „{stop}” (Esc anuluje)
 That stop is already next to the insertion point.	Ten przystanek już sąsiaduje z miejscem wstawienia.
 Insert stop before	Wstaw przystanek przed tym
+Place signal heads and poles	Ustaw sygnalizatory i słupy
+Paint stripes on selected crossings	Maluj pasy na wybranych przejściach

@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Inserir ante
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Escolha uma parada no mapa para inseri-la antes de “{stop}” (Esc para cancelar)
 That stop is already next to the insertion point.	Essa parada já está ao lado do ponto de inserção.
 Insert stop before	Inserir parada antes desta
+Place signal heads and poles	Posicionar focos e postes de semáforo
+Paint stripes on selected crossings	Pintar listras nas faixas de pedestres selecionadas

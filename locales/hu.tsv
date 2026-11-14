@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Beszúrás e
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Válassz a térképen egy megállót, hogy „{stop}” elé szúrd be (Esc: mégse)
 That stop is already next to the insertion point.	Ez a megálló már a beszúrás helye mellett van.
 Insert stop before	Megálló beszúrása elé
+Place signal heads and poles	Jelzőfejek és oszlopok elhelyezése
+Paint stripes on selected crossings	Csíkok festése a kijelölt gyalogátkelőhelyekre

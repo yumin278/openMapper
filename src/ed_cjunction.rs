@@ -54,8 +54,9 @@ impl Editor {
                 // (the plate between the arms: an object of its own, turned with the drawing)
                 if let Some(content) = content {
                     let folder = crate::junction::folder_name(doc);
+                    let asphalt = crate::junction::junction_asphalt(Some(&doc.dir), asphalt.as_deref());
                     for arms in &resolved.plates {
-                        let plate = crate::junction::object_dir(&content, &folder).ok().and_then(|d| crate::junction::layout_plate(assets, arms, Some(&d.join("texture")), asphalt.as_deref()));
+                        let plate = crate::junction::layout_plate(assets, arms, asphalt.as_deref());
                         let Some(rel) = plate.and_then(|p| p.write_object(&content, &folder).ok()) else { continue };
                         let k = tile_of(origin);
                         if doc.tiles.contains_key(&k) {

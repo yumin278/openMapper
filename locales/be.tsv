@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Уставі
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Выберыце прыпынак на карце, каб уставіць яго перад «{stop}» (Esc — скасаваць)
 That stop is already next to the insertion point.	Гэты прыпынак ужо побач з месцам устаўкі.
 Insert stop before	Уставіць прыпынак перад гэтым
+Place signal heads and poles	Усталёўваць святлафоры і апоры
+Paint stripes on selected crossings	Маляваць палосы на выбраных пераходах

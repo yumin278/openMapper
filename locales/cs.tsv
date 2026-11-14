@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Vložit pře
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Klikněte na mapě na zastávku, kterou chcete vložit před „{stop}“ (Esc zruší výběr)
 That stop is already next to the insertion point.	Tato zastávka už sousedí s místem vložení.
 Insert stop before	Vložit zastávku před tuto
+Place signal heads and poles	Umístit návěstidla a sloupky
+Paint stripes on selected crossings	Vykreslit pruhy na vybraných přechodech

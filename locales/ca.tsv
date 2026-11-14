@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Insereix aba
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Trieu al mapa una parada per inserir-la abans de «{stop}» (Esc per cancel·lar)
 That stop is already next to the insertion point.	Aquesta parada ja és al costat del punt d’inserció.
 Insert stop before	Insereix una parada abans
+Place signal heads and poles	Col·loca els caps i els pals dels semàfors
+Paint stripes on selected crossings	Pinta les franges als passos seleccionats

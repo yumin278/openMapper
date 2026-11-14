@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Ervoor invoe
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Klik op een halte op de kaart om die vóór ‘{stop}’ in te voegen (Esc om te annuleren)
 That stop is already next to the insertion point.	Die halte staat al naast het invoegpunt.
 Insert stop before	Halte ervoor invoegen
+Place signal heads and poles	Verkeerslichten en palen plaatsen
+Paint stripes on selected crossings	Strepen tekenen op geselecteerde oversteekplaatsen

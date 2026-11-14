@@ -2806,3 +2806,5 @@ Insert before: click a stop on the map to insert it before this one	Insérer ava
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Choisissez un arrêt sur la carte pour l’insérer avant « {stop} » (Échap pour annuler)
 That stop is already next to the insertion point.	Cet arrêt est déjà à côté du point d’insertion.
 Insert stop before	Insérer un arrêt avant celui-ci
+Place signal heads and poles	Placer les têtes et les mâts des feux
+Paint stripes on selected crossings	Peindre les bandes sur les passages sélectionnés

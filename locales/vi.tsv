@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Chèn trư�
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Chọn một điểm dừng trên bản đồ để chèn trước “{stop}” (Esc để hủy)
 That stop is already next to the insertion point.	Điểm dừng đó đã nằm ngay cạnh vị trí chèn.
 Insert stop before	Chèn điểm dừng trước điểm này
+Place signal heads and poles	Đặt cụm đèn và cột tín hiệu giao thông
+Paint stripes on selected crossings	Kẻ vạch trên các lối sang đường đã chọn

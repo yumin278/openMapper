@@ -2804,3 +2804,5 @@ Insert before: click a stop on the map to insert it before this one	插入到此
 Click a stop on the map to insert it before {stop} (Esc to cancel)	在地图上选择站点，将其插入到“{stop}”之前（Esc 取消）
 That stop is already next to the insertion point.	该站点已与插入位置相邻。
 Insert stop before	插入到此站之前
+Place signal heads and poles	放置信号灯头和灯杆
+Paint stripes on selected crossings	在选定的人行横道上绘制条纹

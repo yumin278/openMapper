@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Önüne ekle
 Click a stop on the map to insert it before {stop} (Esc to cancel)	“{stop}” durağının önüne eklemek için haritada bir durağa tıklayın (iptal için Esc)
 That stop is already next to the insertion point.	Bu durak ekleme noktasının hemen yanında zaten var.
 Insert stop before	Önüne durak ekle
+Place signal heads and poles	Sinyal başlıklarını ve direkleri yerleştir
+Paint stripes on selected crossings	Seçili yaya geçitlerine şerit çiz

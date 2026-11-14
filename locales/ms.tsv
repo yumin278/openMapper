@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Sisip sebelu
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Pilih hentian pada peta untuk disisipkan sebelum “{stop}” (Esc untuk batal)
 That stop is already next to the insertion point.	Hentian itu sudah bersebelahan dengan titik sisipan.
 Insert stop before	Sisipkan hentian sebelum ini
+Place signal heads and poles	Letakkan kepala dan tiang lampu isyarat
+Paint stripes on selected crossings	Cat jalur pada lintasan yang dipilih

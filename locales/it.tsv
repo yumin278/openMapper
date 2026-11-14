@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Inserisci pr
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Scegli sulla mappa una fermata da inserire prima di «{stop}» (Esc per annullare)
 That stop is already next to the insertion point.	Questa fermata è già accanto al punto di inserimento.
 Insert stop before	Inserisci una fermata prima di questa
+Place signal heads and poles	Posiziona lanterne semaforiche e pali
+Paint stripes on selected crossings	Dipingi le strisce sugli attraversamenti selezionati

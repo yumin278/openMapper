@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	แทรก
 Click a stop on the map to insert it before {stop} (Esc to cancel)	คลิกป้ายหยุดรถบนแผนที่เพื่อแทรกก่อน “{stop}” (Esc เพื่อยกเลิก)
 That stop is already next to the insertion point.	ป้ายหยุดรถนั้นอยู่ติดกับตำแหน่งที่จะแทรกอยู่แล้ว
 Insert stop before	แทรกป้ายหยุดรถก่อนป้ายนี้
+Place signal heads and poles	วางหัวสัญญาณไฟจราจรและเสา
+Paint stripes on selected crossings	วาดแถบสีบนทางข้ามที่เลือก

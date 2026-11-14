@@ -2806,3 +2806,5 @@ Insert before: click a stop on the map to insert it before this one	Davor einfü
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Wähle auf der Karte eine Haltestelle aus, um sie vor „{stop}“ einzufügen (Esc zum Abbrechen)
 That stop is already next to the insertion point.	Diese Haltestelle grenzt bereits an die Einfügestelle.
 Insert stop before	Haltestelle davor einfügen
+Place signal heads and poles	Ampelköpfe und Masten aufstellen
+Paint stripes on selected crossings	Streifen auf ausgewählten Übergängen zeichnen

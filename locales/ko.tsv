@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	앞에 삽�
 Click a stop on the map to insert it before {stop} (Esc to cancel)	지도에서 정류장을 클릭하여 ‘{stop}’ 앞에 삽입하세요(Esc로 취소)
 That stop is already next to the insertion point.	해당 정류장은 이미 삽입 위치 바로 옆에 있습니다.
 Insert stop before	이 정류장 앞에 삽입
+Place signal heads and poles	신호등과 지주 배치
+Paint stripes on selected crossings	선택한 횡단보도에 줄무늬 그리기

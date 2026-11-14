@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Infoga före
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Välj en hållplats på kartan för att infoga den före ”{stop}” (Esc för att avbryta)
 That stop is already next to the insertion point.	Hållplatsen ligger redan intill infogningspunkten.
 Insert stop before	Infoga hållplats före denna
+Place signal heads and poles	Placera signalhuvuden och stolpar
+Paint stripes on selected crossings	Måla ränder på valda övergångsställen

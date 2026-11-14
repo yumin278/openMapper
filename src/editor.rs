@@ -9679,8 +9679,10 @@ fn ball(out: &mut Vec<OverlayPoint>, c: DVec3, r: f64, color: [f32; 4]) {
 /// zebra on every arm if any road does.
 fn style_options(doc: &Document, styles: &crate::road_maker::Styles, arms: &[crate::junction::Arm], centre: DVec3) -> crate::junction::Options {
     let st: Vec<crate::road_maker::JunctionStyle> = arms.iter().filter_map(|a| doc.spline(a.key, a.id)).map(|s| styles.get(&s.file)).collect();
+    let lights = st.iter().any(|s| s.lights);
     let mut o = crate::junction::Options {
-        lights: st.iter().any(|s| s.lights),
+        lights,
+        light_objects: lights,
         corner_walks: st.iter().all(|s| s.corner_walks),
         ..Default::default()
     };

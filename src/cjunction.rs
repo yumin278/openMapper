@@ -346,11 +346,12 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
     std::fs::create_dir_all(dir.join("texture"))?;
     // the plate between the arms: the roadway, kerbs and footways, with its lanes
     let mut plate_paths = String::new();
+    let asphalt = crate::junction::asphalt_texture(&roots.omsi);
     for arms in &resolved.plates {
         for a in arms {
             anyhow::ensure!(assets.spline_wait(&a.file, 5000).is_some(), "{}: {}", tr("the spline cannot be read", "сплайн не читается"), a.file);
         }
-        let plate = crate::junction::layout_plate(assets, arms, Some(&dir.join("texture")), None).ok_or_else(|| anyhow::anyhow!("{}", tr("the plate could not be made from these arms", "плиту не удалось построить из этих въездов")))?;
+        let plate = crate::junction::layout_plate(assets, arms, asphalt.as_deref()).ok_or_else(|| anyhow::anyhow!("{}", tr("the plate could not be made from these arms", "плиту не удалось построить из этих въездов")))?;
         joined.append(&plate.model_mesh(&mut src.model.materials, &mut textures), 0);
         plate_paths.push_str(&plate.paths);
     }

@@ -131,11 +131,15 @@ struct PathRec {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub lights: bool,
+    /// Also place physical signal heads and poles (the traffic light program runs without them).
+    pub light_objects: bool,
     /// Green for the main road and for the side roads (s).
     pub main_green: f64,
     pub side_green: f64,
     /// The arms with a zebra crossing, by their heading out of the junction (degrees).
     pub crossings: Vec<f64>,
+    /// Paint white stripes on the selected zebra crossings; their AI paths are independent.
+    pub zebra_texture: bool,
     /// Whether the junction generates AI footway paths around its corners.
     pub corner_walks: bool,
     /// Empty to use the map's default combination.
@@ -144,7 +148,7 @@ pub struct Options {
 
 impl Default for Options {
     fn default() -> Self {
-        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), corner_walks: true, signal_set: String::new() }
+        Options { lights: false, light_objects: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), zebra_texture: true, corner_walks: true, signal_set: String::new() }
     }
 }
 
@@ -154,25 +158,30 @@ impl Options {
     fn line(&self) -> String {
         let c: Vec<String> = self.crossings.iter().map(|h| format!("{h:.1}")).collect();
         // (helpers=omsi: its spline helpers are in OMSI's order, x height forward)
-        format!("{OPTIONS_TAG} lights={} main={:.0} side={:.0} crossings={} walks={} helpers=omsi sig={}", self.lights as i32, self.main_green, self.side_green, c.join(","), self.corner_walks as i32, self.signal_set)
+        format!("{OPTIONS_TAG} lights={} heads={} main={:.0} side={:.0} crossings={} zebra_tex={} walks={} helpers=omsi sig={}", self.lights as i32, self.light_objects as i32, self.main_green, self.side_green, c.join(","), self.zebra_texture as i32, self.corner_walks as i32, self.signal_set)
     }
 
     /// The options written in a junction's `.sco` text (defaults when none are).
     pub fn parse(sco: &str) -> Options {
         let mut o = Options::default();
         let Some(line) = sco.lines().find(|l| l.trim_start().starts_with(OPTIONS_TAG)) else { return o };
+        let mut heads = None;
         for kv in line.trim_start()[OPTIONS_TAG.len()..].split_whitespace() {
             let Some((k, v)) = kv.split_once('=') else { continue };
             match k {
                 "lights" => o.lights = v == "1",
+                "heads" => heads = match v { "0" => Some(false), "1" => Some(true), _ => heads },
                 "main" => o.main_green = v.parse().unwrap_or(o.main_green),
                 "side" => o.side_green = v.parse().unwrap_or(o.side_green),
                 "crossings" => o.crossings = v.split(',').filter_map(|x| x.parse().ok()).collect(),
+                "zebra_tex" => o.zebra_texture = match v { "0" => false, "1" => true, _ => o.zebra_texture },
                 "walks" => o.corner_walks = match v { "0" => false, "1" => true, _ => o.corner_walks },
                 "sig" => o.signal_set = v.to_owned(),
                 _ => {}
             }
         }
+        // Saved integration junctions placed signal models whenever lights were enabled.
+        o.light_objects = heads.unwrap_or(o.lights);
         o
     }
 
@@ -841,6 +850,13 @@ impl Mesh {
     }
 }
 
+/// The widest arm with a roadway texture supplies the existing UV direction.
+fn asphalt_heading(arms: &[ArmGeo]) -> f64 {
+    arms.iter().filter(|g| g.road_tex.is_some())
+        .max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)))
+        .map(|g| g.out).unwrap_or(0.0)
+}
+
 /// Build the mesh: the roadway in the middle, and round each corner the kerb and footway
 /// of the roads, swept along a smooth curve from one arm's kerb line to the next's.
 /// `along`: the heading the roadway's texture runs (the widest road's), so its slabs and
@@ -1082,29 +1098,6 @@ fn mesh_x(m: &Mesh, names: &[String]) -> String {
     x
 }
 
-/// A plain square of a road's own surface, `period` metres a side (what the texture spans
-/// along the road): `band_m` metres of a lane's middle (no markings), as wide as it is on
-/// the road, mirrored to and fro across so it tiles without a seam, and the texture's full
-/// length along. The junction's roadway, laid flat at the same scale, then has the roads'
-/// grain and colour, not a stretched smear.
-fn clean_asphalt(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64, out: &Path) -> Option<()> {
-    let buf = clean_asphalt_image(tex, u, u_per_m, period, lane_m)?;
-    save_like(&buf, out)
-}
-
-/// Save a picture in the format its file name says (the road's own texture is a .bmp, .dds,
-/// .tga or .jpg, and what is made from it is written as one too); a name of another kind
-/// gets a PNG.
-fn save_like(buf: &image::RgbaImage, out: &Path) -> Option<()> {
-    let ext = out.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
-    match ext.as_str() {
-        "dds" => std::fs::write(out, crate::doc::dds::rgba(buf.width(), buf.height(), buf.as_raw())).ok(),
-        "bmp" | "jpg" | "jpeg" => image::DynamicImage::ImageRgba8(buf.clone()).to_rgb8().save(out).ok(),
-        "tga" | "png" => buf.save(out).ok(),
-        _ => buf.save_with_format(out, image::ImageFormat::Png).ok(),
-    }
-}
-
 /// The files that go with a texture (`name_wintersnow.dds`, `name.bmp.cfg`, `name.surf`…):
 /// everything beside it that starts with its name and then an underscore or a dot.
 pub fn companions(tex: &Path) -> Vec<PathBuf> {
@@ -1127,6 +1120,10 @@ pub fn companions(tex: &Path) -> Vec<PathBuf> {
 /// its .cfg and .surf), under its own name.
 pub fn copy_texture(tex: &Path, to_dir: &Path) {
     let Some(name) = tex.file_name() else { return };
+    copy_texture_as(tex, to_dir, name);
+}
+
+fn copy_texture_as(tex: &Path, to_dir: &Path, name: &std::ffi::OsStr) {
     let to = to_dir.join(name);
     if !to.exists() {
         let _ = std::fs::copy(tex, &to);
@@ -1140,78 +1137,18 @@ pub fn copy_texture(tex: &Path, to_dir: &Path) {
     }
 }
 
-/// The plain asphalt made from `tex` as `<stem>_junction.<same extension>` in `to_dir`, with
-/// the same made from each of its companions (its winter pictures, in their formats) and the
-/// others (.cfg, .surf) copied under the new name. Gives the main picture's path.
-fn plain_like(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64, to_dir: &Path) -> Option<PathBuf> {
-    let stem = tex.file_stem()?.to_string_lossy().to_string();
-    let ext = tex.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "png".into());
-    let new_stem = format!("{stem}_junction");
-    let out = to_dir.join(format!("{new_stem}.{ext}"));
-    // (one cut short, a full disk say, is made again)
-    if out.exists() && omsi_texture::decode_file(&out).is_err() {
-        let _ = std::fs::remove_file(&out);
+/// Write map overrides under the same names regardless of the map files' spelling.
+fn export_texture(tex: &Path, to_dir: &Path) -> String {
+    let Some(name) = tex.file_name().map(|name| name.to_string_lossy()) else { return String::new() };
+    let canonical = [MAP_ASPHALT, MAP_ZEBRA].into_iter().find(|n| name.eq_ignore_ascii_case(n));
+    if let Some(file) = canonical.filter(|n| name != *n) {
+        copy_texture_as(tex, to_dir, file.as_ref());
+        return file.to_owned();
     }
-    if !out.exists() {
-        clean_asphalt(tex, u, u_per_m, period, lane_m, &out)?;
+    if tex.parent() != Some(to_dir) {
+        copy_texture(tex, to_dir);
     }
-    for c in companions(tex) {
-        let Some(name) = c.file_name().map(|f| f.to_string_lossy().to_string()) else { continue };
-        let to = to_dir.join(format!("{new_stem}{}", &name[stem.len().min(name.len())..]));
-        if to.exists() {
-            continue;
-        }
-        let image_ext = c.extension().map(|e| matches!(e.to_string_lossy().to_lowercase().as_str(), "bmp" | "dds" | "tga" | "jpg" | "jpeg" | "png")).unwrap_or(false);
-        // (a picture made the same way, else the file as it is)
-        let done = image_ext && c.file_name().map(|f| !f.to_string_lossy().to_lowercase().ends_with(".cfg")).unwrap_or(false) && clean_asphalt(&c, u, u_per_m, period, lane_m, &to).is_some();
-        if !done {
-            let _ = std::fs::copy(&c, &to);
-        }
-    }
-    Some(out)
-}
-
-fn clean_asphalt_image(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64) -> Option<image::RgbaImage> {
-    let img = omsi_texture::decode_file(tex).ok()?;
-    let (w, h) = (img.width as usize, img.height as usize);
-    let col = |uu: f64| -> f64 {
-        let sx = ((uu.rem_euclid(1.0) * w as f64) as usize).min(w - 1);
-        (0..h).step_by((h / 64).max(1)).map(|y| { let p = &img.rgba[(y * w + sx) * 4..][..3]; (p[0] as f64 + p[1] as f64 + p[2] as f64) / 765.0 }).sum::<f64>() / (h as f64 / (h / 64).max(1) as f64)
-    };
-    // painted lines at the lane's edges (brighter than its middle) stay out: a band of its
-    // middle, mirrored to and fro; joints or nothing there: the whole lane, repeated, so
-    // slabs keep their grid
-    let half_u = lane_m * 0.5 * u_per_m;
-    let mid = col(u);
-    let edge = (0..=6).map(|i| col(u - half_u + half_u * 0.08 * i as f64)).chain((0..=6).map(|i| col(u + half_u - half_u * 0.08 * i as f64))).fold(0.0, f64::max);
-    let painted = edge > mid + 0.12;
-    let (band_m, mirror) = if painted { ((lane_m * 0.5).clamp(0.8, 2.0), true) } else { (lane_m.clamp(1.0, 5.0), false) };
-    let band_u = (band_m * u_per_m).max(0.002);
-    let size = 512usize;
-    let mut buf = image::RgbaImage::new(size as u32, size as u32);
-    // (each band side by side taken from another stretch of the road, so its patches and
-    // slabs do not stand in rows of the same one)
-    let bands = (period / band_m).round().max(1.0) as usize;
-    let band_m = period / bands as f64;
-    for y in 0..size {
-        for x in 0..size {
-            let m = x as f64 / size as f64 * period;
-            let j = ((m / band_m) as usize).min(bands - 1);
-            let shift = if j == 0 { 0.0 } else { (j as f64 * 0.618_034).fract() };
-            let sy = (((y as f64 / size as f64 + shift).fract() * h as f64) as usize).min(h - 1);
-            let t = if mirror {
-                let f = (m / band_m).rem_euclid(2.0);
-                if f < 1.0 { f } else { 2.0 - f }
-            } else {
-                (m / band_m).rem_euclid(1.0)
-            };
-            let uu = (u - band_u * 0.5 + band_u * t).rem_euclid(1.0);
-            let sx = ((uu * w as f64) as usize).min(w - 1);
-            let p = &img.rgba[(sy * w + sx) * 4..][..4];
-            buf.put_pixel(x as u32, y as u32, image::Rgba([p[0], p[1], p[2], 255]));
-        }
-    }
-    Some(buf)
+    name.into_owned()
 }
 
 fn num(v: f64) -> String {
@@ -1383,22 +1320,9 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     let tex_dir = dir.join("texture");
     std::fs::create_dir_all(dir.join("model"))?;
     std::fs::create_dir_all(&tex_dir)?;
-    // the roadway's texture: the asphalt of the roads that meet (a plate in the colour of its
-    // roads, cut so that no patch comes along in rows), else the installation's own junction
-    // asphalt
-    let widest = plate.arms.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
-    let road_tex = widest.and_then(|g| g.road_tex.clone());
-    let (core_tex, period) = match road_tex {
-        Some((tex, u, range, period, width, lane)) => {
-            // (most of a lane: slabs and patches keep their size; the markings at its edges
-            // stay out. Named, formatted and accompanied as the road's own texture is)
-            let out = plain_like(&tex, u, range / width, period.clamp(2.0, 40.0), lane, &tex_dir);
-            (out.or_else(|| asphalt.map(Path::to_path_buf)), period.clamp(2.0, 40.0))
-        }
-        None => (asphalt.map(Path::to_path_buf), 8.0),
-    };
-    let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, period, along);
+    let core_tex = junction_asphalt(Some(&doc.dir), asphalt);
+    let along = asphalt_heading(&plate.arms);
+    let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
     let zebra_arms: Vec<bool> = plate.arms.iter().map(|g| opts.crossing_at(g.out)).collect();
     let mut recs = paths(
@@ -1437,14 +1361,21 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         }
     }
 
-    if !zebras.is_empty() {
-        let white = tex_dir.join("om_zebra_white.png");
-        if !white.exists() {
-            let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
-        }
+    if opts.zebra_texture && !zebras.is_empty() {
+        let stripe_tex = if let Some(texture) = map_texture(&doc.dir, MAP_ZEBRA) {
+            log::info!("junction zebra texture: {texture:?} (map override)");
+            texture
+        } else {
+            let white = tex_dir.join("om_zebra_white.png");
+            if !white.exists() {
+                let _ = image::RgbaImage::from_pixel(8, 8, image::Rgba([235, 235, 230, 255])).save(&white);
+            }
+            log::info!("junction zebra texture: {white:?} (default; map override unavailable)");
+            white
+        };
         let mean_end_z = plate.arms.iter().map(|g| g.end.z).sum::<f64>() / plate.arms.len().max(1) as f64;
         let mean_road_z = plate.arms.iter().map(|g| g.road_z).sum::<f64>() / plate.arms.len().max(1) as f64;
-        paint_zebra_stripes(&mut mesh, &zebras, mean_end_z + mean_road_z + 0.03, white);
+        paint_zebra_stripes(&mut mesh, &zebras, mean_end_z + mean_road_z + 0.03, stripe_tex);
     }
     // every texture beside the object
     let mut names = Vec::new();
@@ -1453,11 +1384,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
             names.push(String::new());
             continue;
         };
-        let name = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
-        if p.parent() != Some(tex_dir.as_path()) {
-            copy_texture(p, &tex_dir);
-        }
-        names.push(name);
+        names.push(export_texture(p, &tex_dir));
     }
     // (the plate is written from what it is made of, in its own frame: junctions that come out
     // the same share one object file, one model and one set of textures, so the game loads and
@@ -1513,7 +1440,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         let reach = reach(doc, assets, centre, arms).max(min_reach);
         crate::editor::conform_disc(doc, centre, reach, &ends);
     }
-    if light_of.iter().any(Option::is_some) {
+    if opts.light_objects && light_of.iter().any(Option::is_some) {
         let (set, reason) = doc.signal_sets.resolve(&opts.signal_set);
         log::info!("junction {id} signal set: requested={:?}, used={:?}, reason={reason}", opts.signal_set, set.id);
         let set = set.clone();
@@ -1658,10 +1585,9 @@ pub struct Plate {
     pub lanes: Vec<(Seg, i32, i32)>,
 }
 
-/// The plate between `arms` (the roads end at their points, which the plate meets). `tex_dir`
-/// is where the roadway's own asphalt is written (None: nothing is written, the roadway has no
-/// texture: for a drawing on screen). None when fewer than two arms, or a road type is not loaded.
-pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Path>, asphalt: Option<&Path>) -> Option<Plate> {
+/// The plate between `arms` using the caller's asphalt texture. None when fewer than
+/// two arms, or a road type is not loaded.
+pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], asphalt: Option<&Path>) -> Option<Plate> {
     if arms.len() < 2 {
         return None;
     }
@@ -1680,17 +1606,9 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], tex_dir: Option<&Pat
     let centre = DVec3::new(mid.x, mid.y, 0.0);
     // The complex plate editor has no automatic zebra crossings.
     // Build the kerbs first, and reuse their exact tangent lengths for AI paths.
-    let widest = geo.iter().filter(|g| g.road_tex.is_some()).max_by(|a, b| (a.left_w + a.right_w).total_cmp(&(b.left_w + b.right_w)));
-    let (core_tex, period) = match (widest.and_then(|g| g.road_tex.clone()), tex_dir) {
-        (Some((tex, u, range, period, width, lane)), Some(dir)) => {
-            let out = plain_like(&tex, u, range / width, period.clamp(2.0, 40.0), lane, dir);
-            (out.or_else(|| asphalt.map(Path::to_path_buf)), period.clamp(2.0, 40.0))
-        }
-        (_, Some(_)) => (asphalt.map(Path::to_path_buf), 8.0),
-        _ => (None, 8.0),
-    };
-    let along = widest.map(|g| g.out).unwrap_or(0.0);
-    let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, period.max(1.0), along);
+    let core_tex = asphalt.map(Path::to_path_buf);
+    let along = asphalt_heading(&geo);
+    let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
     let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true,
         &kerb_lead, &vec![false; arms.len()], &kerb_corners, false);
@@ -1765,10 +1683,7 @@ impl Plate {
                 names.push(String::new());
                 continue;
             };
-            if p.parent() != Some(tex_dir.as_path()) {
-                copy_texture(p, &tex_dir);
-            }
-            names.push(p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default());
+            names.push(export_texture(p, &tex_dir));
         }
         let x_text = mesh_x(&self.mesh, &names);
         let hash = {
@@ -1858,6 +1773,39 @@ pub fn polyline(c: &SplineCurve) -> Vec<(DVec2, f64)> {
     }).collect()
 }
 
+const MAP_ASPHALT: &str = "plain_asphalt_texture.bmp";
+const MAP_ZEBRA: &str = "zebra_texture.bmp";
+const ASPHALT_PERIOD: f64 = 8.0;
+
+/// Find a file in the map's texture folder, ignoring case in both names.
+pub fn map_texture(map_dir: &Path, name: &str) -> Option<PathBuf> {
+    let dir = std::fs::read_dir(map_dir).ok()?.flatten().map(|e| e.path()).find(|p| {
+        p.is_dir() && p.file_name().is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case("texture"))
+    })?;
+    std::fs::read_dir(dir).ok()?.flatten().map(|e| e.path()).find(|p| {
+        p.is_file() && p.file_name().is_some_and(|f| f.to_string_lossy().eq_ignore_ascii_case(name))
+    })
+}
+
+pub fn map_asphalt(map_dir: &Path) -> Option<PathBuf> {
+    map_texture(map_dir, MAP_ASPHALT)
+}
+
+/// Prefer the map's asphalt to the installation's junction texture.
+pub fn junction_asphalt(map_dir: Option<&Path>, installed: Option<&Path>) -> Option<PathBuf> {
+    let map = map_dir.and_then(map_asphalt);
+    let reason = if map.is_some() {
+        "map override"
+    } else if installed.is_some() {
+        "installation fallback; map override unavailable"
+    } else {
+        "map override and installation texture unavailable"
+    };
+    let chosen = map.or_else(|| installed.map(Path::to_path_buf));
+    log::info!("junction asphalt texture: {chosen:?} ({reason})");
+    chosen
+}
+
 /// The asphalt texture junction plates are drawn with: the installation's own.
 pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
     let dir = std::fs::read_dir(omsi).ok()?.flatten().map(|e| e.path()).find(|p| p.file_name().map(|f| f.to_string_lossy().eq_ignore_ascii_case("texture")).unwrap_or(false))?;
@@ -1873,16 +1821,23 @@ pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
 mod tests {
     #[test]
     fn options_are_read_back_from_the_line_written() {
-        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], corner_walks: false, signal_set: "mc-small_2".into() };
+        let o = Options { lights: true, light_objects: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], zebra_texture: false, corner_walks: false, signal_set: "mc-small_2".into() };
         let text = format!("{}\r\n\r\n[friendlyname]\r\nJunction 1\r\n", o.line());
         let back = Options::parse(&text);
         println!("Options before writing: {o:?}\nSCO:\n{text}Parsed: {back:?}");
         assert_eq!(back, o, "all junction options must round-trip through .sco");
         assert_eq!((back.main_green, back.side_green), (42.0, 17.0));
         assert!(back.crossing_at(91.0) && back.crossing_at(270.0) && !back.crossing_at(0.0));
+        assert!(back.light_objects);
+        assert!(!back.zebra_texture);
         assert!(!Options::parse(&text).corner_walks);
         let legacy = "openMapper junction: lights=1 main=42 side=17 crossings=90.0,270.5 helpers=omsi";
-        assert!(Options::parse(legacy).corner_walks, "old .sco without walks= must retain corner paths");
+        let legacy_options = Options::parse(legacy);
+        assert!(legacy_options.corner_walks, "old .sco without walks= must retain corner paths");
+        assert!(legacy_options.light_objects, "older integration junctions with lights=1 placed signal models");
+        assert!(legacy_options.zebra_texture, "old .sco without zebra_tex= must keep zebra stripes");
+        assert!(!Options::default().light_objects);
+        assert!(Options::default().zebra_texture);
         assert_eq!(Options::parse("[friendlyname]\nx"), Options::default());
         println!("OPTIONS ROUND TRIP: {} => {:?}", o.line(), back);
         println!("LEGACY: {legacy} => corner_walks={}", Options::parse(legacy).corner_walks);
@@ -2380,7 +2335,7 @@ mod tests {
             crate::selection::tests::add_spline(&mut doc, k, id, p.x, p.y, out, 20.0, 0, 0);
             Arm { key: k, id, at_end: false }
         }).collect();
-        let opts = Options { lights: true, crossings: vec![0.0], ..Default::default() };
+        let opts = Options { lights: true, light_objects: true, crossings: vec![0.0], ..Default::default() };
         let id = make_with(&mut doc, &mut assets, &roots.content, Some(&asphalt), centre, &arms, &opts, MakeEdit::default()).unwrap();
         let original = doc.object(k, id).unwrap().clone();
         let shared_id = doc.new_id();
@@ -2685,7 +2640,7 @@ mod tests {
                 PlateArm { file: "splines\\profile-a.sli".into(), pos: DVec2::new(0.0, -10.0), out: 180.0, at_end: true },
                 PlateArm { file: "splines\\profile-b.sli".into(), pos: DVec2::new(0.0, 10.0), out: 0.0, at_end: b_at_end },
             ];
-            let plate = layout_plate(&mut assets, &arms, None, None).expect("both arms produce a plate");
+            let plate = layout_plate(&mut assets, &arms, None).expect("both arms produce a plate");
             assert!(!plate.mesh.tris.is_empty(), "{case}: plate has triangles");
             let previous = junction_mesh(&original, DVec3::ZERO, None, 8.0, 0.0).0;
             let mut old_wedge = false;
@@ -3000,6 +2955,188 @@ mod tests {
             ("after.sco", after_sco.as_bytes()), ("after.x", after_x.as_bytes()),
         ] {
             std::fs::write(artifacts.join(name), bytes).unwrap();
+        }
+        let _ = std::fs::remove_dir_all(&content);
+    }
+
+
+    #[test]
+    fn junction_uses_map_asphalt_and_zebra_textures_independently() {
+        // Run every case in its own map/output directory, so a stale file cannot
+        // satisfy a copy assertion. The spline's own BMP is available throughout.
+        let cases = [
+            ("map", "Texture", Some(MAP_ASPHALT), true, Some(MAP_ZEBRA), true),
+            ("mixed-case", "tEXture", Some("PLAIN_Asphalt_Texture.BMP"), true, Some("Zebra_TEXTURE.BMP"), true),
+            ("installed", "Texture", None, true, Some(MAP_ZEBRA), true),
+            ("untextured", "Texture", None, false, Some(MAP_ZEBRA), true),
+            ("white-stripes", "Texture", Some(MAP_ASPHALT), false, None, true),
+            ("stripes-disabled", "Texture", Some(MAP_ASPHALT), true, Some(MAP_ZEBRA), false),
+        ];
+        let save_bmp = |path: &Path, rgb| {
+            image::RgbImage::from_pixel(2, 2, image::Rgb(rgb))
+                .save_with_format(path, image::ImageFormat::Bmp).unwrap();
+        };
+        for (name, folder, asphalt_name, have_stock, zebra_name, stripes) in cases {
+            let roots = crate::doc::tests::scratch(&format!("junction-texture-{name}"));
+            let mut doc = crate::selection::tests::flat_map(1);
+            doc.dir = roots.content.join("maps").join(name);
+            let map_tex_dir = doc.dir.join(folder);
+            std::fs::create_dir_all(&map_tex_dir).unwrap();
+            let map_asphalt = asphalt_name.map(|file| {
+                let p = map_tex_dir.join(file);
+                save_bmp(&p, [61, 62, 63]);
+                p
+            });
+            let map_zebra = zebra_name.map(|file| {
+                let p = map_tex_dir.join(file);
+                save_bmp(&p, [205, 206, 207]);
+                p
+            });
+            if have_stock {
+                let stock_dir = roots.omsi.join("Texture");
+                std::fs::create_dir_all(&stock_dir).unwrap();
+                save_bmp(&stock_dir.join("str_asphdrk.bmp"), [76, 77, 78]);
+            }
+            let installed = asphalt_texture(&roots.omsi);
+
+            let spline_tex = roots.content.join("spline-road.bmp");
+            save_bmp(&spline_tex, [88, 89, 90]);
+            let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+            let centre = DVec3::new(100.0, 100.0, 0.0);
+            let arms: Vec<_> = [0.0, 90.0, 180.0, 270.0].into_iter().enumerate().map(|(i, out)| {
+                let id = 100 + i as i64;
+                let p = centre.truncate() + roads::dir(out) * 10.0;
+                let width = if i == 0 { 4.0 } else { 3.5 };
+                let mut road = arm_profile_road(&[[(-width, 0.1), (width, 0.1)]], &[-1.5, 1.5]);
+                road.materials[0].texture = Some(spline_tex.clone());
+                let points = &mut road.def.profiles[0].points;
+                points[0].v_scale = 0.25;
+                points[1].v_scale = 0.25;
+                points[1].u = 1.0;
+                let file = format!("Splines\\road-{i}.sli");
+                assets.splines.insert(file.to_lowercase(), crate::assets::Slot::Ready(std::sync::Arc::new(road)));
+                crate::selection::tests::add_spline(&mut doc, (0, 0), id, p.x, p.y, out, 20.0, 0, 0);
+                doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.last_mut().unwrap().file = file;
+                Arm { key: (0, 0), id, at_end: false }
+            }).collect();
+            let opts = Options { crossings: vec![0.0], zebra_texture: stripes, ..Default::default() };
+            let id = make_with(&mut doc, &mut assets, &roots.content, installed.as_deref(), centre, &arms, &opts, MakeEdit::default()).unwrap();
+            let obj = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let sco = omsi_cfg::resolve_path(&roots.content, &obj.file);
+            let model = std::fs::read_to_string(sco.parent().unwrap().join("model").join(sco.with_extension("x").file_name().unwrap())).unwrap();
+            let tex_dir = sco.parent().unwrap().join("texture");
+
+            let mut textures: Vec<_> = std::fs::read_dir(&tex_dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+            textures.sort();
+            let materials: Vec<_> = model.split("  Material {").skip(1).map(|m| {
+                m.split("\n  }").next().unwrap().lines().skip_while(|l| l.trim() != "TextureFilename {")
+                    .nth(1).map(|l| l.trim().trim_end_matches(';').trim_matches('"'))
+            }).collect();
+            let asphalt = map_asphalt.as_ref().or(installed.as_ref());
+            let asphalt_ref = asphalt.map(|p| if map_asphalt.is_some() { MAP_ASPHALT } else { p.file_name().unwrap().to_str().unwrap() });
+            let zebra_ref = stripes.then_some(if map_zebra.is_some() { MAP_ZEBRA } else { "om_zebra_white.png" });
+            println!(
+                "{name}: spline asphalt before={spline_tex:?}, period=4.0 m; map asphalt={map_asphalt:?}; installed={installed:?}; map stripes={map_zebra:?}; zebra_tex={stripes}; selected asphalt={asphalt:?}; selected zebra={:?}; .x TextureFilename={materials:?}; texture directory {tex_dir:?}={textures:?}",
+                zebra_ref.map(|file| map_zebra.clone().unwrap_or_else(|| tex_dir.join(file))),
+            );
+            assert_eq!(junction_asphalt(Some(&doc.dir), installed.as_deref()).as_ref(), asphalt);
+            assert_eq!(materials[0], asphalt_ref);
+            assert_eq!(materials.iter().flatten().copied().collect::<Vec<_>>(),
+                asphalt_ref.into_iter().chain(zebra_ref).collect::<Vec<_>>());
+            let x_files: std::collections::BTreeSet<_> = materials.into_iter().flatten().map(std::ffi::OsStr::new).collect();
+            assert_eq!(textures.iter().map(|f| f.as_os_str()).collect::<std::collections::BTreeSet<_>>(), x_files);
+            if let (Some(source), Some(file)) = (asphalt, asphalt_ref) {
+                assert_eq!(std::fs::read(tex_dir.join(file)).unwrap(), std::fs::read(source).unwrap());
+            }
+            if let Some(file) = zebra_ref {
+                if let Some(source) = map_zebra {
+                    assert_eq!(std::fs::read(tex_dir.join(file)).unwrap(), std::fs::read(source).unwrap());
+                } else {
+                    let pixels = image::open(tex_dir.join(file)).unwrap().into_rgba8();
+                    assert_eq!(pixels.dimensions(), (8, 8));
+                    assert!(pixels.pixels().all(|p| p.0 == [235, 235, 230, 255]));
+                }
+            }
+
+            // The widest arm points north. Its right pavement edge (4, 10, 0.1)
+            // is written in .x order (x, height, north), with U=4/8 and V=-10/8.
+            let vertex = model.lines().skip_while(|l| l.trim() != "Mesh {").skip(2)
+                .position(|l| l.trim().starts_with("4.0000;0.1000;10.0000;")).unwrap();
+            let uv = model.lines().skip_while(|l| l.trim() != "MeshTextureCoords {")
+                .nth(vertex + 2).unwrap().trim();
+            println!("{name}: .x vertex (4, 0.1, 10) UV={uv}; expected=(0.5, -1.25), period=8.0 m");
+            assert_eq!(uv, "0.50000;-1.25000;,");
+            std::fs::remove_dir_all(&roots.content).unwrap();
+        }
+    }
+
+    /// Signal phases and pedestrian paths must work without any generated signal
+    /// objects or white stripe polygons. The two switches are independent.
+    #[test]
+    fn junction_light_objects_and_zebra_texture_are_independent() {
+        let roots = crate::doc::tests::scratch("junction-optional-visuals");
+        let content = roots.content.clone();
+        std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
+        let mut doc = crate::selection::tests::flat_map(1);
+        doc.dir = content.join("maps").join("optional-visuals");
+        let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+        assets.splines.insert("splines\\road.sli".into(),
+            crate::assets::Slot::Ready(std::sync::Arc::new(zebra_road_with_raised_sidewalks())));
+        let centre = DVec3::new(100.0, 100.0, 0.0);
+        let mut arms = Vec::new();
+        for (i, out) in [0.0_f64, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let p = centre.truncate() + roads::dir(out) * 10.0;
+            let id = 300 + i as i64;
+            crate::selection::tests::add_spline(&mut doc, (0, 0), id,
+                p.x, p.y, out, 20.0, 0, 0);
+            arms.push(Arm { key: (0, 0), id, at_end: false });
+        }
+        let mut reference_paths: Option<String> = None;
+        for (light_objects, zebra_texture) in [(false, true), (true, true), (false, false), (true, false)] {
+            let opts = Options {
+                lights: true, light_objects, zebra_texture,
+                crossings: vec![0.0, 180.0], ..Default::default()
+            };
+            let id = make_with(&mut doc, &mut assets, &content, None, centre, &arms, &opts, MakeEdit::default()).unwrap();
+            let junction = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let sco_path = omsi_cfg::resolve_path(&content, &junction.file);
+            let sco = omsi_cfg::decode_text(&std::fs::read(&sco_path).unwrap());
+            assert_eq!(Options::parse(&sco), opts);
+            assert!(sco.contains("[traffic_lights_group]"));
+            assert!(sco.contains("[use_traffic_light]"), "AI must still stop at red");
+            let paths = written_paths(&sco);
+            assert!(paths.iter().any(|p| p.kind == 1), "footway crossings remain present");
+            let suffix = sco.replace("\r\n", "\n").split_once("[path]\n").unwrap().1.to_owned();
+            if let Some(reference) = &reference_paths {
+                assert_eq!(&suffix, reference, "visual switches must not change AI paths");
+            } else {
+                reference_paths = Some(suffix);
+            }
+            let kids = children(&doc, id);
+            assert_eq!(kids.len(), if light_objects { 8 } else { 0 });
+            if light_objects {
+                let mut heads = 0;
+                let mut poles = 0;
+                for (key, child_id) in kids {
+                    let o = doc.object(key, child_id).unwrap();
+                    if o.file.eq_ignore_ascii_case(r"Sceneryobjects\Verkehrszeichen_MC\Ampel_Kfz_1.sco") {
+                        heads += 1;
+                        assert_eq!(o.flag, 1);
+                    } else if o.file.eq_ignore_ascii_case(r"Sceneryobjects\Verkehrszeichen_MC\Mast_Ampel_klein_1.sco") {
+                        poles += 1;
+                        assert_eq!(o.flag, 0);
+                    } else {
+                        panic!("unexpected junction child: {}", o.file);
+                    }
+                    assert_eq!(o.var_parent, Some(id));
+                }
+                assert_eq!((heads, poles), (4, 4));
+            }
+            let model_path = sco_path.parent().unwrap().join("model")
+                .join(format!("{}.x", sco_path.file_stem().unwrap().to_string_lossy()));
+            let model = std::fs::read_to_string(model_path).unwrap();
+            assert_eq!(model.contains("om_zebra_white.png"), zebra_texture,
+                "stripe material must follow the texture switch");
         }
         let _ = std::fs::remove_dir_all(&content);
     }

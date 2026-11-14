@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Алдына
 Click a stop on the map to insert it before {stop} (Esc to cancel)	«{stop}» алдына кірістіру үшін картадан аялдама таңдаңыз (Esc — бас тарту)
 That stop is already next to the insertion point.	Бұл аялдама кірістіру орнына іргелес тұр.
 Insert stop before	Аялдаманы алдына кірістіру
+Place signal heads and poles	Бағдаршамдар мен тіректерді орнату
+Paint stripes on selected crossings	Таңдалған өткелдерге жолақтар салу

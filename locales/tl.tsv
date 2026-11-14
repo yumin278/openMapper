@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	Isingit bago
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Pumili ng hintuan sa mapa para isingit bago sa “{stop}” (Esc para kanselahin)
 That stop is already next to the insertion point.	Katabi na ng pagsisingitan ang hintuang iyon.
 Insert stop before	Isingit ang hintuan bago rito
+Place signal heads and poles	Maglagay ng mga ulo at poste ng ilaw-trapiko
+Paint stripes on selected crossings	Gumuhit ng mga guhit sa mga napiling tawiran

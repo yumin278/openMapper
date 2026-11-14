@@ -2808,3 +2808,5 @@ Insert before: click a stop on the map to insert it before this one	この停留
 Click a stop on the map to insert it before {stop} (Esc to cancel)	マップ上の停留所をクリックして「{stop}」の前に挿入（Esc でキャンセル）
 That stop is already next to the insertion point.	この停留所はすでに挿入位置の隣にあります。
 Insert stop before	この停留所の前に挿入
+Place signal heads and poles	信号灯器と支柱を設置
+Paint stripes on selected crossings	選択した横断歩道に白線を描画
