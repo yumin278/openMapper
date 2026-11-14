@@ -2787,3 +2787,20 @@ no track within 15 m	không có đường ray trong 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	các đường ray chưa nối, hoặc chạy ngược chiều (xem Xem > Làn AI)
 no track beside	không có đường ray bên cạnh
 Drives on	Chạy trên
+Footway paths round the corners (AI)	Lối đi bộ quanh góc đường (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Tắt: không có đường AI ở góc đường, nhưng lối sang đường vẫn nối các vỉa hè. Hãy tự nối các góc (ví dụ bằng spline đường đi vô hình).
+Open in text editor	Mở trong trình soạn thảo văn bản
+Open the saved .ttp file	Mở tệp .ttp đã lưu
+Could not open the trip file	Không mở được tệp lượt chạy
+Save the map to create this trip's .ttp file first.	Lưu bản đồ trước để tạo tệp .ttp của lượt chạy này.
+Change ID	Đổi ID
+New stop ID	ID điểm dừng mới
+Timetable name: {name}	Tên trong thời gian biểu: {name}
+No stop with this ID on the map	Không có điểm dừng nào mang ID này trên bản đồ
+Confirm	Xác nhận
+Also apply to other trips with this ID ({count})	Áp dụng cả cho các lượt chạy khác có ID này ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Đã đổi ID điểm dừng từ {old} thành {new} ({name}) trong {count} lượt chạy
+Insert before: click a stop on the map to insert it before this one	Chèn trước: chọn một điểm dừng trên bản đồ để chèn trước điểm này
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Chọn một điểm dừng trên bản đồ để chèn trước “{stop}” (Esc để hủy)
+That stop is already next to the insertion point.	Điểm dừng đó đã nằm ngay cạnh vị trí chèn.
+Insert stop before	Chèn điểm dừng trước điểm này

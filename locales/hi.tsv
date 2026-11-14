@@ -2787,3 +2787,20 @@ no track within 15 m	15 m के भीतर ट्रैक नहीं
 the tracks are not joined, or run the other way (see View > AI lanes)	ट्रैक जुड़े नहीं हैं, या उल्टी दिशा में हैं (व्यू > AI लेन देखें)
 no track beside	पास में ट्रैक नहीं:
 Drives on	किस पर चलती है
+Footway paths round the corners (AI)	कोनों पर पैदल पथ (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	बंद: कोनों पर AI के लिए पथ नहीं हैं, लेकिन क्रॉसिंग अब भी सड़कों के फुटपाथ जोड़ती हैं। कोनों को खुद जोड़ें (जैसे किसी अदृश्य पथ स्प्लाइन से)।
+Open in text editor	टेक्स्ट एडिटर में खोलें
+Open the saved .ttp file	सहेजी गई .ttp फ़ाइल खोलें
+Could not open the trip file	यात्रा की फ़ाइल नहीं खुल सकी
+Save the map to create this trip's .ttp file first.	इस यात्रा की .ttp फ़ाइल बनाने के लिए पहले नक्शा सहेजें।
+Change ID	ID बदलें
+New stop ID	स्टॉप का नया ID
+Timetable name: {name}	समय-सारणी में नाम: {name}
+No stop with this ID on the map	नक्शे पर इस ID का कोई स्टॉप नहीं है
+Confirm	पुष्टि करें
+Also apply to other trips with this ID ({count})	इस ID वाली अन्य यात्राओं पर भी लागू करें ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	{count} यात्राओं में स्टॉप का ID {old} से {new} ({name}) किया गया
+Insert before: click a stop on the map to insert it before this one	पहले जोड़ें: नक्शे पर किसी स्टॉप को चुनकर इस स्टॉप से पहले जोड़ें
+Click a stop on the map to insert it before {stop} (Esc to cancel)	नक्शे पर किसी स्टॉप को चुनकर उसे “{stop}” से पहले जोड़ें (रद्द करने के लिए Esc)
+That stop is already next to the insertion point.	यह स्टॉप पहले से ही जोड़ने की जगह के पास है।
+Insert stop before	इससे पहले स्टॉप जोड़ें

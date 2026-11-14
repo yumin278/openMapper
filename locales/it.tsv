@@ -2787,3 +2787,20 @@ no track within 15 m	nessun binario entro 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	i binari non sono collegati, o vanno nell'altro verso (vedi Vista > Corsie IA)
 no track beside	nessun binario accanto a
 Drives on	Corre su
+Footway paths round the corners (AI)	Percorsi pedonali agli angoli (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Disattivato: agli angoli non ci sono percorsi IA, ma gli attraversamenti collegano ancora i marciapiedi. Collega gli angoli manualmente (ad es. con una spline di percorso invisibile).
+Open in text editor	Apri in un editor di testo
+Open the saved .ttp file	Apri il file .ttp salvato
+Could not open the trip file	Impossibile aprire il file della corsa
+Save the map to create this trip's .ttp file first.	Salva prima la mappa per creare il file .ttp di questa corsa.
+Change ID	Cambia ID
+New stop ID	Nuovo ID della fermata
+Timetable name: {name}	Nome nell’orario: {name}
+No stop with this ID on the map	Nessuna fermata sulla mappa con questo ID
+Confirm	Conferma
+Also apply to other trips with this ID ({count})	Applica anche alle altre corse con questo ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID fermata {old} cambiato in {new} ({name}) in {count} corse
+Insert before: click a stop on the map to insert it before this one	Inserisci prima: scegli sulla mappa una fermata da inserire prima di questa
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Scegli sulla mappa una fermata da inserire prima di «{stop}» (Esc per annullare)
+That stop is already next to the insertion point.	Questa fermata è già accanto al punto di inserimento.
+Insert stop before	Inserisci una fermata prima di questa

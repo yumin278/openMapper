@@ -2787,3 +2787,20 @@ no track within 15 m	у 15 м няма рэек
 the tracks are not joined, or run the other way (see View > AI lanes)	рэйкі не злучаны або ідуць у іншы бок (Выгляд > Паласы ШІ)
 no track beside	няма рэек ля
 Drives on	Ездзіць па
+Footway paths round the corners (AI)	Пешаходныя шляхі на вуглах (ІІ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Выключана: на вуглах няма шляхоў ІІ, але пераходы ўсё яшчэ злучаюць тратуары дарог. Злучыце вуглы самастойна (напрыклад, нябачным сплайнам шляху).
+Open in text editor	Адкрыць у тэкставым рэдактары
+Open the saved .ttp file	Адкрыць захаваны файл .ttp
+Could not open the trip file	Не ўдалося адкрыць файл рэйса
+Save the map to create this trip's .ttp file first.	Спачатку захавайце карту, каб стварыць файл .ttp гэтага рэйса.
+Change ID	Замяніць ID
+New stop ID	Новы ID прыпынку
+Timetable name: {name}	Назва ў раскладзе: {name}
+No stop with this ID on the map	На карце няма прыпынку з такім ID
+Confirm	Пацвердзіць
+Also apply to other trips with this ID ({count})	Ужыць таксама да іншых рэйсаў з гэтым ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID прыпынку {old} заменены на {new} ({name}) у рэйсах: {count}
+Insert before: click a stop on the map to insert it before this one	Уставіць перад: выберыце прыпынак на карце, каб уставіць яго перад гэтым
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Выберыце прыпынак на карце, каб уставіць яго перад «{stop}» (Esc — скасаваць)
+That stop is already next to the insertion point.	Гэты прыпынак ужо побач з месцам устаўкі.
+Insert stop before	Уставіць прыпынак перад гэтым

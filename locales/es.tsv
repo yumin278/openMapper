@@ -2787,3 +2787,20 @@ no track within 15 m	no hay vía a menos de 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	las vías no están unidas o van en sentido contrario (ver Ver > Carriles de IA)
 no track beside	sin vía junto a
 Drives on	Circula por
+Footway paths round the corners (AI)	Caminos peatonales en las esquinas (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desactivado: las esquinas se quedan sin caminos para la IA, pero los pasos siguen conectando las aceras. Conecta las esquinas manualmente (por ejemplo, con una spline de camino invisible).
+Open in text editor	Abrir en el editor de texto
+Open the saved .ttp file	Abrir el archivo .ttp guardado
+Could not open the trip file	No se pudo abrir el archivo del trayecto
+Save the map to create this trip's .ttp file first.	Guarda primero el mapa para crear el archivo .ttp de este trayecto.
+Change ID	Cambiar ID
+New stop ID	Nuevo ID de parada
+Timetable name: {name}	Nombre en el horario: {name}
+No stop with this ID on the map	No hay ninguna parada con este ID en el mapa
+Confirm	Confirmar
+Also apply to other trips with this ID ({count})	Aplicar también a otros trayectos con este ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Se cambió el ID de parada {old} a {new} ({name}) en {count} trayectos
+Insert before: click a stop on the map to insert it before this one	Insertar antes: elige una parada en el mapa para insertarla antes de esta
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Elige una parada en el mapa para insertarla antes de «{stop}» (Esc para cancelar)
+That stop is already next to the insertion point.	Esa parada ya está junto al punto de inserción.
+Insert stop before	Insertar una parada antes

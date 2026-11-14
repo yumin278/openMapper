@@ -2783,3 +2783,20 @@ no track within 15 m	15 m 內沒有軌道
 the tracks are not joined, or run the other way (see View > AI lanes)	軌道未相連，或方向相反（見 檢視 > AI 行車線）
 no track beside	旁邊沒有軌道：
 Drives on	行駛於
+Footway paths round the corners (AI)	轉角行人路 AI 路徑
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	關閉後，轉角不會生成 AI 路徑，行人穿越道仍會連接道路兩側的行人路。請自行連接轉角，例如使用隱形路徑曲線。
+Open in text editor	在文字編輯器開啟
+Open the saved .ttp file	開啟已儲存的 .ttp 檔案
+Could not open the trip file	無法開啟 Trip 檔案
+Save the map to create this trip's .ttp file first.	請先儲存地圖，以建立此 Trip 的 .ttp 檔案。
+Change ID	更換 ID
+New stop ID	新站點 ID
+Timetable name: {name}	時刻表名稱：{name}
+No stop with this ID on the map	地圖上沒有此 ID 的站點
+Confirm	確定
+Also apply to other trips with this ID ({count})	同時套用到其他含此 ID 的 Trip（{count} 個）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	已將 ID {old} 改為 {new}（{name}），影響 {count} 個 Trip
+Insert before: click a stop on the map to insert it before this one	插入於此站前：點選地圖上的站點，將它插入此站之前
+Click a stop on the map to insert it before {stop} (Esc to cancel)	點選地圖上的站點，將插入於「{stop}」之前（Esc 取消）
+That stop is already next to the insertion point.	該站點已在插入位置旁。
+Insert stop before	插入於此站前

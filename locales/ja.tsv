@@ -2787,3 +2787,20 @@ no track within 15 m	15 m以内に線路がありません
 the tracks are not joined, or run the other way (see View > AI lanes)	線路が接続されていないか、逆向きです（表示 > AI車線を参照）
 no track beside	線路なし：
 Drives on	走行
+Footway paths round the corners (AI)	角の歩行者経路（AI）
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	オフにすると角の AI 経路は作成されません。横断歩道は引き続き歩道につながります。角は手動で接続してください（例：非表示の経路スプライン）。
+Open in text editor	テキストエディターで開く
+Open the saved .ttp file	保存済みの .ttp ファイルを開く
+Could not open the trip file	便のファイルを開けませんでした
+Save the map to create this trip's .ttp file first.	先にマップを保存して、この便の .ttp ファイルを作成してください。
+Change ID	ID を変更
+New stop ID	新しい停留所 ID
+Timetable name: {name}	時刻表での名称：{name}
+No stop with this ID on the map	この ID の停留所はマップにありません
+Confirm	確定
+Also apply to other trips with this ID ({count})	この ID を含むほかの便にも適用（{count} 件）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	停留所 ID を {old} から {new}（{name}）に変更しました（{count} 件）
+Insert before: click a stop on the map to insert it before this one	この停留所の前に挿入：マップ上の停留所をクリックして選択
+Click a stop on the map to insert it before {stop} (Esc to cancel)	マップ上の停留所をクリックして「{stop}」の前に挿入（Esc でキャンセル）
+That stop is already next to the insertion point.	この停留所はすでに挿入位置の隣にあります。
+Insert stop before	この停留所の前に挿入

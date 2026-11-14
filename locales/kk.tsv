@@ -2787,3 +2787,20 @@ no track within 15 m	15 м ішінде рельс жоқ
 the tracks are not joined, or run the other way (see View > AI lanes)	рельстер жалғанбаған немесе кері жаққа кетеді (Көрініс > ЖИ жолақтары қараңыз)
 no track beside	жанында рельс жоқ:
 Drives on	Жүретін жолы
+Footway paths round the corners (AI)	Бұрыштардағы жаяу жүргінші жолдары (ЖИ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Өшірулі: бұрыштарда ЖИ жолдары жоқ, бірақ өткелдер тротуарларды байланыстыра береді. Бұрыштарды қолмен қосыңыз (мысалы, көрінбейтін жол сплайнымен).
+Open in text editor	Мәтін өңдегіште ашу
+Open the saved .ttp file	Сақталған .ttp файлын ашу
+Could not open the trip file	Рейс файлын ашу мүмкін болмады
+Save the map to create this trip's .ttp file first.	Осы рейстің .ttp файлын жасау үшін алдымен картаны сақтаңыз.
+Change ID	ID өзгерту
+New stop ID	Аялдаманың жаңа ID-і
+Timetable name: {name}	Кестедегі атауы: {name}
+No stop with this ID on the map	Картада бұл ID бар аялдама жоқ
+Confirm	Растау
+Also apply to other trips with this ID ({count})	Осы ID бар басқа рейстерге де қолдану ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Аялдаманың {old} ID-і {count} рейсте {new} ({name}) болып өзгертілді
+Insert before: click a stop on the map to insert it before this one	Алдына кірістіру: осы аялдаманың алдына қосу үшін картадан аялдама таңдаңыз
+Click a stop on the map to insert it before {stop} (Esc to cancel)	«{stop}» алдына кірістіру үшін картадан аялдама таңдаңыз (Esc — бас тарту)
+That stop is already next to the insertion point.	Бұл аялдама кірістіру орнына іргелес тұр.
+Insert stop before	Аялдаманы алдына кірістіру

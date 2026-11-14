@@ -2785,3 +2785,20 @@ no track within 15 m	kein Gleis im Umkreis von 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	die Gleise sind nicht verbunden oder verlaufen in die andere Richtung (siehe Ansicht > KI-Spuren)
 no track beside	kein Gleis neben
 Drives on	Fährt auf
+Footway paths round the corners (AI)	Fußwege an den Ecken (KI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Aus: An den Ecken gibt es keine KI-Wege. Die Überwege verbinden weiterhin die Gehwege der Straßen. Verbinde die Ecken selbst (z. B. mit einem unsichtbaren Pfad-Spline).
+Open in text editor	Im Texteditor öffnen
+Open the saved .ttp file	Gespeicherte .ttp-Datei öffnen
+Could not open the trip file	Die Fahrtdatei konnte nicht geöffnet werden
+Save the map to create this trip's .ttp file first.	Speichere zuerst die Karte, um die .ttp-Datei dieser Fahrt zu erstellen.
+Change ID	ID ändern
+New stop ID	Neue Haltestellen-ID
+Timetable name: {name}	Name im Fahrplan: {name}
+No stop with this ID on the map	Auf der Karte gibt es keine Haltestelle mit dieser ID
+Confirm	Bestätigen
+Also apply to other trips with this ID ({count})	Auch auf andere Fahrten mit dieser ID anwenden ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Haltestellen-ID {old} in {count} Fahrten zu {new} ({name}) geändert
+Insert before: click a stop on the map to insert it before this one	Davor einfügen: Wähle auf der Karte eine Haltestelle aus, um sie vor dieser einzufügen
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Wähle auf der Karte eine Haltestelle aus, um sie vor „{stop}“ einzufügen (Esc zum Abbrechen)
+That stop is already next to the insertion point.	Diese Haltestelle grenzt bereits an die Einfügestelle.
+Insert stop before	Haltestelle davor einfügen

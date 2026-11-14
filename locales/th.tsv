@@ -2787,3 +2787,20 @@ no track within 15 m	ไม่มีรางภายใน 15 ม.
 the tracks are not joined, or run the other way (see View > AI lanes)	รางไม่ได้เชื่อมกันหรือวิ่งไปอีกทาง (ดู มุมมอง > เลน AI)
 no track beside	ไม่มีรางข้าง
 Drives on	วิ่งบน
+Footway paths round the corners (AI)	ทางเดินเท้าตรงมุมถนน (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	ปิด: ไม่มีเส้นทาง AI ตรงมุมถนน แต่ทางข้ามยังเชื่อมทางเท้าอยู่ ให้เชื่อมมุมถนนเอง (เช่น ใช้สปลายน์เส้นทางที่มองไม่เห็น)
+Open in text editor	เปิดในโปรแกรมแก้ไขข้อความ
+Open the saved .ttp file	เปิดไฟล์ .ttp ที่บันทึกไว้
+Could not open the trip file	เปิดไฟล์เที่ยวเดินรถไม่ได้
+Save the map to create this trip's .ttp file first.	บันทึกแผนที่ก่อนเพื่อสร้างไฟล์ .ttp ของเที่ยวนี้
+Change ID	เปลี่ยน ID
+New stop ID	ID ใหม่ของป้ายหยุดรถ
+Timetable name: {name}	ชื่อในตารางเวลา: {name}
+No stop with this ID on the map	ไม่พบป้ายหยุดรถที่มี ID นี้บนแผนที่
+Confirm	ยืนยัน
+Also apply to other trips with this ID ({count})	ใช้กับเที่ยวเดินรถอื่นที่มี ID นี้ด้วย ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	เปลี่ยน ID ป้ายหยุดรถจาก {old} เป็น {new} ({name}) ใน {count} เที่ยว
+Insert before: click a stop on the map to insert it before this one	แทรกก่อน: คลิกป้ายหยุดรถบนแผนที่เพื่อแทรกก่อนป้ายนี้
+Click a stop on the map to insert it before {stop} (Esc to cancel)	คลิกป้ายหยุดรถบนแผนที่เพื่อแทรกก่อน “{stop}” (Esc เพื่อยกเลิก)
+That stop is already next to the insertion point.	ป้ายหยุดรถนั้นอยู่ติดกับตำแหน่งที่จะแทรกอยู่แล้ว
+Insert stop before	แทรกป้ายหยุดรถก่อนป้ายนี้

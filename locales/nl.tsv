@@ -2787,3 +2787,20 @@ no track within 15 m	geen spoor binnen 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	de sporen zijn niet verbonden, of lopen de andere kant op (zie Beeld > AI-rijstroken)
 no track beside	geen spoor naast
 Drives on	Rijdt over
+Footway paths round the corners (AI)	Voetpaden bij de hoeken (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Uit: er zijn geen AI-paden bij de hoeken, maar de oversteekplaatsen verbinden de trottoirs nog steeds. Verbind de hoeken zelf (bijvoorbeeld met een onzichtbare padspline).
+Open in text editor	Openen in teksteditor
+Open the saved .ttp file	Opgeslagen .ttp-bestand openen
+Could not open the trip file	Het ritbestand kon niet worden geopend
+Save the map to create this trip's .ttp file first.	Sla de kaart eerst op om het .ttp-bestand van deze rit te maken.
+Change ID	ID wijzigen
+New stop ID	Nieuwe halte-ID
+Timetable name: {name}	Naam in de dienstregeling: {name}
+No stop with this ID on the map	Geen halte met deze ID op de kaart
+Confirm	Bevestigen
+Also apply to other trips with this ID ({count})	Ook toepassen op andere ritten met deze ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Halte-ID {old} gewijzigd in {new} ({name}) in {count} ritten
+Insert before: click a stop on the map to insert it before this one	Ervoor invoegen: klik op een halte op de kaart om die vóór deze in te voegen
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Klik op een halte op de kaart om die vóór ‘{stop}’ in te voegen (Esc om te annuleren)
+That stop is already next to the insertion point.	Die halte staat al naast het invoegpunt.
+Insert stop before	Halte ervoor invoegen

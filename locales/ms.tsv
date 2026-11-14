@@ -2787,3 +2787,20 @@ no track within 15 m	tiada landasan dalam 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	landasan tidak bercantum, atau menuju arah lain (lihat Lihat > Lorong AI)
 no track beside	tiada landasan di sebelah
 Drives on	Bergerak di
+Footway paths round the corners (AI)	Laluan pejalan kaki di sudut (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Mati: sudut tiada laluan AI, tetapi lintasan masih menghubungkan laluan pejalan kaki. Sambungkan sudut secara manual (misalnya dengan splin laluan halimunan).
+Open in text editor	Buka dalam penyunting teks
+Open the saved .ttp file	Buka fail .ttp yang disimpan
+Could not open the trip file	Fail perjalanan tidak dapat dibuka
+Save the map to create this trip's .ttp file first.	Simpan peta dahulu untuk mencipta fail .ttp perjalanan ini.
+Change ID	Tukar ID
+New stop ID	ID hentian baharu
+Timetable name: {name}	Nama dalam jadual waktu: {name}
+No stop with this ID on the map	Tiada hentian dengan ID ini pada peta
+Confirm	Sahkan
+Also apply to other trips with this ID ({count})	Gunakan juga pada perjalanan lain dengan ID ini ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID hentian {old} ditukar kepada {new} ({name}) dalam {count} perjalanan
+Insert before: click a stop on the map to insert it before this one	Sisip sebelum: pilih hentian pada peta untuk disisipkan sebelum hentian ini
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Pilih hentian pada peta untuk disisipkan sebelum “{stop}” (Esc untuk batal)
+That stop is already next to the insertion point.	Hentian itu sudah bersebelahan dengan titik sisipan.
+Insert stop before	Sisipkan hentian sebelum ini

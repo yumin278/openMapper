@@ -2787,3 +2787,20 @@ no track within 15 m	cap via a menys de 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	les vies no estan unides o van en sentit contrari (vegeu Vista > Carrils d'IA)
 no track beside	cap via al costat de
 Drives on	Circula per
+Footway paths round the corners (AI)	Camins de vianants a les cantonades (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desactivat: no hi ha camins d’IA a les cantonades, però els passos de vianants encara connecten les voreres. Connecteu les cantonades manualment (p. ex., amb una spline de camí invisible).
+Open in text editor	Obre en un editor de text
+Open the saved .ttp file	Obre el fitxer .ttp desat
+Could not open the trip file	No s’ha pogut obrir el fitxer del trajecte
+Save the map to create this trip's .ttp file first.	Deseu el mapa per crear el fitxer .ttp d’aquest trajecte.
+Change ID	Canvia l’ID
+New stop ID	ID nou de la parada
+Timetable name: {name}	Nom a l’horari: {name}
+No stop with this ID on the map	Al mapa no hi ha cap parada amb aquest ID
+Confirm	Confirma
+Also apply to other trips with this ID ({count})	Aplica-ho també als altres trajectes amb aquest ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	S’ha canviat l’ID de parada {old} a {new} ({name}) en {count} trajectes
+Insert before: click a stop on the map to insert it before this one	Insereix abans: trieu al mapa una parada per inserir-la abans d’aquesta
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Trieu al mapa una parada per inserir-la abans de «{stop}» (Esc per cancel·lar)
+That stop is already next to the insertion point.	Aquesta parada ja és al costat del punt d’inserció.
+Insert stop before	Insereix una parada abans

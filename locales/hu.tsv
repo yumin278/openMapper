@@ -2787,3 +2787,20 @@ no track within 15 m	15 m-en belül nincs sín
 the tracks are not joined, or run the other way (see View > AI lanes)	a sínek nincsenek összekötve, vagy másfelé futnak (lásd Nézet > MI-sávok)
 no track beside	nincs sín mellette:
 Drives on	Közlekedik
+Footway paths round the corners (AI)	Gyalogos útvonalak a sarkokon (MI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kikapcsolva: a sarkokon nincs MI-útvonal, de az átkelők továbbra is összekötik a járdákat. Kösd össze a sarkokat kézzel (például láthatatlan útvonalspline-nal).
+Open in text editor	Megnyitás szövegszerkesztőben
+Open the saved .ttp file	A mentett .ttp-fájl megnyitása
+Could not open the trip file	A járatfájl nem nyitható meg
+Save the map to create this trip's .ttp file first.	A járat .ttp-fájljának létrehozásához előbb mentsd a térképet.
+Change ID	ID módosítása
+New stop ID	Új megálló-ID
+Timetable name: {name}	Név a menetrendben: {name}
+No stop with this ID on the map	Nincs ilyen ID-jű megálló a térképen
+Confirm	Megerősítés
+Also apply to other trips with this ID ({count})	Alkalmazás a többi, ilyen ID-t tartalmazó járatra is ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	A(z) {old} megálló-ID {new} ({name}) értékre módosult {count} járatban
+Insert before: click a stop on the map to insert it before this one	Beszúrás elé: válassz egy megállót a térképen, amelyet ez elé szúrsz be
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Válassz a térképen egy megállót, hogy „{stop}” elé szúrd be (Esc: mégse)
+That stop is already next to the insertion point.	Ez a megálló már a beszúrás helye mellett van.
+Insert stop before	Megálló beszúrása elé
