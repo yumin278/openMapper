@@ -90,6 +90,7 @@ pub struct Snapshot {
 /// Copy what an autosave of the map writes.
 pub fn snapshot(doc: &Document) -> Snapshot {
     let copy = Document {
+        content_root: doc.content_root.clone(),
         global: doc.global.clone(),
         tiles: doc.tiles.iter().filter(|(_, t)| t.dirty).map(|(k, t)| (*k, t.clone())).collect(),
         order: doc.order.clone(),
@@ -327,6 +328,7 @@ mod tests {
         let content = std::env::temp_dir().join(format!("openmapper-test-autosave-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&content);
         let mut doc = Document {
+            content_root: None,
             global: Default::default(),
             tiles: Default::default(),
             order: Vec::new(),

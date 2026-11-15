@@ -81,6 +81,7 @@ pub(crate) fn prepare_save(doc: &Document) -> SaveJob {
         source: doc.source.clone(),
     };
     let copy = Document {
+        content_root: doc.content_root.clone(),
         global: doc.global.clone(),
         tiles: doc
             .tiles

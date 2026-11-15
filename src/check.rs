@@ -1382,6 +1382,7 @@ mod tests {
 
     fn doc_with(tiles: &[TileKey]) -> Document {
         let mut doc = Document {
+            content_root: None,
             global: Default::default(),
             tiles: Default::default(),
             order: Vec::new(),
