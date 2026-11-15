@@ -1331,6 +1331,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         &plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
         &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
     );
+    anyhow::ensure!(edit.pocket_paths.is_none() || recs.iter().any(|p| p.pocket), "no path connects to the bus bay lanes");
     // Maintain the asphalt height across the roadway, and join it to raised
     // sidewalks with short graded paths at either end.
     for (i, mid) in crossing_arms {

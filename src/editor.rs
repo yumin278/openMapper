@@ -9023,10 +9023,10 @@ impl Editor {
         true
     }
 
-    /// Rebuild openMapper's junction plates, leaving the bus bays' tapers in place. One undo step.
+    /// Rebuild openMapper's junction plates in one undo step.
     pub fn remake_all_junctions(&mut self) -> usize {
         let Some(doc) = self.doc.as_ref() else { return 0 };
-        let ids: Vec<i64> = doc.tiles.values().flat_map(|t| t.tile.objects.iter().filter(|o| is_own_junction(&o.file) && !is_bus_bay_junction(&o.file)).map(|o| o.id)).collect();
+        let ids: Vec<i64> = doc.tiles.values().flat_map(|t| t.tile.objects.iter().filter(|o| is_own_junction(&o.file)).map(|o| o.id)).collect();
         if !ids.is_empty() {
             self.history.begin(tr("Make the junctions again", "Перестроить перекрёстки"));
             self.pending_rebuild.extend(ids.iter().copied());
@@ -9043,8 +9043,8 @@ impl Editor {
     }
 
     /// One of openMapper's junctions made again in place for the roads now ending at its
-    /// helper points: three or more, a new plate; two, a smooth joint between them; fewer,
-    /// nothing. Inside an open history step.
+    /// helper points: a new plate for a bus bay taper or at least three arms, a joint for
+    /// two ordinary arms, or nothing for fewer. Inside an open history step.
     fn rebuild_junction(&mut self, assets: &mut Assets, id: i64) {
         let Some(content) = self.content_dir.clone() else { return };
         let asphalt = self.asphalt.clone();
@@ -9079,6 +9079,15 @@ impl Editor {
             }
         }
         let opts = self.pending_options.remove(&id).unwrap_or_else(|| crate::junction::Options::read(&omsi_cfg::resolve_path(&content, &o.file)));
+        let pocket_paths = if is_bus_bay_junction(&o.file) {
+            let Some(paths) = crate::pocket::taper_path_indices(doc, assets, &mut arms) else {
+                log::warn!("bus bay junction {id} ({}): could not identify the bay lanes; kept the existing junction", o.file);
+                return;
+            };
+            Some(paths)
+        } else {
+            None
+        };
         let centre = doc.object_world(jk, &o, abs);
         self.history.touch_tile(doc, jk);
         for a in &arms {
@@ -9095,7 +9104,7 @@ impl Editor {
         };
         self.junction_options.remove(&id);
         match arms.len() {
-            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), ..Default::default() }) {
+            n if n >= 3 || pocket_paths.is_some() => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), pocket_paths, ..Default::default() }) {
                 Ok(new) => {
                     remove(doc, &mut self.history);
                     if was_selected {
@@ -15130,21 +15139,47 @@ mod tests {
             }
             let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
             crate::doc::save::save(doc).unwrap();
-            let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
-            assert_eq!(reloaded.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
-            assert_eq!(reloaded.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
-            let before_rebuild: Vec<_> = reloaded.objects.iter().map(|o| (o.id, &o.file, &o.rules)).collect();
-            assert_eq!(ed.remake_all_junctions(), 0);
-            ed.rebuild_pending(&mut assets);
+            let cfg = doc.dir.join("global.cfg");
+            let roots = crate::install::Roots { omsi: dir.join("omsi"), content: content.clone() };
+            let mut reloaded = Document::load(&roots, &cfg, |_| {}).unwrap();
+            let tile = &mut reloaded.tiles.get_mut(&(0, 0)).unwrap().tile;
+            assert_eq!(tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
+            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+
+            // The rebuilt object must compute the rules from the arms even if its old rules are gone.
+            for object in &mut tile.objects {
+                object.rules.clear();
+            }
+            let mut before_rebuild = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut before_rebuild, object, false);
+            }
+            ed.open(reloaded);
+            ed.auto_adapt = false;
+            let mut fresh_assets = Assets::new(roots.omsi, content.clone());
+            assert_eq!(ed.remake_all_junctions(), 2);
+            ed.tick(&mut fresh_assets, 0.0, false);
             let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
-            let after_rebuild: Vec<_> = tile.objects.iter().map(|o| (o.id, &o.file, &o.rules)).collect();
-            println!("Global rebuild\nBefore: {before_rebuild:#?}\nAfter: {after_rebuild:#?}");
-            assert_eq!(after_rebuild, before_rebuild);
+            let mut after_rebuild = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut after_rebuild, object, false);
+            }
+            println!("Global rebuild after reopening\nBefore:\n{before_rebuild}\nAfter:\n{after_rebuild}");
+            assert_eq!(tile.objects.len(), 2);
+            for (object, (_, rules)) in tile.objects.iter().zip(&expected) {
+                assert!(is_bus_bay_junction(&object.file), "{}", object.file);
+                assert!(!expected.iter().any(|(old_id, _)| *old_id == object.id));
+                assert_eq!(&object.rules, rules);
+            }
+            assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 3);
             assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
             ed.undo();
             let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
-            assert!(tile.objects.is_empty());
-            assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 1);
+            let mut after_undo = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut after_undo, object, false);
+            }
+            assert_eq!(after_undo, before_rebuild);
         }
         let _ = std::fs::remove_dir_all(&dir);
     }

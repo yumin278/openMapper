@@ -509,6 +509,28 @@ pub fn bay_path_indices(main: &crate::assets::SplineModel, bay: &crate::assets::
     first..first + bay.def.paths.len().saturating_sub(main.def.paths.len())
 }
 
+/// Recover the lane indices of a tagged taper and put the bay arm second, as at creation.
+pub fn taper_path_indices(doc: &Document, assets: &mut crate::assets::Assets, arms: &mut [crate::junction::Arm]) -> Option<std::ops::Range<usize>> {
+    let [a, b] = arms else { return None };
+    let first = &doc.spline(a.key, a.id)?.file;
+    let second = &doc.spline(b.key, b.id)?.file;
+    let (main, bay, swap) = match (first.to_ascii_lowercase().contains("_bay_"), second.to_ascii_lowercase().contains("_bay_")) {
+        (false, true) => (first, second, false),
+        (true, false) => (second, first, true),
+        _ => return None,
+    };
+    let main = assets.spline_wait(main, 3000)?;
+    let bay = assets.spline_wait(bay, 3000)?;
+    let paths = bay_path_indices(&main, &bay);
+    if !(1..=2).contains(&paths.len()) || !bay.def.paths.get(paths.clone())?.iter().all(|p| p.kind == 0) {
+        return None;
+    }
+    if swap {
+        arms.swap(0, 1);
+    }
+    Some(paths)
+}
+
 /// Preserve existing rules on their original paths and restrict the newly inserted bay lanes.
 pub fn set_bay_lane_rules(doc: &mut Document, splines: &[(TileKey, i64)], paths: std::ops::Range<usize>) {
     let first = paths.start as i32;
