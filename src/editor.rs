@@ -6103,6 +6103,10 @@ pub fn is_own_junction(file: &str) -> bool {
     f.contains("\\openmapper\\") && f.contains("junction_")
 }
 
+fn is_bus_bay_junction(file: &str) -> bool {
+    file.to_ascii_lowercase().strip_suffix(".sco").is_some_and(|stem| stem.ends_with(crate::junction::BUS_BAY_SUFFIX))
+}
+
 /// A heading to the nearest whole 15 degrees.
 pub fn snap_deg(h: f64, step: f64) -> f64 {
     let step = if step > 0.0 { step } else { 15.0 };
@@ -9019,8 +9023,7 @@ impl Editor {
         true
     }
 
-    /// Every junction plate of openMapper's made again at the next tick, for the roads it has
-    /// now (with the newest asphalt and kerbs); one undo step. How many.
+    /// Rebuild openMapper's junction plates in one undo step.
     pub fn remake_all_junctions(&mut self) -> usize {
         let Some(doc) = self.doc.as_ref() else { return 0 };
         let ids: Vec<i64> = doc.tiles.values().flat_map(|t| t.tile.objects.iter().filter(|o| is_own_junction(&o.file)).map(|o| o.id)).collect();
@@ -9040,8 +9043,8 @@ impl Editor {
     }
 
     /// One of openMapper's junctions made again in place for the roads now ending at its
-    /// helper points: three or more, a new plate; two, a smooth joint between them; fewer,
-    /// nothing. Inside an open history step.
+    /// helper points: a new plate for a bus bay taper or at least three arms, a joint for
+    /// two ordinary arms, or nothing for fewer. Inside an open history step.
     fn rebuild_junction(&mut self, assets: &mut Assets, id: i64) {
         let Some(content) = self.content_dir.clone() else { return };
         let asphalt = self.asphalt.clone();
@@ -9076,6 +9079,15 @@ impl Editor {
             }
         }
         let opts = self.pending_options.remove(&id).unwrap_or_else(|| crate::junction::Options::read(&omsi_cfg::resolve_path(&content, &o.file)));
+        let pocket_paths = if is_bus_bay_junction(&o.file) {
+            let Some(paths) = crate::pocket::taper_path_indices(doc, assets, &mut arms) else {
+                log::warn!("bus bay junction {id} ({}): could not identify the bay lanes; kept the existing junction", o.file);
+                return;
+            };
+            Some(paths)
+        } else {
+            None
+        };
         let centre = doc.object_world(jk, &o, abs);
         self.history.touch_tile(doc, jk);
         for a in &arms {
@@ -9092,7 +9104,7 @@ impl Editor {
         };
         self.junction_options.remove(&id);
         match arms.len() {
-            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), ..Default::default() }) {
+            n if n >= 3 || pocket_paths.is_some() => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), pocket_paths, ..Default::default() }) {
                 Ok(new) => {
                     remove(doc, &mut self.history);
                     if was_selected {
@@ -9461,6 +9473,7 @@ impl Editor {
         self.history.touch_global(doc);
         let result = crate::pocket::cut_out(doc, k, id, from, from + stretch).and_then(|cut| {
             let mut inner = crate::pocket::retype(doc, &cut, &cfg, 0.0)?;
+            crate::pocket::set_bay_lane_rules(doc, &inner, pocket_paths.clone());
             // (one piece where the stretch's pieces make one curve: the taper needs length)
             let mut i = 0;
             while i + 1 < inner.len() {
@@ -14956,6 +14969,81 @@ mod tests {
     }
 
     #[test]
+    fn a_bus_pocket_with_taper_junctions_restricts_each_middle_spline() {
+        let (_, dir, plain, _) = pocket_fixture("spline-rules");
+        let content = dir.join("content");
+        let path = omsi_cfg::resolve_path(&content, &plain);
+        let mut sli = omsi_cfg::vfs::read_text(&path).unwrap();
+        sli.push_str("\n[path_2]\n1\n4.5\n0.25\n1.0\n2\n0\n");
+        std::fs::write(&path, omsi_cfg::encode_text(&sli)).unwrap();
+        let mut assets = Assets::new(dir.join("omsi"), content.clone());
+        assert_eq!(assets.spline_wait(&plain, 5000).unwrap().def.paths.len(), 5);
+
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Pocket");
+        let road_rule = |index, value| omsi_map::MapRule {
+            path_index: index, kind: "speedlimit".into(), value, ..Default::default()
+        };
+        let mut input = String::new();
+        for (id, y, prev_id, next_id, speed) in [(1, 60.0, 0, 2, 30.0), (2, 150.0, 1, 0, 40.0)] {
+            let spline = MapSpline {
+                file: plain.clone(), id, prev_id, next_id, pos: [150.0, y, 0.0], length: 90.0,
+                rules: vec![road_rule(2, speed), road_rule(4, 20.0)], ..Default::default()
+            };
+            crate::doc::save::spline(&mut input, &spline);
+            doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(spline);
+        }
+        println!("Original spline type and map instances:\n{sli}\n{input}");
+
+        let mut ed = Editor::default();
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        ed.bus_pocket = true;
+        ed.pocket_len = 24.0;
+        ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+        ed.left_press(&mut assets, &Library::default(), false);
+        let doc = ed.doc.as_mut().unwrap();
+        let tile = &doc.tiles[&(0, 0)].tile;
+        let mut splines: Vec<_> = tile.splines.iter().filter(|s| !s.deleted).collect();
+        splines.sort_by(|a, b| a.pos[1].total_cmp(&b.pos[1]));
+        let mut output = String::new();
+        for spline in &splines {
+            crate::doc::save::spline(&mut output, spline);
+        }
+        println!("Generated spline type and map instances:\n{}\n{output}",
+            omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&content, &splines[1].file)).unwrap());
+
+        assert_eq!(splines.len(), 4);
+        assert_eq!(tile.objects.iter().filter(|o| o.file.contains("junction_")).count(), 2);
+        assert_eq!(splines[0].rules, [road_rule(2, 30.0), road_rule(4, 20.0)]);
+        assert_eq!(splines[3].rules, [road_rule(2, 40.0), road_rule(4, 20.0)]);
+        for (spline, speed) in splines[1..3].iter().zip([30.0, 40.0]) {
+            assert!(spline.file.contains("_bay_"));
+            assert_eq!(spline.rules, [
+                road_rule(2, speed), road_rule(5, 20.0),
+                omsi_map::MapRule { path_index: 4, kind: "bus".into(), ..Default::default() },
+                omsi_map::MapRule { path_index: 4, kind: "no_cars".into(), ..Default::default() },
+            ]);
+        }
+        let expected: Vec<_> = splines.iter().map(|s| (s.id, s.rules.clone())).collect();
+        crate::doc::save::save(doc).unwrap();
+        let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
+        for (id, rules) in expected {
+            assert_eq!(reloaded.splines.iter().find(|s| s.id == id).unwrap().rules, rules);
+        }
+        ed.undo();
+        let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        let mut restored = String::new();
+        for spline in tile.splines.iter().filter(|s| !s.deleted) {
+            crate::doc::save::spline(&mut restored, spline);
+        }
+        assert_eq!(restored, input);
+        assert!(tile.objects.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn a_bus_pocket_retypes_a_stretch_and_tapers_its_ends() {
         let (mut assets, dir, plain, _) = pocket_fixture("lay");
         let mut doc = flat_map(1);
@@ -15012,12 +15100,28 @@ mod tests {
 
             let doc = ed.doc.as_mut().unwrap();
             let tile = &doc.tiles[&(0, 0)].tile;
-            assert!(tile.splines.iter().all(|s| s.rules.is_empty()));
+            let expected_bay_rules: Vec<_> = (4..if both { 6 } else { 5 }).flat_map(|path_index| {
+                ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                    path_index, kind: kind.into(), ..Default::default()
+                })
+            }).collect();
+            let bay: Vec<_> = tile.splines.iter().filter(|s| !s.deleted && s.file.contains("_bay_")).collect();
+            assert_eq!(bay.len(), 1);
+            let mut before_bay = bay[0].clone();
+            before_bay.rules.clear();
+            let (mut before, mut after) = (String::new(), String::new());
+            crate::doc::save::spline(&mut before, &before_bay);
+            crate::doc::save::spline(&mut after, bay[0]);
+            println!("Heading {heading}, both sides {both}, bay spline\nBefore:\n{before}\nAfter:\n{after}");
+            assert_eq!(bay[0].rules, expected_bay_rules);
+            assert!(tile.splines.iter().filter(|s| !s.deleted && s.file == plain).all(|s| s.rules.is_empty()));
+            let bay_id = bay[0].id;
             let mut plates = tile.objects.iter().filter(|o| o.file.contains("junction_")).collect::<Vec<_>>();
             // The plate at the start of the spline comes first, regardless of heading.
             plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
             assert_eq!(plates.len(), 2);
             for (plate, single_indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
+                assert!(is_bus_bay_junction(&plate.file), "{}", plate.file);
                 let path = omsi_cfg::resolve_path(&content, &plate.file);
                 let sco = omsi_cfg::vfs::read_text(&path).unwrap();
                 let mut before = String::new();
@@ -15035,12 +15139,47 @@ mod tests {
             }
             let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
             crate::doc::save::save(doc).unwrap();
-            let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
-            assert_eq!(reloaded.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
+            let cfg = doc.dir.join("global.cfg");
+            let roots = crate::install::Roots { omsi: dir.join("omsi"), content: content.clone() };
+            let mut reloaded = Document::load(&roots, &cfg, |_| {}).unwrap();
+            let tile = &mut reloaded.tiles.get_mut(&(0, 0)).unwrap().tile;
+            assert_eq!(tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
+            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+
+            // The rebuilt object must compute the rules from the arms even if its old rules are gone.
+            for object in &mut tile.objects {
+                object.rules.clear();
+            }
+            let mut before_rebuild = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut before_rebuild, object, false);
+            }
+            ed.open(reloaded);
+            ed.auto_adapt = false;
+            let mut fresh_assets = Assets::new(roots.omsi, content.clone());
+            assert_eq!(ed.remake_all_junctions(), 2);
+            ed.tick(&mut fresh_assets, 0.0, false);
+            let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+            let mut after_rebuild = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut after_rebuild, object, false);
+            }
+            println!("Global rebuild after reopening\nBefore:\n{before_rebuild}\nAfter:\n{after_rebuild}");
+            assert_eq!(tile.objects.len(), 2);
+            for (object, (_, rules)) in tile.objects.iter().zip(&expected) {
+                assert!(is_bus_bay_junction(&object.file), "{}", object.file);
+                assert!(!expected.iter().any(|(old_id, _)| *old_id == object.id));
+                assert_eq!(&object.rules, rules);
+            }
+            assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 3);
+            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
             ed.undo();
             let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
-            assert!(tile.objects.is_empty());
-            assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 1);
+            let mut after_undo = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut after_undo, object, false);
+            }
+            assert_eq!(after_undo, before_rebuild);
         }
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -15066,6 +15205,10 @@ mod tests {
         println!("Ordinary adapter joining the same bay spline: {objects:#?}");
         assert_eq!(objects.len(), 1);
         assert!(objects[0].rules.is_empty());
+        assert!(!is_bus_bay_junction(&objects[0].file));
+        let mut ed = Editor::default();
+        ed.open(doc);
+        assert_eq!(ed.remake_all_junctions(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
