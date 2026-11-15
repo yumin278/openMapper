@@ -4597,6 +4597,7 @@ impl Editor {
             t.touch_content();
             made.push((k, ids[i]));
         }
+        crate::road_maker::bus_rules::apply_for_splines(doc, &made, "editor::lay_road");
         // link the ends to what they meet (whether it is still there with that end free: a
         // one-sided link would point at nothing)
         let link = |doc: &mut Document, at: Option<(TileKey, i64, bool)>, mine: i64| -> bool {
@@ -6588,6 +6589,7 @@ impl Editor {
         let t = doc.tiles.get_mut(&nk).unwrap();
         t.tile.splines.push(q);
         t.touch_content();
+        crate::road_maker::bus_rules::apply_for_splines(doc, &[(nk, nid)], "editor::continue_spline");
         self.finish_step();
         self.select(Some(Sel::Spline(nk, nid)));
         true
@@ -7470,6 +7472,7 @@ impl Editor {
                 let t = doc.tiles.get_mut(&k).unwrap();
                 t.tile.splines.push(sp);
                 t.touch_content();
+                crate::road_maker::bus_rules::apply_for_splines(doc, &[(k, ids[i])], "editor::connect_path_points");
             }
         }
         let (next, prev) = if ids.is_empty() { (to.1, from.1) } else { (ids[0], *ids.last().unwrap()) };
@@ -8251,20 +8254,11 @@ impl Editor {
 
     /// Give every selected spline another type.
     pub fn retype_splines(&mut self, file: &str) {
-        let sels = self.selection();
+        let splines: Vec<_> = self.selection().into_iter().filter_map(|s| if let Sel::Spline(k, id) = s { Some((k, id)) } else { None }).collect();
         let Some(doc) = self.doc.as_mut() else { return };
         self.history.begin(tr("Change road type", "Смена типа дороги"));
-        for s in &sels {
-            if let Sel::Spline(k, id) = *s {
-                self.history.touch_tile(doc, k);
-                if let Some(t) = doc.tiles.get_mut(&k) {
-                    if let Some(sp) = t.tile.splines.iter_mut().find(|x| x.id == id) {
-                        sp.file = file.to_string();
-                    }
-                    t.touch_content();
-                }
-            }
-        }
+        for &(key, _) in &splines { self.history.touch_tile(doc, key); }
+        crate::road_maker::bus_rules::retype(doc, &splines, file, "editor::retype_splines");
         self.history.commit();
     }
 
@@ -9611,17 +9605,16 @@ impl Editor {
                 continue;
             }
             self.history.touch_tile(doc, k);
-            let t = doc.tiles.get_mut(&k).unwrap();
             if splines {
-                for s in t.tile.splines.iter_mut().filter(|s| !s.deleted && s.file.eq_ignore_ascii_case(from)) {
-                    s.file = to.to_string();
-                }
+                let instances: Vec<_> = doc.tiles[&k].tile.splines.iter().filter(|s| !s.deleted && s.file.eq_ignore_ascii_case(from)).map(|s| (k, s.id)).collect();
+                crate::road_maker::bus_rules::retype(doc, &instances, to, "editor::replace_everywhere");
             } else {
+                let t = doc.tiles.get_mut(&k).unwrap();
                 for o in t.tile.objects.iter_mut().chain(t.tile.attach_objects.iter_mut()).filter(|o| o.file.eq_ignore_ascii_case(from)) {
                     o.file = to.to_string();
                 }
             }
-            t.touch_content();
+            doc.tiles.get_mut(&k).unwrap().touch_content();
             n += here;
         }
         self.history.commit();
@@ -10896,6 +10889,7 @@ fn join_arms(doc: &mut Document, a: &crate::junction::Arm, b: &crate::junction::
         t.touch_content();
         ids.push((k, id));
     }
+    crate::road_maker::bus_rules::apply_for_splines(doc, &ids, "editor::join_arms");
     // link the chain: a's end -> new pieces -> b's end
     let set = |doc: &mut Document, k: TileKey, id: i64, at_end: bool, other: i64| {
         if let Some(t) = doc.tiles.get_mut(&k) {
@@ -17048,3 +17042,6 @@ mod tests {
         assert!((o.rot[0] - 270.0).abs() < 1e-4);
     }
 }
+
+#[cfg(test)]
+mod bus_lane_tests;

@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 mod strips;
 mod migration;
 mod free_layout;
+pub mod bus_rules;
 pub use strips::{Direction, Strip};
 #[cfg(test)]
 #[allow(dead_code)]
@@ -197,6 +198,7 @@ pub struct RoadSpec {
     pub strips: Vec<Strip>,
     /// Derived at export; never trusted from an edited sidecar.
     pub bus_paths: Vec<usize>,
+    pub bay_paths: Vec<usize>,
     #[serde(skip)]
     pub advanced: bool,
     #[serde(skip)]
@@ -238,7 +240,7 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
 
@@ -282,6 +284,8 @@ impl RoadSpec {
         let mut s = self.clone();
         if s.left_hand.is_none() && s.strips.is_empty() { s.rebuild_strips(fallback); }
         s.left_hand = Some(s.left_hand.unwrap_or(fallback));
+        s.bus_paths = s.bus_path_indices();
+        s.bay_paths = s.bay_path_indices();
         s
     }
 
@@ -333,6 +337,11 @@ impl RoadSpec {
         result
     }
 
+    pub fn bay_path_indices(&self) -> Vec<usize> {
+        self.strips.iter().filter(|s| !matches!(s, Strip::Median { .. })).enumerate()
+            .filter_map(|(i, s)| matches!(s, Strip::BusBay { .. }).then_some(i)).collect()
+    }
+
     pub fn simple_mode_issues(&self) -> Vec<String> {
         let mut issues = Vec::new();
         if let Err(error) = self.validate() { issues.push(error); }
@@ -369,6 +378,9 @@ impl RoadSpec {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        if self.name.to_lowercase().contains("_bay_") || self.file_stem().to_lowercase().contains("_bay_") {
+            return Err("名稱不能包含 _bay_（保留給巴士停車灣工具產生的道路類型）".into());
+        }
         strips::validate(&self.effective_strips(), self.left_hand.unwrap_or(false))
     }
 
@@ -643,6 +655,7 @@ impl RoadSpec {
     pub fn write_with_traffic(&self, content: &Path, left_hand: bool) -> anyhow::Result<String> {
         let mut spec = self.normalised(left_hand);
         spec.bus_paths = spec.bus_path_indices();
+        spec.bay_paths = spec.bay_path_indices();
         spec.validate().map_err(anyhow::Error::msg)?;
         spec.write_normalised(content)
     }
@@ -727,6 +740,7 @@ impl RoadSpec {
             }
         }
         spec.bus_paths = spec.bus_path_indices();
+        spec.bay_paths = spec.bay_path_indices();
         spec.advanced = !spec.simple_mode_issues().is_empty();
         if !spec.advanced {
             // Controls are a projection; the saved strips remain authoritative.

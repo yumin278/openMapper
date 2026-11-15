@@ -722,6 +722,7 @@ impl Document {
                 }
             }
         }
+        crate::road_maker::bus_rules::apply_for_splines(self, &[(k, new)], "doc::split_spline");
         Some(new)
     }
 

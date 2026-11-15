@@ -217,6 +217,8 @@ fn lay_connector(doc: &mut Document, at: (TileKey, i64, bool), file: &str, from:
         });
         t.touch_content();
     }
+    let made: Vec<_> = ordered.iter().zip(&ids).map(|((s, _), id)| (tile_of(s.start), *id)).collect();
+    crate::road_maker::bus_rules::apply_for_splines(doc, &made, "ed_cjunction::lay_connector");
     // the road's end takes the link
     if let Some(t) = doc.tiles.get_mut(&at.0) {
         if let Some(s) = t.tile.splines.iter_mut().find(|s| s.id == at.1) {

@@ -94,6 +94,7 @@ pub fn copy(doc: &mut Document, splines: &[(TileKey, i64)], d: f64) -> Result<Ve
         t.tile.splines.push(s);
         t.touch_content();
     }
+    crate::road_maker::bus_rules::apply_for_splines(doc, &out, "parallel::copy");
     Ok(out)
 }
 

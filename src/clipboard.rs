@@ -229,6 +229,8 @@ pub fn paste(doc: &mut Document, clip: &Clip, at: DVec3) -> Vec<Sel> {
         t.touch_content();
         out.push(Sel::Spline(k, ids[&c.s.id]));
     }
+    let made: Vec<_> = out.iter().filter_map(|s| if let Sel::Spline(k, id) = s { Some((*k, *id)) } else { None }).collect();
+    crate::road_maker::bus_rules::apply_for_splines(doc, &made, "clipboard::paste");
     // what hangs on them, in order (a parent comes before what hangs on it)
     for a in &clip.attached {
         let Some(pid) = a.parent_id else { continue };
