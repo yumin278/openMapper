@@ -358,7 +358,7 @@ impl RoadTypes {
                             ed.set_tool(crate::editor::Tool::Roads);
                         }
                         let path = roots.resolve(&rel);
-                        if let Some(spec) = RoadSpec::of(&path) {
+                        if let Some(spec) = RoadSpec::of_with_traffic(&path, left_hand) {
                             if ui.button(icons::labelled(Icon::Settings, tr("Change it in the road maker", "Изменить в конструкторе"))).clicked() {
                                 self.maker = Some(spec);
                             }
@@ -440,6 +440,12 @@ impl RoadTypes {
 
     fn maker_ui(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &mut Option<Vec<PathBuf>>, search: &mut [String; 3], roots: &Roots, tex: &mut TexCache, canvas: &mut bool, left_hand: bool) {
         ui.label(RichText::new(tr("Road maker", "Конструктор дороги")).strong().color(Color32::WHITE));
+        let map_left_hand = left_hand;
+        let left_hand = s.left_hand.unwrap_or(map_left_hand);
+        if left_hand != map_left_hand {
+            ui.colored_label(Color32::YELLOW, if left_hand { "此道路是為靠左行駛建立的" } else { "此道路是為靠右行駛建立的" });
+        }
+
         ui.horizontal(|ui| {
             ui.label(tr("Start from", "Взять за основу"));
             egui::ComboBox::from_id_salt("road preset").selected_text(tr("a ready-made road…", "готовую дорогу…")).show_ui(ui, |ui| {
@@ -497,6 +503,7 @@ impl RoadTypes {
             ui.add(egui::Slider::new(&mut s.pocket, 0.0..=4.0).suffix(" m")).on_hover_text(tr("A lane for buses to stop in, right of the roadway, before the footway. Lay a road type made so where a bay is wanted with the Bus pocket tool of the Roads tool", "Полоса для остановки автобусов справа от проезжей части, перед тротуаром. Дорогой такого типа делают карман инструментом «Автобусный карман» в «Дорогах»"));
             ui.end_row();
         });
+        s.rebuild_strips(left_hand);
         preview(ui, s, tex, left_hand);
         let list = textures.get_or_insert_with(|| spline_textures(roots));
         let has_median = s.median_width() > 0.0;
@@ -534,6 +541,7 @@ impl RoadTypes {
                 }
             });
         }
+        s.rebuild_strips(left_hand);
         egui::CollapsingHeader::new(RichText::new(tr("Road markings", "Дорожная разметка")).strong().color(Color32::WHITE)).id_salt("road markings").default_open(s.marked).show(ui, |ui| {
             ui.checkbox(&mut s.marked, tr("Paint my own markings", "Нарисовать свою разметку")).on_hover_text(tr("The maker paints the lines onto the roadway texture: pick a plain asphalt texture, or its own lines show too", "Конструктор рисует линии на текстуре проезжей части: берите гладкий асфальт, иначе проступят и его собственные линии"));
             if !s.marked {
