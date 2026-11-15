@@ -330,3 +330,26 @@ fn pocket_tool_preserves_maker_bus_paths_and_bays_on_one_and_both_sides() {
         }
     }
 }
+
+#[test]
+fn batch_bus_rules_preview_is_read_only_counts_additions_and_undoes_in_one_step() {
+    let mut f=Fixture::new("batch"); let made=f.lay();
+    let doc=f.editor.doc.as_mut().unwrap();
+    let copies=crate::parallel::copy(doc,&made,10.0).unwrap();
+    let instances:Vec<_>=made.into_iter().chain(copies).collect();
+    for &(k,id) in &instances { doc.tiles.get_mut(&k).unwrap().tile.splines.iter_mut().find(|s|s.id==id).unwrap().rules.clear(); }
+    let mut deleted=doc.spline(instances[0].0,instances[0].1).unwrap().clone(); deleted.id=999; deleted.deleted=true;
+    let mut plain=deleted.clone(); plain.id=998; plain.deleted=false; plain.file=f.plain.clone();
+    doc.tiles.get_mut(&(0,0)).unwrap().tile.splines.extend([deleted,plain]);
+    let groups=f.editor.preview_all_bus_rules(); assert_eq!(groups.len(),1); assert_eq!(groups[0].splines.len(),2);
+    assert!(instances.iter().all(|&(k,id)|f.editor.doc.as_ref().unwrap().spline(k,id).unwrap().rules.is_empty()));
+    assert_eq!(f.editor.apply_all_bus_rules(&groups).unwrap(),8);
+    assert_rules(f.editor.doc.as_ref().unwrap(),&instances);
+    f.editor.undo();
+    assert!(instances.iter().all(|&(k,id)|f.editor.doc.as_ref().unwrap().spline(k,id).unwrap().rules.is_empty()));
+    assert_eq!(f.editor.apply_all_bus_rules(&groups).unwrap(),8);
+    assert_eq!(f.editor.apply_all_bus_rules(&groups).unwrap(),0);
+    assert!(f.editor.doc.as_ref().unwrap().spline((0,0),998).unwrap().rules.is_empty());
+    f.editor.doc.as_mut().unwrap().tiles.get_mut(&(0,0)).unwrap().tile.splines.iter_mut().find(|s|s.id==instances[0].1).unwrap().file=f.plain.clone();
+    assert!(f.editor.apply_all_bus_rules(&groups).is_err());
+}

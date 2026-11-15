@@ -40,7 +40,12 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
     let mut indices = Vec::new();
     for strip in strips {
         indices.push(match strip {
-            Strip::Footway { tex, .. } | Strip::Median { tex, .. } => texture_index(tex),
+            Strip::Footway { tex, .. } => texture_index(if tex.as_os_str().is_empty() {
+                &spec.footway_tex
+            } else {
+                tex
+            }),
+            Strip::Median { tex, .. } => texture_index(tex),
             _ => 0,
         });
     }
@@ -79,7 +84,7 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
             Strip::Median { width, tex, .. } if !tex.as_os_str().is_empty() => {
                 (indices[i], 0.0, 1.0, *width)
             }
-            Strip::Median { raised: true, .. } if side_index != 0 => {
+            Strip::Median { raised: true, .. } if !spec.footway_tex.as_os_str().is_empty() => {
                 (side_index, 0.953, 0.187, 0.2)
             }
             Strip::Median { .. } => (
@@ -89,7 +94,15 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
                 spec.roadway_v(),
             ),
         };
-        profile(&mut text, index, (*lo, h, u0, v), (*hi, h, u1, v));
+        let footway_has_texture = |i: usize| match &strips[i] {
+            Strip::Footway { tex, .. } => {
+                !tex.as_os_str().is_empty() || !spec.footway_tex.as_os_str().is_empty()
+            }
+            _ => false,
+        };
+        if !matches!(strip, Strip::Footway { .. }) || footway_has_texture(i) {
+            profile(&mut text, index, (*lo, h, u0, v), (*hi, h, u1, v));
+        }
         if let Some(next) = strips.get(i + 1) {
             let next_h = next.height(spec.kerb);
             if h != next_h {
@@ -105,7 +118,16 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
                 } else {
                     (0.953, 0.995)
                 };
-                profile(&mut text, index, (*hi, h, u0, 0.2), (*hi, next_h, u1, 0.2));
+                let available = if matches!(strip, Strip::Footway { .. }) {
+                    footway_has_texture(i)
+                } else if matches!(next, Strip::Footway { .. }) {
+                    footway_has_texture(i + 1)
+                } else {
+                    !spec.footway_tex.as_os_str().is_empty()
+                };
+                if available {
+                    profile(&mut text, index, (*hi, h, u0, 0.2), (*hi, next_h, u1, 0.2));
+                }
             }
         }
     }

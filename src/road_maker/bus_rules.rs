@@ -3,15 +3,29 @@ use super::RoadSpec;
 use crate::doc::{Document, TileKey};
 use omsi_map::MapSpline;
 
-pub fn paths_for(doc: &Document, file: &str) -> Vec<usize> {
-    // Made roads live in the map's content installation. A source map can also
-    // refer to a made road beside the installation it was read from.
+pub fn paths_for(doc: &Document, file: &str, content: Option<&std::path::Path>) -> Vec<usize> {
+    let mut roots: Vec<std::path::PathBuf> = content
+        .or(doc.content_root.as_deref())
+        .map(|p| p.to_path_buf())
+        .into_iter()
+        .collect();
     for map in std::iter::once(doc.dir.as_path()).chain(doc.source.as_deref()) {
-        let Some(root) = map.parent().and_then(|p| p.parent()) else {
-            continue;
-        };
-        let sli = omsi_cfg::resolve_path(root, file);
-        if sli.with_extension("road.json").is_file() {
+        if let Some(root) = map.parent().and_then(|p| p.parent()) {
+            if !roots.iter().any(|p| p == root) {
+                roots.push(root.to_path_buf());
+            }
+        }
+    }
+    let mut searched = Vec::new();
+    for root in roots {
+        let sli = omsi_cfg::resolve_path(&root, file);
+        let json = sli.with_extension("road.json");
+        searched.push(if json.is_absolute() {
+            json.clone()
+        } else {
+            std::env::current_dir().unwrap_or_default().join(&json)
+        });
+        if json.is_file() {
             return RoadSpec::of_with_traffic(&sli, doc.global.left_hand_traffic)
                 .map(|s| {
                     let mut paths = s.bus_paths;
@@ -22,6 +36,17 @@ pub fn paths_for(doc: &Document, file: &str) -> Vec<usize> {
                 })
                 .unwrap_or_default();
         }
+    }
+    let normalized = file.replace('\\', "/").to_lowercase();
+    if normalized.starts_with("splines/openmapper/") || normalized.contains("/splines/openmapper/")
+    {
+        log::warn!(
+            "{}: file={file:?}, searched={searched:?}",
+            crate::i18n::tr(
+                "Road metadata not found",
+                "Не найдены данные конструктора дороги"
+            )
+        );
     }
     Vec::new()
 }
@@ -95,7 +120,7 @@ pub fn apply_for_splines(doc: &mut Document, splines: &[(TileKey, i64)], caller:
         }
     }
     for (file, instances) in by_file {
-        let paths = paths_for(doc, &file);
+        let paths = paths_for(doc, &file, doc.content_root.as_deref());
         if !paths.is_empty() {
             apply_logged(doc, &instances, &paths, caller);
         }
@@ -147,7 +172,7 @@ pub fn retype(doc: &mut Document, splines: &[(TileKey, i64)], file: &str, caller
         let Some(old) = doc.spline(key, id).map(|s| s.file.clone()) else {
             continue;
         };
-        let paths = paths_for(doc, &old);
+        let paths = paths_for(doc, &old, doc.content_root.as_deref());
         remove_old(doc, key, id, &paths, caller);
         if let Some(tile) = doc.tiles.get_mut(&key) {
             if let Some(s) = tile
@@ -166,3 +191,5 @@ pub fn retype(doc: &mut Document, splines: &[(TileKey, i64)], file: &str, caller
 
 #[cfg(test)]
 mod tests;
+
+pub mod batch;

@@ -304,16 +304,132 @@ mod tests {
     /// save overwrites the file, and things are picked with 選取, never with 挑. (The words
     /// these replace are listed: a translation that brings one back is caught here.)
     #[test]
-    fn the_hong_kong_table_uses_hong_kong_road_words() {
+    fn traditional_chinese_preserves_existing_terms_and_requested_road_maker_terms() {
         let t = table(Lang::ZhTw);
         assert!(t.len() > 2000, "{} texts", t.len());
-        let taiwan = ["車道", "拖曳", "相位", "時相", "樣條", "號誌燈", "公車", "既有", "封鎖", "挑", "人行道", "方向燈", "坡度", "寬度", "轉燈階段", "保持路口淨空"];
+        // The road maker explicitly uses the requested Taiwan terminology.
+        // Check these entries exactly while retaining the older Hong Kong vocabulary elsewhere.
+        let maker_terms = [
+            ("Footway", "人行道"),
+            ("Kerb height", "緣石高度"),
+            ("Strips run from left to right", "積木依道路左至右排列"),
+            ("Lane", "車道"),
+            ("Median", "分隔帶"),
+            ("BusBay", "巴士停車灣"),
+            ("Forward ↑", "順向 ↑"),
+            ("Backward ↓", "逆向 ↓"),
+            ("bus only", "公車專用"),
+            ("Use roadway texture", "使用車道材質"),
+            ("Choose file…", "選擇檔案…"),
+            ("Default footway texture", "預設人行道材質"),
+            ("Advanced: strip mode", "進階：積木模式"),
+            (
+                "This road was made for left-hand traffic",
+                "此道路是為靠左行駛建立的",
+            ),
+            (
+                "This road was made for right-hand traffic",
+                "此道路是為靠右行駛建立的",
+            ),
+            (
+                "This road contains settings that simple mode cannot represent",
+                "此道路含簡單模式無法表示的設定",
+            ),
+            (
+                "Built-in multi-lane texture markings may not align with these lanes",
+                "內建多車道貼圖的線會和車道對不上",
+            ),
+            ("Lane widths differ", "車道寬度不一致"),
+            ("Contains bus-only lanes", "含公車專用車道"),
+            ("Contains multiple medians", "含多個分隔帶"),
+            (
+                "Median is not between opposite directions",
+                "分隔帶不在兩向車道交界",
+            ),
+            ("Contains a left BusBay", "左側含巴士停車灣"),
+            ("Footway textures differ", "兩側人行道使用不同材質"),
+            (
+                "Names must not contain _bay_ (reserved for the bus bay tool)",
+                "名稱不能包含 _bay_（保留給巴士停車灣工具產生的道路類型）",
+            ),
+            ("A road needs at least one Lane", "道路至少需要一條車道"),
+            ("Strip {} has an invalid width", "積木 {} 的寬度無效"),
+            (
+                "Footways must be at the outer ends",
+                "人行道只能位於道路兩端",
+            ),
+            (
+                "BusBays must border the roadway, at most one per side",
+                "巴士停車灣只能緊貼車道段外緣，各側最多一個",
+            ),
+            (
+                "Medians must be inside the roadway",
+                "分隔帶必須位於車道段內",
+            ),
+            (
+                "The roadway may contain only Lanes and Medians",
+                "車道段內只能包含車道和分隔帶",
+            ),
+            (
+                "Lane directions do not match this road’s traffic side",
+                "車道方向排列不符合此道路的行駛側設定",
+            ),
+            ("Reset bay texture", "重設灣貼圖"),
+            ("Bay texture reset", "已重設灣貼圖"),
+            ("Could not reset bay texture", "無法重設灣貼圖"),
+            ("The roadway texture is missing", "找不到車道材質"),
+            ("The roadway texture could not be read", "無法讀取車道材質"),
+            (
+                "Apply bus lane rules to all existing roads",
+                "套用公車道規則到所有既有道路",
+            ),
+            (
+                "Road types and spline counts to update",
+                "將套用的道路類型與 spline 數量",
+            ),
+            ("Rules added", "新增規則數量"),
+            (
+                "Roads changed; review the preview again",
+                "道路已變更，請重新檢查預覽",
+            ),
+            ("No roads need bus lane rules", "沒有可套用公車道規則的道路"),
+            ("BUS", "公車"),
+            ("No footway texture", "未設定人行道材質"),
+            ("Road metadata not found", "找不到道路製作器資料檔"),
+        ];
+        for &(en, expected) in &maker_terms {
+            assert_eq!(t.get(en).copied(), Some(expected), "{en}");
+        }
+        let taiwan = [
+            "車道",
+            "拖曳",
+            "相位",
+            "時相",
+            "樣條",
+            "號誌燈",
+            "公車",
+            "既有",
+            "封鎖",
+            "挑",
+            "人行道",
+            "方向燈",
+            "坡度",
+            "寬度",
+            "轉燈階段",
+            "保持路口淨空",
+        ];
         for (en, tr) in t.iter() {
+            if maker_terms.iter().any(|(key, _)| key == en) {
+                continue;
+            }
             for w in taiwan {
                 // (行車道 is the roadway as a whole - a carriageway - and Hong Kong's own word;
                 // 車道 alone, a lane, is not)
                 let hay = tr.replace("行車道", "");
-                assert!(!hay.contains(w), "{en:?} says {tr:?}: {w} is not Hong Kong's word");
+                assert!(
+                    !hay.contains(w),
+                    "{en:?} says {tr:?}: {w} is not Hong Kong's word"
+                );
             }
         }
         assert_eq!(t.get("Fit").copied(), Some("置中縮放"));
@@ -324,11 +440,20 @@ mod tests {
         assert_eq!(t.get("Turn signal").copied(), Some("指揮燈"));
         assert_eq!(t.get("Width").copied(), Some("闊度"));
         assert_eq!(t.get("Slope").copied(), Some("斜度"));
-        assert_eq!(t.get("Footway").copied(), Some("行人路"));
+        assert_eq!(t.get("Footway").copied(), Some("人行道"));
         assert_eq!(t.get("Request loops").copied(), Some("車輛感應線圈"));
-        assert!(t.get("Pick a crossing object of the map").is_some_and(|s| s.contains("選取")), "{:?}", t.get("Pick a crossing object of the map"));
+        assert!(
+            t.get("Pick a crossing object of the map")
+                .is_some_and(|s| s.contains("選取")),
+            "{:?}",
+            t.get("Pick a crossing object of the map")
+        );
         // (the railway's signals keep their own word: they are not traffic lights)
-        assert!(t.get("Signal routes").is_some_and(|s| s.contains("號誌")), "{:?}", t.get("Signal routes"));
+        assert!(
+            t.get("Signal routes").is_some_and(|s| s.contains("號誌")),
+            "{:?}",
+            t.get("Signal routes")
+        );
     }
 
     #[test]

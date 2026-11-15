@@ -67,7 +67,7 @@ pub fn validate(strips: &[Strip], left_hand: bool) -> Result<(), String> {
     let first = strips
         .iter()
         .position(|s| matches!(s, Strip::Lane { .. }))
-        .ok_or_else(|| "道路至少需要一條 Lane".to_string())?;
+        .ok_or_else(|| crate::i18n::tr("A road needs at least one Lane", "Дороге нужна хотя бы одна полоса движения").to_string())?;
     let last = strips
         .iter()
         .rposition(|s| matches!(s, Strip::Lane { .. }))
@@ -75,22 +75,22 @@ pub fn validate(strips: &[Strip], left_hand: bool) -> Result<(), String> {
     for (i, strip) in strips.iter().enumerate() {
         let w = strip.width();
         if !w.is_finite() || w < 0.0 || (w == 0.0 && !matches!(strip, Strip::Median { .. })) {
-            return Err(format!("積木 {} 的寬度無效", i + 1));
+            return Err(crate::i18n::tr("Strip {} has an invalid width", "Недопустимая ширина полосы {}").replace("{}", &(i + 1).to_string()));
         }
         match strip {
             Strip::Footway { .. } if i != 0 && i + 1 != strips.len() => {
-                return Err("Footway 只能位於道路兩端".into());
+                return Err(crate::i18n::tr("Footways must be at the outer ends", "Тротуары должны быть по краям дороги").into());
             }
             Strip::BusBay { .. } if i.checked_add(1) != Some(first) && i != last + 1 => {
-                return Err("BusBay 只能緊貼車道段外緣，各側最多一個".into());
+                return Err(crate::i18n::tr("BusBays must border the roadway, at most one per side", "Автобусные карманы должны примыкать к дороге, не более одного с каждой стороны").into());
             }
             Strip::Median { .. } if i < first || i > last => {
-                return Err("Median 必須位於車道段內".into());
+                return Err(crate::i18n::tr("Medians must be inside the roadway", "Разделительные полосы должны быть внутри проезжей части").into());
             }
             _ => {}
         }
         if (first..=last).contains(&i) && !strip.is_roadway() {
-            return Err("車道段內只能包含 Lane 和 Median".into());
+            return Err(crate::i18n::tr("The roadway may contain only Lanes and Medians", "Проезжая часть может содержать только полосы движения и разделительные полосы").into());
         }
     }
     let left_dir = if left_hand {
@@ -104,7 +104,7 @@ pub fn validate(strips: &[Strip], left_hand: bool) -> Result<(), String> {
             if *dir != left_dir {
                 reached_right = true;
             } else if reached_right {
-                return Err("車道方向排列不符合此道路的行駛側設定".into());
+                return Err(crate::i18n::tr("Lane directions do not match this road’s traffic side", "Направления полос не соответствуют стороне движения этой дороги").into());
             }
         }
     }

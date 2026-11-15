@@ -29,6 +29,8 @@ pub struct RoadTypes {
     /// The road's textures as the previews show them.
     pics: TexCache,
     error: Option<String>,
+    pending_bus_rules: Option<Vec<crate::road_maker::bus_rules::batch::Group>>,
+    bus_rule_result: Option<usize>,
     /// The drawing board for the markings.
     canvas: crate::ui_markpaint::MarkCanvas,
 }
@@ -124,6 +126,29 @@ impl RoadTypes {
         let left_hand = ed.doc.as_ref().is_some_and(|doc| doc.global.left_hand_traffic);
         let mut open = self.open;
         egui::Window::new(icons::labelled(Icon::Road, tr("Road types", "Типы дорог"))).open(&mut open).default_size(Vec2::new(760.0, 520.0)).show(ctx, |ui| {
+            if ui.add_enabled(ed.doc.is_some(), egui::Button::new(tr("Apply bus lane rules to all existing roads", "Применить правила автобусных полос ко всем существующим дорогам"))).clicked() {
+                self.pending_bus_rules = Some(ed.preview_all_bus_rules()); self.bus_rule_result = None;
+            }
+            if let Some(groups) = &self.pending_bus_rules {
+                ui.label(tr("Road types and spline counts to update", "Типы дорог и количество сплайнов для обновления"));
+                if groups.is_empty() { ui.label(tr("No roads need bus lane rules", "Нет дорог с правилами автобусных полос")); }
+                egui::ScrollArea::vertical().id_salt("bus rule preview").max_height(160.0).show(ui, |ui| {
+                    for group in groups { ui.label(format!("{}: {}", group.file, group.splines.len())); }
+                });
+                let mut confirm = false; let mut cancel = false;
+                ui.horizontal(|ui| {
+                    confirm = ui.button(tr("Confirm", "Подтвердить")).clicked();
+                    cancel = ui.button(tr("Cancel", "Отмена")).clicked();
+                });
+                if confirm {
+                    match ed.apply_all_bus_rules(groups) {
+                        Ok(count) => self.bus_rule_result = Some(count),
+                        Err(error) => self.error = Some(error),
+                    }
+                }
+                if confirm || cancel { self.pending_bus_rules = None; }
+            }
+            if let Some(count) = self.bus_rule_result { ui.label(format!("{}: {count}", tr("Rules added", "Добавлено правил"))); }
             ui.horizontal_top(|ui| {
                 // the list
                 ui.vertical(|ui| {
@@ -269,15 +294,15 @@ impl RoadTypes {
         let map_left_hand = left_hand;
         let left_hand = s.left_hand.unwrap_or(map_left_hand);
         if left_hand != map_left_hand {
-            ui.colored_label(Color32::YELLOW, if left_hand { "此道路是為靠左行駛建立的" } else { "此道路是為靠右行駛建立的" });
+            ui.colored_label(Color32::YELLOW, if left_hand { crate::i18n::tr("This road was made for left-hand traffic", "Эта дорога создана для левостороннего движения") } else { crate::i18n::tr("This road was made for right-hand traffic", "Эта дорога создана для правостороннего движения") });
         }
 
         if s.left_hand.is_none() { s.rebuild_strips(left_hand); }
         let mut advanced = s.advanced;
-        if ui.checkbox(&mut advanced, "進階：積木模式").changed() {
+        if ui.checkbox(&mut advanced, crate::i18n::tr("Advanced: strip mode", "Дополнительно: режим полос")).changed() {
             if advanced { s.advanced = true; s.mode_error = None; }
             else if let Err(issues) = s.use_simple_mode() {
-                s.mode_error = Some(format!("此道路含簡單模式無法表示的設定：{}", issues.join("、")));
+                s.mode_error = Some(format!("{}: {}", crate::i18n::tr("This road contains settings that simple mode cannot represent", "Эта дорога содержит настройки, недоступные в простом режиме"), issues.join(", ")));
             }
         }
         if let Some(error) = &s.mode_error { ui.colored_label(Color32::YELLOW, error); }
@@ -346,7 +371,7 @@ impl RoadTypes {
         if !s.advanced { s.rebuild_strips(left_hand); }
         if let Err(error) = s.validate() { ui.colored_label(Color32::RED, error); }
         if !s.marked && s.unequal_lane_widths() {
-            ui.colored_label(Color32::YELLOW, "內建多車道貼圖的線會和車道對不上");
+            ui.colored_label(Color32::YELLOW, crate::i18n::tr("Built-in multi-lane texture markings may not align with these lanes", "Разметка многополосной текстуры может не совпадать с полосами"));
         }
         preview(ui, s, tex, left_hand);
         let list = textures.get_or_insert_with(|| spline_textures(roots));
@@ -366,7 +391,7 @@ impl RoadTypes {
             }
             ui.horizontal(|ui| {
                 ui.label(label);
-                egui::ComboBox::from_id_salt(("road tex", i)).width(260.0).selected_text(if cur.as_os_str().is_empty() { tr("like the roadway", "как у проезжей части").to_string() } else { file_name(cur) }).show_ui(ui, |ui| {
+                egui::ComboBox::from_id_salt(("road tex", i)).width(260.0).selected_text(if cur.as_os_str().is_empty() { if i == 1 { tr("No footway texture", "Нет текстуры тротуара").to_string() } else { tr("like the roadway", "как у проезжей части").to_string() } } else { file_name(cur) }).show_ui(ui, |ui| {
                     if i == 2 && ui.selectable_label(cur.as_os_str().is_empty(), tr("like the roadway", "как у проезжей части")).clicked() {
                         cur.clear();
                     }
@@ -384,6 +409,12 @@ impl RoadTypes {
                     }
                 }
             });
+        }
+        if s.strips.iter().any(|strip| matches!(strip, crate::road_maker::Strip::BusBay { .. })) && ui.button(tr("Reset bay texture", "Сбросить текстуру кармана")).clicked() {
+            match s.reset_bay_texture(&roots.content) {
+                Ok(()) => { s.mode_error = Some(tr("Bay texture reset", "Текстура кармана сброшена").into()); }
+                Err(error) => { s.mode_error = Some(format!("{}: {error}", tr("Could not reset bay texture", "Не удалось сбросить текстуру кармана"))); }
+            }
         }
         if !s.advanced { s.rebuild_strips(left_hand); }
         egui::CollapsingHeader::new(RichText::new(tr("Road markings", "Дорожная разметка")).strong().color(Color32::WHITE)).id_salt("road markings").default_open(s.marked).show(ui, |ui| {

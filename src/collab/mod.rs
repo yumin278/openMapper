@@ -449,6 +449,7 @@ fn guest_doc(roots: &Roots, w: &Welcome) -> Result<Document, String> {
 /// An empty document to fill.
 fn placeholder() -> Document {
     Document {
+        content_root: None,
         global: Default::default(),
         tiles: Default::default(),
         order: Vec::new(),

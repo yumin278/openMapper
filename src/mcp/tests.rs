@@ -10,6 +10,7 @@ fn server(allow_edit: bool) -> Server {
     let nowhere = std::env::temp_dir().join("openmapper-mcp-no-omsi");
     let roots = crate::install::Roots { omsi: nowhere.clone(), content: nowhere };
     let mut doc = Document {
+        content_root: None,
         global: Default::default(),
         tiles: Default::default(),
         order: Vec::new(),

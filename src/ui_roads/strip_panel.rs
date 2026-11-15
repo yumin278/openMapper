@@ -3,12 +3,15 @@ use crate::road_maker::{Direction, Strip};
 
 pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
     ui.horizontal(|ui| {
-        ui.label("名稱");
+        ui.label(crate::i18n::tr("Name", "Название"));
         ui.text_edit_singleline(&mut s.name);
-        ui.label("緣石高度");
+        ui.label(crate::i18n::tr("Kerb height", "Высота бордюра"));
         ui.add(egui::Slider::new(&mut s.kerb, 0.0..=0.3).suffix(" m"));
     });
-    ui.label("積木依道路左至右排列");
+    ui.label(crate::i18n::tr(
+        "Strips run from left to right",
+        "Полосы расположены слева направо",
+    ));
     let count = s.strips.len();
     let mut remove = None;
     let mut swap = None;
@@ -18,26 +21,35 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                 ui.horizontal(|ui| {
                     ui.label(format!("{}", i + 1));
                     ui.strong(match strip {
-                        Strip::Lane { .. } => "Lane 車道",
-                        Strip::Median { .. } => "Median 分隔島",
-                        Strip::Footway { .. } => "Footway 人行道",
-                        Strip::BusBay { .. } => "BusBay 巴士灣",
+                        Strip::Lane { .. } => crate::i18n::tr("Lane", "Полоса движения"),
+                        Strip::Median { .. } => crate::i18n::tr("Median", "Разделительная полоса"),
+                        Strip::Footway { .. } => crate::i18n::tr("Footway", "Тротуар"),
+                        Strip::BusBay { .. } => crate::i18n::tr("BusBay", "Автобусный карман"),
                     });
-                    if ui.add_enabled(i > 0, egui::Button::new("上移")).clicked() {
+                    if ui
+                        .add_enabled(
+                            i > 0,
+                            egui::Button::new(crate::i18n::tr("Move up", "Вверх")),
+                        )
+                        .clicked()
+                    {
                         swap = Some((i, i - 1));
                     }
                     if ui
-                        .add_enabled(i + 1 < count, egui::Button::new("下移"))
+                        .add_enabled(
+                            i + 1 < count,
+                            egui::Button::new(crate::i18n::tr("Move down", "Вниз")),
+                        )
                         .clicked()
                     {
                         swap = Some((i, i + 1));
                     }
-                    if ui.button("刪除").clicked() {
+                    if ui.button(crate::i18n::tr("Delete", "Удалить")).clicked() {
                         remove = Some(i);
                     }
                 });
                 ui.horizontal(|ui| {
-                    ui.label("寬度");
+                    ui.label(crate::i18n::tr("Width", "Ширина"));
                     match strip {
                         Strip::Lane {
                             dir,
@@ -45,13 +57,21 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                             bus_only,
                         } => {
                             ui.add(egui::Slider::new(width, 2.5..=5.0).suffix(" m"));
-                            ui.selectable_value(dir, Direction::Fwd, "順向 ↑");
-                            ui.selectable_value(dir, Direction::Back, "逆向 ↓");
-                            ui.checkbox(bus_only, "公車專用");
+                            ui.selectable_value(
+                                dir,
+                                Direction::Fwd,
+                                crate::i18n::tr("Forward ↑", "По ходу ↑"),
+                            );
+                            ui.selectable_value(
+                                dir,
+                                Direction::Back,
+                                crate::i18n::tr("Backward ↓", "Против хода ↓"),
+                            );
+                            ui.checkbox(bus_only, crate::i18n::tr("bus only", "только автобусы"));
                         }
                         Strip::Median { width, raised, .. } => {
                             ui.add(egui::Slider::new(width, 0.0..=12.0).suffix(" m"));
-                            ui.checkbox(raised, "抬高");
+                            ui.checkbox(raised, crate::i18n::tr("raised", "приподнят"));
                         }
                         Strip::Footway { width, .. } => {
                             ui.add(egui::Slider::new(width, 0.1..=8.0).suffix(" m"));
@@ -61,19 +81,36 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                         }
                     }
                 });
+                let is_footway = matches!(strip, Strip::Footway { .. });
                 if let Strip::Median { tex, .. } | Strip::Footway { tex, .. } = strip {
                     ui.horizontal(|ui| {
-                        ui.label("材質");
+                        ui.label(crate::i18n::tr("Texture", "Текстура"));
                         egui::ComboBox::from_id_salt("material")
                             .selected_text(if tex.as_os_str().is_empty() {
-                                "使用車道材質".into()
+                                if is_footway {
+                                    tr("Default footway texture", "Стандартная текстура тротуара")
+                                        .into()
+                                } else {
+                                    crate::i18n::tr(
+                                        "Use roadway texture",
+                                        "Использовать текстуру дороги",
+                                    )
+                                    .into()
+                                }
                             } else {
                                 file_name(tex)
                             })
                             .show_ui(ui, |ui| {
-                                if ui
-                                    .selectable_label(tex.as_os_str().is_empty(), "使用車道材質")
-                                    .clicked()
+                                if !is_footway
+                                    && ui
+                                        .selectable_label(
+                                            tex.as_os_str().is_empty(),
+                                            crate::i18n::tr(
+                                                "Use roadway texture",
+                                                "Использовать текстуру дороги",
+                                            ),
+                                        )
+                                        .clicked()
                                 {
                                     tex.clear();
                                 }
@@ -83,9 +120,15 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                                     }
                                 }
                             });
-                        if ui.button("選擇檔案…").clicked() {
+                        if ui
+                            .button(crate::i18n::tr("Choose file…", "Выбрать файл…"))
+                            .clicked()
+                        {
                             if let Some(path) = rfd::FileDialog::new()
-                                .add_filter("材質", &["png", "jpg", "bmp", "tga", "dds"])
+                                .add_filter(
+                                    crate::i18n::tr("Texture", "Текстура"),
+                                    &["png", "jpg", "bmp", "tga", "dds"],
+                                )
                                 .pick_file()
                             {
                                 *tex = path;
@@ -102,28 +145,37 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
         s.strips.swap(a, b);
     }
     ui.horizontal(|ui| {
-        ui.label("新增");
-        if ui.button("Lane").clicked() {
+        ui.label(crate::i18n::tr("Add", "Добавить"));
+        if ui
+            .button(crate::i18n::tr("Lane", "Полоса движения"))
+            .clicked()
+        {
             s.strips.push(Strip::Lane {
                 dir: Direction::Fwd,
                 width: 3.5,
                 bus_only: false,
             });
         }
-        if ui.button("Median").clicked() {
+        if ui
+            .button(crate::i18n::tr("Median", "Разделительная полоса"))
+            .clicked()
+        {
             s.strips.push(Strip::Median {
                 width: 2.0,
                 raised: true,
                 tex: s.median_tex.clone(),
             });
         }
-        if ui.button("Footway").clicked() {
+        if ui.button(crate::i18n::tr("Footway", "Тротуар")).clicked() {
             s.strips.push(Strip::Footway {
                 width: 2.0,
                 tex: s.footway_tex.clone(),
             });
         }
-        if ui.button("BusBay").clicked() {
+        if ui
+            .button(crate::i18n::tr("BusBay", "Автобусный карман"))
+            .clicked()
+        {
             s.strips.push(Strip::BusBay { width: 3.0 });
         }
     });

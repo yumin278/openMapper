@@ -28,7 +28,14 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
                 },
                 &s.roadway_tex,
             ),
-            Strip::Footway { tex, .. } => (Color32::from_gray(175), tex),
+            Strip::Footway { tex, .. } => (
+                Color32::from_gray(175),
+                if tex.as_os_str().is_empty() {
+                    &s.footway_tex
+                } else {
+                    tex
+                },
+            ),
             Strip::Median { tex, .. } => (Color32::from_rgb(100, 145, 90), tex),
         };
         let pic = tex.get(ui.ctx(), path);
@@ -98,7 +105,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
                 painter.text(
                     Pos2::new(middle, cy + 22.0),
                     egui::Align2::CENTER_CENTER,
-                    "BUS",
+                    tr("BUS", "АВТОБУС"),
                     egui::FontId::proportional(11.0),
                     Color32::WHITE,
                 );
@@ -150,8 +157,9 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
         Pos2::new(rect.center().x, rect.bottom() - 9.0),
         egui::Align2::CENTER_CENTER,
         format!(
-            "{:.1} m · roadway {:.1} m",
+            "{:.1} m · {} {:.1} m",
             s.total_width(),
+            tr("roadway", "проезжая часть"),
             s.roadway_width()
         ),
         egui::FontId::proportional(11.0),

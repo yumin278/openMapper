@@ -95,9 +95,9 @@ fn switching_to_simple_mode_rejects_lossy_settings_and_projects_representable_ro
     road.advanced = true;
     let before = road.strips.clone();
     let reasons = road.use_simple_mode().unwrap_err();
-    assert!(reasons.iter().any(|r| r.contains("寬度")));
-    assert!(reasons.iter().any(|r| r.contains("公車")));
-    assert!(reasons.iter().any(|r| r.contains("左側")));
+    assert!(reasons.iter().any(|r| r == crate::i18n::tr("Lane widths differ", "Разная ширина полос")));
+    assert!(reasons.iter().any(|r| r == crate::i18n::tr("Contains bus-only lanes", "Есть полосы только для автобусов")));
+    assert!(reasons.iter().any(|r| r == crate::i18n::tr("Contains a left BusBay", "Есть левый автобусный карман")));
     assert_eq!(road.strips, before);
     assert!(road.advanced);
     let mut road = RoadSpec {

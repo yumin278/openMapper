@@ -316,7 +316,7 @@ impl RoadSpec {
                 }
                 Strip::Footway { width, tex } => {
                     if i == 0 { s.footway = *width; } else { s.footway_right = Some(*width); }
-                    s.footway_tex = tex.clone();
+                    if !tex.as_os_str().is_empty() { s.footway_tex = tex.clone(); }
                 }
                 Strip::BusBay { width } => s.pocket = *width,
             }
@@ -347,19 +347,19 @@ impl RoadSpec {
         if let Err(error) = self.validate() { issues.push(error); }
         let strips = self.effective_strips();
         let lanes: Vec<_> = strips.iter().filter_map(|s| if let Strip::Lane { width, .. } = s { Some(*width) } else { None }).collect();
-        if lanes.windows(2).any(|p| p[0] != p[1]) { issues.push("車道寬度不一致".into()); }
-        if strips.iter().any(|s| matches!(s, Strip::Lane { bus_only: true, .. })) { issues.push("含公車專用車道".into()); }
+        if lanes.windows(2).any(|p| p[0] != p[1]) { issues.push(crate::i18n::tr("Lane widths differ", "Разная ширина полос").into()); }
+        if strips.iter().any(|s| matches!(s, Strip::Lane { bus_only: true, .. })) { issues.push(crate::i18n::tr("Contains bus-only lanes", "Есть полосы только для автобусов").into()); }
         let medians: Vec<_> = strips.iter().enumerate().filter(|(_, s)| matches!(s, Strip::Median { .. })).collect();
-        if medians.len() > 1 { issues.push("含多個分隔島".into()); }
+        if medians.len() > 1 { issues.push(crate::i18n::tr("Contains multiple medians", "Несколько разделительных полос").into()); }
         for (i, _) in medians {
             let left = strips[..i].iter().rev().find_map(|s| if let Strip::Lane { dir, .. } = s { Some(*dir) } else { None });
             let right = strips[i+1..].iter().find_map(|s| if let Strip::Lane { dir, .. } = s { Some(*dir) } else { None });
-            if left.is_none() || right.is_none() || left == right { issues.push("分隔島不在兩向車道交界".into()); }
+            if left.is_none() || right.is_none() || left == right { issues.push(crate::i18n::tr("Median is not between opposite directions", "Разделительная полоса не между встречными направлениями").into()); }
         }
         let first_lane = strips.iter().position(|s| matches!(s, Strip::Lane { .. })).unwrap_or(0);
-        if strips[..first_lane].iter().any(|s| matches!(s, Strip::BusBay { .. })) { issues.push("左側含 BusBay".into()); }
-        let textures: Vec<_> = strips.iter().filter_map(|s| if let Strip::Footway { tex, .. } = s { Some(tex) } else { None }).collect();
-        if textures.windows(2).any(|p| p[0] != p[1]) { issues.push("兩側人行道使用不同材質".into()); }
+        if strips[..first_lane].iter().any(|s| matches!(s, Strip::BusBay { .. })) { issues.push(crate::i18n::tr("Contains a left BusBay", "Есть левый автобусный карман").into()); }
+        let textures: Vec<_> = strips.iter().filter_map(|s| if let Strip::Footway { tex, .. } = s { Some(if tex.as_os_str().is_empty() { &self.footway_tex } else { tex }) } else { None }).collect();
+        if textures.windows(2).any(|p| p[0] != p[1]) { issues.push(crate::i18n::tr("Footway textures differ", "Разные текстуры тротуаров").into()); }
         issues
     }
 
@@ -379,7 +379,7 @@ impl RoadSpec {
 
     pub fn validate(&self) -> Result<(), String> {
         if self.name.to_lowercase().contains("_bay_") || self.file_stem().to_lowercase().contains("_bay_") {
-            return Err("名稱不能包含 _bay_（保留給巴士停車灣工具產生的道路類型）".into());
+            return Err(crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)").into());
         }
         strips::validate(&self.effective_strips(), self.left_hand.unwrap_or(false))
     }
@@ -458,10 +458,12 @@ impl RoadSpec {
         let positions = strips::positions(&strips);
         let rw = self.roadway_width();
         let line = |x, style, color| Marking { x, style, color, ..Default::default() };
-        let mut out = vec![line(-rw / 2.0 + 0.2, MarkStyle::Solid, WHITE),
-            line(rw / 2.0 - 0.2, if strips.iter().any(|s| matches!(s, Strip::BusBay { .. })) {
-                MarkStyle::Dashed
-            } else { MarkStyle::Solid }, WHITE)];
+        let first = strips.iter().position(Strip::is_roadway).unwrap_or(0);
+        let last = strips.iter().rposition(Strip::is_roadway).unwrap_or(0);
+        let edge = |bay| if bay { MarkStyle::Dashed } else { MarkStyle::Solid };
+        let left_bay = strips[..first].iter().any(|s| matches!(s, Strip::BusBay { .. }));
+        let right_bay = strips.get(last + 1..).unwrap_or_default().iter().any(|s| matches!(s, Strip::BusBay { .. }));
+        let mut out = vec![line(-rw / 2.0 + 0.2, edge(left_bay), WHITE), line(rw / 2.0 - 0.2, edge(right_bay), WHITE)];
         let lanes: Vec<_> = strips.iter().zip(&positions).filter_map(|(s, pos)| {
             if let Strip::Lane { dir, .. } = s { Some((*dir, *pos)) } else { None }
         }).collect();
@@ -660,9 +662,44 @@ impl RoadSpec {
         spec.write_normalised(content)
     }
 
+    pub fn reset_bay_texture(&self, content: &Path) -> anyhow::Result<()> {
+        self.validate().map_err(anyhow::Error::msg)?;
+        self.copy_bay_texture(content, true)
+    }
+
+    fn copy_bay_texture(&self, content: &Path, reset: bool) -> anyhow::Result<()> {
+        if !self.effective_strips().iter().any(|s| matches!(s, Strip::BusBay { .. })) { return Ok(()); }
+        let dir = content.join("Splines/openMapper/texture");
+        std::fs::create_dir_all(&dir)?;
+        let destination = dir.join(self.bay_tex_name());
+        let copy = |source: &Path, target: &Path| -> anyhow::Result<()> {
+            if target.exists() && !reset {
+                log::info!("保留既有灣貼圖: {}", target.display());
+            } else if source.is_file() && source != target {
+                if reset { std::fs::copy(source, target)?; }
+                else {
+                    use std::io::Write;
+                    match std::fs::OpenOptions::new().write(true).create_new(true).open(target) {
+                        Ok(mut file) => file.write_all(&std::fs::read(source)?)?,
+                        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => log::info!("保留既有灣貼圖: {}", target.display()),
+                        Err(e) => return Err(e.into()),
+                    }
+                }
+            }
+            Ok(())
+        };
+        anyhow::ensure!(self.roadway_tex.is_file(), crate::i18n::tr("The roadway texture is missing", "Отсутствует текстура проезжей части"));
+        copy(&self.roadway_tex, &destination)?;
+        for ext in ["cfg", "surf"] {
+            copy(&PathBuf::from(format!("{}.{ext}", self.roadway_tex.display())), &PathBuf::from(format!("{}.{ext}", destination.display())))?;
+            copy(&self.roadway_tex.with_extension(ext), &destination.with_extension(ext))?;
+        }
+        Ok(())
+    }
+
     fn write_normalised(&self, content: &Path) -> anyhow::Result<String> {
         let left_hand = self.left_hand.unwrap();
-        anyhow::ensure!(self.roadway_tex.is_file(), "the roadway texture is missing");
+        anyhow::ensure!(self.roadway_tex.is_file(), crate::i18n::tr("The roadway texture is missing", "Отсутствует текстура проезжей части"));
         let dir = content.join("Splines").join("openMapper");
         let tex_dir = dir.join("texture");
         std::fs::create_dir_all(&tex_dir)?;
@@ -671,6 +708,10 @@ impl RoadSpec {
         });
         for t in [&self.roadway_tex, &self.footway_tex, &self.median_tex].into_iter().chain(strip_textures).filter(|t| t.is_file()) {
             let name = t.file_name().unwrap();
+            if self.strips.iter().any(|s| matches!(s, Strip::BusBay { .. })) && name == std::ffi::OsStr::new(&self.bay_tex_name()) {
+                // The independent bay file is managed exclusively by copy_bay_texture.
+                continue;
+            }
             if t.parent() != Some(tex_dir.as_path()) {
                 std::fs::copy(t, tex_dir.join(name))?;
                 // (its settings and surface sound go with it)
@@ -682,21 +723,10 @@ impl RoadSpec {
                 }
             }
         }
-        if self.strips.iter().any(|s| matches!(s, Strip::BusBay { .. })) {
-            let destination = tex_dir.join(self.bay_tex_name());
-            if self.roadway_tex != destination { std::fs::copy(&self.roadway_tex, &destination)?; }
-            for ext in ["cfg", "surf"] {
-                let source = PathBuf::from(format!("{}.{ext}", self.roadway_tex.display()));
-                let target = PathBuf::from(format!("{}.{ext}", destination.display()));
-                if source.is_file() && source != target { std::fs::copy(&source, &target)?; }
-                let source = self.roadway_tex.with_extension(ext);
-                let target = destination.with_extension(ext);
-                if source.is_file() && source != target { std::fs::copy(&source, &target)?; }
-            }
-        }
+        self.copy_bay_texture(content, false)?;
         let stem = self.file_stem();
         if self.marked {
-            let img = self.painted_roadway().ok_or_else(|| anyhow::anyhow!("the roadway texture could not be read"))?;
+            let img = self.painted_roadway().ok_or_else(|| anyhow::anyhow!(crate::i18n::tr("The roadway texture could not be read", "Не удалось прочитать текстуру проезжей части")))?;
             image::DynamicImage::ImageRgba8(img).to_rgb8().save(tex_dir.join(self.roadway_tex_name()))?;
         }
         let path = dir.join(format!("{stem}.sli"));
@@ -1100,3 +1130,6 @@ mod compat_tests;
 
 #[cfg(test)]
 mod layout_tests;
+
+#[cfg(test)]
+mod review_tests;

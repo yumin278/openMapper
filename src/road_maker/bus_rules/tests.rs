@@ -69,7 +69,7 @@ fn reserved_names_are_rejected_before_any_output_is_created() {
         };
         assert_eq!(
             spec.validate().unwrap_err(),
-            "名稱不能包含 _bay_（保留給巴士停車灣工具產生的道路類型）"
+            crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)")
         );
         assert!(spec.write(&root).is_err());
         assert!(!root.exists());

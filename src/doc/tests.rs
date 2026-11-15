@@ -28,6 +28,7 @@ pub(crate) fn sample_map(roots: &Roots) -> Document {
         GroundTex { texture: "Texture\\sand.bmp".into(), detail_texture: "Texture\\noise_low.bmp".into(), params: [8.0, 16.0, 4.0] },
     ];
     let mut doc = Document {
+        content_root: None,
         global,
         tiles: Default::default(),
         order: Vec::new(),

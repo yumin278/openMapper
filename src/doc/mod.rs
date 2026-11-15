@@ -190,6 +190,8 @@ pub enum Sel {
 
 /// The map.
 pub struct Document {
+    /// Active editor content root, independent of the map save location.
+    pub content_root: Option<PathBuf>,
     pub global: GlobalCfg,
     pub tiles: BTreeMap<TileKey, TileDoc>,
     /// The `[map]` list in file order: entry points and repeaters name tiles by their place
@@ -241,6 +243,7 @@ impl Document {
         omsi_map::set_world_coordinates(false);
         omsi_map::set_tile_size(omsi_map::TILE_SIZE);
         let mut doc = Document {
+            content_root: Some(roots.content.clone()),
             global,
             tiles: BTreeMap::new(),
             order: Vec::new(),
@@ -336,6 +339,7 @@ impl Document {
         progress(1.0);
         crate::render::profile::log_time(&format!("read {} tiles", tiles.len()), started);
         Ok(Document {
+            content_root: Some(roots.content.clone()),
             global,
             tiles,
             order,
@@ -388,6 +392,7 @@ impl Document {
     /// and chrono patches, which take room and are not looked at.
     pub fn for_reading(&self) -> Document {
         Document {
+            content_root: self.content_root.clone(),
             global: self.global.clone(),
             tiles: self.tiles.iter().map(|(k, t)| (*k, TileDoc { tile: t.tile.clone(), terrain: t.terrain.clone(), masks: Vec::new(), chrono: Vec::new(), water: t.water, terrain_rev: t.terrain_rev, mask_rev: t.mask_rev, content_rev: t.content_rev, dirty: t.dirty })).collect(),
             order: self.order.clone(),

@@ -1576,6 +1576,7 @@ impl Editor {
         self.paint_layer = if doc.global.ground_textures.len() > 1 { 1 } else { 0 };
         self.session_first_id = doc.global.next_id_code;
         let mut doc = doc;
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
         doc.groups = crate::mapgroups::load(&doc.dir);
         if let Some(content) = self.content_dir.as_deref() {
             doc.signal_sets.reload(&doc.dir, content);
@@ -4597,6 +4598,7 @@ impl Editor {
             t.touch_content();
             made.push((k, ids[i]));
         }
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
         crate::road_maker::bus_rules::apply_for_splines(doc, &made, "editor::lay_road");
         // link the ends to what they meet (whether it is still there with that end free: a
         // one-sided link would point at nothing)
@@ -6589,6 +6591,7 @@ impl Editor {
         let t = doc.tiles.get_mut(&nk).unwrap();
         t.tile.splines.push(q);
         t.touch_content();
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
         crate::road_maker::bus_rules::apply_for_splines(doc, &[(nk, nid)], "editor::continue_spline");
         self.finish_step();
         self.select(Some(Sel::Spline(nk, nid)));
@@ -7472,6 +7475,7 @@ impl Editor {
                 let t = doc.tiles.get_mut(&k).unwrap();
                 t.tile.splines.push(sp);
                 t.touch_content();
+                if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
                 crate::road_maker::bus_rules::apply_for_splines(doc, &[(k, ids[i])], "editor::connect_path_points");
             }
         }
@@ -8258,6 +8262,7 @@ impl Editor {
         let Some(doc) = self.doc.as_mut() else { return };
         self.history.begin(tr("Change road type", "Смена типа дороги"));
         for &(key, _) in &splines { self.history.touch_tile(doc, key); }
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
         crate::road_maker::bus_rules::retype(doc, &splines, file, "editor::retype_splines");
         self.history.commit();
     }
@@ -9607,6 +9612,7 @@ impl Editor {
             self.history.touch_tile(doc, k);
             if splines {
                 let instances: Vec<_> = doc.tiles[&k].tile.splines.iter().filter(|s| !s.deleted && s.file.eq_ignore_ascii_case(from)).map(|s| (k, s.id)).collect();
+                if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
                 crate::road_maker::bus_rules::retype(doc, &instances, to, "editor::replace_everywhere");
             } else {
                 let t = doc.tiles.get_mut(&k).unwrap();
@@ -17045,3 +17051,5 @@ mod tests {
 
 #[cfg(test)]
 mod bus_lane_tests;
+
+mod bus_rule_batch;
