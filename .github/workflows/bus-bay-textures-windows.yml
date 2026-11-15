@@ -3,14 +3,14 @@ name: Windows x64 junction build
 on:
   push:
     branches:
-      - review/bus-bay-textures
+      - review/bus-bay-combined
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: windows-bus-bay-textures-review-${{ github.ref }}
+  group: windows-bus-bay-combined-review-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -32,7 +32,7 @@ jobs:
       - name: Cache Rust builds
         uses: Swatinem/rust-cache@v2
         with:
-          key: windows-x64-bus-bay-textures-review
+          key: windows-x64-bus-bay-combined-review
 
       - name: Junction tests
         run: cargo test --release --locked junction -- --nocapture
@@ -44,7 +44,7 @@ jobs:
       - name: Upload portable build
         uses: actions/upload-artifact@v7
         with:
-          name: openMapper-windows-x64-bus-bay-textures-review
+          name: openMapper-windows-x64-bus-bay-combined-review
           path: target/package/openMapper-*-windows-x64.zip
           if-no-files-found: error
           retention-days: 14
