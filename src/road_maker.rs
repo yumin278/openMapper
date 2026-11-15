@@ -18,6 +18,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 mod strips;
 mod migration;
+mod free_layout;
 pub use strips::{Direction, Strip};
 #[cfg(test)]
 #[allow(dead_code)]
@@ -194,6 +195,12 @@ pub fn arrow_polygon(at: (f32, f32), back: bool) -> Vec<(f32, f32)> {
 pub struct RoadSpec {
     /// Canonical cross section, in physical left-to-right order.
     pub strips: Vec<Strip>,
+    /// Derived at export; never trusted from an edited sidecar.
+    pub bus_paths: Vec<usize>,
+    #[serde(skip)]
+    pub advanced: bool,
+    #[serde(skip)]
+    pub mode_error: Option<String>,
     /// None only while importing old parameters or initializing a new road.
     pub left_hand: Option<bool>,
     pub name: String,
@@ -231,7 +238,7 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
 
@@ -256,6 +263,8 @@ pub fn presets() -> Vec<(&'static str, RoadSpec)> {
 }
 
 impl RoadSpec {
+    const LEGACY_FIELDS: [&'static str; 9] = ["lanes_fwd", "lanes_back", "lane_width", "median", "median_raised", "footway", "footway_right", "pocket", "median_tex"];
+
 
     /// Only the old-parameter import boundary may synthesize strips.
     fn effective_strips(&self) -> std::borrow::Cow<'_, [Strip]> {
@@ -309,6 +318,54 @@ impl RoadSpec {
             }
         }
         s
+    }
+
+    pub fn strip_positions(&self) -> Vec<(f32, f32)> { strips::positions(&self.effective_strips()) }
+
+    pub fn bus_path_indices(&self) -> Vec<usize> {
+        let mut path = 0;
+        let mut result = Vec::new();
+        for strip in &self.strips {
+            if matches!(strip, Strip::Median { .. }) { continue; }
+            if matches!(strip, Strip::Lane { bus_only: true, .. }) { result.push(path); }
+            path += 1;
+        }
+        result
+    }
+
+    pub fn simple_mode_issues(&self) -> Vec<String> {
+        let mut issues = Vec::new();
+        if let Err(error) = self.validate() { issues.push(error); }
+        let strips = self.effective_strips();
+        let lanes: Vec<_> = strips.iter().filter_map(|s| if let Strip::Lane { width, .. } = s { Some(*width) } else { None }).collect();
+        if lanes.windows(2).any(|p| p[0] != p[1]) { issues.push("車道寬度不一致".into()); }
+        if strips.iter().any(|s| matches!(s, Strip::Lane { bus_only: true, .. })) { issues.push("含公車專用車道".into()); }
+        let medians: Vec<_> = strips.iter().enumerate().filter(|(_, s)| matches!(s, Strip::Median { .. })).collect();
+        if medians.len() > 1 { issues.push("含多個分隔島".into()); }
+        for (i, _) in medians {
+            let left = strips[..i].iter().rev().find_map(|s| if let Strip::Lane { dir, .. } = s { Some(*dir) } else { None });
+            let right = strips[i+1..].iter().find_map(|s| if let Strip::Lane { dir, .. } = s { Some(*dir) } else { None });
+            if left.is_none() || right.is_none() || left == right { issues.push("分隔島不在兩向車道交界".into()); }
+        }
+        let first_lane = strips.iter().position(|s| matches!(s, Strip::Lane { .. })).unwrap_or(0);
+        if strips[..first_lane].iter().any(|s| matches!(s, Strip::BusBay { .. })) { issues.push("左側含 BusBay".into()); }
+        let textures: Vec<_> = strips.iter().filter_map(|s| if let Strip::Footway { tex, .. } = s { Some(tex) } else { None }).collect();
+        if textures.windows(2).any(|p| p[0] != p[1]) { issues.push("兩側人行道使用不同材質".into()); }
+        issues
+    }
+
+    pub fn use_simple_mode(&mut self) -> Result<(), Vec<String>> {
+        let issues = self.simple_mode_issues();
+        if !issues.is_empty() { return Err(issues); }
+        *self = self.projection();
+        self.advanced = false;
+        self.mode_error = None;
+        Ok(())
+    }
+
+    pub fn unequal_lane_widths(&self) -> bool {
+        let widths: Vec<_> = self.strips.iter().filter_map(|s| if let Strip::Lane { width, .. } = s { Some(*width) } else { None }).collect();
+        widths.windows(2).any(|p| p[0] != p[1])
     }
 
     pub fn validate(&self) -> Result<(), String> {
@@ -458,8 +515,12 @@ impl RoadSpec {
 
     /// The `.sli` text (OMSI's own keywords; `\n`, turned into CR LF when written).
     pub fn sli(&self, left_hand: bool) -> String {
-        let s = self.normalised(left_hand).projection();
-        s.compatible_sli(s.left_hand.unwrap())
+        let s = self.normalised(left_hand);
+        if s.validate().is_err() { return String::new(); }
+        if s.simple_mode_issues().is_empty() {
+            let projected = s.projection();
+            projected.compatible_sli(projected.left_hand.unwrap())
+        } else { free_layout::emit(&s) }
     }
 
     fn compatible_sli(&self, left_hand: bool) -> String {
@@ -580,7 +641,8 @@ impl RoadSpec {
     /// Write it into the content folder with its textures; returns its relative path
     /// (`Splines\openMapper\<name>.sli`).
     pub fn write_with_traffic(&self, content: &Path, left_hand: bool) -> anyhow::Result<String> {
-        let spec = self.normalised(left_hand);
+        let mut spec = self.normalised(left_hand);
+        spec.bus_paths = spec.bus_path_indices();
         spec.validate().map_err(anyhow::Error::msg)?;
         spec.write_normalised(content)
     }
@@ -591,7 +653,10 @@ impl RoadSpec {
         let dir = content.join("Splines").join("openMapper");
         let tex_dir = dir.join("texture");
         std::fs::create_dir_all(&tex_dir)?;
-        for t in [&self.roadway_tex, &self.footway_tex, &self.median_tex].into_iter().filter(|t| t.is_file()) {
+        let strip_textures = self.strips.iter().filter_map(|strip| match strip {
+            Strip::Footway { tex, .. } | Strip::Median { tex, .. } => Some(tex), _ => None,
+        });
+        for t in [&self.roadway_tex, &self.footway_tex, &self.median_tex].into_iter().chain(strip_textures).filter(|t| t.is_file()) {
             let name = t.file_name().unwrap();
             if t.parent() != Some(tex_dir.as_path()) {
                 std::fs::copy(t, tex_dir.join(name))?;
@@ -624,7 +689,15 @@ impl RoadSpec {
         let path = dir.join(format!("{stem}.sli"));
         crate::doc::safe::write_atomic(&path, &omsi_cfg::encode_text(&self.sli(left_hand).replace('\n', "\r\n")))?;
         // (the spec beside it, so the road can be opened in the maker again)
-        crate::doc::safe::write_atomic(&dir.join(format!("{stem}.road.json")), serde_json::to_string_pretty(self)?.as_bytes())?;
+        let mut saved = serde_json::to_value(self)?;
+        if self.simple_mode_issues().is_empty() {
+            let projected = serde_json::to_value(self.projection())?;
+            for field in Self::LEGACY_FIELDS { saved[field] = projected[field].clone(); }
+            saved["footway_tex"] = projected["footway_tex"].clone();
+        } else {
+            for field in Self::LEGACY_FIELDS { saved.as_object_mut().unwrap().remove(field); }
+        }
+        crate::doc::safe::write_atomic(&dir.join(format!("{stem}.road.json")), serde_json::to_string_pretty(&saved)?.as_bytes())?;
         let marks = dir.join(format!("{stem}.marks.png"));
         match self.hand.as_ref().filter(|h| self.marked && !h.is_empty()) {
             Some(h) => h.img.save(&marks)?,
@@ -652,6 +725,12 @@ impl RoadSpec {
             if (img.width(), img.height()) == (HAND_W, HAND_H) {
                 spec.hand = Some(std::sync::Arc::new(Hand { img }));
             }
+        }
+        spec.bus_paths = spec.bus_path_indices();
+        spec.advanced = !spec.simple_mode_issues().is_empty();
+        if !spec.advanced {
+            // Controls are a projection; the saved strips remain authoritative.
+            spec = spec.projection();
         }
         Some(spec)
     }
@@ -820,7 +899,7 @@ mod tests {
         assert!((half - 7.0).abs() < 1e-6);
         assert!(s.profiles.iter().any(|p| p.points.iter().any(|q| (q.x - half).abs() < 1e-3)));
         assert!(content.join("Splines/openMapper/texture/asph.png").is_file());
-        assert_eq!(RoadSpec::of(&path).unwrap(), spec.normalised(false));
+        assert_eq!(RoadSpec::of(&path).unwrap(), spec.normalised(false).projection());
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -850,7 +929,7 @@ mod tests {
         assert_eq!(walks.len(), 1);
         assert!(walks[0].start[0] > 0.0);
         assert!(content.join("Splines/openMapper/texture/g.png").is_file());
-        assert_eq!(RoadSpec::of(&content.join("Splines/openMapper/Avenue.sli")).unwrap(), spec.normalised(false));
+        assert_eq!(RoadSpec::of(&content.join("Splines/openMapper/Avenue.sli")).unwrap(), spec.normalised(false).projection());
         // an old spec file (before these fields) still reads
         let old: RoadSpec = serde_json::from_str("{\"name\":\"x\",\"lanes_fwd\":1,\"lanes_back\":1}").unwrap();
         assert_eq!(old.footway_right(), old.footway);
@@ -912,7 +991,7 @@ mod tests {
         let right = s.profiles.iter().flat_map(|p| p.points.iter()).map(|q| q.x).fold(f32::MIN, f32::max);
         assert!((right - 8.5).abs() < 1e-3, "{right}");
         // the spec reads back, and an old file without a pocket has none
-        assert_eq!(RoadSpec::of(&content.join("Splines/openMapper/Bay.sli")).unwrap(), spec.normalised(false));
+        assert_eq!(RoadSpec::of(&content.join("Splines/openMapper/Bay.sli")).unwrap(), spec.normalised(false).projection());
         let old: RoadSpec = serde_json::from_str("{\"name\":\"x\"}").unwrap();
         assert_eq!(old.pocket, 0.0);
         let _ = std::fs::remove_dir_all(dir);
@@ -941,7 +1020,7 @@ mod tests {
         assert!(content.join("Splines/openMapper/texture/Lined_lines.bmp").is_file());
         let s = omsi_scenery::Spline::load(&content.join("Splines/openMapper/Lined.sli")).unwrap();
         assert!(s.textures[0].file.eq_ignore_ascii_case("Lined_lines.bmp"), "{}", s.textures[0].file);
-        assert_eq!(RoadSpec::of(&content.join("Splines/openMapper/Lined.sli")).unwrap(), spec.normalised(false));
+        assert_eq!(RoadSpec::of(&content.join("Splines/openMapper/Lined.sli")).unwrap(), spec.normalised(false).projection());
         // a dashed line's dashes come a whole number to the texture
         let d = Marking { style: MarkStyle::Dashed, dash: 3.0, gap: 6.0, ..Default::default() };
         let spec2 = RoadSpec { markings: vec![d.clone()], ..spec.clone() };
@@ -1004,3 +1083,6 @@ mod tests {
 
 #[cfg(test)]
 mod compat_tests;
+
+#[cfg(test)]
+mod layout_tests;
