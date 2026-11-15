@@ -2916,3 +2916,47 @@ Paths of the way	Маршрут жолдары
 Cut before the first stop	Бірінші аялдамаға дейін кесу
 Cut after the last stop	Соңғы аялдамадан кейін кесу
 path	жол
+Lane widths differ	Жолдың ені әртүрлі
+Contains bus-only lanes	Автобустар үшін ғана пайдаланылатын жолдар
+Contains multiple medians	Бірнеше медианты бар
+Median is not between opposite directions	Орталығы қарама-қарсы бағыттар арасында емес
+Contains a left BusBay	Сол жақ автобусты қамтиды
+Footway textures differ	Аяқ жолының текстурасы өзгеше
+Names must not contain _bay_ (reserved for the bus bay tool)	Бұл тізбек автобустық бөлік құралына арналған: _bay_
+The roadway texture is missing	Жолдың текстурасы жоқ
+The roadway texture could not be read	Жолдың текстурасын оқу мүмкін емес
+Road metadata not found	Жолдың метамәдени деректері табылмады
+Some characters in the road name cannot be used. File: {file}	Жол атауындағы кейбір таңбаларды файл атауында қолдануға болмайды.: {file}
+Another road already uses this file: {file}	Тағы бір жол осы файлды қолданады: {file}
+A road needs at least one Lane	Жолға кем дегенде бір жолақ қажет
+Strip {} has an invalid width	Жол жолағының жарамсыз ені: {}
+Footways must be at the outer ends	Аяқ жолдары сыртқы шеттерінде болуы керек
+BusBays must border the roadway, at most one per side	Автомобильдер жолын шектеуі тиіс, ең көп бір жақта
+Medians must be inside the roadway	Медиандар жолдың ішінде болуы керек .
+The roadway may contain only Lanes and Medians	Жолда тек жолақтар мен медиандар ғана болуы мүмкін
+Lane directions do not match this road’s traffic side	Жол бағыты жолдың көлденең жағына сәйкес келмейді.
+Apply bus lane rules to all existing roads	Барлық қолданыстағы жолдарға автобус жолағы ережелерін қолдану
+Road types and spline counts to update	Жаңартылатын жол түрлері мен ұяшықтар саны
+No roads need bus lane rules	Жолдарға автобус жолдарының ережелері қажет емес
+Rules added	Қосымша ережелер
+This road was made for left-hand traffic	Бұл жол сол жақ қозғалысы үшін жасалған .
+This road was made for right-hand traffic	Бұл жол оң жақпен жүру үшін жасалған .
+Advanced: strip mode	Жетісті: жолақ режимі
+This road contains settings that simple mode cannot represent	Бұл жолда қарапайым режим білдіре алмайтын параметрлер бар
+Built-in multi-lane texture markings may not align with these lanes	Құрылған көп жолдық текстуралық белгілер осы жолақтарға сәйкес келмеуі мүмкін
+No footway texture	Аяқ жолының текстурасы жоқ
+Reset bay texture	Бағаның текстурасын қайта орнату
+Bay texture reset	Құрсақ текстурасын қайта орнату
+Could not reset bay texture	Қалдықтың текстурасын қайта орнату мүмкін емес
+Kerb height	Керб биіктігі
+Lane	Жол жүрісі
+Median	Орталық жолақ
+BusBay	Автобустар бөлмесі
+Forward ↑	Алға қарай ↑
+Backward ↓	Артқа ↓
+bus only	автобуспен ғана
+Default footway texture	Әдетті аяқ жолының текстурасы
+Choose file…	Файлды таңдаңыз…
+BUS	Автобус
+Hand-picked routes kept: {count}	Қолмен таңдалған бағыттар: {count}
+Overwrite hand-picked routes	Қолмен таңдалған бағыттарды қайта жазу

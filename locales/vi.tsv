@@ -2916,3 +2916,47 @@ Paths of the way	Các làn của đường đi
 Cut before the first stop	Cắt trước điểm dừng đầu tiên
 Cut after the last stop	Cắt sau điểm dừng cuối cùng
 path	làn
+Lane widths differ	Độ rộng đường đua khác nhau
+Contains bus-only lanes	Bao gồm chỉ đường xe buýt
+Contains multiple medians	Bao gồm nhiều trung gian
+Median is not between opposite directions	Median không phải là giữa các hướng đối lập
+Contains a left BusBay	Bao gồm một BusBay bên trái
+Footway textures differ	Các kết cấu đường chân khác nhau
+Names must not contain _bay_ (reserved for the bus bay tool)	Dòng này được dành riêng cho công cụ bus bay: _bay_
+The roadway texture is missing	Dòng đường bị mất tích.
+The roadway texture could not be read	Bản chất đường không thể đọc được
+Road metadata not found	Các metadata đường không được tìm thấy
+Some characters in the road name cannot be used. File: {file}	Một số ký tự trong tên đường không thể được sử dụng trong tên tập tin.: {file}
+Another road already uses this file: {file}	Một con đường khác đã sử dụng tập tin này: {file}
+A road needs at least one Lane	Một con đường cần ít nhất một làn đường
+Strip {} has an invalid width	Độ rộng không hợp lệ của dải đường: {}
+Footways must be at the outer ends	Đường chân phải ở đầu bên ngoài
+BusBays must border the roadway, at most one per side	BusBays phải biên giới con đường, tối đa là một bên
+Medians must be inside the roadway	Những người trung gian phải ở bên trong đường.
+The roadway may contain only Lanes and Medians	Con đường có thể chỉ chứa Lanes và Medians
+Lane directions do not match this road’s traffic side	Các hướng đường không phù hợp với phía của con đường được sử dụng bởi giao thông.
+Apply bus lane rules to all existing roads	Sử dụng các quy tắc đường xe buýt cho tất cả những con đường hiện có
+Road types and spline counts to update	Các loại đường và số lượng tròn để cập nhật
+No roads need bus lane rules	Không có con đường nào cần quy tắc xe buýt
+Rules added	Các quy tắc bổ sung
+This road was made for left-hand traffic	Con đường này được làm cho giao thông bên trái
+This road was made for right-hand traffic	Con đường này được làm cho giao thông bên phải
+Advanced: strip mode	Tiến bộ: chế độ dải
+This road contains settings that simple mode cannot represent	Con đường này chứa các cài đặt mà chế độ đơn giản không thể đại diện cho
+Built-in multi-lane texture markings may not align with these lanes	Các dấu hiệu kết cấu nhiều làn có thể không phù hợp với các làn này
+No footway texture	Không có kết cấu đường chân
+Reset bay texture	Tơ cấu vỏ thiết lập lại
+Bay texture reset	Bay texture reset
+Could not reset bay texture	Không thể thiết lập lại kết cấu bay
+Kerb height	Độ cao của cỏ
+Lane	Hành vi giao thông
+Median	Dải trung bình
+BusBay	Khu xe buýt
+Forward ↑	Tiếp tục ↑
+Backward ↓	Trở lại ↓
+bus only	xe buýt
+Default footway texture	Thiết kế đường chân mặc định
+Choose file…	Chọn tập tin…
+BUS	BUS
+Hand-picked routes kept: {count}	Các tuyến đường được lựa chọn bằng tay: {count}
+Overwrite hand-picked routes	Viết lại các tuyến đường được chọn bằng tay

@@ -2955,3 +2955,7 @@ Paths of the way	路線的路徑
 Cut before the first stop	剪掉第一站之前
 Cut after the last stop	剪掉最後一站之後
 path	路徑
+Some characters in the road name cannot be used. File: {file}	道路名稱含有檔名不支援的字元。實際檔名：{file}
+Another road already uses this file: {file}	這個檔案已由另一條道路使用：{file}
+Hand-picked routes kept: {count}	已保留手動選取的路徑：{count} 條
+Overwrite hand-picked routes	覆蓋手動選取的路徑

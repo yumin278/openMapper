@@ -2916,3 +2916,47 @@ Paths of the way	रास्ते के पाथ
 Cut before the first stop	पहले स्टॉप से पहले काटें
 Cut after the last stop	आखिरी स्टॉप के बाद काटें
 path	पाथ
+Lane widths differ	लेन की चौड़ाई भिन्न है
+Contains bus-only lanes	बसों के लिए केवल लेन शामिल हैं
+Contains multiple medians	इसमें कई माध्यम होते हैं
+Median is not between opposite directions	मध्यम विपरीत दिशाओं के बीच नहीं है
+Contains a left BusBay	एक बाएं BusBay शामिल है
+Footway textures differ	फुटपाथ की बनावट भिन्न होती है
+Names must not contain _bay_ (reserved for the bus bay tool)	यह स्ट्रिंग बस खाड़ी उपकरण के लिए आरक्षित हैः: _bay_
+The roadway texture is missing	सड़क की बनावट गायब है
+The roadway texture could not be read	सड़क की बनावट को नहीं पढ़ा जा सका
+Road metadata not found	सड़क मेटाडेटा नहीं मिला
+Some characters in the road name cannot be used. File: {file}	सड़क के नाम में कुछ अक्षरों का उपयोग फाइलनाम में नहीं किया जा सकता है।: {file}
+Another road already uses this file: {file}	एक और सड़क पहले से ही इस फ़ाइल का उपयोग करता हैः: {file}
+A road needs at least one Lane	एक सड़क को कम से कम एक लेन की आवश्यकता होती है
+Strip {} has an invalid width	सड़क पट्टी की अमान्य चौड़ाईः: {}
+Footways must be at the outer ends	पैदल मार्ग बाहरी छोरों पर होना चाहिए
+BusBays must border the roadway, at most one per side	BusBays को सड़क मार्ग की सीमा पर होना चाहिए, अधिकतम एक प्रति पक्ष
+Medians must be inside the roadway	मध्यवर्ती सड़क के अंदर होना चाहिए
+The roadway may contain only Lanes and Medians	सड़क मार्ग में केवल लेन और मीडियन शामिल हो सकते हैं
+Lane directions do not match this road’s traffic side	लेन दिशाएं सड़क के उस किनारे से मेल नहीं खाती जो यातायात द्वारा उपयोग की जाती है।
+Apply bus lane rules to all existing roads	सभी मौजूदा सड़कों पर बस लेन नियम लागू करें
+Road types and spline counts to update	अद्यतन करने के लिए सड़क प्रकार और स्प्लेन गिनती
+No roads need bus lane rules	कोई सड़क को बस लेन नियमों की आवश्यकता नहीं है
+Rules added	अतिरिक्त नियम
+This road was made for left-hand traffic	यह सड़क वामपंथी यातायात के लिए बनाई गई थी
+This road was made for right-hand traffic	यह सड़क दाहिने हाथ की आवाजाही के लिए बनाई गई थी
+Advanced: strip mode	उन्नत: पट्टी मोड
+This road contains settings that simple mode cannot represent	इस सड़क में ऐसी सेटिंग्स हैं जिन्हें सरल मोड नहीं दिखा सकता है
+Built-in multi-lane texture markings may not align with these lanes	इन लेनों के साथ बिल्ट-इन मल्टी-लेन बनावट चिह्न नहीं हो सकते हैं
+No footway texture	पैरों का कोई बनावट नहीं
+Reset bay texture	रीसेट बे की बनावट
+Bay texture reset	खाड़ी बनावट रीसेट
+Could not reset bay texture	खाड़ी बनावट को रीसेट नहीं किया जा सका
+Kerb height	कर्ब की ऊंचाई
+Lane	ट्रैफिक लेन
+Median	मध्य पट्टी
+BusBay	बस बे
+Forward ↑	आगे ↑
+Backward ↓	पीछे की ओर ↓
+bus only	बस केवल
+Default footway texture	डिफ़ॉल्ट फुटपाथ बनावट
+Choose file…	फ़ाइल चुनें…
+BUS	बस
+Hand-picked routes kept: {count}	मैन्युअल रूप से चुने गए मार्ग बनाए रखे जाते हैंः: {count}
+Overwrite hand-picked routes	मैन्युअल रूप से चयनित मार्गों को ओवरराइट करें

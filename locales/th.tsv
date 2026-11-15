@@ -2916,3 +2916,47 @@ Paths of the way	พาธของเส้นทาง
 Cut before the first stop	ตัดก่อนป้ายแรก
 Cut after the last stop	ตัดหลังป้ายสุดท้าย
 path	พาธ
+Lane widths differ	ความกว้างของเส้นทางต่างกัน
+Contains bus-only lanes	ประกอบด้วยเส้นทางสําหรับรถบัสเท่านั้น
+Contains multiple medians	ประกอบด้วยสารกลางหลายตัว
+Median is not between opposite directions	กลางไม่ได้ระหว่างทิศทางที่ตรงกันข้าม
+Contains a left BusBay	ประกอบด้วย BusBay ทางซ้าย
+Footway textures differ	เนื้อที่ทางเดินแตกต่างกัน
+Names must not contain _bay_ (reserved for the bus bay tool)	สายนี้ถูกเก็บไว้สําหรับเครื่องมือบัสเบย์: _bay_
+The roadway texture is missing	สภาพทางหายไป
+The roadway texture could not be read	เนื้อหาทางไม่ได้อ่าน
+Road metadata not found	ข้อมูลทางไม่ได้พบ
+Some characters in the road name cannot be used. File: {file}	ตัวอักษรบางตัวในชื่อถนนไม่สามารถใช้ในชื่อไฟล์ได้: {file}
+Another road already uses this file: {file}	ถนนอื่นใช้ไฟล์นี้แล้ว: {file}
+A road needs at least one Lane	ถนนต้องมีเส้นทางอย่างน้อยหนึ่ง
+Strip {} has an invalid width	ความกว้างไม่ถูกต้องของเส้นทาง: {}
+Footways must be at the outer ends	เส้นทางเดินต้องอยู่ด้านนอก
+BusBays must border the roadway, at most one per side	BusBays ต้องจํากัดถนนสูงสุด 1 ข้าง
+Medians must be inside the roadway	ผู้สื่อต้องอยู่ในถนน
+The roadway may contain only Lanes and Medians	เส้นทางสามารถมีเพียงเลนส์และเมดาน
+Lane directions do not match this road’s traffic side	แนวทางเส้นทางไม่ตรงกับด้านของถนนที่ใช้โดยการจราจร
+Apply bus lane rules to all existing roads	ใช้กฎเส้นทางรถยนต์ให้กับถนนทั้งหมดที่มีอยู่
+Road types and spline counts to update	ประเภทถนนและการนับเส้นทาง
+No roads need bus lane rules	ไม่มีถนนต้องมีกฎทางรถบัส
+Rules added	กฎเพิ่มเติม
+This road was made for left-hand traffic	ถนนนี้ถูกสร้างเพื่อการจราจรทางซ้าย
+This road was made for right-hand traffic	ถนนนี้ถูกสร้างเพื่อการจราจรทางขวา
+Advanced: strip mode	Advanced: รูปแบบสตริป
+This road contains settings that simple mode cannot represent	ถนนนี้มีการตั้งค่าที่โหมดง่ายไม่สามารถแสดงได้
+Built-in multi-lane texture markings may not align with these lanes	แผ่นเนื้อเยื่อหลายเลนในตัวอาจไม่ตรงกับเส้นทางเหล่านี้
+No footway texture	ไม่มีเนื้อเยื่อทางเดิน
+Reset bay texture	การตั้งเนื้อหาของช่อง
+Bay texture reset	เปลี่ยนแปลงเนื้อผิว
+Could not reset bay texture	ไม่สามารถรีเซ็ตเนื้อเยื่อ Bay ได้
+Kerb height	ความสูงของคาร์บ
+Lane	เส้นทางจราจร
+Median	สายกลาง
+BusBay	รถโดยสาร
+Forward ↑	ต่อไป ↑
+Backward ↓	ย้อนหลัง ↓
+bus only	รถโดยสารเท่านั้น
+Default footway texture	เนื้อเยื่อทางเดินโดยปกติ
+Choose file…	เลือกไฟล์…
+BUS	รถโดยสาร
+Hand-picked routes kept: {count}	เส้นทางที่ได้รับการเลือกด้วยมือ: {count}
+Overwrite hand-picked routes	กรอกเส้นทางที่เลือกด้วยมือ

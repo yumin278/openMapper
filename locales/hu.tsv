@@ -2916,3 +2916,47 @@ Paths of the way	Az út útvonalai
 Cut before the first stop	Levágás az első megálló előtt
 Cut after the last stop	Levágás az utolsó megálló után
 path	útvonal
+Lane widths differ	A pályák szélessége eltér
+Contains bus-only lanes	Csak buszjáratokat tartalmaz
+Contains multiple medians	Több médiánot tartalmaz
+Median is not between opposite directions	A medián nem ellentétes irányok között van.
+Contains a left BusBay	Van egy bal BusBay
+Footway textures differ	A lábás texturái eltérőek
+Names must not contain _bay_ (reserved for the bus bay tool)	Ez a lánc a buszbázeszközökre van fenntartva: _bay_
+The roadway texture is missing	Hiányzik az utcai textúra.
+The roadway texture could not be read	Az utcai textúrát nem lehetett olvasni.
+Road metadata not found	Közúti metadatok nem találtak
+Some characters in the road name cannot be used. File: {file}	A közúti név egyes karakterjeit nem lehet felhasználni egy fájlnéven.: {file}
+Another road already uses this file: {file}	Egy másik út már használja ezt a fájlt: {file}
+A road needs at least one Lane	Egy útnak legalább egy vonal kell.
+Strip {} has an invalid width	Az útvonal helytelen szélessége: {}
+Footways must be at the outer ends	A lábútoknak a külső végén kell lenniük.
+BusBays must border the roadway, at most one per side	A BusBays-eknek a közúti útvonalon kell határolniuk, legfeljebb egy oldalra
+Medians must be inside the roadway	A médiumok a közúton vannak.
+The roadway may contain only Lanes and Medians	Az útvonalon csak az utakat és a mediánokat lehet látni.
+Lane directions do not match this road’s traffic side	A vonal irányát nem egyezik a forgalom által használt út oldalával.
+Apply bus lane rules to all existing roads	Az összes meglévő úton kell alkalmazni az autóbuszvonalak szabályait
+Road types and spline counts to update	Úttörő úttípusok és sziklák számának frissítése
+No roads need bus lane rules	Az autópályákra nincs szükség.
+Rules added	Beillesztett szabályok
+This road was made for left-hand traffic	Ez az út a baloldali közlekedéshez készült.
+This road was made for right-hand traffic	Ez az út jobboldali közlekedéshez készült.
+Advanced: strip mode	Fejlesztett: strip mód
+This road contains settings that simple mode cannot represent	Ez az út olyan beállításokat tartalmaz, amelyeket a egyszerű mód nem jelenthet.
+Built-in multi-lane texture markings may not align with these lanes	A beépített többvonalú textúrajelzések nem felelnek meg e pályáknak
+No footway texture	A lábút textúrája nincs
+Reset bay texture	Újra beállítókészülék
+Bay texture reset	Az öböl textúrájának visszaállítása
+Could not reset bay texture	Nem tudott visszaállítani a tányér textúráját.
+Kerb height	Kerb-magasság
+Lane	A forgalmi pálya
+Median	Mediánoszlop
+BusBay	Autópályaudvar
+Forward ↑	Előre ↑
+Backward ↓	Vissza ↓
+bus only	Csak busz
+Default footway texture	Az alapértelmezett lépcsőút textúrája
+Choose file…	Válassza ki a fájlt…
+BUS	BUS
+Hand-picked routes kept: {count}	Kézilag kiválasztott útvonalak: {count}
+Overwrite hand-picked routes	Kézilag kiválasztott útvonalak átírása

@@ -19,6 +19,8 @@ use serde::{Deserialize, Serialize};
 mod strips;
 mod migration;
 mod free_layout;
+mod filename;
+pub use filename::MakerTarget;
 pub mod bus_rules;
 pub use strips::{Direction, Strip};
 #[cfg(test)]
@@ -378,7 +380,7 @@ impl RoadSpec {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if self.name.to_lowercase().contains("_bay_") || self.file_stem().to_lowercase().contains("_bay_") {
+        if crate::pocket::is_bay_spline(&self.file_stem()) {
             return Err(crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)").into());
         }
         strips::validate(&self.effective_strips(), self.left_hand.unwrap_or(false))
@@ -654,22 +656,57 @@ impl RoadSpec {
 
     /// Write it into the content folder with its textures; returns its relative path
     /// (`Splines\openMapper\<name>.sli`).
+    #[cfg(test)]
     pub fn write_with_traffic(&self, content: &Path, left_hand: bool) -> anyhow::Result<String> {
+        self.write_in_maker(content, left_hand, self.test_target(content).as_ref())
+    }
+
+    pub fn write_in_maker(&self, content: &Path, left_hand: bool, edit: Option<&MakerTarget>) -> anyhow::Result<String> {
         let mut spec = self.normalised(left_hand);
         spec.bus_paths = spec.bus_path_indices();
         spec.bay_paths = spec.bay_path_indices();
         spec.validate().map_err(anyhow::Error::msg)?;
-        spec.write_normalised(content)
+        let rel = spec.maker_filename(edit);
+        static WRITE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = WRITE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        spec.check_maker_target(content, edit)?;
+        let path = crate::doc::safe::own_path(content, &rel);
+        if let Some(edit) = edit {
+            log::info!("road maker: original filename {:?}, normalized filename {:?}, saved as {:?}",
+                edit.rel(), spec.maker_filename(None), rel);
+        }
+        spec.write_normalised(&path)?;
+        Ok(rel)
     }
 
+    #[cfg(test)]
     pub fn reset_bay_texture(&self, content: &Path) -> anyhow::Result<()> {
-        self.validate().map_err(anyhow::Error::msg)?;
-        self.copy_bay_texture(content, true)
+        self.reset_bay_texture_in_maker(content, self.test_target(content).as_ref())
     }
 
-    fn copy_bay_texture(&self, content: &Path, reset: bool) -> anyhow::Result<()> {
+    #[cfg(test)]
+    fn test_target(&self, content: &Path) -> Option<MakerTarget> {
+        let rel = self.maker_filename(None);
+        let source = crate::doc::safe::own_path(content, &rel);
+        let existing = Self::of(&source)?;
+        if existing.name == self.name {
+            MakerTarget::open(rel, source)
+        } else {
+            None
+        }
+    }
+
+    pub fn reset_bay_texture_in_maker(&self, content: &Path, edit: Option<&MakerTarget>) -> anyhow::Result<()> {
+        self.validate().map_err(anyhow::Error::msg)?;
+        let rel = self.maker_filename(edit);
+        let path = crate::doc::safe::own_path(content, &rel);
+        self.check_maker_target(content, edit)?;
+        self.copy_bay_texture(path.parent().unwrap(), true)
+    }
+
+    fn copy_bay_texture(&self, spline_dir: &Path, reset: bool) -> anyhow::Result<()> {
         if !self.effective_strips().iter().any(|s| matches!(s, Strip::BusBay { .. })) { return Ok(()); }
-        let dir = content.join("Splines/openMapper/texture");
+        let dir = crate::doc::safe::own_path(spline_dir, "texture");
         std::fs::create_dir_all(&dir)?;
         let destination = dir.join(self.bay_tex_name());
         let copy = |source: &Path, target: &Path| -> anyhow::Result<()> {
@@ -697,11 +734,11 @@ impl RoadSpec {
         Ok(())
     }
 
-    fn write_normalised(&self, content: &Path) -> anyhow::Result<String> {
+    fn write_normalised(&self, path: &Path) -> anyhow::Result<()> {
         let left_hand = self.left_hand.unwrap();
         anyhow::ensure!(self.roadway_tex.is_file(), crate::i18n::tr("The roadway texture is missing", "Отсутствует текстура проезжей части"));
-        let dir = content.join("Splines").join("openMapper");
-        let tex_dir = dir.join("texture");
+        let dir = path.parent().unwrap();
+        let tex_dir = crate::doc::safe::own_path(dir, "texture");
         std::fs::create_dir_all(&tex_dir)?;
         let strip_textures = self.strips.iter().filter_map(|strip| match strip {
             Strip::Footway { tex, .. } | Strip::Median { tex, .. } => Some(tex), _ => None,
@@ -723,14 +760,12 @@ impl RoadSpec {
                 }
             }
         }
-        self.copy_bay_texture(content, false)?;
-        let stem = self.file_stem();
+        self.copy_bay_texture(dir, false)?;
         if self.marked {
             let img = self.painted_roadway().ok_or_else(|| anyhow::anyhow!(crate::i18n::tr("The roadway texture could not be read", "Не удалось прочитать текстуру проезжей части")))?;
             image::DynamicImage::ImageRgba8(img).to_rgb8().save(tex_dir.join(self.roadway_tex_name()))?;
         }
-        let path = dir.join(format!("{stem}.sli"));
-        crate::doc::safe::write_atomic(&path, &omsi_cfg::encode_text(&self.sli(left_hand).replace('\n', "\r\n")))?;
+        crate::doc::safe::write_atomic(path, &omsi_cfg::encode_text(&self.sli(left_hand).replace('\n', "\r\n")))?;
         // (the spec beside it, so the road can be opened in the maker again)
         let mut saved = serde_json::to_value(self)?;
         if self.simple_mode_issues().is_empty() {
@@ -740,15 +775,15 @@ impl RoadSpec {
         } else {
             for field in Self::LEGACY_FIELDS { saved.as_object_mut().unwrap().remove(field); }
         }
-        crate::doc::safe::write_atomic(&dir.join(format!("{stem}.road.json")), serde_json::to_string_pretty(&saved)?.as_bytes())?;
-        let marks = dir.join(format!("{stem}.marks.png"));
+        crate::doc::safe::write_atomic(&path.with_extension("road.json"), serde_json::to_string_pretty(&saved)?.as_bytes())?;
+        let marks = path.with_extension("marks.png");
         match self.hand.as_ref().filter(|h| self.marked && !h.is_empty()) {
             Some(h) => h.img.save(&marks)?,
             None => {
                 let _ = std::fs::remove_file(&marks);
             }
         }
-        Ok(format!("Splines\\openMapper\\{stem}.sli"))
+        Ok(())
     }
 
     /// The spec a road type was made with here, if it was.

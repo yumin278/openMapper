@@ -2916,3 +2916,47 @@ Paths of the way	Шляхі маршруту
 Cut before the first stop	Прыбраць да першага прыпынку
 Cut after the last stop	Прыбраць пасля апошняга прыпынку
 path	шлях
+Lane widths differ	Шырыні прасторы розныя
+Contains bus-only lanes	Змяшчае толькі аўтобусавыя прасторы
+Contains multiple medians	Утрымлівае некалькі сярэдніх
+Median is not between opposite directions	Сярэдні не з'яўляецца паміж супрацьлеглымі напрамкамі
+Contains a left BusBay	Утрымлівае левую BusBay
+Footway textures differ	Тэкстуры падножжа адрозніваюцца
+Names must not contain _bay_ (reserved for the bus bay tool)	Гэты шнур рэзерваваны для інструмента аўтобуса: _bay_
+The roadway texture is missing	Тэкстура дарожнага шляху адсутнічае
+The roadway texture could not be read	Тэкстура дарогі не можа быць прачытана
+Road metadata not found	Метададзеныя дарогі не знайшлі
+Some characters in the road name cannot be used. File: {file}	Некаторыя знакі ў назве дарогі не могуць быць выкарыстаны ў імя файла.: {file}
+Another road already uses this file: {file}	Іншая дарога ўжо выкарыстоўвае гэты файл: {file}
+A road needs at least one Lane	Дарога патрабуе па меншай меры аднаго прасторы
+Strip {} has an invalid width	Непапраўная шырыня дарожнага паласа: {}
+Footways must be at the outer ends	Пераходы павінны быць на вонкавых канцах
+BusBays must border the roadway, at most one per side	BusBays павінны абмежаваць дарогу, як мага больш аднаго на бок
+Medians must be inside the roadway	Сярэднікі павінны быць у дарозе
+The roadway may contain only Lanes and Medians	Дарога можа ўтрымліваць толькі Лені і Медыан
+Lane directions do not match this road’s traffic side	Накірункі прасторы не адпавядаюць баку дарогі, якая выкарыстоўваецца трафікам.
+Apply bus lane rules to all existing roads	Прымяняць правілы аўтобуснага маршруту на ўсіх існуючых дарогах
+Road types and spline counts to update	Тыпы дарог і колькасць палётаў для абнаўлення
+No roads need bus lane rules	Ніякія дарогі не патрабуюць правілаў аўтобуснай прасторы
+Rules added	Дададзеныя правілы
+This road was made for left-hand traffic	Гэтая дарога была зроблена для левага руху
+This road was made for right-hand traffic	Гэтая дарога была зроблена для правай рукі руху
+Advanced: strip mode	Дасканалы: рэжым стрыпу
+This road contains settings that simple mode cannot represent	Гэты шлях змяшчае ўстаноўкі, якія простага рэжыму не можа прадставіць
+Built-in multi-lane texture markings may not align with these lanes	Убудаваныя маркіроўкі тэкстуры ў некалькіх прасторах могуць не супадаць з гэтымі прасторамі
+No footway texture	Ніякай тэкстуры стужкі
+Reset bay texture	Тэкстура перазагрузкі
+Bay texture reset	Пераўтварэнне тэкстуры
+Could not reset bay texture	Не ўдалося пераасэнсаваць тэкстуру бухты
+Kerb height	Вышыня карба
+Lane	Дарожная прастора
+Median	Сярэдняя паласа
+BusBay	База аўтобусаў
+Forward ↑	Наперад ↑
+Backward ↓	Ззаду ↓
+bus only	аўтобус толькі
+Default footway texture	Тэкстура па змаўчанні сцежкі
+Choose file…	Выберыце файл…
+BUS	Аўтобус
+Hand-picked routes kept: {count}	Ручна абраныя маршруты захоўваюцца: {count}
+Overwrite hand-picked routes	Перапішыце ручна абраныя маршруты

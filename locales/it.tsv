@@ -2916,3 +2916,47 @@ Paths of the way	Tracciati del percorso
 Cut before the first stop	Taglia prima della prima fermata
 Cut after the last stop	Taglia dopo l'ultima fermata
 path	tracciato
+Lane widths differ	La larghezza della corsia differisce
+Contains bus-only lanes	Contiene corsie solo per autobus
+Contains multiple medians	Contiene più media
+Median is not between opposite directions	La media non è tra direzioni opposte
+Contains a left BusBay	Contiene un BusBay a sinistra
+Footway textures differ	Differenze di texture
+Names must not contain _bay_ (reserved for the bus bay tool)	Questa stringa è riservata allo strumento bus bay: _bay_
+The roadway texture is missing	La struttura della strada manca.
+The roadway texture could not be read	La struttura della strada non poteva essere letta
+Road metadata not found	Metadati stradali non trovati
+Some characters in the road name cannot be used. File: {file}	Alcuni caratteri del nome della strada non possono essere utilizzati in un filename.: {file}
+Another road already uses this file: {file}	Un'altra strada usa già questo file: {file}
+A road needs at least one Lane	Una strada ha bisogno di almeno una corsia
+Strip {} has an invalid width	Larghezza invalida della banda stradale: {}
+Footways must be at the outer ends	I passaggi devono essere alle estremità esterne
+BusBays must border the roadway, at most one per side	BusBays devono limitare la strada, al massimo una per lato
+Medians must be inside the roadway	I mediani devono essere dentro la strada.
+The roadway may contain only Lanes and Medians	La strada può contenere solo Lanes e Medians
+Lane directions do not match this road’s traffic side	Le direzioni delle corsie non corrispondono al lato della strada utilizzato dal traffico.
+Apply bus lane rules to all existing roads	Applicare le regole di corsia degli autobus a tutte le strade esistenti
+Road types and spline counts to update	Tippi di strade e conteggio delle spline da aggiornare
+No roads need bus lane rules	Nessuna strada ha bisogno di regole per le corsie degli autobus
+Rules added	Regole aggiunte
+This road was made for left-hand traffic	Questa strada è stata fatta per il traffico a sinistra
+This road was made for right-hand traffic	Questa strada è stata fatta per il traffico a destra
+Advanced: strip mode	Avanzato: modalità striscia
+This road contains settings that simple mode cannot represent	Questa strada contiene impostazioni che la modalità semplice non può rappresentare
+Built-in multi-lane texture markings may not align with these lanes	Le marcature di texture integrate a più corsie possono non essere allineate con queste corsie
+No footway texture	Nessuna textura per il cammino
+Reset bay texture	Risettare la textura della baia
+Bay texture reset	Ritornazione della texture di baia
+Could not reset bay texture	Non è riuscito a ripristinare la struttura della baia.
+Kerb height	Altezza del cervo
+Lane	Linea di traffico
+Median	Striscia media
+BusBay	Bagno degli autobus
+Forward ↑	Avanti ↑
+Backward ↓	Ritorno ↓
+bus only	Autobus solo
+Default footway texture	Tessura predefinita del percorso
+Choose file…	Scegliete il file…
+BUS	Autobus
+Hand-picked routes kept: {count}	rotte selezionate manualmente conservate: {count}
+Overwrite hand-picked routes	Soprascrivere le rotte selezionate manualmente

@@ -2916,3 +2916,47 @@ Paths of the way	Laluan lorong
 Cut before the first stop	Potong sebelum perhentian pertama
 Cut after the last stop	Potong selepas perhentian terakhir
 path	laluan
+Lane widths differ	Lebar lorong berbeza
+Contains bus-only lanes	Mengandung laluan bas sahaja
+Contains multiple medians	Ia mengandungi pelbagai median
+Median is not between opposite directions	Median tidak antara arah yang berlawanan
+Contains a left BusBay	Ia mengandungi busbay kiri
+Footway textures differ	Tekstur kaki berbeza
+Names must not contain _bay_ (reserved for the bus bay tool)	Senarai ini disediakan untuk alat bus bay: _bay_
+The roadway texture is missing	Tekstur jalan hilang
+The roadway texture could not be read	Tekstur jalan tidak dapat dibaca
+Road metadata not found	Metadata jalan tidak ditemui
+Some characters in the road name cannot be used. File: {file}	Sesetengah watak dalam nama jalan tidak boleh digunakan dalam nama fail. Nama fail: {file}
+Another road already uses this file: {file}	Jalan lain sudah menggunakan fail ini: {file}
+A road needs at least one Lane	Jalan memerlukan sekurang-kurangnya satu jalur
+Strip {} has an invalid width	lebar jalur jalan yang tidak sah: {}
+Footways must be at the outer ends	Jalan kaki mesti berada di hujung luar
+BusBays must border the roadway, at most one per side	BusBays mesti melapisi jalan raya, paling tidak satu per sisi
+Medians must be inside the roadway	Media mesti berada di dalam jalan raya.
+The roadway may contain only Lanes and Medians	Jalan raya boleh mengandungi hanya Lane dan Medians
+Lane directions do not match this road’s traffic side	Arahan lorong tidak sesuai dengan sisi jalan yang digunakan oleh trafik.
+Apply bus lane rules to all existing roads	Menerapkan peraturan laluan bas untuk semua jalan raya yang sedia ada
+Road types and spline counts to update	Jenis jalan dan bilangan garis untuk dikemas kini
+No roads need bus lane rules	Tiada jalan yang memerlukan peraturan laluan bas
+Rules added	Peraturan ditambahkan
+This road was made for left-hand traffic	Jalan ini dibuat untuk lalu lintas kiri
+This road was made for right-hand traffic	Jalan ini dibuat untuk lalu lintas kanan
+Advanced: strip mode	Lanjutan: mod strip
+This road contains settings that simple mode cannot represent	Jalan ini mengandungi tetapan yang mod sederhana tidak boleh mewakili
+Built-in multi-lane texture markings may not align with these lanes	Tanda tekstur pelbagai lorong yang terbina dalam mungkin tidak sejajar dengan lorong ini
+No footway texture	Tiada tekstur tapak kaki
+Reset bay texture	Tekstur teluk pusingan semula
+Bay texture reset	Set semula tekstur teluk
+Could not reset bay texture	Tidak dapat menetapkan semula tekstur bay
+Kerb height	Ketinggian kerb
+Lane	Jalur lalu lintas
+Median	Strip median
+BusBay	Bay bas
+Forward ↑	Ke hadapan ↑
+Backward ↓	Kembali ↓
+bus only	bas sahaja
+Default footway texture	Tekstur laluan kaki lalai
+Choose file…	Pilih fail…
+BUS	BUS
+Hand-picked routes kept: {count}	Laluan yang dipilih secara manual disimpan: {count}
+Overwrite hand-picked routes	Menulis ulang laluan yang dipilih secara manual

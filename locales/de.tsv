@@ -2914,3 +2914,47 @@ Paths of the way	Pfade des Wegs
 Cut before the first stop	Vor der ersten Haltestelle abschneiden
 Cut after the last stop	Nach der letzten Haltestelle abschneiden
 path	Pfad
+Lane widths differ	Die Fahrspuren sind unterschiedlich breit
+Contains bus-only lanes	Enthält Busspuren
+Contains multiple medians	Enthält mehrere Mittelstreifen
+Median is not between opposite directions	Der Mittelstreifen liegt nicht zwischen den Fahrtrichtungen
+Contains a left BusBay	Enthält eine Bushaltebucht auf der linken Seite
+Footway textures differ	Die Gehwegtexturen unterscheiden sich
+Names must not contain _bay_ (reserved for the bus bay tool)	Der Name darf _bay_ nicht enthalten, da es für das Bushaltebucht-Werkzeug reserviert ist
+The roadway texture is missing	Die Fahrbahntextur fehlt
+The roadway texture could not be read	Die Fahrbahntextur konnte nicht gelesen werden
+Road metadata not found	Straßenmetadaten nicht gefunden
+Some characters in the road name cannot be used. File: {file}	Einige Zeichen im Straßennamen sind im Dateinamen unzulässig. Datei: {file}
+Another road already uses this file: {file}	Diese Datei wird bereits von einer anderen Straße verwendet: {file}
+A road needs at least one Lane	Eine Straße braucht mindestens eine Fahrspur
+Strip {} has an invalid width	Der Querschnittsabschnitt {} hat eine ungültige Breite
+Footways must be at the outer ends	Gehwege müssen an den äußeren Rändern liegen
+BusBays must border the roadway, at most one per side	Bushaltebuchten müssen an die Fahrbahn angrenzen, höchstens eine pro Seite
+Medians must be inside the roadway	Mittelstreifen müssen innerhalb der Fahrbahn liegen
+The roadway may contain only Lanes and Medians	Auf der Fahrbahn sind nur Fahrspuren und Mittelstreifen zulässig
+Lane directions do not match this road’s traffic side	Die Fahrtrichtungen entsprechen nicht der Verkehrsseite dieser Straße
+Apply bus lane rules to all existing roads	Busspurregeln auf alle vorhandenen Straßen anwenden
+Road types and spline counts to update	Straßentypen und Anzahl der zu aktualisierenden Splines
+No roads need bus lane rules	Für keine Straße sind Busspurregeln erforderlich
+Rules added	Hinzugefügte Regeln
+This road was made for left-hand traffic	Diese Straße wurde für Linksverkehr erstellt
+This road was made for right-hand traffic	Diese Straße wurde für Rechtsverkehr erstellt
+Advanced: strip mode	Erweitert: Querschnittsmodus
+This road contains settings that simple mode cannot represent	Diese Straße enthält Einstellungen, die im einfachen Modus nicht darstellbar sind
+Built-in multi-lane texture markings may not align with these lanes	Die eingebauten Fahrbahnmarkierungen für mehrere Spuren passen möglicherweise nicht zu diesen Fahrspuren
+No footway texture	Keine Gehwegtextur
+Reset bay texture	Textur der Bushaltebucht zurücksetzen
+Bay texture reset	Textur der Bushaltebucht zurückgesetzt
+Could not reset bay texture	Textur der Bushaltebucht konnte nicht zurückgesetzt werden
+Kerb height	Bordsteinhöhe
+Lane	Fahrspur
+Median	Mittelstreifen
+BusBay	Bushaltebucht
+Forward ↑	Vorwärts ↑
+Backward ↓	Rückwärts ↓
+bus only	nur Busse
+Default footway texture	Standard-Gehwegtextur
+Choose file…	Datei auswählen…
+BUS	BUS
+Hand-picked routes kept: {count}	Beibehaltene manuell gewählte Routen: {count}
+Overwrite hand-picked routes	Manuell gewählte Routen überschreiben

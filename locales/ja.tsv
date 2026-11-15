@@ -2916,3 +2916,47 @@ Paths of the way	経路のパス
 Cut before the first stop	最初の停留所より前を切る
 Cut after the last stop	最後の停留所より後を切る
 path	パス
+Lane widths differ	車線幅が異なります
+Contains bus-only lanes	バス専用車線があります
+Contains multiple medians	中央分離帯が複数あります
+Median is not between opposite directions	中央分離帯が対向する車線の間にありません
+Contains a left BusBay	左側にバスベイがあります
+Footway textures differ	歩道のテクスチャが異なります
+Names must not contain _bay_ (reserved for the bus bay tool)	名前に _bay_ は使用できません（バスベイツールで使用）
+The roadway texture is missing	車道のテクスチャが見つかりません
+The roadway texture could not be read	車道のテクスチャを読み込めませんでした
+Road metadata not found	道路のメタデータが見つかりません
+Some characters in the road name cannot be used. File: {file}	道路名にファイル名として使用できない文字があります。ファイル名：{file}
+Another road already uses this file: {file}	このファイルは別の道路で既に使用されています：{file}
+A road needs at least one Lane	道路には車線が1本以上必要です
+Strip {} has an invalid width	区画 {} の幅が無効です
+Footways must be at the outer ends	歩道は両端に配置してください
+BusBays must border the roadway, at most one per side	バスベイは車道に隣接し、左右それぞれ1つまで配置できます
+Medians must be inside the roadway	中央分離帯は車道の内側に配置してください
+The roadway may contain only Lanes and Medians	車道の内側には車線と中央分離帯のみ配置できます
+Lane directions do not match this road’s traffic side	車線の進行方向が道路の通行区分と一致しません
+Apply bus lane rules to all existing roads	既存のすべての道路にバス車線のルールを適用
+Road types and spline counts to update	更新する道路タイプとスプライン数
+No roads need bus lane rules	バス車線のルールを追加する道路はありません
+Rules added	追加したルール
+This road was made for left-hand traffic	この道路は左側通行用に作成されています
+This road was made for right-hand traffic	この道路は右側通行用に作成されています
+Advanced: strip mode	詳細設定：断面構成モード
+This road contains settings that simple mode cannot represent	この道路には簡易モードで設定できない項目があります
+Built-in multi-lane texture markings may not align with these lanes	テクスチャに含まれる複数車線用の区画線が車線とずれることがあります
+No footway texture	歩道のテクスチャなし
+Reset bay texture	バスベイのテクスチャをリセット
+Bay texture reset	バスベイのテクスチャをリセットしました
+Could not reset bay texture	バスベイのテクスチャをリセットできませんでした
+Kerb height	縁石の高さ
+Lane	車線
+Median	中央分離帯
+BusBay	バスベイ
+Forward ↑	順方向 ↑
+Backward ↓	逆方向 ↓
+bus only	バス専用
+Default footway texture	既定の歩道テクスチャ
+Choose file…	ファイルを選択…
+BUS	バス
+Hand-picked routes kept: {count}	保持した手動選択経路：{count} 件
+Overwrite hand-picked routes	手動で選択した経路を上書き

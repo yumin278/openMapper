@@ -2916,3 +2916,47 @@ Paths of the way	Rutas del camino
 Cut before the first stop	Cortar antes de la primera parada
 Cut after the last stop	Cortar tras la última parada
 path	ruta
+Lane widths differ	Los anchos del carril difieren
+Contains bus-only lanes	Contiene carriles sólo para autobuses
+Contains multiple medians	Contiene múltiples medianos
+Median is not between opposite directions	El mediano no está entre direcciones opuestas
+Contains a left BusBay	Contiene un busbay izquierdo
+Footway textures differ	Las texturas de los pasos difieren
+Names must not contain _bay_ (reserved for the bus bay tool)	Esta cadena está reservada para la herramienta de bus bay: _bay_
+The roadway texture is missing	La textura de la carretera está faltando
+The roadway texture could not be read	La textura de la carretera no se pudo leer
+Road metadata not found	Metadatos de carretera no encontrados
+Some characters in the road name cannot be used. File: {file}	Algunos caracteres del nombre de la carretera no se pueden utilizar en un nombre de archivo.: {file}
+Another road already uses this file: {file}	Otro camino ya usa este archivo: {file}
+A road needs at least one Lane	Una carretera necesita al menos un carril
+Strip {} has an invalid width	Ancho inválido de la franja: {}
+Footways must be at the outer ends	Los pasos deben estar en los extremos exteriores
+BusBays must border the roadway, at most one per side	BusBays deben bordear la carretera, como máximo una por lado
+Medians must be inside the roadway	Los medianos deben estar dentro de la carretera
+The roadway may contain only Lanes and Medians	La carretera sólo puede contener carriles y medianos
+Lane directions do not match this road’s traffic side	Las direcciones del carril no coinciden con el lado de la carretera utilizado por el tráfico.
+Apply bus lane rules to all existing roads	Aplicar las reglas del carril de los autobuses a todas las carreteras existentes
+Road types and spline counts to update	Tipos de carreteras y recuentos de tramos para actualizar
+No roads need bus lane rules	No hay carreteras que necesiten reglas de carril
+Rules added	Reglas añadidas
+This road was made for left-hand traffic	Esta carretera fue hecha para el tráfico de la izquierda
+This road was made for right-hand traffic	Esta carretera fue hecha para el tráfico de la derecha
+Advanced: strip mode	Avanzado: modo de tira
+This road contains settings that simple mode cannot represent	Este camino contiene configuraciones que el modo simple no puede representar
+Built-in multi-lane texture markings may not align with these lanes	Las marcas de textura incorporadas para varios carriles pueden no estar alineadas con estos carriles
+No footway texture	Ninguna textura de los pasos
+Reset bay texture	Reset de la textura del cubo
+Bay texture reset	Restablecimiento de la textura del golfo
+Could not reset bay texture	No pudo restablecer la textura de la bahía
+Kerb height	Alturas del césped
+Lane	Carril de tránsito
+Median	Banda mediana
+BusBay	Bahía de autobuses
+Forward ↑	En adelante ↑
+Backward ↓	Retroceder ↓
+bus only	bus sólo
+Default footway texture	Texturas por defecto de los pasos
+Choose file…	Elige el archivo…
+BUS	Autobús
+Hand-picked routes kept: {count}	Rutas seleccionadas manualmente mantenidas: {count}
+Overwrite hand-picked routes	Sobrescribir las rutas seleccionadas manualmente

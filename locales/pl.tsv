@@ -2916,3 +2916,47 @@ Paths of the way	Ścieżki trasy
 Cut before the first stop	Obetnij przed pierwszym przystankiem
 Cut after the last stop	Obetnij za ostatnim przystankiem
 path	ścieżka
+Lane widths differ	Szerokości pasów różnią się
+Contains bus-only lanes	Zawiera pasy wyłącznie dla autobusów
+Contains multiple medians	Zawiera wiele medianów
+Median is not between opposite directions	Średnia nie jest pomiędzy przeciwnymi kierunkami
+Contains a left BusBay	Zawiera lewy BusBay
+Footway textures differ	Zróżnicowane tekstury chodników
+Names must not contain _bay_ (reserved for the bus bay tool)	Ta strona jest zarezerwowana dla narzędzia bus bay: _bay_
+The roadway texture is missing	Brakuje tekstury drogowej
+The roadway texture could not be read	Nie można było przeczytać tekstury dróg
+Road metadata not found	Metadata drogowa nie znaleziona
+Some characters in the road name cannot be used. File: {file}	Niektóre znaki w nazwie drogi nie mogą być używane w nazwie pliku.: {file}
+Another road already uses this file: {file}	Kolejna droga już używa tego pliku: {file}
+A road needs at least one Lane	Droga potrzebuje przynajmniej jednej pasy.
+Strip {} has an invalid width	Nieprawidłowa szerokość pasa drogowego: {}
+Footways must be at the outer ends	Ścieżki muszą być na zewnętrznych krańcach
+BusBays must border the roadway, at most one per side	Autobusy muszą ograniczać drogę, maksymalnie po jednej stronie
+Medians must be inside the roadway	Środkowie muszą być wewnątrz drogi.
+The roadway may contain only Lanes and Medians	Droga może zawierać tylko pasy i Median
+Lane directions do not match this road’s traffic side	Kiery drogowe nie pasują do strony drogi używanej przez ruch.
+Apply bus lane rules to all existing roads	Należy stosować zasady pasów autobusowych we wszystkich istniejących drogach
+Road types and spline counts to update	Typy dróg i liczba rozciągów do aktualizacji
+No roads need bus lane rules	Żadne drogi nie potrzebują reguł trasy autobusowej
+Rules added	Dodane przepisy
+This road was made for left-hand traffic	Ta droga jest przeznaczona dla lewego ruchu.
+This road was made for right-hand traffic	Ta droga jest przeznaczona dla ruchu z prawej strony.
+Advanced: strip mode	Zaawansowany: tryb strumienia
+This road contains settings that simple mode cannot represent	Ta droga zawiera ustawienia, których tryb prosty nie może reprezentować
+Built-in multi-lane texture markings may not align with these lanes	Wbudowane oznakowanie tekstury wielokrotnych pasów może nie być zgodne z tymi pasami
+No footway texture	Brak tekstury chodnika
+Reset bay texture	Tekstura zakładki
+Bay texture reset	Zastosowanie tekstury z zakątka
+Could not reset bay texture	Nie udało się zresetować tekstury bazy
+Kerb height	Wysokość węża
+Lane	Szlak ruchu
+Median	Średnia taśma
+BusBay	Autobusy
+Forward ↑	Do przodu ↑
+Backward ↓	Wstecz ↓
+bus only	tylko autobus
+Default footway texture	Wyposażona tekstura chodnika
+Choose file…	Wybierz plik…
+BUS	BUS
+Hand-picked routes kept: {count}	Wykrywane ręcznie trasy: {count}
+Overwrite hand-picked routes	Przepisanie ręcznie wybranych tras

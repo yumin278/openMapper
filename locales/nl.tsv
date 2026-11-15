@@ -2917,3 +2917,47 @@ Paths of the way	Paden van de route
 Cut before the first stop	Afknippen voor de eerste halte
 Cut after the last stop	Afknippen na de laatste halte
 path	pad
+Lane widths differ	Landenbreedte verschilt
+Contains bus-only lanes	Bevat alleen autobussporen
+Contains multiple medians	Bevat meerdere medianen
+Median is not between opposite directions	Median is niet tussen tegengestelde richtingen
+Contains a left BusBay	Bevat een linker BusBay
+Footway textures differ	De textuur van de voetstappen verschilt
+Names must not contain _bay_ (reserved for the bus bay tool)	Deze string is gereserveerd voor het busbaktool: _bay_
+The roadway texture is missing	De teksture van de weg ontbreekt.
+The roadway texture could not be read	De tekst van de weg kon niet worden gelezen .
+Road metadata not found	Niet gevonden verkeersmetadata
+Some characters in the road name cannot be used. File: {file}	Sommige tekens in de wegnaam kunnen niet worden gebruikt in een bestandsnaam.: {file}
+Another road already uses this file: {file}	Een andere weg gebruikt al dit bestand: {file}
+A road needs at least one Lane	Een weg heeft minstens één baan nodig.
+Strip {} has an invalid width	Niet geldige breedte van de wegstreep: {}
+Footways must be at the outer ends	Voetpaden moeten aan de buitenkant liggen.
+BusBays must border the roadway, at most one per side	BusBays moeten aan de weg grenzen, maximaal één per kant
+Medians must be inside the roadway	De medianen moeten in de weg zijn.
+The roadway may contain only Lanes and Medians	De weg mag alleen Lannen en Medianen bevatten
+Lane directions do not match this road’s traffic side	De richting van de rijstrook komt niet overeen met de zijkant van het verkeer.
+Apply bus lane rules to all existing roads	Op alle bestaande wegen moeten de regels voor buslijnen worden toegepast.
+Road types and spline counts to update	Opgedateerde wegtypen en splintergetallen
+No roads need bus lane rules	Geen wegen hebben regels nodig.
+Rules added	Voegde regels
+This road was made for left-hand traffic	Deze weg is gemaakt voor links verkeer .
+This road was made for right-hand traffic	Deze weg is gemaakt voor rechtse verkeer.
+Advanced: strip mode	Geavanceerd: stripmodus
+This road contains settings that simple mode cannot represent	Deze weg bevat instellingen die de eenvoudige modus niet kan weergeven
+Built-in multi-lane texture markings may not align with these lanes	Ingebouwde multi-lane textuurmarkering mag niet overeenstemmen met deze banen
+No footway texture	Geen voetafdruk
+Reset bay texture	De textuur van de baai opnieuw instellen
+Bay texture reset	Verpakking van de textuur
+Could not reset bay texture	Kon de teksturen van de baai niet opnieuw instellen
+Kerb height	Hoogte van de kerb
+Lane	Verkeersbaan
+Median	Middenstreep
+BusBay	Busbuis
+Forward ↑	Vooruit ↑
+Backward ↓	Achteruit ↓
+bus only	alleen bus
+Default footway texture	Standaardvoettekst
+Choose file…	Kies het bestand…
+BUS	BUS
+Hand-picked routes kept: {count}	Handmatig geselecteerde routes: {count}
+Overwrite hand-picked routes	Handmatig geselecteerde routes overschrijven

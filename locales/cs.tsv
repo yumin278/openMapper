@@ -2916,3 +2916,47 @@ Paths of the way	Cesty trasy
 Cut before the first stop	Odříznout před první zastávkou
 Cut after the last stop	Odříznout za poslední zastávkou
 path	cesta
+Lane widths differ	Různé šířky tratí
+Contains bus-only lanes	Obsahuje pouze autobusové tratě
+Contains multiple medians	Obsahuje více mediánů
+Median is not between opposite directions	Medián není mezi opačnými směry.
+Contains a left BusBay	Obsahuje levé BusBay
+Footway textures differ	Rozdílné textury chodidla
+Names must not contain _bay_ (reserved for the bus bay tool)	Tento řetězec je vyhrazen pro nástroj bus bay: _bay_
+The roadway texture is missing	Chybí textura silnice.
+The roadway texture could not be read	Textu silnice nebylo možné přečíst
+Road metadata not found	Metadata silničního provozu nenalezena
+Some characters in the road name cannot be used. File: {file}	Některé znaky v názvu silnice nelze použít ve jménu souboru.: {file}
+Another road already uses this file: {file}	Další silnice už používá tento soubor: {file}
+A road needs at least one Lane	Cesta potřebuje alespoň jednu pruhu.
+Strip {} has an invalid width	Neoprávněná šířka silničního pásu: {}
+Footways must be at the outer ends	Nohy musí být na vnějším konci.
+BusBays must border the roadway, at most one per side	BusBays musí ohraničit silnici, nejvíce jeden na stranu
+Medians must be inside the roadway	Mediáni musí být uvnitř silnice.
+The roadway may contain only Lanes and Medians	Cesta může obsahovat pouze Lanes a Medians
+Lane directions do not match this road’s traffic side	Směrnice pruhu se neslučují s stranou silnice, kterou používá doprava.
+Apply bus lane rules to all existing roads	Použití pravidel autobusových tratí na všech stávajících silnicích
+Road types and spline counts to update	Typy silnic a počítání rozpětí k aktualizaci
+No roads need bus lane rules	Žádné silnice nepotřebují pravidla autobusu.
+Rules added	Přidané pravidla
+This road was made for left-hand traffic	Tato cesta byla vytvořena pro levicovou dopravu.
+This road was made for right-hand traffic	Tato cesta byla vytvořena pro dopravu na pravé straně.
+Advanced: strip mode	Pokročilý: režim pásu
+This road contains settings that simple mode cannot represent	Tato cesta obsahuje nastavení, které jednoduchý režim nemůže představit.
+Built-in multi-lane texture markings may not align with these lanes	Vestavěné označení textury více tratí nemusí odpovídat těmto pasům
+No footway texture	Žádná textura chodidla
+Reset bay texture	Přepínání textury zámku
+Bay texture reset	Odpočet textury zálivu
+Could not reset bay texture	Nedokázal resetovat texturu zámku
+Kerb height	Výška kořistů
+Lane	Dopravní dráha
+Median	Mediánová páska
+BusBay	Autobusová záloha
+Forward ↑	Napřed ↑
+Backward ↓	Zpátky ↓
+bus only	pouze autobusem
+Default footway texture	Předchozí textura chodidla
+Choose file…	Vyber si složku…
+BUS	Autobus
+Hand-picked routes kept: {count}	Ručně vybrané trasy: {count}
+Overwrite hand-picked routes	Přepis ručně vybraných tras

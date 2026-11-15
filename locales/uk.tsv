@@ -2914,3 +2914,47 @@ Paths of the way	Шляхи маршруту
 Cut before the first stop	Прибрати до першої зупинки
 Cut after the last stop	Прибрати після останньої зупинки
 path	шлях
+Lane widths differ	Ширини смуг відрізняються
+Contains bus-only lanes	З'єднує лише автобусні смуги
+Contains multiple medians	З'єднує кілька медианів
+Median is not between opposite directions	Медиан не між протилежними напрямками
+Contains a left BusBay	У ньому є лівий BusBay.
+Footway textures differ	Розрізняються текстури стоп
+Names must not contain _bay_ (reserved for the bus bay tool)	Цей шнурок захищений для інструменту автобусної баки: _bay_
+The roadway texture is missing	Відсутність текстури дорожнього шляху
+The roadway texture could not be read	Текст дорожнього шляху не можна було прочитати.
+Road metadata not found	Метадані дорожнього руху не знайдені
+Some characters in the road name cannot be used. File: {file}	Деякі символи у ім'я дороги не можуть бути використані в назві файлу.: {file}
+Another road already uses this file: {file}	Інша дорога вже використовує цей файл: {file}
+A road needs at least one Lane	Дорога потребує хоча б однієї лані.
+Strip {} has an invalid width	Недійсна ширина дорожньої смуги: {}
+Footways must be at the outer ends	Ноги повинні бути на зовнішніх краях
+BusBays must border the roadway, at most one per side	BusBays повинні обмежувати дорожній шлях, максимум один на одну сторону
+Medians must be inside the roadway	Медианці повинні бути на дорозі.
+The roadway may contain only Lanes and Medians	Дорога може містити тільки Лені і Медіан
+Lane directions do not match this road’s traffic side	Направлення смуги не відповідають стороні дороги, яка використовується дорогою.
+Apply bus lane rules to all existing roads	Приведення правил автобусної смуги на всі існуючі дороги
+Road types and spline counts to update	Навчання типів дорог і розрахунків прокладу
+No roads need bus lane rules	Жодна дорога не потребує правил автобусної смуги
+Rules added	Додані правила
+This road was made for left-hand traffic	Ця дорога була зроблена для лівого руху
+This road was made for right-hand traffic	Ця дорога була зроблена для правого руху
+Advanced: strip mode	Просунуто: режим смуги
+This road contains settings that simple mode cannot represent	Ця дорога містить налаштування, які простой режим не може відобразити
+Built-in multi-lane texture markings may not align with these lanes	Вбудовані ознаки текстури для декількох смуг можуть не відповідати цим смугам
+No footway texture	Без текстури стоп
+Reset bay texture	Структура перезавантаження
+Bay texture reset	Реставрація текстури заливу
+Could not reset bay texture	Не вдалося відновити текстуру заливу
+Kerb height	Висота керу
+Lane	Транспортний шлях
+Median	Медіанна смуга
+BusBay	Автобусний багажник
+Forward ↑	Наперед ↑
+Backward ↓	Зверні ↓
+bus only	тільки автобусом
+Default footway texture	Дефолтова текстура пішки
+Choose file…	Виберіть файл…
+BUS	Автобус
+Hand-picked routes kept: {count}	Ручно обрані маршрути: {count}
+Overwrite hand-picked routes	Перезаписати ручно обрані маршрути

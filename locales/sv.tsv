@@ -2916,3 +2916,47 @@ Paths of the way	Vägens körfält
 Cut before the first stop	Klipp före den första hållplatsen
 Cut after the last stop	Klipp efter den sista hållplatsen
 path	körfält
+Lane widths differ	Lanebredd skiljer sig
+Contains bus-only lanes	Innehåller bara busstrålar
+Contains multiple medians	Innehåller flera medianer
+Median is not between opposite directions	Median är inte mellan motsatta riktningar
+Contains a left BusBay	Innehåller en vänster BusBay
+Footway textures differ	Föttrakturen är annorlunda
+Names must not contain _bay_ (reserved for the bus bay tool)	Den här strängen är reserverad för verktyget: _bay_
+The roadway texture is missing	Vägteksturen saknas.
+The roadway texture could not be read	Vägteksturen kunde inte läsas
+Road metadata not found	Vägsmetadata inte hittats
+Some characters in the road name cannot be used. File: {file}	Vissa tecken i vägnamnet kan inte användas i ett filnamn.: {file}
+Another road already uses this file: {file}	En annan väg använder redan den här filen: {file}
+A road needs at least one Lane	En väg behöver minst en lane.
+Strip {} has an invalid width	Invalid bredd på vägsträckan: {}
+Footways must be at the outer ends	Föttrader måste vara vid de yttre ändarna.
+BusBays must border the roadway, at most one per side	BusBays måste gränsa vägen, högst en per sida
+Medians must be inside the roadway	Medianerna måste vara inne på vägen.
+The roadway may contain only Lanes and Medians	Vägen får endast innehålla Lanes och Medians
+Lane directions do not match this road’s traffic side	Länningsriktningen motsvarar inte den sida av vägen som trafiken använder.
+Apply bus lane rules to all existing roads	Tillämpning av busstrafikregler på alla befintliga vägar
+Road types and spline counts to update	Vägtyper och antal spliner att uppdatera
+No roads need bus lane rules	Inga vägar behöver busstridsregler
+Rules added	Lämnade regler
+This road was made for left-hand traffic	Den här vägen gjordes för vänsterhandtrafik.
+This road was made for right-hand traffic	Den här vägen var gjord för högerhands trafik.
+Advanced: strip mode	Avancerat: strippläge
+This road contains settings that simple mode cannot represent	Denna väg innehåller inställningar som en enkel läge inte kan representera
+Built-in multi-lane texture markings may not align with these lanes	Inbyggda texturmärkningar för flera banor kan inte överensstämma med dessa banor
+No footway texture	Ingen fotvägsinstruktion
+Reset bay texture	Återställning av texturen
+Bay texture reset	Återställning av texturen
+Could not reset bay texture	Kan inte återställa buktens textur
+Kerb height	Kärb höjd
+Lane	Trafikvägen
+Median	Medelstrip
+BusBay	Busshus
+Forward ↑	Framåt ↑
+Backward ↓	Tillbaka ↓
+bus only	Enbart buss
+Default footway texture	Förebyggande fotvägsinstruktion
+Choose file…	Välj filen…
+BUS	BUS
+Hand-picked routes kept: {count}	Manuellt utvalda vägar som hålls: {count}
+Overwrite hand-picked routes	Överskriva manuellt utvalda rutter

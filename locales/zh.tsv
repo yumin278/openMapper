@@ -2912,3 +2912,47 @@ Paths of the way	路线的路径
 Cut before the first stop	剪掉第一站之前
 Cut after the last stop	剪掉最后一站之后
 path	路径
+Lane widths differ	车道宽度不同
+Contains bus-only lanes	包含公交专用车道
+Contains multiple medians	包含多个中央分隔带
+Median is not between opposite directions	中央分隔带不在对向车道之间
+Contains a left BusBay	左侧有公交停车湾
+Footway textures differ	人行道纹理不同
+Names must not contain _bay_ (reserved for the bus bay tool)	名称不能包含 _bay_（保留给公交停车湾工具）
+The roadway texture is missing	找不到车行道纹理
+The roadway texture could not be read	无法读取车行道纹理
+Road metadata not found	找不到道路元数据
+Some characters in the road name cannot be used. File: {file}	道路名称中有字符无法用于文件名。实际文件名：{file}
+Another road already uses this file: {file}	另一条道路已使用此文件：{file}
+A road needs at least one Lane	道路至少需要一条车道
+Strip {} has an invalid width	道路条带 {} 的宽度无效
+Footways must be at the outer ends	人行道只能放在道路断面的两端
+BusBays must border the roadway, at most one per side	公交停车湾必须紧邻车行道，每侧最多一个
+Medians must be inside the roadway	中央分隔带必须位于车行道内
+The roadway may contain only Lanes and Medians	车行道内只能有车道和中央分隔带
+Lane directions do not match this road’s traffic side	车道方向不符合道路的通行侧设置
+Apply bus lane rules to all existing roads	将公交专用车道规则应用到所有现有道路
+Road types and spline counts to update	待更新的道路类型和样条数量
+No roads need bus lane rules	没有需要应用公交车道规则的道路
+Rules added	已添加的规则
+This road was made for left-hand traffic	此道路按照靠左行驶设计
+This road was made for right-hand traffic	此道路按照靠右行驶设计
+Advanced: strip mode	高级：条带模式
+This road contains settings that simple mode cannot represent	此道路含有简单模式无法表示的设置
+Built-in multi-lane texture markings may not align with these lanes	内置多车道纹理的标线可能与这些车道不对齐
+No footway texture	未设置人行道纹理
+Reset bay texture	重置停车湾纹理
+Bay texture reset	已重置停车湾纹理
+Could not reset bay texture	无法重置停车湾纹理
+Kerb height	路缘高度
+Lane	车道
+Median	中央分隔带
+BusBay	公交停车湾
+Forward ↑	正向 ↑
+Backward ↓	反向 ↓
+bus only	公交专用
+Default footway texture	默认人行道纹理
+Choose file…	选择文件…
+BUS	公交
+Hand-picked routes kept: {count}	已保留手动选择的路径：{count} 条
+Overwrite hand-picked routes	覆盖手动选择的路径

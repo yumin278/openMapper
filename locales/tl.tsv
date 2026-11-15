@@ -2916,3 +2916,47 @@ Paths of the way	Mga path ng daan
 Cut before the first stop	Putulin bago ang unang hintuan
 Cut after the last stop	Putulin pagkatapos ng huling hintuan
 path	path
+Lane widths differ	Nagkakaiba ang lapad ng landas
+Contains bus-only lanes	Naglalaman ng mga lansangan para sa bus lamang
+Contains multiple medians	Naglalaman ng maraming mga median
+Median is not between opposite directions	Ang median ay hindi sa pagitan ng kabaligtaran na direksyon
+Contains a left BusBay	Naglalaman ng isang kaliwang BusBay
+Footway textures differ	Nagkakaiba ang mga tekstura ng landas
+Names must not contain _bay_ (reserved for the bus bay tool)	Ang string na ito ay naka-reserve para sa bus bay tool: _bay_
+The roadway texture is missing	Ang texture ng kalsada ay nawawala
+The roadway texture could not be read	Hindi mabasa ang texture ng kalsada
+Road metadata not found	Hindi natagpuan ang metadata sa kalsada
+Some characters in the road name cannot be used. File: {file}	Ang ilang mga character sa pangalan ng kalsada ay hindi maaaring gamitin sa isang pangalan ng file.: {file}
+Another road already uses this file: {file}	Ang isa pang kalsada ay gumagamit na ng file na ito: {file}
+A road needs at least one Lane	Ang isang kalsada ay nangangailangan ng hindi bababa sa isa na Lane
+Strip {} has an invalid width	Invalid width of the road strip: {}
+Footways must be at the outer ends	Ang mga landas ay dapat sa panlabas na dulo
+BusBays must border the roadway, at most one per side	Ang mga BusBays ay dapat magpahinga sa kalsada, hindi bababa sa isa bawat gilid
+Medians must be inside the roadway	Ang mga medians ay dapat sa loob ng kalsada
+The roadway may contain only Lanes and Medians	Ang landas ay maaaring maglalaman lamang ng Lines at Medians
+Lane directions do not match this road’s traffic side	Ang mga direksyon ng lane ay hindi tumutugma sa gilid ng kalsada na ginagamit ng trapiko.
+Apply bus lane rules to all existing roads	I-apply ang mga patakaran sa bus lane sa lahat ng umiiral na kalsada
+Road types and spline counts to update	Mga uri ng kalsada at bilang ng spline upang ma-update
+No roads need bus lane rules	Walang kalsada ang nangangailangan ng mga patakaran sa bus lane
+Rules added	Nagdagdag ng mga patakaran
+This road was made for left-hand traffic	Ang daan na ito ay ginawa para sa kaliwang kamay ng trapiko
+This road was made for right-hand traffic	Ang kalsada na ito ay ginawa para sa right-hand traffic
+Advanced: strip mode	Advanced: mode ng strip
+This road contains settings that simple mode cannot represent	Ang daan na ito ay naglalaman ng mga setting na simple mode ay hindi maaaring kumakatawan
+Built-in multi-lane texture markings may not align with these lanes	Ang mga naka-built-in na multi-lane texture markings ay maaaring hindi magkasama sa mga lane na ito
+No footway texture	Walang texture sa landas
+Reset bay texture	Reset bay texture
+Bay texture reset	Pag-reset ng texture sa bay
+Could not reset bay texture	Hindi maaaring i-reset ang texture ng bay
+Kerb height	Ang taas ng kerb
+Lane	Lanaw ng trapiko
+Median	Median strip
+BusBay	Bus bay
+Forward ↑	Magpatuloy ↑
+Backward ↓	Lumabas ↓
+bus only	bus lamang
+Default footway texture	Default texture ng landas
+Choose file…	Pumili ng file…
+BUS	BUS
+Hand-picked routes kept: {count}	Ang mga itinuturing na manu-manually selected routes: {count}
+Overwrite hand-picked routes	I-overwrite ang mga manually selected na ruta

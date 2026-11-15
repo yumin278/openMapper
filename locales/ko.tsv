@@ -2916,3 +2916,47 @@ Paths of the way	경로의 패스
 Cut before the first stop	첫 정류장 앞 자르기
 Cut after the last stop	마지막 정류장 뒤 자르기
 path	패스
+Lane widths differ	라인 너비는 다르다
+Contains bus-only lanes	버스 전용 노선을 포함하고 있습니다.
+Contains multiple medians	여러 중간을 포함합니다.
+Median is not between opposite directions	중간값은 반대 방향 사이의 값이 아닙니다.
+Contains a left BusBay	왼쪽 버스베이
+Footway textures differ	발자국 기질이 다르다
+Names must not contain _bay_ (reserved for the bus bay tool)	이 문자열은 버스 베이 도구에 예약되어 있습니다.: _bay_
+The roadway texture is missing	도로의 성질이 없어졌습니다.
+The roadway texture could not be read	도로 구조는 읽을 수 없었습니다.
+Road metadata not found	도로 메타데이터는 발견되지 않았습니다
+Some characters in the road name cannot be used. File: {file}	도로 이름의 일부 문자는 파일명에서 사용할 수 없습니다.: {file}
+Another road already uses this file: {file}	다른 도로에서는 이미 이 파일을 사용하고 있습니다.: {file}
+A road needs at least one Lane	도로에는 적어도 한 차로가 필요합니다.
+Strip {} has an invalid width	도로 스트립의 유효하지 않은 너비: {}
+Footways must be at the outer ends	발길이 바깥쪽 끝에 있어야 합니다.
+BusBays must border the roadway, at most one per side	버스바이는 도로로 가장 많이 한 쪽으로 접어야 합니다.
+Medians must be inside the roadway	미디언들은 도로 안에 있어야 합니다.
+The roadway may contain only Lanes and Medians	도로에는 레인과 미디안만 포함될 수 있습니다.
+Lane directions do not match this road’s traffic side	라인 방향은 교통이 사용하는 도로 옆과 일치하지 않습니다.
+Apply bus lane rules to all existing roads	모든 기존 도로에 버스 라인 규칙을 적용한다
+Road types and spline counts to update	도로 유형 및 스플라인 카운트 업데이트
+No roads need bus lane rules	도로에는 버스 노선 규칙이 필요하지 않습니다.
+Rules added	추가된 규칙
+This road was made for left-hand traffic	이 길은 왼손잡이 교통을 위해 만들어졌습니다.
+This road was made for right-hand traffic	이 길은 오른손잡이 교통을 위해 만들어졌습니다.
+Advanced: strip mode	고급: 스트립 모드
+This road contains settings that simple mode cannot represent	이 도로에는 간단한 모드가 표현할 수 없는 설정이 있습니다
+Built-in multi-lane texture markings may not align with these lanes	내장된 멀티 라인 텍스처 마크는 이러한 라인과 일치하지 않을 수 있습니다
+No footway texture	발걸음 기질이 없습니다
+Reset bay texture	리셋 베이스 텍스처
+Bay texture reset	바이 텍스처 리셋
+Could not reset bay texture	배의 텍스처를 재설정할 수 없었습니다
+Kerb height	커브 높이는
+Lane	교통 노선
+Median	중간 스트립
+BusBay	버스 부하
+Forward ↑	앞으로 ↑
+Backward ↓	뒤로 ↓
+bus only	버스만
+Default footway texture	기본 발걸음 구조
+Choose file…	파일 선택…
+BUS	버스
+Hand-picked routes kept: {count}	수동으로 선택된 경로: {count}
+Overwrite hand-picked routes	수동으로 선택된 경로를 덮어쓰기

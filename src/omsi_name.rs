@@ -7,17 +7,26 @@
 
 /// `name` as a file name OMSI 2 reads (without its extension): empty if nothing of it is left.
 pub fn ascii_stem(name: &str) -> String {
+    ascii_stem_with_replacements(name).0
+}
+
+/// Also report characters that took the underscore branch, even if trimmed or collapsed.
+pub fn ascii_stem_with_replacements(name: &str) -> (String, bool) {
     let mut out = String::new();
+    let mut replaced = false;
     for c in name.trim().chars() {
         if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
             out.push(c);
         } else if let Some(l) = latin(c) {
             out.push_str(l);
-        } else if !out.ends_with('_') {
-            out.push('_');
+        } else {
+            replaced = true;
+            if !out.ends_with('_') {
+                out.push('_');
+            }
         }
     }
-    out.trim_matches('_').to_string()
+    (out.trim_matches('_').to_string(), replaced)
 }
 
 /// Whether OMSI 2 opens a file of this name on every system (the folders too, `\` or `/`

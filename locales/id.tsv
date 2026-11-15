@@ -2916,3 +2916,47 @@ Paths of the way	Jalur dari rute
 Cut before the first stop	Potong sebelum halte pertama
 Cut after the last stop	Potong setelah halte terakhir
 path	jalur
+Lane widths differ	Luas jalur berbeda
+Contains bus-only lanes	Mengandung jalur hanya bus
+Contains multiple medians	Mengandung beberapa median
+Median is not between opposite directions	Median tidak antara arah yang berlawanan
+Contains a left BusBay	Isi busbay kiri
+Footway textures differ	Tekstur kaki berbeda
+Names must not contain _bay_ (reserved for the bus bay tool)	String ini disediakan untuk alat bus bay: _bay_
+The roadway texture is missing	Tekstur jalan hilang
+The roadway texture could not be read	Tekstur jalan tidak bisa dibaca
+Road metadata not found	Metadata jalan tidak ditemukan
+Some characters in the road name cannot be used. File: {file}	Beberapa karakter dalam nama jalan tidak dapat digunakan dalam nama file.: {file}
+Another road already uses this file: {file}	Jalan lain sudah menggunakan file ini: {file}
+A road needs at least one Lane	Sebuah jalan membutuhkan setidaknya satu jalur
+Strip {} has an invalid width	Jarak jalur jalan yang tidak valid: {}
+Footways must be at the outer ends	Jalur kaki harus di ujung luar
+BusBays must border the roadway, at most one per side	BusBays harus berbatasan dengan jalan raya, paling tidak satu per sisi
+Medians must be inside the roadway	Media harus berada di dalam jalan.
+The roadway may contain only Lanes and Medians	Jalan mungkin hanya berisi Lane dan Medians
+Lane directions do not match this road’s traffic side	Arah jalur tidak sesuai dengan sisi jalan yang digunakan oleh lalu lintas.
+Apply bus lane rules to all existing roads	Menerapkan aturan jalur bus untuk semua jalan yang ada
+Road types and spline counts to update	Jenis jalan dan hitungan spline untuk diperbarui
+No roads need bus lane rules	Tidak ada jalan yang membutuhkan aturan jalur bus
+Rules added	Aturan ditambahkan
+This road was made for left-hand traffic	Jalan ini dibuat untuk lalu lintas kiri
+This road was made for right-hand traffic	Jalan ini dibuat untuk lalu lintas kanan
+Advanced: strip mode	Advanced: mode strip
+This road contains settings that simple mode cannot represent	Jalan ini berisi pengaturan yang mode sederhana tidak dapat mewakili
+Built-in multi-lane texture markings may not align with these lanes	Tanda tekstur multi-lane yang tertanam mungkin tidak selaras dengan jalur ini
+No footway texture	Tidak ada tekstur jalan kaki
+Reset bay texture	Reset tekstur bay
+Bay texture reset	Reset tekstur teluk
+Could not reset bay texture	Tidak bisa mengatur kembali tekstur bay
+Kerb height	Ketinggian kerb
+Lane	jalur lalu lintas
+Median	Median strip
+BusBay	Teluk bus
+Forward ↑	Ke depan ↑
+Backward ↓	Kembali ↓
+bus only	bus saja
+Default footway texture	Tekstur jalan kaki standar
+Choose file…	Pilih file…
+BUS	BUS
+Hand-picked routes kept: {count}	Lalu lintas yang dipilih secara manual disimpan: {count}
+Overwrite hand-picked routes	Menulis ulang rute yang dipilih secara manual

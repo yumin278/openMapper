@@ -2916,3 +2916,47 @@ Paths of the way	Caminhos do percurso
 Cut before the first stop	Cortar antes do primeiro ponto
 Cut after the last stop	Cortar após o último ponto
 path	caminho
+Lane widths differ	Ampliações de vias diferem
+Contains bus-only lanes	Contém ruas de ônibus
+Contains multiple medians	Contém múltiplos medianos
+Median is not between opposite directions	O mediano não é entre direções opostas
+Contains a left BusBay	Contém um BusBay esquerdo
+Footway textures differ	As texturas dos caminhos diferem
+Names must not contain _bay_ (reserved for the bus bay tool)	Esta cadeia é reservada para a ferramenta de bus bay: _bay_
+The roadway texture is missing	A textura da estrada está faltando
+The roadway texture could not be read	A textura da estrada não podia ser lida
+Road metadata not found	Metadados rodoviários não encontrados
+Some characters in the road name cannot be used. File: {file}	Alguns caracteres do nome da estrada não podem ser usados em um nome de arquivo.: {file}
+Another road already uses this file: {file}	Outra estrada já usa este ficheiro: {file}
+A road needs at least one Lane	Uma estrada precisa de pelo menos uma faixa
+Strip {} has an invalid width	Largura inválida da faixa rodoviária: {}
+Footways must be at the outer ends	As passagens devem estar nas extremidades externas
+BusBays must border the roadway, at most one per side	BusBays devem limitar a estrada, no máximo uma por lado
+Medians must be inside the roadway	Os médiuns devem estar dentro da estrada.
+The roadway may contain only Lanes and Medians	A estrada pode conter apenas Lanes e Medians
+Lane directions do not match this road’s traffic side	As direcções das faixas não correspondem ao lado da estrada utilizado pelo tráfego.
+Apply bus lane rules to all existing roads	Aplicar as regras de faixa dos ônibus a todas as estradas existentes
+Road types and spline counts to update	Tipos de rodovias e contagens de esferas para atualização
+No roads need bus lane rules	As estradas não precisam de regras de carros.
+Rules added	Regras adicionadas
+This road was made for left-hand traffic	Esta estrada foi feita para o trânsito à esquerda
+This road was made for right-hand traffic	Esta estrada foi feita para o trânsito à direita
+Advanced: strip mode	Avançado: modo strip
+This road contains settings that simple mode cannot represent	Esta estrada contém configurações que o modo simples não pode representar
+Built-in multi-lane texture markings may not align with these lanes	As marcas de textura integradas para várias pistas podem não estar alinhadas com estas pistas
+No footway texture	Nenhuma textura de passagem
+Reset bay texture	Reset de textura da bacia
+Bay texture reset	Reset de textura da baía
+Could not reset bay texture	Não consegui restabelecer a textura da baía
+Kerb height	Alturas de carvalho
+Lane	Linha de trânsito
+Median	Faixa média
+BusBay	Bahia de autocarros
+Forward ↑	Para a frente ↑
+Backward ↓	Para trás ↓
+bus only	Apenas ônibus
+Default footway texture	Texturas padrão de passagem
+Choose file…	Escolha o arquivo…
+BUS	BUS
+Hand-picked routes kept: {count}	rotas manuais selecionadas: {count}
+Overwrite hand-picked routes	Reescrever rotas selecionadas manualmente

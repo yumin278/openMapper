@@ -2914,3 +2914,47 @@ Paths of the way	Voies du chemin
 Cut before the first stop	Couper avant le premier arrêt
 Cut after the last stop	Couper après le dernier arrêt
 path	voie
+Lane widths differ	La largeur des voies diffère
+Contains bus-only lanes	Contient des voies de bus uniquement
+Contains multiple medians	Contient plusieurs médians
+Median is not between opposite directions	La médiane n'est pas entre les directions opposées
+Contains a left BusBay	Contient un busbay à gauche
+Footway textures differ	Différentes textures de marche
+Names must not contain _bay_ (reserved for the bus bay tool)	Cette chaîne est réservée à l'outil de bus bay: _bay_
+The roadway texture is missing	La texture de la route manque.
+The roadway texture could not be read	La texture de la route ne pouvait pas être lue.
+Road metadata not found	Les métadonnées de la route ne sont pas trouvées
+Some characters in the road name cannot be used. File: {file}	Certains caractères du nom de la route ne peuvent être utilisés dans un nom de fichier.: {file}
+Another road already uses this file: {file}	Une autre route utilise déjà ce dossier: {file}
+A road needs at least one Lane	Une route a besoin d'au moins une voie.
+Strip {} has an invalid width	Largeur non valide de la bande routière: {}
+Footways must be at the outer ends	Les sentiers doivent être aux extrémités extérieures.
+BusBays must border the roadway, at most one per side	Les busBays doivent délimiter la route, au plus une par côté
+Medians must be inside the roadway	Les médians doivent être à l'intérieur de la route.
+The roadway may contain only Lanes and Medians	La route ne peut contenir que des lanes et des médians
+Lane directions do not match this road’s traffic side	Les lignes ne correspondent pas au côté de la route utilisé par la circulation.
+Apply bus lane rules to all existing roads	Appliquer les règles de voie des bus à toutes les routes existantes
+Road types and spline counts to update	Types de routes et numéros d'écart à mettre à jour
+No roads need bus lane rules	Aucune route n'a besoin de règles d'itinéraire
+Rules added	Les règles ajoutées
+This road was made for left-hand traffic	Cette route est faite pour la circulation à gauche.
+This road was made for right-hand traffic	Cette route est faite pour la circulation à droite.
+Advanced: strip mode	Avancé: mode bande
+This road contains settings that simple mode cannot represent	Cette route contient des paramètres que le mode simple ne peut pas représenter
+Built-in multi-lane texture markings may not align with these lanes	Les marquages de texture intégrés à plusieurs voies ne peuvent pas être alignés sur ces voies
+No footway texture	Aucune texture de marche
+Reset bay texture	Réinitialisation de la texture du bassin
+Bay texture reset	Réinitialisation de la texture
+Could not reset bay texture	N' a pas pu réinitialiser la texture de la baie
+Kerb height	La hauteur de la voûte
+Lane	Route de circulation
+Median	bande médiane
+BusBay	Garde de bus
+Forward ↑	À l'avant ↑
+Backward ↓	Retour en arrière ↓
+bus only	bus uniquement
+Default footway texture	La texture par défaut des sentiers de marche
+Choose file…	Choisissez le dossier…
+BUS	Autobus
+Hand-picked routes kept: {count}	Route sélectionnée manuellement: {count}
+Overwrite hand-picked routes	Supprimer les itinéraires sélectionnés manuellement

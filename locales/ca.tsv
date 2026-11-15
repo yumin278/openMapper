@@ -2916,3 +2916,47 @@ Paths of the way	Camins del recorregut
 Cut before the first stop	Retalla abans de la primera parada
 Cut after the last stop	Retalla després de l'última parada
 path	camí
+Lane widths differ	Les llargueses de carrers són diferents
+Contains bus-only lanes	Contigueix carrers només per autobusos
+Contains multiple medians	Conté múltiples medians
+Median is not between opposite directions	La mediana no és entre direccions oposades
+Contains a left BusBay	Contigueix un BusBay esquerra
+Footway textures differ	Les textures de la pista són diferents
+Names must not contain _bay_ (reserved for the bus bay tool)	Aquesta cadena està reservada per a l'eina de bus bay: _bay_
+The roadway texture is missing	La textura de la carretera falta
+The roadway texture could not be read	La textura de la carretera no es podia llegir
+Road metadata not found	Metadades de carretera no trobades
+Some characters in the road name cannot be used. File: {file}	Alguns caràcters del nom de la carretera no poden ser utilitzats en un nom d'arxiu.: {file}
+Another road already uses this file: {file}	Un altre camí ja utilitza aquest fitxer: {file}
+A road needs at least one Lane	Un camí necessita almenys un carril
+Strip {} has an invalid width	Largura invalida de la banda viària: {}
+Footways must be at the outer ends	Els camins han de ser als extrems exteriors
+BusBays must border the roadway, at most one per side	BusBays hauran de bordar la carretera, un màxim per costat
+Medians must be inside the roadway	Els medians han d'estar dins de la carretera.
+The roadway may contain only Lanes and Medians	La carretera pot contenir només Lanes i Medians
+Lane directions do not match this road’s traffic side	Les direccions del carril no coincideixen amb el costat de la carretera utilitzada pel trànsit.
+Apply bus lane rules to all existing roads	Aplicar les normes de corses d'autobús a totes les carreteres existents
+Road types and spline counts to update	Tipos de carreteres i comptes d'esplines per actualitzar
+No roads need bus lane rules	No hi ha carreteres que necessitin regles d'autobús.
+Rules added	Regles afegides
+This road was made for left-hand traffic	Aquest camí va ser fet per al trànsit a l'esquerra
+This road was made for right-hand traffic	Aquest camí va ser fet per al trànsit a la dreta
+Advanced: strip mode	Avançat: mode de tira
+This road contains settings that simple mode cannot represent	Aquest camí conté configuracions que el mode simple no pot representar
+Built-in multi-lane texture markings may not align with these lanes	Les marques de textura integrades en múltiples carrers poden no estar alineades amb aquests carrers
+No footway texture	No té textura de pas
+Reset bay texture	Repetició de la textura
+Bay texture reset	Reinicialització de la textura
+Could not reset bay texture	No va poder restaurar la textura de la cala
+Kerb height	L'altura de la corba
+Lane	Carretera de trànsit
+Median	Llista mediana
+BusBay	Carrera de buses
+Forward ↑	Forward ↑
+Backward ↓	Enrere ↓
+bus only	Autobús només
+Default footway texture	Textura de la ruta per defecte
+Choose file…	Elegir el fitxer…
+BUS	BUS
+Hand-picked routes kept: {count}	Rutes seleccionades manualment conservades: {count}
+Overwrite hand-picked routes	Reescriure les rutes seleccionades manualment

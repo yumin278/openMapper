@@ -2916,3 +2916,47 @@ Paths of the way	Güzergâhın yolları
 Cut before the first stop	İlk duraktan öncesini kes
 Cut after the last stop	Son duraktan sonrasını kes
 path	yol
+Lane widths differ	Yol genişliği farklıdır
+Contains bus-only lanes	Sadece otobüs yolları içerir
+Contains multiple medians	Çoklu ortalama içerir.
+Median is not between opposite directions	Ortalama karşı yönler arasında değil.
+Contains a left BusBay	Sol bir BusBay içerir.
+Footway textures differ	Yürüyüş yapısı farklıdır.
+Names must not contain _bay_ (reserved for the bus bay tool)	Bu ip otobüs bahçesi aracı için ayrılmıştır: _bay_
+The roadway texture is missing	Yol yapısı yok .
+The roadway texture could not be read	Yol yapısı okunamadı.
+Road metadata not found	Yol metadataları bulunamadı
+Some characters in the road name cannot be used. File: {file}	Yol adındaki bazı karakterler bir dosya adında kullanılamaz.: {file}
+Another road already uses this file: {file}	Başka bir yol zaten bu dosyayı kullanıyor: {file}
+A road needs at least one Lane	Bir yolun en az bir şeridine ihtiyacı vardır.
+Strip {} has an invalid width	Yol şeridinin geçersiz genişliği: {}
+Footways must be at the outer ends	Ayak yolları dış uçlarda olmalı.
+BusBays must border the roadway, at most one per side	BusBays, yolun en fazla bir tarafında sınırlandırılması gerekir.
+Medians must be inside the roadway	Medyenler yolun içinde olmalı .
+The roadway may contain only Lanes and Medians	Yol sadece Lanes ve Medians'ı içerebilir.
+Lane directions do not match this road’s traffic side	Şerit yönleri trafik tarafından kullanılan yolun kenarına eşleşmez.
+Apply bus lane rules to all existing roads	Tüm mevcut yollara otobüs rotası kurallarını uygulamak
+Road types and spline counts to update	Yol türleri ve çizgi sayıları güncelleyecek
+No roads need bus lane rules	Yollara otobüs tarzı kuralları gerekmez.
+Rules added	Eklenmiş Kurallar
+This road was made for left-hand traffic	Bu yol sol taraftaki trafik için yapılmış.
+This road was made for right-hand traffic	Bu yol sağ el trafiği için yapılmış.
+Advanced: strip mode	Gelişmiş: Çizgi modu
+This road contains settings that simple mode cannot represent	Bu yol basit modun temsil edemeyeceği ayarları içerir.
+Built-in multi-lane texture markings may not align with these lanes	İçinde yerleştirilmiş çok yollu doku işaretleri bu yollara uymayabilir.
+No footway texture	Yürüyüş yapısı yok
+Reset bay texture	Dönüştürücüleri yeniden ayarlayın
+Bay texture reset	Bay yapısı yeniden ayarlama
+Could not reset bay texture	Bay dokusunu yeniden ayarlayamadım
+Kerb height	Kerb yüksekliği
+Lane	Trafik şeridi
+Median	Orta çizgi
+BusBay	Otobüs bahçesi
+Forward ↑	Önüne ^ ↑
+Backward ↓	Geriye ↓
+bus only	Sadece otobüs
+Default footway texture	Öntanımlı ayak yol yapısı
+Choose file…	Dosyayı seç…
+BUS	BUS
+Hand-picked routes kept: {count}	Elle seçilen yollar: {count}
+Overwrite hand-picked routes	Elle seçilen yolları yazma
