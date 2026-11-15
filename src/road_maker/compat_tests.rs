@@ -218,3 +218,48 @@ fn bay_texture_copies_original_asphalt_and_sidecars_when_marked() {
     assert_eq!(sli.textures.last().unwrap().file, "Bus_road_bay.png");
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn legacy_pocket_files_migrate_resave_and_match_explicit_bus_bay_blocks() {
+    let root = std::env::temp_dir().join(format!("om-bay-legacy-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    let texture = root.join("asphalt.png");
+    image::RgbaImage::from_pixel(4, 4, image::Rgba([80, 80, 80, 255]))
+        .save(&texture)
+        .unwrap();
+    for left_hand in [false, true] {
+        let spec = RoadSpec {
+            name: format!("Legacy pocket {left_hand}"),
+            lanes_back: 2,
+            lanes_fwd: 1,
+            pocket: 3.0,
+            roadway_tex: texture.clone(),
+            ..Default::default()
+        };
+        let old = legacy(&spec);
+        let sli = root.join(format!("{}.sli", spec.file_stem()));
+        std::fs::write(&sli, old.sli(left_hand)).unwrap();
+        std::fs::write(
+            sli.with_extension("road.json"),
+            serde_json::to_vec(&old).unwrap(),
+        )
+        .unwrap();
+        let migrated = RoadSpec::of_with_traffic(&sli, !left_hand).unwrap();
+        assert_eq!(migrated.bay_paths, [4]);
+        assert!(migrated.bus_paths.is_empty());
+        assert_eq!(
+            migrated.sli(!left_hand),
+            spec.normalised(left_hand).sli(!left_hand)
+        );
+        let rel = migrated.write_with_traffic(&root, !left_hand).unwrap();
+        let output = omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&root, &rel))
+            .unwrap()
+            .replace("\r\n", "\n");
+        assert_compatible(&old.sli(left_hand), &output, Some(&spec.bay_tex_name()));
+        let read =
+            RoadSpec::of_with_traffic(&omsi_cfg::resolve_path(&root, &rel), !left_hand).unwrap();
+        assert_eq!(read.left_hand, Some(left_hand));
+        assert_eq!(read.bay_paths, [4]);
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
