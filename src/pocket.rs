@@ -405,7 +405,7 @@ fn items_text(items: &[Item]) -> String {
 }
 
 /// The road type of a bay on `main_rel`'s road (made in the content folder as
-/// `Splines\openMapper\<name>_bay_<side>_<width>_<id>.sli`, with its own textures beside it): the road
+/// `Splines\openMapper\<name>_bay_<side>_<width>.sli`, with its own textures beside it): the road
 /// type's own text with a bay along the traffic kerb, or along both kerbs.
 pub fn bay_type(assets: &mut crate::assets::Assets, content: &std::path::Path, main_rel: &str, mirrored: bool, left_hand: bool, width: f32, both_sides: bool) -> Result<String, String> {
     let main = assets.spline_wait(main_rel, 3000).ok_or_else(|| "the road type could not be read".to_string())?;
@@ -415,15 +415,15 @@ pub fn bay_type(assets: &mut crate::assets::Assets, content: &std::path::Path, m
     } else {
         (&traffic_side, format!("{}_{width:.1}m", traffic_side[0].name()))
     };
-    let name = bay_name(main_rel, &suffix, width);
+    let name = bay_name(main_rel, &suffix);
     write_bay_type(assets, content, main_rel, &main, &name, |text| bay_sli(text, sides, width))
 }
 
-/// Copy a texture family under a name owned by this bay type.
-fn bay_texture_name(tex: &std::path::Path, dir: &std::path::Path, bay: &str, index: usize) -> std::io::Result<String> {
+/// Copy a texture family with the suffix shared by the generated bus bay splines.
+fn bay_texture_name(tex: &std::path::Path, dir: &std::path::Path) -> std::io::Result<String> {
     const SEASONS: [&str; 6] = ["Spring", "SummerDry", "Fall", "Winter", "WinterSnow", "WinterSnowfall"];
     let stem = tex.file_stem().unwrap_or_default().to_string_lossy();
-    let new_stem = format!("{bay}_{index}_{}", file_stem(&stem));
+    let new_stem = format!("{stem}_bay");
     let extension = tex.extension().map(|ext| ext.to_string_lossy());
     let name = extension.map_or_else(|| new_stem.clone(), |ext| format!("{new_stem}.{ext}"));
     let file = tex.file_name().unwrap_or_default().to_string_lossy();
@@ -456,20 +456,11 @@ fn copy_bay_texture(tex: &std::path::Path, dir: &std::path::Path, stem: &str, ne
     Ok(())
 }
 
-fn file_stem(s: &str) -> String {
-    s.chars().take(48).map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect()
-}
-
-fn bay_name(main_rel: &str, suffix: &str, width: f32) -> String {
-    use sha2::{Digest, Sha256};
+fn bay_name(main_rel: &str, suffix: &str) -> String {
     let rel = main_rel.replace('\\', "/");
-    let canonical_rel = rel.to_lowercase();
-    let stem = std::path::Path::new(&canonical_rel).file_stem().unwrap_or_default().to_string_lossy();
-    let mut hash = Sha256::new();
-    hash.update(canonical_rel.as_bytes());
-    hash.update(width.to_le_bytes());
-    let id = u64::from_be_bytes(hash.finalize()[..8].try_into().unwrap());
-    format!("{}_bay_{suffix}_{id:016x}", file_stem(&stem))
+    let stem = std::path::Path::new(&rel).file_stem().unwrap_or_default().to_string_lossy();
+    let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    format!("{stem}_bay_{suffix}")
 }
 
 fn write_bay_type(assets: &crate::assets::Assets, content: &std::path::Path, main_rel: &str, main: &crate::assets::SplineModel, name: &str, widen: impl FnOnce(&str) -> Option<String>) -> Result<String, String> {
@@ -486,11 +477,11 @@ fn write_bay_type(assets: &crate::assets::Assets, content: &std::path::Path, mai
     let tex_dir = crate::doc::safe::own_path(content, "Splines/openMapper/texture");
     std::fs::create_dir_all(&tex_dir).map_err(|e| e.to_string())?;
     let mut names = std::collections::HashMap::new();
-    for (index, (definition, material)) in main.def.textures.iter().zip(&main.materials).enumerate() {
+    for (definition, material) in main.def.textures.iter().zip(&main.materials) {
         if let Some(source) = &material.texture {
             let key = definition.file.trim().replace('\\', "/").to_lowercase();
             if let std::collections::hash_map::Entry::Vacant(entry) = names.entry(key) {
-                entry.insert(bay_texture_name(source, &tex_dir, name, index).map_err(|e| e.to_string())?);
+                entry.insert(bay_texture_name(source, &tex_dir).map_err(|e| e.to_string())?);
             }
         }
     }
@@ -703,8 +694,9 @@ mod tests {
         let omsi = dir.join("omsi");
         let mut assets = crate::assets::Assets::new(omsi.clone(), content.clone());
         let mut outputs = Vec::new();
-        for (pack, red) in [("One", 64), ("Two", 192)] {
-            let source = omsi.join("Splines").join(pack);
+        for (road, width) in [("Same", 3.0), ("Same", 4.0)] {
+            let red = 64;
+            let source = omsi.join("Splines").join("Fixture");
             let variants = source.join("texture").join("WinterSnow");
             std::fs::create_dir_all(&variants).unwrap();
             let texture = source.join("texture").join("road.png");
@@ -712,11 +704,12 @@ mod tests {
             image::RgbaImage::from_pixel(2, 2, image::Rgba([255, red, 255, 255])).save(variants.join("road.png")).unwrap();
             std::fs::write(source.join("texture").join("road.png.cfg"), b"texture settings").unwrap();
             std::fs::write(source.join("texture").join("road.surf"), b"surface settings").unwrap();
-            let spec = crate::road_maker::RoadSpec { name: "Same".into(), roadway_tex: texture.clone(), ..Default::default() };
+            let spec = crate::road_maker::RoadSpec { name: road.into(), roadway_tex: texture.clone(), ..Default::default() };
             let text = format!("{}\n[matl]\nROAD.PNG\n0\n", spec.sli(false));
-            std::fs::write(source.join("Same.sli"), omsi_cfg::encode_text(&text)).unwrap();
-            let main = format!("Splines\\{pack}\\Same.sli");
-            let rel = bay_type(&mut assets, &content, &main, false, false, 3.0, false).unwrap();
+            std::fs::write(source.join(format!("{road}.sli")), omsi_cfg::encode_text(&text)).unwrap();
+            let main = format!("Splines\\Fixture\\{road}.sli");
+            let rel = bay_type(&mut assets, &content, &main, false, false, width, false).unwrap();
+            assert_eq!(rel, format!("Splines\\openMapper\\{road}_bay_right_{width:.1}m.sli"));
             let path = crate::doc::safe::own_path(&content, &rel);
             let generated = omsi_cfg::vfs::read_text(&path).unwrap();
             let def = omsi_scenery::Spline::load(&path).unwrap();
@@ -727,18 +720,18 @@ mod tests {
             let copied_cfg = tex_dir.join(format!("{name}.cfg"));
             let surface = copied.with_extension("surf");
             println!("Original {main}\n{text}\nGenerated {rel}\n{generated}\nCopied: {copied:?}, {winter:?}, {copied_cfg:?}, {surface:?}");
-            assert_ne!(name, "road.png");
+            assert_eq!(name, "road_bay.png");
             assert_eq!(image::open(&copied).unwrap().to_rgba8().get_pixel(0, 0).0, [red, 32, 16, 255]);
             assert_eq!(image::open(&winter).unwrap().to_rgba8().get_pixel(0, 0).0, [255, red, 255, 255]);
             assert_eq!(std::fs::read(copied_cfg).unwrap(), b"texture settings");
             assert_eq!(std::fs::read(surface).unwrap(), b"surface settings");
             assert!(generated.replace("\r\n", "\n").contains(&format!("[matl]\n{name}\n")));
-            assert_eq!(omsi_cfg::vfs::read_text(&source.join("Same.sli")).unwrap(), text);
+            assert_eq!(omsi_cfg::vfs::read_text(&source.join(format!("{road}.sli"))).unwrap(), text);
             outputs.push((main, rel, path, copied, generated, name.clone()));
         }
 
         assert_ne!(outputs[0].1, outputs[1].1);
-        assert_ne!(outputs[0].5, outputs[1].5);
+        assert_eq!(outputs[0].5, outputs[1].5);
         let (main, rel, path, copied, generated, name) = &outputs[0];
         let edited = generated.replace(name, "custom-paving.png");
         std::fs::write(path, edited.as_bytes()).unwrap();

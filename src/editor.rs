@@ -6103,6 +6103,10 @@ pub fn is_own_junction(file: &str) -> bool {
     f.contains("\\openmapper\\") && f.contains("junction_")
 }
 
+fn is_bus_bay_junction(file: &str) -> bool {
+    file.to_ascii_lowercase().strip_suffix(".sco").is_some_and(|stem| stem.ends_with(crate::junction::BUS_BAY_SUFFIX))
+}
+
 /// A heading to the nearest whole 15 degrees.
 pub fn snap_deg(h: f64, step: f64) -> f64 {
     let step = if step > 0.0 { step } else { 15.0 };
@@ -9019,11 +9023,10 @@ impl Editor {
         true
     }
 
-    /// Every junction plate of openMapper's made again at the next tick, for the roads it has
-    /// now (with the newest asphalt and kerbs); one undo step. How many.
+    /// Rebuild openMapper's junction plates, leaving the bus bays' tapers in place. One undo step.
     pub fn remake_all_junctions(&mut self) -> usize {
         let Some(doc) = self.doc.as_ref() else { return 0 };
-        let ids: Vec<i64> = doc.tiles.values().flat_map(|t| t.tile.objects.iter().filter(|o| is_own_junction(&o.file)).map(|o| o.id)).collect();
+        let ids: Vec<i64> = doc.tiles.values().flat_map(|t| t.tile.objects.iter().filter(|o| is_own_junction(&o.file) && !is_bus_bay_junction(&o.file)).map(|o| o.id)).collect();
         if !ids.is_empty() {
             self.history.begin(tr("Make the junctions again", "Перестроить перекрёстки"));
             self.pending_rebuild.extend(ids.iter().copied());
@@ -15109,6 +15112,7 @@ mod tests {
             plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
             assert_eq!(plates.len(), 2);
             for (plate, single_indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
+                assert!(is_bus_bay_junction(&plate.file), "{}", plate.file);
                 let path = omsi_cfg::resolve_path(&content, &plate.file);
                 let sco = omsi_cfg::vfs::read_text(&path).unwrap();
                 let mut before = String::new();
@@ -15129,6 +15133,14 @@ mod tests {
             let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
             assert_eq!(reloaded.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
             assert_eq!(reloaded.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+            let before_rebuild: Vec<_> = reloaded.objects.iter().map(|o| (o.id, &o.file, &o.rules)).collect();
+            assert_eq!(ed.remake_all_junctions(), 0);
+            ed.rebuild_pending(&mut assets);
+            let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+            let after_rebuild: Vec<_> = tile.objects.iter().map(|o| (o.id, &o.file, &o.rules)).collect();
+            println!("Global rebuild\nBefore: {before_rebuild:#?}\nAfter: {after_rebuild:#?}");
+            assert_eq!(after_rebuild, before_rebuild);
+            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
             ed.undo();
             let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
             assert!(tile.objects.is_empty());
@@ -15158,6 +15170,10 @@ mod tests {
         println!("Ordinary adapter joining the same bay spline: {objects:#?}");
         assert_eq!(objects.len(), 1);
         assert!(objects[0].rules.is_empty());
+        assert!(!is_bus_bay_junction(&objects[0].file));
+        let mut ed = Editor::default();
+        ed.open(doc);
+        assert_eq!(ed.remake_all_junctions(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

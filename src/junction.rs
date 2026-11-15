@@ -18,6 +18,8 @@ use crate::assets::{Assets, SplineModel};
 use crate::doc::{tile_of, tile_origin, Document, TileKey};
 use crate::roads::{self, Seg};
 
+pub(crate) const BUS_BAY_SUFFIX: &str = "_busbay";
+
 /// One road running into the junction: the spline whose end (or start) is at its edge.
 #[derive(Debug, Clone, Copy)]
 pub struct Arm {
@@ -1408,7 +1410,8 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         (&x_text, &body, opts.line()).hash(&mut h);
         h.finish()
     };
-    let name = format!("junction_{hash:016x}");
+    let suffix = if edit.pocket_paths.is_some() { BUS_BAY_SUFFIX } else { "" };
+    let name = format!("junction_{hash:016x}{suffix}");
     let model_path = dir.join("model").join(format!("{name}.x"));
     let sco_path = dir.join(format!("{name}.sco"));
     if !(model_path.is_file() && sco_path.is_file()) {
