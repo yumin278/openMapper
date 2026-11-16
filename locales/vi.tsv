@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	không ghi được nguồn openMapper c
 and its openMapper source could not be put back	và không khôi phục được nguồn openMapper của nó
 the name could not be saved	không lưu được tên
 Save the name	Lưu tên
+AI path	Đường AI
+The median and footway must not be lower than the roadway	Dải trung bình và vỉa hè không được thấp hơn lòng đường
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Vỉa hè này ngang bằng với lòng đường: công cụ vịnh xe buýt sẽ mở vịnh ở phía ngoài nó
+Contains a footway without an AI path	Chứa vỉa hè không có đường AI
+Contains strips with a fixed height	Chứa các dải có độ cao cố định

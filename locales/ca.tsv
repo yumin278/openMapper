@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	la seva font d'openMapper no es pot escr
 and its openMapper source could not be put back	i la seva font d'openMapper no s'ha pogut tornar a posar
 the name could not be saved	no s'ha pogut desar el nom
 Save the name	Desa el nom
+AI path	Camí d'IA
+The median and footway must not be lower than the roadway	La mitjana i la vorera no poden estar per sota de la calçada
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Aquesta vorera és a nivell de la calçada: l'eina de badia d'autobús obrirà la badia a l'exterior
+Contains a footway without an AI path	Conté una vorera sense camí d'IA
+Contains strips with a fixed height	Conté tires amb una alçada fixa

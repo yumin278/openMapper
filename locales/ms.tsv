@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	sumber openMapper-nya tidak dapat dituli
 and its openMapper source could not be put back	dan sumber openMapper-nya tidak dapat dikembalikan
 the name could not be saved	nama tidak dapat disimpan
 Save the name	Simpan nama
+AI path	Laluan AI
+The median and footway must not be lower than the roadway	Strip median dan laluan pejalan kaki tidak boleh lebih rendah daripada jalan raya
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Laluan pejalan kaki ini sama rata dengan jalan raya: alat ruang henti bas akan membuka ruang di luarnya
+Contains a footway without an AI path	Mengandungi laluan pejalan kaki tanpa laluan AI
+Contains strips with a fixed height	Mengandungi strip dengan ketinggian tetap

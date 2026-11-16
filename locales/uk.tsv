@@ -2982,3 +2982,8 @@ its openMapper source cannot be written	його джерело openMapper не 
 and its openMapper source could not be put back	а його джерело openMapper не вдалося повернути
 the name could not be saved	не вдалося зберегти назву
 Save the name	Зберегти назву
+AI path	Шлях ШІ
+The median and footway must not be lower than the roadway	Медіанна смуга та тротуар не можуть бути нижче проїжджої частини
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Цей тротуар на одному рівні з проїжджою частиною: інструмент автобусного кармана зробить карман ззовні нього
+Contains a footway without an AI path	Містить тротуар без шляху ШІ
+Contains strips with a fixed height	Містить смуги з фіксованою висотою

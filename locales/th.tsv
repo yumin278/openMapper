@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	เขียนซอร์ส openMappe
 and its openMapper source could not be put back	และเอาซอร์ส openMapper ของมันกลับคืนไม่ได้
 the name could not be saved	บันทึกชื่อไม่ได้
 Save the name	บันทึกชื่อ
+AI path	เส้นทาง AI
+The median and footway must not be lower than the roadway	สายกลางและทางเท้าต้องไม่อยู่ต่ำกว่าผิวถนน
+This footway is level with the roadway: the bus bay tool opens the bay outside it	ทางเท้านี้อยู่ระดับเดียวกับผิวถนน: เครื่องมือช่องจอดรถบัสจะสร้างช่องจอดไว้ด้านนอก
+Contains a footway without an AI path	มีทางเท้าที่ไม่มีเส้นทาง AI
+Contains strips with a fixed height	มีแถบที่กำหนดความสูงไว้

@@ -2982,3 +2982,8 @@ its openMapper source cannot be written	sa source openMapper ne peut pas être �
 and its openMapper source could not be put back	et sa source openMapper n'a pas pu être remise en place
 the name could not be saved	le nom n'a pas pu être enregistré
 Save the name	Enregistrer le nom
+AI path	Chemin IA
+The median and footway must not be lower than the roadway	La bande médiane et le trottoir ne peuvent pas être plus bas que la chaussée
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Ce trottoir est au niveau de la chaussée : l'outil de baie d'arrêt de bus ouvrira la baie à l'extérieur
+Contains a footway without an AI path	Contient un trottoir sans chemin IA
+Contains strips with a fixed height	Contient des bandes à hauteur fixe

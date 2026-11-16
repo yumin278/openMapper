@@ -14,6 +14,8 @@ fn spec() -> RoadSpec {
             Strip::Footway {
                 width: 2.0,
                 tex: PathBuf::new(),
+                path: true,
+                height: None,
             },
             Strip::BusBay { width: 3.0 },
             lane(Direction::Back, 3.0, true),
@@ -21,6 +23,7 @@ fn spec() -> RoadSpec {
                 width: 2.0,
                 raised: true,
                 tex: PathBuf::new(),
+                height: None,
             },
             lane(Direction::Fwd, 4.0, false),
             lane(Direction::Fwd, 3.5, true),
@@ -28,6 +31,8 @@ fn spec() -> RoadSpec {
             Strip::Footway {
                 width: 1.0,
                 tex: PathBuf::new(),
+                path: true,
+                height: None,
             },
         ],
         ..Default::default()

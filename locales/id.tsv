@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	sumber openMapper-nya tidak dapat dituli
 and its openMapper source could not be put back	dan sumber openMapper-nya tidak dapat dikembalikan
 the name could not be saved	nama tidak dapat disimpan
 Save the name	Simpan nama
+AI path	Jalur AI
+The median and footway must not be lower than the roadway	Median dan trotoar tidak boleh lebih rendah dari badan jalan
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Trotoar ini sejajar dengan badan jalan: alat teluk bus akan membuka teluk di luarnya
+Contains a footway without an AI path	Mengandung trotoar tanpa jalur AI
+Contains strips with a fixed height	Mengandung strip dengan tinggi tetap

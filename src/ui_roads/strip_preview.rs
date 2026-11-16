@@ -42,7 +42,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
         let y = if top {
             rect.top() + 8.0
         } else {
-            bottom - 9.0 - ((strip.height(s.kerb) - 0.10) * scale * 4.0).min(18.0)
+            bottom - 9.0 - ((strip.height(s.kerb) - crate::road_maker::ROAD_H) * scale * 4.0).min(18.0)
         };
         let (u0, u1) = if matches!(strip, Strip::Lane { .. }) {
             (s.roadway_u(a), s.roadway_u(b))
@@ -115,7 +115,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
             let end = if top {
                 y
             } else {
-                bottom - 9.0 - ((s.strips[i + 1].height(s.kerb) - 0.10) * scale * 4.0).min(18.0)
+                bottom - 9.0 - ((s.strips[i + 1].height(s.kerb) - crate::road_maker::ROAD_H) * scale * 4.0).min(18.0)
             };
             painter.line_segment(
                 [Pos2::new(x(b), end), Pos2::new(x(b), bottom)],

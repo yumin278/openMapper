@@ -12,6 +12,8 @@ pub fn from_legacy(spec: &RoadSpec, left_hand: bool) -> Vec<Strip> {
         strips.push(Strip::Footway {
             width: spec.footway,
             tex: spec.footway_tex.clone(),
+            path: true,
+            height: None,
         });
     }
     let left_dir = if left_hand {
@@ -34,6 +36,7 @@ pub fn from_legacy(spec: &RoadSpec, left_hand: bool) -> Vec<Strip> {
             width: spec.median,
             raised: spec.median_raised,
             tex: spec.median_tex.clone(),
+            height: None,
         });
     }
     strips.extend((0..spec.lanes_fwd).map(|_| Strip::Lane {
@@ -49,6 +52,8 @@ pub fn from_legacy(spec: &RoadSpec, left_hand: bool) -> Vec<Strip> {
         strips.push(Strip::Footway {
             width: right,
             tex: spec.footway_tex.clone(),
+            path: true,
+            height: None,
         });
     }
     strips

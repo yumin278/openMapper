@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	openMapper のソースを書き込め�
 and its openMapper source could not be put back	openMapper のソースを元に戻せませんでした
 the name could not be saved	名前を保存できませんでした
 Save the name	名前を保存
+AI path	AI経路
+The median and footway must not be lower than the roadway	中央分離帯と歩道は車道より低くしてはいけません
+This footway is level with the roadway: the bus bay tool opens the bay outside it	この歩道は車道と同じ高さです：バス停車帯ツールは停車帯をその外側に作ります
+Contains a footway without an AI path	AI経路のない歩道が含まれています
+Contains strips with a fixed height	高さが固定された帯が含まれています

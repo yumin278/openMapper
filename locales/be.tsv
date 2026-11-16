@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	яго крыніца openMapper не з
 and its openMapper source could not be put back	а яго крыніцу openMapper не ўдалося вярнуць
 the name could not be saved	не ўдалося захаваць назву
 Save the name	Захаваць назву
+AI path	Шлях ШІ
+The median and footway must not be lower than the roadway	Сярэдняя паласа і тратуар не могуць быць ніжэйшымі за праезную частку
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Гэты тратуар на адным узроўні з праезнай часткай: інструмент аўтобуснага кармана зробіць карман звонку яго
+Contains a footway without an AI path	Змяшчае тратуар без шляху ШІ
+Contains strips with a fixed height	Змяшчае палосы з зададзенай вышынёй

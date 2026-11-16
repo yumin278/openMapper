@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	इसका openMapper स्रोत 
 and its openMapper source could not be put back	और इसका openMapper स्रोत वापस नहीं रखा जा सका
 the name could not be saved	नाम सहेजा नहीं जा सका
 Save the name	नाम सहेजें
+AI path	AI पाथ
+The median and footway must not be lower than the roadway	मध्य पट्टी और पैदल पथ सड़क के तल से नीचे नहीं हो सकते
+This footway is level with the roadway: the bus bay tool opens the bay outside it	यह पैदल पथ सड़क के तल के बराबर है: बस बे टूल बे को इसके बाहर खोलेगा
+Contains a footway without an AI path	इसमें AI पाथ के बिना एक पैदल पथ है
+Contains strips with a fixed height	इसमें निश्चित ऊँचाई वाली पट्टियाँ हैं

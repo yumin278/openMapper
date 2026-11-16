@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	оның openMapper көзі жазыл�
 and its openMapper source could not be put back	ал оның openMapper көзін қайтару мүмкін болмады
 the name could not be saved	атауды сақтау мүмкін болмады
 Save the name	Атауды сақтау
+AI path	ЖИ жолы
+The median and footway must not be lower than the roadway	Орталық жолақ пен жаяу жүргінші жолы жүріс бөлігінен төмен болмауы керек
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Бұл жаяу жүргінші жолы жүріс бөлігімен бірдей: автобус қалтасы құралы қалтаны оның сыртында ашады
+Contains a footway without an AI path	ЖИ жолы жоқ жаяу жүргінші жолын қамтиды
+Contains strips with a fixed height	Тұрақты биіктігі бар жолақтарды қамтиды
