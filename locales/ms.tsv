@@ -1901,6 +1901,10 @@ My road	Jalan saya
  · own	 · sendiri
 Create the road type	Cipta jenis jalan
 Road type made: the Roads tool builds with it	Jenis jalan dibuat: alat Jalan membina dengannya
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Ubah dalam pembuat jalan
 Its junctions	Simpangnya
 Make a junction where it meets another road (else they only cross)	Buat simpang di mana ia bertemu jalan lain (jika tidak ia hanya bersilang)

@@ -1901,6 +1901,10 @@ My road	Mi carretera
  · own	 · propia
 Create the road type	Crear el tipo de carretera
 Road type made: the Roads tool builds with it	Tipo de carretera creado: la herramienta Carreteras construye con él
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Cambiarlo en el creador de carreteras
 Its junctions	Sus cruces
 Make a junction where it meets another road (else they only cross)	Hacer un cruce donde se encuentra con otra carretera (si no, solo se cruzan)

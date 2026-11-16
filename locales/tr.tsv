@@ -1901,6 +1901,10 @@ My road	Benim yolum
  · own	 · özel
 Create the road type	Yol türünü oluştur
 Road type made: the Roads tool builds with it	Yol türü yapıldı: Yollar aracı bununla yapar
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Yol yapıcıda değiştir
 Its junctions	Kavşakları
 Make a junction where it meets another road (else they only cross)	Başka bir yolla buluştuğu yerde kavşak yap (yoksa yalnızca kesişirler)

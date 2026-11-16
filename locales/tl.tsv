@@ -1901,6 +1901,10 @@ My road	Aking kalsada
  · own	 · sarili
 Create the road type	Gawin ang uri ng kalsada
 Road type made: the Roads tool builds with it	Nagawa ang uri ng kalsada: gagamitin ito ng Roads tool sa pagtatayo
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Baguhin sa road maker
 Its junctions	Mga junction nito
 Make a junction where it meets another road (else they only cross)	Gumawa ng junction kung saan ito nakakasalubong ng ibang kalsada (kung hindi, magkakrus lang)

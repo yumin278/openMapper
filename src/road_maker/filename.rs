@@ -15,8 +15,12 @@ impl MakerTarget {
         Some(Self { rel, source, metadata })
     }
 
-    pub(super) fn rel(&self) -> &str {
+    pub fn rel(&self) -> &str {
         &self.rel
+    }
+
+    pub(super) fn source(&self) -> &Path {
+        &self.source
     }
 
     fn owns(&self, path: &Path) -> bool {
@@ -28,6 +32,10 @@ impl MakerTarget {
 impl RoadSpec {
     pub fn maker_filename(&self, edit: Option<&MakerTarget>) -> String {
         edit.map(|target| target.rel.clone()).unwrap_or_else(|| format!("Splines\\openMapper\\{}.sli", self.file_stem()))
+    }
+
+    pub fn maker_name_changed(&self, edit: Option<&MakerTarget>) -> bool {
+        edit.is_some_and(|target| !self.maker_filename(None).eq_ignore_ascii_case(target.rel()))
     }
 
     pub fn maker_filename_warning(&self, edit: Option<&MakerTarget>) -> Option<String> {
@@ -130,6 +138,84 @@ mod tests {
                 assert!(path.parent().unwrap().join("texture").join(tex).exists());
             }
         }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renamed_road_can_be_saved_as_new_without_changing_the_original() {
+        let (root, template) = fixture("save-as");
+        let original = RoadSpec { name: "Original".into(), ..template };
+        let old_rel = original.write_in_maker(&root, false, None).unwrap();
+        let old_path = own_path(&root, &old_rel);
+        let target = MakerTarget::open(old_rel, old_path.clone()).unwrap();
+        let before = [std::fs::read(&old_path).unwrap(), std::fs::read(old_path.with_extension("road.json")).unwrap()];
+        let renamed = RoadSpec { name: "Renamed road".into(), lane_width: 4.0, ..original };
+        let new_rel = renamed.write_in_maker_as_new(&root, false, &target).unwrap();
+        let new_path = own_path(&root, &new_rel);
+        assert_eq!(new_rel, "Splines\\openMapper\\Renamed_road.sli");
+        assert!(new_path.is_file() && new_path.with_extension("road.json").is_file());
+        assert_eq!(std::fs::read(&old_path).unwrap(), before[0]);
+        assert_eq!(std::fs::read(old_path.with_extension("road.json")).unwrap(), before[1]);
+        assert_eq!(RoadSpec::of(&new_path).unwrap().name, "Renamed road");
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn save_as_copies_the_original_bay_pixels_sidecars_and_marks() {
+        let (root, template) = fixture("save-as-assets");
+        let original = RoadSpec { name: "Old bay".into(), ..template };
+        let old_rel = original.write_in_maker(&root, false, None).unwrap();
+        let old_path = own_path(&root, &old_rel);
+        let old_bay = old_path.parent().unwrap().join("texture/Old_bay_bay.png");
+        let pixels = image::RgbaImage::from_pixel(4, 4, image::Rgba([7, 31, 211, 255]));
+        pixels.save(&old_bay).unwrap();
+        std::fs::write(format!("{}.cfg", old_bay.display()), b"bay cfg").unwrap();
+        std::fs::write(old_bay.with_extension("surf"), b"bay surf").unwrap();
+        let old_marks = old_path.with_extension("marks.png");
+        image::RgbaImage::from_pixel(HAND_W, HAND_H, image::Rgba([1, 2, 3, 4])).save(&old_marks).unwrap();
+        let target = MakerTarget::open(old_rel, old_path).unwrap();
+        let renamed = RoadSpec { name: "New bay".into(), ..original };
+        let new_rel = renamed.write_in_maker_as_new(&root, false, &target).unwrap();
+        let new_path = own_path(&root, &new_rel);
+        let new_bay = new_path.parent().unwrap().join("texture/New_bay_bay.png");
+        assert_eq!(image::open(&new_bay).unwrap().to_rgba8(), pixels);
+        assert_eq!(std::fs::read(format!("{}.cfg", new_bay.display())).unwrap(), b"bay cfg");
+        assert_eq!(std::fs::read(new_bay.with_extension("surf")).unwrap(), b"bay surf");
+        assert_eq!(std::fs::read(new_path.with_extension("marks.png")).unwrap(), std::fs::read(old_marks).unwrap());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn renamed_road_overwrite_and_unchanged_name_keep_the_existing_filename() {
+        for (tag, name) in [("overwrite-renamed", "Renamed"), ("overwrite-same", "Original")] {
+            let (root, template) = fixture(tag);
+            let original = RoadSpec { name: "Original".into(), ..template };
+            let old_rel = original.write_in_maker(&root, false, None).unwrap();
+            let old_path = own_path(&root, &old_rel);
+            let target = MakerTarget::open(old_rel.clone(), old_path.clone()).unwrap();
+            let edited = RoadSpec { name: name.into(), lane_width: 4.25, ..original };
+            assert_eq!(edited.write_in_maker(&root, false, Some(&target)).unwrap(), old_rel);
+            assert_eq!(RoadSpec::of(&old_path).unwrap().lane_width, 4.25);
+            assert!(!own_path(&root, &edited.maker_filename(None)).exists() || edited.maker_filename(None).eq_ignore_ascii_case(&old_rel));
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn save_as_refuses_a_filename_owned_by_another_road_without_changes() {
+        let (root, template) = fixture("save-as-conflict");
+        let original = RoadSpec { name: "Original".into(), ..template.clone() };
+        let occupied = RoadSpec { name: "Occupied".into(), lane_width: 3.75, ..template };
+        let old_rel = original.write_in_maker(&root, false, None).unwrap();
+        let occupied_rel = occupied.write_in_maker(&root, false, None).unwrap();
+        let old_path = own_path(&root, &old_rel);
+        let occupied_path = own_path(&root, &occupied_rel);
+        let target = MakerTarget::open(old_rel, old_path.clone()).unwrap();
+        let before = [std::fs::read(&old_path).unwrap(), std::fs::read(&occupied_path).unwrap()];
+        let renamed = RoadSpec { name: "Occupied".into(), lane_width: 5.0, ..original };
+        assert!(renamed.write_in_maker_as_new(&root, false, &target).is_err());
+        assert_eq!(std::fs::read(old_path).unwrap(), before[0]);
+        assert_eq!(std::fs::read(occupied_path).unwrap(), before[1]);
         std::fs::remove_dir_all(root).unwrap();
     }
 }

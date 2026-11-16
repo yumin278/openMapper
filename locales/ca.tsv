@@ -1901,6 +1901,10 @@ My road	La meva carretera
  · own	 · pròpia
 Create the road type	Crea el tipus de carretera
 Road type made: the Roads tool builds with it	Tipus de carretera creat: l'eina Carreteres construeix amb ell
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Canvia'l al creador de carreteres
 Its junctions	Els seus creuaments
 Make a junction where it meets another road (else they only cross)	Fes un creuament on troba una altra carretera (si no, només s'encreuen)

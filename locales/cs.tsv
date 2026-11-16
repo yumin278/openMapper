@@ -1901,6 +1901,10 @@ My road	Moje silnice
  · own	 · vlastní
 Create the road type	Vytvořit typ silnice
 Road type made: the Roads tool builds with it	Typ silnice vytvořen: nástroj Silnice staví s ním
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Změnit v tvůrci silnic
 Its junctions	Jeho křižovatky
 Make a junction where it meets another road (else they only cross)	Vytvořit křižovatku, kde potkává jinou silnici (jinak se jen kříží)

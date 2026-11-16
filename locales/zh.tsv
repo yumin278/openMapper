@@ -1906,6 +1906,10 @@ My road	我的道路
  · own	 · 自制
 Create the road type	创建道路类型
 Road type made: the Roads tool builds with it	道路类型已创建：“道路”工具用它来建造
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	在道路制作器中修改
 Its junctions	其路口
 Make a junction where it meets another road (else they only cross)	在它与另一条道路相遇处生成路口（否则只是交叉）
