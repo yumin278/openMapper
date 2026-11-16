@@ -401,7 +401,7 @@ impl RoadSpec {
     /// with the roadway looks right but the bus bay tool would open its bay outside it.
     pub fn warnings(&self) -> Vec<String> {
         let strips = self.effective_strips();
-        let outer = [strips.first(), strips.last()].into_iter().flatten();
+        let mut outer = [strips.first(), strips.last()].into_iter().flatten();
         let level = outer.any(|s| {
             matches!(s, Strip::Footway { .. }) && (s.height(self.kerb) - ROAD_H).abs() < 1e-4
         });
