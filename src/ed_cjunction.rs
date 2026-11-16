@@ -56,14 +56,15 @@ impl Editor {
                     let folder = crate::junction::folder_name(doc);
                     let asphalt = crate::junction::junction_asphalt(Some(&doc.dir), asphalt.as_deref());
                     for arms in &resolved.plates {
-                        let plate = crate::junction::layout_plate(assets, arms, asphalt.as_deref());
-                        let Some(rel) = plate.and_then(|p| p.write_object(&content, &folder).ok()) else { continue };
+                        let Some(plate) = crate::junction::layout_plate(assets, arms, asphalt.as_deref()) else { continue };
+                        let rules = crate::junction::bus_path_rules(&plate.bus_paths);
+                        let Ok(rel) = plate.write_object(&content, &folder) else { continue };
                         let k = tile_of(origin);
                         if doc.tiles.contains_key(&k) {
                             let id = doc.new_id();
                             let org = tile_origin(k);
                             let Some(t) = doc.tiles.get_mut(&k) else { return };
-                            t.tile.objects.push(MapObject { file: rel, id, pos: [origin.x - org.x, origin.y - org.y, z], rot: [rot, 0.0, 0.0], ..Default::default() });
+                            t.tile.objects.push(MapObject { file: rel, id, pos: [origin.x - org.x, origin.y - org.y, z], rot: [rot, 0.0, 0.0], rules, ..Default::default() });
                             t.touch_content();
                             things.push((k, id));
                         }
@@ -119,6 +120,7 @@ pub(crate) fn apply_custom(doc: &mut Document, assets: &mut Assets, layouts: &[L
     let listed: Vec<(f64, String)> = roads_at.iter().map(|r| (r.1, r.2.clone())).collect();
     let (layout, rot, by_arm) = candidates.iter().filter_map(|l| cjunction::fit(l, &listed, &same).map(|(rot, by, err)| (err, *l, rot, by))).min_by(|a, b| a.0.total_cmp(&b.0)).map(|(_, l, rot, by)| (l, rot, by))?;
     let baked = layout.baked.clone()?;
+    let rules = crate::junction::read_bus_path_rules(&assets.resolve(&baked));
     let z = centre.z;
     // everything is checked before anything is cut: the roads must be long enough and their
     // tiles there
@@ -157,7 +159,7 @@ pub(crate) fn apply_custom(doc: &mut Document, assets: &mut Assets, layouts: &[L
     let org = tile_origin(k);
     let id = doc.new_id();
     let t = doc.tiles.get_mut(&k)?;
-    t.tile.objects.push(MapObject { file: baked, id, pos: [centre.x - org.x, centre.y - org.y, z], rot: [rot, 0.0, 0.0], ..Default::default() });
+    t.tile.objects.push(MapObject { file: baked, id, pos: [centre.x - org.x, centre.y - org.y, z], rot: [rot, 0.0, 0.0], rules, ..Default::default() });
     t.touch_content();
     cjunction::place_objects(doc, layout, centre.truncate(), z, rot);
     if follow {

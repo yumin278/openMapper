@@ -16088,6 +16088,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&content);
     }
 
+    include!("junction_snapshot_tests.rs");
+    include!("junction_placement_tests.rs");
+
     /// Two road types made here, the second with a pocket lane, in a scratch content folder.
     fn pocket_fixture(tag: &str) -> (Assets, std::path::PathBuf, String, String) {
         let dir = std::env::temp_dir().join(format!("om-pocket-{tag}-{}", std::process::id()));
