@@ -459,8 +459,9 @@ fn copy_bay_texture(tex: &std::path::Path, dir: &std::path::Path, stem: &str, ne
 fn bay_name(main_rel: &str, suffix: &str) -> String {
     let rel = main_rel.replace('\\', "/");
     let stem = std::path::Path::new(&rel).file_stem().unwrap_or_default().to_string_lossy();
-    let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    format!("{stem}_bay_{suffix}")
+    let stem = crate::omsi_name::ascii_stem(&stem);
+    // OMSI 2 does not read a spline with a dot before its extension.
+    format!("{stem}_bay_{}", suffix.replace('.', "_"))
 }
 
 fn write_bay_type(assets: &crate::assets::Assets, content: &std::path::Path, main_rel: &str, main: &crate::assets::SplineModel, name: &str, widen: impl FnOnce(&str) -> Option<String>) -> Result<String, String> {
@@ -509,12 +510,17 @@ pub fn bay_path_indices(main: &crate::assets::SplineModel, bay: &crate::assets::
     first..first + bay.def.paths.len().saturating_sub(main.def.paths.len())
 }
 
+/// Both the original decimal widths and the OMSI 2-compatible names carry this marker.
+pub(crate) fn is_bay_spline(file: &str) -> bool {
+    file.to_ascii_lowercase().contains("_bay_")
+}
+
 /// Recover the lane indices of a tagged taper and put the bay arm second, as at creation.
 pub fn taper_path_indices(doc: &Document, assets: &mut crate::assets::Assets, arms: &mut [crate::junction::Arm]) -> Option<std::ops::Range<usize>> {
     let [a, b] = arms else { return None };
     let first = &doc.spline(a.key, a.id)?.file;
     let second = &doc.spline(b.key, b.id)?.file;
-    let (main, bay, swap) = match (first.to_ascii_lowercase().contains("_bay_"), second.to_ascii_lowercase().contains("_bay_")) {
+    let (main, bay, swap) = match (is_bay_spline(first), is_bay_spline(second)) {
         (false, true) => (first, second, false),
         (true, false) => (second, first, true),
         _ => return None,
@@ -731,7 +737,7 @@ mod tests {
             std::fs::write(source.join(format!("{road}.sli")), omsi_cfg::encode_text(&text)).unwrap();
             let main = format!("Splines\\Fixture\\{road}.sli");
             let rel = bay_type(&mut assets, &content, &main, false, false, width, false).unwrap();
-            assert_eq!(rel, format!("Splines\\openMapper\\{road}_bay_right_{width:.1}m.sli"));
+            assert_eq!(rel, format!("Splines\\openMapper\\{road}_bay_right_{}m.sli", format!("{width:.1}").replace('.', "_")));
             let path = crate::doc::safe::own_path(&content, &rel);
             let generated = omsi_cfg::vfs::read_text(&path).unwrap();
             let def = omsi_scenery::Spline::load(&path).unwrap();
@@ -765,6 +771,22 @@ mod tests {
         assert_eq!(saved, edited);
         assert_eq!(image::open(copied).unwrap().to_rgba8().get_pixel(0, 0).0, [20, 40, 60, 255]);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bay_filenames_have_one_dot_and_keep_the_legacy_marker() {
+        let main = "Splines\\Fixture\\Дорога.25.sli";
+        for (old, suffix, expected) in [
+            ("Дорога_25_bay_right_3.0m.sli", "right_3.0m", "Doroga_25_bay_right_3_0m.sli"),
+            ("Дорога_25_bay_both_3.250m.sli", "both_3.250m", "Doroga_25_bay_both_3_250m.sli"),
+        ] {
+            let new = format!("{}.sli", bay_name(main, suffix));
+            println!("Bay source: {main}; existing: {old}; generated: {new}");
+            assert_eq!(new, expected);
+            assert!(crate::omsi_name::readable(&new));
+            assert!(is_bay_spline(old) && is_bay_spline(&new));
+        }
+        assert!(!is_bay_spline(main));
     }
 
     #[test]

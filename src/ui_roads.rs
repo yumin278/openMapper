@@ -12,7 +12,7 @@ use crate::i18n::tr;
 use crate::icons::{self, Icon};
 use crate::install::Roots;
 use crate::library::{Category, Kind, Library};
-use crate::road_maker::{MarkStyle, Marking, RoadSpec};
+use crate::road_maker::{MakerTarget, MarkStyle, Marking, RoadSpec};
 use crate::ui::Action;
 use crate::ui_tex::{quad, TexCache};
 
@@ -23,6 +23,7 @@ pub struct RoadTypes {
     picked: Option<String>,
     /// The maker's road, when it is open.
     maker: Option<RoadSpec>,
+    maker_target: Option<MakerTarget>,
     /// Pictures that can be a roadway or a footway (found once).
     textures: Option<Vec<PathBuf>>,
     tex_search: [String; 3],
@@ -115,6 +116,7 @@ impl RoadTypes {
 
     pub fn open_maker(&mut self, pocket: bool) {
         self.open = true;
+        self.maker_target = None;
         self.maker = Some(RoadSpec { name: tr("My road", "Моя дорога").into(), pocket: if pocket { 3.0 } else { 0.0 }, ..Default::default() });
     }
 
@@ -154,6 +156,7 @@ impl RoadTypes {
                 ui.vertical(|ui| {
                     ui.set_width(260.0);
                     if ui.button(icons::labelled(Icon::Add, tr("Make a new road type…", "Создать тип дороги…"))).clicked() {
+                        self.maker_target = None;
                         self.maker = Some(RoadSpec { name: tr("My road", "Моя дорога").into(), ..Default::default() });
                     }
                     ui.add(egui::TextEdit::singleline(&mut self.search).hint_text(tr("Search", "Поиск")));
@@ -168,6 +171,7 @@ impl RoadTypes {
                                 if ui.selectable_label(on, text).on_hover_text(&a.rel).clicked() {
                                     self.picked = Some(a.rel.clone());
                                     self.maker = None;
+                                    self.maker_target = None;
                                 }
                             }
                         }
@@ -177,17 +181,22 @@ impl RoadTypes {
                 ui.vertical(|ui| {
                     let mut cancel = false;
                     if let Some(spec) = &mut self.maker {
-                        Self::maker_ui(ui, spec, &mut self.textures, &mut self.tex_search, roots, &mut self.pics, &mut self.canvas.open, left_hand);
+                        Self::maker_ui(ui, spec, &mut self.textures, &mut self.tex_search, roots, &mut self.pics, &mut self.canvas.open, left_hand, self.maker_target.as_ref());
+                        if let Some(warning) = spec.maker_filename_warning(self.maker_target.as_ref()) {
+                            ui.colored_label(Color32::YELLOW, warning);
+                        }
                         ui.add_space(6.0);
                         ui.horizontal(|ui| {
                             if ui.button(icons::labelled(Icon::CheckCircle, tr("Create the road type", "Создать тип дороги"))).clicked() {
-                                match spec.write_with_traffic(&roots.content, left_hand) {
+                                match spec.write_in_maker(&roots.content, left_hand, self.maker_target.as_ref()) {
                                     Ok(rel) => {
                                         if spec.pocket > 0.0 {
                                             ed.pocket_type = Some(rel.clone());
                                         }
                                         ed.road_type = Some(rel.clone());
                                         ed.set_tool(crate::editor::Tool::Roads);
+                                        let path = crate::doc::safe::own_path(&roots.content, &rel);
+                                        self.maker_target = MakerTarget::open(rel.clone(), path);
                                         self.picked = Some(rel);
                                         self.error = None;
                                         actions.push(Action::ReloadContent(tr("Road type made: the Roads tool builds with it", "Тип дороги создан: инструмент «Дороги» строит им").to_string()));
@@ -209,9 +218,10 @@ impl RoadTypes {
                             ed.set_tool(crate::editor::Tool::Roads);
                         }
                         let path = roots.resolve(&rel);
-                        if let Some(spec) = RoadSpec::of_with_traffic(&path, left_hand) {
+                        if let (Some(spec), Some(target)) = (RoadSpec::of_with_traffic(&path, left_hand), MakerTarget::open(rel.clone(), path)) {
                             if ui.button(icons::labelled(Icon::Settings, tr("Change it in the road maker", "Изменить в конструкторе"))).clicked() {
                                 self.maker = Some(spec);
+                                self.maker_target = Some(target);
                             }
                         }
                         ui.add_space(8.0);
@@ -278,6 +288,7 @@ impl RoadTypes {
                     }
                     if cancel {
                         self.maker = None;
+                        self.maker_target = None;
                     }
                 });
             });
@@ -289,7 +300,7 @@ impl RoadTypes {
         self.open = open;
     }
 
-    fn maker_ui(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &mut Option<Vec<PathBuf>>, search: &mut [String; 3], roots: &Roots, tex: &mut TexCache, canvas: &mut bool, left_hand: bool) {
+    fn maker_ui(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &mut Option<Vec<PathBuf>>, search: &mut [String; 3], roots: &Roots, tex: &mut TexCache, canvas: &mut bool, left_hand: bool, edit: Option<&MakerTarget>) {
         ui.label(RichText::new(tr("Road maker", "Конструктор дороги")).strong().color(Color32::WHITE));
         let map_left_hand = left_hand;
         let left_hand = s.left_hand.unwrap_or(map_left_hand);
@@ -411,7 +422,7 @@ impl RoadTypes {
             });
         }
         if s.strips.iter().any(|strip| matches!(strip, crate::road_maker::Strip::BusBay { .. })) && ui.button(tr("Reset bay texture", "Сбросить текстуру кармана")).clicked() {
-            match s.reset_bay_texture(&roots.content) {
+            match s.reset_bay_texture_in_maker(&roots.content, edit) {
                 Ok(()) => { s.mode_error = Some(tr("Bay texture reset", "Текстура кармана сброшена").into()); }
                 Err(error) => { s.mode_error = Some(format!("{}: {error}", tr("Could not reset bay texture", "Не удалось сбросить текстуру кармана"))); }
             }
