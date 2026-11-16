@@ -285,11 +285,15 @@ mod tests {
     }
 
     #[test]
-    fn rename_reads_keywords_whatever_their_case() {
+    fn rename_leaves_a_keyword_omsi_does_not_know_alone() {
+        // (OMSI compares keyword lines exactly: `[FriendlyName]` is free text to it, so the
+        // block the game reads is the one written at the top)
         let (dir, roots) = roots("case");
         let p = write(&roots, REL, b"[FriendlyName]\r\nOld\r\n\r\n[mesh]\r\ntest.o3d\r\n\r\n");
         assert!(set_friendly_name(&roots, REL, "New").unwrap());
-        assert_eq!(std::fs::read(&p).unwrap(), b"[FriendlyName]\r\nNew\r\n\r\n[mesh]\r\ntest.o3d\r\n\r\n");
+        let text = omsi_cfg::decode_text(&std::fs::read(&p).unwrap());
+        assert!(text.starts_with("[friendlyname]\r\nNew\r\n\r\n[FriendlyName]\r\nOld\r\n"), "{text:?}");
+        assert_eq!(omsi_scenery::SceneryObject::load(&p).unwrap().friendly_name.trim(), "New");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -377,10 +381,10 @@ mod tests {
         assert_eq!(lib.find("a.sco").unwrap().name, "Street Lamp");
         assert!(lib.filter(Kind::Object, None, "street lamp").any(|a| a.rel == "A.sco"));
 
-        // a name that is not the search text's start is added in front of it
-        lib.assets[1].haystack = "bench b.sco".into();
+        // a search text that does not begin with the name gets the new one in front of it
+        lib.assets[1].haystack = "furniture b.sco".into();
         lib.rename("B.sco", "Park Bench");
-        assert_eq!(lib.assets[1].haystack, "park bench bench b.sco");
+        assert_eq!(lib.assets[1].haystack, "park bench furniture b.sco");
         assert_eq!(lib.rev, 2);
 
         // an asset the catalogue does not know is left alone
