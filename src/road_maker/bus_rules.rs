@@ -4,6 +4,14 @@ use crate::doc::{Document, TileKey};
 use omsi_map::MapSpline;
 
 pub fn paths_for(doc: &Document, file: &str, content: Option<&std::path::Path>) -> Vec<usize> {
+    let (mut bus, bay) = paths_for_parts(doc, file, content);
+    bus.extend(bay);
+    bus.sort_unstable();
+    bus.dedup();
+    bus
+}
+
+pub fn paths_for_parts(doc: &Document, file: &str, content: Option<&std::path::Path>) -> (Vec<usize>, Vec<usize>) {
     let mut roots: Vec<std::path::PathBuf> = content
         .or(doc.content_root.as_deref())
         .map(|p| p.to_path_buf())
@@ -26,15 +34,7 @@ pub fn paths_for(doc: &Document, file: &str, content: Option<&std::path::Path>) 
             std::env::current_dir().unwrap_or_default().join(&json)
         });
         if json.is_file() {
-            return RoadSpec::of_with_traffic(&sli, doc.global.left_hand_traffic)
-                .map(|s| {
-                    let mut paths = s.bus_paths;
-                    paths.extend(s.bay_paths);
-                    paths.sort_unstable();
-                    paths.dedup();
-                    paths
-                })
-                .unwrap_or_default();
+            return parts_at(&sli, doc.global.left_hand_traffic);
         }
     }
     let normalized = file.replace('\\', "/").to_lowercase();
@@ -48,7 +48,13 @@ pub fn paths_for(doc: &Document, file: &str, content: Option<&std::path::Path>) 
             )
         );
     }
-    Vec::new()
+    (Vec::new(), Vec::new())
+}
+
+pub fn parts_at(sli: &std::path::Path, left_hand: bool) -> (Vec<usize>, Vec<usize>) {
+    RoadSpec::of_with_traffic(sli, left_hand)
+        .map(|s| (s.bus_paths, s.bay_paths))
+        .unwrap_or_default()
 }
 
 fn log_rule(caller: &str, phase: &str, spline: &MapSpline, path: i32, kind: &str) {

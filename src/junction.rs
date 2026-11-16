@@ -44,6 +44,8 @@ struct LaneEnd {
     incoming: bool,
     /// This end belongs to a lane added by the bus pocket tool for this taper.
     pocket: bool,
+    bus: bool,
+    kerb_outer: bool,
 }
 
 /// Room a junction needs round its centre for these roads (m): the widest of them plus
@@ -76,14 +78,29 @@ fn arm_ends(doc: &Document, assets: &mut Assets, arms: &[Arm], pocket_paths: Opt
         let p = c.point_at(at);
         ends.push((p, roads::norm_deg(into), model.half_width as f64, s.file.clone()));
         let paths = pocket_paths.filter(|_| ai == 1);
-        lanes.extend(lanes_at(&model, s.mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at), paths));
+        let (bus, bay) = crate::road_maker::bus_rules::paths_for_parts(doc, &s.file, doc.content_root.as_deref());
+        let flags = bus_flags(&model, ai, &s.file, &bus, &bay, &s.rules);
+        lanes.extend(lanes_at_classified(&model, s.mirror, ai, a.at_end, |x, z| c.offset_point(at, x, z), c.heading_at(at), paths, &flags));
     }
     Some((ends, lanes))
+}
+
+fn bus_flags(model: &SplineModel, arm: usize, file: &str, bus: &[usize], bay: &[usize], rules: &[omsi_map::MapRule]) -> Vec<bool> {
+    model.def.paths.iter().enumerate().map(|(index, path)| {
+        let from_rules = ["bus", "no_cars"].iter().all(|kind| rules.iter().any(|r| r.path_index == index as i32 && r.kind == *kind && !r.kill));
+        let result = path.kind == 0 && !bay.contains(&index) && (bus.contains(&index) || from_rules);
+        log::info!("junction bus classification: arm={arm} file={file:?} path_index={index} bus={result} bus_paths={} rules={from_rules} bay_paths_excluded={}", bus.contains(&index), bay.contains(&index));
+        result
+    }).collect()
 }
 
 /// The lanes of a road type where it meets a junction: `place(x, z)` is where a lane at
 /// lateral place `x` (and height `z`) ends, `along` the heading of the road's own way there.
 fn lanes_at(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64, pocket_paths: Option<&std::ops::Range<usize>>) -> Vec<LaneEnd> {
+    lanes_at_classified(model, mirrored, ai, at_end, place, along, pocket_paths, &[])
+}
+
+fn lanes_at_classified(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place: impl Fn(f64, f64) -> DVec3, along: f64, pocket_paths: Option<&std::ops::Range<usize>>, bus: &[bool]) -> Vec<LaneEnd> {
     let mut lanes = Vec::new();
     let lateral_sign = if mirrored { -1.0 } else { 1.0 };
     for (index, path) in model.def.paths.iter().enumerate() {
@@ -106,7 +123,7 @@ fn lanes_at(model: &SplineModel, mirrored: bool, ai: usize, at_end: bool, place:
         let side = if at_end { x } else { -x };
         let pocket = path.kind == 0 && pocket_paths.is_some_and(|paths| paths.contains(&index));
         for (incoming, flow) in ways {
-            lanes.push(LaneEnd { arm: ai, pos, flow: roads::norm_deg(flow), kind: path.kind, width: path.width as f64, side, incoming, pocket });
+            lanes.push(LaneEnd { arm: ai, pos, flow: roads::norm_deg(flow), kind: path.kind, width: path.width as f64, side, incoming, pocket, bus: bus.get(index).copied().unwrap_or(false), kerb_outer: true });
         }
     }
     lanes
@@ -125,6 +142,36 @@ struct PathRec {
     light: Option<usize>,
     /// This path is part of a connection into or out of a bus pocket lane.
     pocket: bool,
+    bus: bool,
+}
+
+fn junction_rules(recs: &[PathRec]) -> Vec<omsi_map::MapRule> {
+    recs.iter().enumerate().filter(|(_, p)| p.pocket || p.bus).flat_map(|(index, _)| {
+        ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+            path_index: index as i32, kind: kind.into(), ..Default::default()
+        })
+    }).collect()
+}
+
+const BUS_PATHS_TAG: &str = "openMapper bus paths:";
+
+pub(crate) fn bus_path_metadata(indices: &[usize]) -> String {
+    if indices.is_empty() { return String::new(); }
+    format!("{BUS_PATHS_TAG} {}\n\n", indices.iter().map(usize::to_string).collect::<Vec<_>>().join(","))
+}
+
+pub(crate) fn bus_path_rules(indices: &[usize]) -> Vec<omsi_map::MapRule> {
+    indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+        path_index: index as i32, kind: kind.into(), ..Default::default()
+    })).collect()
+}
+
+pub(crate) fn read_bus_path_rules(path: &Path) -> Vec<omsi_map::MapRule> {
+    let Ok(text) = omsi_cfg::vfs::read_text(path) else { return Vec::new() };
+    let indices: Vec<usize> = text.lines().find_map(|line| line.trim().strip_prefix(BUS_PATHS_TAG))
+        .map(|s| s.trim().split(',').filter_map(|s| s.trim().parse().ok()).collect())
+        .unwrap_or_default();
+    bus_path_rules(&indices)
 }
 
 /// What a junction has besides its roads: traffic lights (a plan of two phases, the main
@@ -420,8 +467,21 @@ fn paths(
     corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
     zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
 ) -> Vec<PathRec> {
-    paths_with_lane_repair(lanes, centre, light_of, walk_joins, corner_walks, kerb_lead,
-        zebra_arms, kerb_corners, left_hand_traffic, true)
+    let normal: Vec<_> = lanes.iter().copied().filter(|l| !l.bus).collect();
+    let mut out = paths_with_lane_repair(&normal, centre, light_of, walk_joins, corner_walks, kerb_lead,
+        zebra_arms, kerb_corners, left_hand_traffic, true);
+    let mut buses: Vec<_> = lanes.iter().copied().filter(|l| l.bus).collect();
+    if !buses.is_empty() {
+        for lane in &mut buses {
+            lane.kerb_outer = !lanes.iter().any(|other| other.kind == 0 && other.arm == lane.arm && other.incoming == lane.incoming &&
+                if lane.incoming != left_hand_traffic { other.side > lane.side + 1e-6 } else { other.side < lane.side - 1e-6 });
+        }
+        let mut extra = paths_with_lane_repair(&buses, centre, light_of, walk_joins, corner_walks, kerb_lead,
+            zebra_arms, kerb_corners, left_hand_traffic, true);
+        for rec in &mut extra { rec.bus = true; }
+        out.extend(extra);
+    }
+    out
 }
 
 fn paths_with_lane_repair(
@@ -470,13 +530,15 @@ fn paths_with_lane_repair(
                 c.i == j && c.j == i
             })
         };
-        let (kerb_a, kerb_b) = if outer {
+        let (mut kerb_a, mut kerb_b) = if outer {
             kerb_lead.iter().find_map(|&(ki, kj, li, lj)| {
                 if blinker == 3 && ki == i && kj == j { Some((li, lj)) }
                 else if blinker == 2 && ki == j && kj == i { Some((lj, li)) }
                 else { None }
             }).unwrap_or((0.0, 0.0))
         } else { (0.0, 0.0) };
+        if !a.kerb_outer { kerb_a = 0.0; }
+        if !b.kerb_outer { kerb_b = 0.0; }
         let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
         let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
         let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
@@ -499,7 +561,7 @@ fn paths_with_lane_repair(
             let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
             // (traffic waits where it comes in: the light is on the way's first piece)
             let light = if n == 0 { light_of.get(i).copied().flatten() } else { None };
-            out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light, pocket });
+            out.push(PathRec { seg: s, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0, blinker, light, pocket, bus: false });
         }
         true
     };
@@ -579,7 +641,7 @@ fn paths_with_lane_repair(
                 let pa = a_pos.truncate() - c2;
                 let pb = b_pos.truncate() - c2;
                 if let Some(s) = roads::straight(pa, pb) {
-                    out.push(PathRec { seg: s, z0: a_pos.z - centre.z, z1: b_pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None, pocket: false });
+                    out.push(PathRec { seg: s, z0: a_pos.z - centre.z, z1: b_pos.z - centre.z, kind: 1, width: a.width.max(1.5), direction: 2, blinker: 0, light: None, pocket: false, bus: false });
                 }
             }
         }
@@ -1327,8 +1389,11 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
     let zebra_arms: Vec<bool> = plate.arms.iter().map(|g| opts.crossing_at(g.out)).collect();
+    let bypass_bus = edit.pocket_paths.is_some() || files.iter().any(|f| f.to_lowercase().contains("_bay_"));
+    let mut route_lanes = plate.lanes.clone();
+    if bypass_bus { for lane in &mut route_lanes { lane.bus = false; } }
     let mut recs = paths(
-        &plate.lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
+        &route_lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
         &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
     );
     anyhow::ensure!(edit.pocket_paths.is_none() || recs.iter().any(|p| p.pocket), "no path connects to the bus bay lanes");
@@ -1340,13 +1405,13 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         let (a, b) = (mid - r * (g.left_w + 0.5), mid + r * (g.right_w + 0.5));
         let z = g.end.z + g.road_z;
         if let Some(seg) = roads::straight(a, b) {
-            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None, pocket: false });
+            recs.push(PathRec { seg, z0: z, z1: z, kind: 1, width: 3.0, direction: 2, blinker: 0, light: None, pocket: false, bus: false });
             for (left, edge) in [(true, a), (false, b)] {
                 if let Some(join) = walk_joins.iter().find(|w| w.arm == i && w.left == left) {
                     if let Some(seg) = roads::straight(edge, join.at_crossing.truncate()) {
                         recs.push(PathRec {
                             seg, z0: z, z1: join.at_crossing.z, kind: 1,
-                            width: join.width, direction: 2, blinker: 0, light: None, pocket: false,
+                            width: join.width, direction: 2, blinker: 0, light: None, pocket: false, bus: false,
                         });
                     }
                     // The corner path starts at at_crossing; this additional
@@ -1356,7 +1421,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
                         recs.push(PathRec {
                             seg, z0: join.at_arm.z, z1: join.at_crossing.z,
                             kind: 1, width: join.width, direction: 2,
-                            blinker: 0, light: None, pocket: false,
+                            blinker: 0, light: None, pocket: false, bus: false,
                         });
                     }
                 }
@@ -1431,11 +1496,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     }
     let rel = format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco");
     let t = doc.tiles.get_mut(&k).ok_or_else(|| anyhow::anyhow!("no tile"))?;
-    let rules = recs.iter().enumerate().filter(|(_, p)| p.pocket).flat_map(|(index, _)| {
-        ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
-            path_index: index as i32, kind: kind.into(), ..Default::default()
-        })
-    }).collect();
+    let rules = junction_rules(&recs);
     t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], rules, ..Default::default() });
     t.touch_content();
     // Establish the final terrain before storing the heights of ground-relative objects.
@@ -1584,6 +1645,7 @@ pub struct Plate {
     mesh: Mesh,
     /// Its `[path]` records (drawing's frame).
     pub paths: String,
+    pub bus_paths: Vec<usize>,
     /// The same lanes as lines (drawing's frame): the way along it, the path's kind and its
     /// direction (0 along the line, 1 against, 2 both).
     pub lanes: Vec<(Seg, i32, i32)>,
@@ -1603,7 +1665,9 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], asphalt: Option<&Pat
         let along = if a.at_end { roads::norm_deg(a.out + 180.0) } else { a.out };
         let r = roads::right(along);
         geo.push(arm_geo_of(&model, false, a.at_end, end, a.out, 0.0));
-        lanes.extend(lanes_at(&model, false, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along, None));
+        let (bus, bay) = crate::road_maker::bus_rules::parts_at(&assets.resolve(&a.file), false);
+        let flags = bus_flags(&model, i, &a.file, &bus, &bay, &[]);
+        lanes.extend(lanes_at_classified(&model, false, i, a.at_end, |x, z| end + DVec3::new(r.x * x, r.y * x, z), along, None, &flags));
     }
     // (made round the junction's own middle, then moved to the drawing's frame)
     let mid = arms.iter().map(|a| a.pos).sum::<DVec2>() / arms.len() as f64;
@@ -1614,6 +1678,7 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], asphalt: Option<&Pat
     let along = asphalt_heading(&geo);
     let (mut mesh, kerb_corners) = junction_mesh(&geo, centre, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
+    if arms.iter().any(|a| a.file.to_lowercase().contains("_bay_")) { for lane in &mut lanes { lane.bus = false; } }
     let recs = paths(&lanes, centre, &vec![None; arms.len()], &[], true,
         &kerb_lead, &vec![false; arms.len()], &kerb_corners, false);
     for v in &mut mesh.verts {
@@ -1628,7 +1693,8 @@ pub fn layout_plate(assets: &mut Assets, arms: &[PlateArm], asphalt: Option<&Pat
         let _ = write!(paths, "[path]\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n\n", num(start.x), num(start.y), num(p.z0), num(s.heading), num(s.radius), num(s.length), num(grad), num(grad), p.kind, num(p.width), p.direction, p.blinker);
     }
     let lanes = recs.iter().map(|p| (Seg { start: p.seg.start + mid, ..p.seg }, p.kind, p.direction)).collect();
-    Some(Plate { mesh, paths, lanes })
+    let bus_paths = recs.iter().enumerate().filter_map(|(i, p)| p.bus.then_some(i)).collect();
+    Some(Plate { mesh, paths, lanes, bus_paths })
 }
 
 impl Plate {
@@ -2060,6 +2126,109 @@ mod tests {
     }
 
     #[test]
+    fn bus_lane_passes_keep_routes_separate_and_do_not_leave_stubs() {
+        let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
+        let mut lanes = Vec::new();
+        for out in [0.0, 90.0, 180.0, 270.0] {
+            let (_, mut arm) = lane_connectivity_arm(lanes.len() / 4, out, true, &profile);
+            for lane in &mut arm { lane.bus = lane.side.abs() < 3.0; }
+            lanes.extend(arm);
+        }
+        let recs = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &[], &[], &[], false);
+        let links = lane_connectivity_report("separate bus routes", &lanes, &recs);
+        for (i, peers) in links.iter().enumerate() {
+            assert!(!peers.is_empty());
+            assert!(peers.iter().all(|&j| lanes[i].bus == lanes[j].bus));
+            if lanes[i].bus && lanes[i].incoming {
+                assert_eq!(peers.iter().map(|&j| lanes[j].arm).collect::<std::collections::HashSet<_>>().len(), 3);
+            }
+        }
+        assert!(recs.iter().any(|p| p.bus));
+        for lane in &mut lanes { lane.bus = lane.arm == 0 && lane.side.abs() < 3.0; }
+        let actual = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &[], &[], &[], false);
+        assert!(actual.iter().all(|p| !p.bus));
+        let normal: Vec<_> = lanes.iter().copied().filter(|l| !l.bus).collect();
+        let expected = paths_with_lane_repair(&normal, DVec3::ZERO, &[None; 4], &[], false, &[], &[], &[], false, true);
+        assert_eq!(record_paths(&actual), record_paths(&expected));
+    }
+
+    #[test]
+    fn centre_bus_turns_do_not_use_kerb_leads() {
+        let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
+        let mut lanes = Vec::new();
+        for out in [0.0, 90.0, 180.0, 270.0] {
+            let (_, mut arm) = lane_connectivity_arm(lanes.len() / 4, out, true, &profile);
+            for lane in &mut arm { lane.bus = lane.side.abs() < 3.0; }
+            lanes.extend(arm);
+        }
+        let leads: Vec<_> = (0..4).flat_map(|i| (0..4).filter(move |j| *j != i).map(move |j| (i, j, 5.0, 5.0))).collect();
+        let with = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &leads, &[], &[], false);
+        let without = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &[], &[], &[], false);
+        let bus_only = |records: &[PathRec]| {
+            let mut text = String::new();
+            for p in records.iter().filter(|p| p.bus) { write_junction_paths(&mut text, std::slice::from_ref(p)); }
+            text
+        };
+        assert_eq!(bus_only(&with), bus_only(&without));
+        assert_ne!(record_paths(&with), record_paths(&without));
+    }
+
+    #[test]
+    fn bus_route_rules_cover_each_segment_only_once() {
+        let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
+        let mut lanes = Vec::new();
+        for out in [0.0, 90.0, 180.0, 270.0] {
+            let (_, mut arm) = lane_connectivity_arm(lanes.len() / 4, out, true, &profile);
+            for lane in &mut arm { lane.bus = lane.side.abs() < 3.0; }
+            lanes.extend(arm);
+        }
+        let recs = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &[], &[], &[], false);
+        let rules = junction_rules(&recs);
+        assert!(recs.iter().any(|p| p.bus));
+        assert!(recs.iter().any(|p| !p.bus));
+        for (i, rec) in recs.iter().enumerate() {
+            let kinds: Vec<_> = rules.iter().filter(|r| r.path_index == i as i32).map(|r| r.kind.as_str()).collect();
+            assert_eq!(kinds, if rec.bus { vec!["bus", "no_cars"] } else { vec![] });
+        }
+    }
+
+    #[test]
+    fn baked_bus_path_metadata_restores_object_rules() {
+        let dir = std::env::temp_dir().join(format!("openmapper-bus-metadata-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("junction.sco");
+        let text = format!("[path]\n...\n\n{}[path]\n...\n", bus_path_metadata(&[3, 7]));
+        std::fs::write(&file, text).unwrap();
+        let rules = read_bus_path_rules(&file);
+        assert_eq!(rules.iter().map(|r| (r.path_index, r.kind.as_str())).collect::<Vec<_>>(),
+            vec![(3, "bus"), (3, "no_cars"), (7, "bus"), (7, "no_cars")]);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn bus_classification_honours_live_pairs_and_excludes_bays() {
+        let mut model = test_road();
+        model.def.paths = (0..4).map(|_| omsi_scenery::PathDef { kind: 0, ..Default::default() }).collect();
+        let rule = |path_index, kind: &str, kill| omsi_map::MapRule { path_index, kind: kind.into(), kill, ..Default::default() };
+        let rules = vec![rule(1, "bus", false), rule(1, "no_cars", false), rule(2, "bus", false), rule(2, "no_cars", true), rule(3, "bus", false), rule(3, "no_cars", false)];
+        assert_eq!(bus_flags(&model, 0, "test.sli", &[0], &[3], &rules), vec![true, true, false, false]);
+    }
+
+    #[test]
+    fn no_bus_paths_are_byte_identical_to_original_pass() {
+        for (t, zebra) in [(true, false), (false, false), (false, true)] {
+            let (geo, lanes) = lane_connectivity_fixture(t, false);
+            let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
+            let leads = corner_leads(&corners);
+            let lights = vec![None; geo.len()];
+            let zebras = vec![zebra; geo.len()];
+            let old = paths_with_lane_repair(&lanes, DVec3::ZERO, &lights, &[], true, &leads, &zebras, &corners, false, true);
+            let new = paths(&lanes, DVec3::ZERO, &lights, &[], true, &leads, &zebras, &corners, false);
+            assert_eq!(lane_connectivity_blocks(&old), lane_connectivity_blocks(&new));
+        }
+    }
+
+    #[test]
     fn lane_connectivity_fills_t_junction_exits() {
         let (geo, lanes) = lane_connectivity_fixture(true, true);
         let (before, after) = lane_connectivity_records(&geo, &lanes);
@@ -2123,7 +2292,7 @@ mod tests {
             let headings = if entering { [0.0, 175.0, 20.0, 50.0, 50.0] } else { [0.0, 185.0, 340.0, 310.0, 310.0] };
             let lanes: Vec<_> = headings.into_iter().enumerate().map(|(idx, flow)| LaneEnd {
                 arm: idx.min(3), pos: DVec3::ZERO, flow, kind: 0, width: 2.5,
-                side: idx as f64, incoming: if idx == 0 { entering } else { !entering }, pocket: false,
+                side: idx as f64, incoming: if idx == 0 { entering } else { !entering }, pocket: false, bus: false, kerb_outer: true,
             }).collect();
             let same = vec![vec![0], vec![], vec![], vec![]];
             let opposite = vec![vec![], vec![1], vec![2], vec![3, 4]];
@@ -2861,7 +3030,7 @@ mod tests {
             let seg = roads::straight(a, b).unwrap();
             before_recs.push(PathRec {
                 seg, z0: g.end.z, z1: g.end.z, kind: 1,
-                width: 3.0, direction: 2, blinker: 0, light: None, pocket: false,
+                width: 3.0, direction: 2, blinker: 0, light: None, pocket: false, bus: false,
             });
             zebras.push((mid, g.out, g.left_w, g.right_w));
         }
@@ -3303,7 +3472,7 @@ mod tests {
                     lanes.push(LaneEnd {
                         arm: i, pos, flow, kind: 0, width: 2.5,
                         // Right of the *incoming* heading = minus right(out).
-                        side: -offset, incoming, pocket: false,
+                        side: -offset, incoming, pocket: false, bus: false, kerb_outer: true,
                     });
                 }
             }
@@ -3431,7 +3600,7 @@ mod tests {
         let only_left = |recs: &[PathRec]| record_paths(&recs.iter().filter(|p| p.kind == 0 && p.blinker == 2)
             .map(|p| PathRec {
                 seg: p.seg, z0: p.z0, z1: p.z1, kind: p.kind,
-                width: p.width, direction: p.direction, blinker: p.blinker, light: p.light, pocket: p.pocket,
+                width: p.width, direction: p.direction, blinker: p.blinker, light: p.light, pocket: p.pocket, bus: p.bus,
             }).collect::<Vec<_>>());
         assert_eq!(only_left(&before).as_bytes(), only_left(&after).as_bytes());
         println!("===== ASYMMETRIC / NO ZEBRA LEFT TURNS BEFORE [path] =====\n{}", only_left(&before));
