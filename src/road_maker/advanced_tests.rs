@@ -58,6 +58,14 @@ fn close(x: f32, y: f32) -> bool {
     (x - y).abs() < 1e-3
 }
 
+fn contains(paths: &[Vec<f32>], p: &[f32]) -> bool {
+    paths.iter().any(|q| q.len() == p.len() && q.iter().zip(p).all(|(a, b)| (*a - *b).abs() < 1e-4))
+}
+
+fn same_set(a: &[Vec<f32>], b: &[Vec<f32>]) -> bool {
+    a.len() == b.len() && a.iter().all(|p| contains(b, p)) && b.iter().all(|p| contains(a, p))
+}
+
 /// A footway, a median and lanes in the order the editor allows (footways at the ends, the
 /// median inside the roadway).
 fn raised_spec(name: &str, left_path: bool, median_height: Option<f32>) -> RoadSpec {
@@ -393,27 +401,29 @@ fn junctions_build_with_raised_strips_and_only_from_footways_that_have_paths() {
         spec.footway_tex = side.clone();
         spec.write(&content).unwrap()
     };
+    // The same road with the left footway present (path on), present but path off, and gone.
     let both = write("Both", true);
     let mixed = write("Mixed", false);
+    let mut single = raised_spec("Single", false, Some(0.25));
+    single.strips.remove(0); // no left footway strip at all
+    single.roadway_tex = asphalt.clone();
+    single.footway_tex = side.clone();
+    let single = single.write(&content).unwrap();
     let mut assets = crate::assets::Assets::new(roots.omsi.clone(), content.clone());
-    assert!(assets.spline_wait(&both, 5000).is_some());
-    assert!(assets.spline_wait(&mixed, 5000).is_some());
+    for rel in [&both, &mixed, &single] {
+        assert!(assets.spline_wait(rel, 5000).is_some());
+    }
 
     // The source roads differ only by the disabled footway's walk path.
-    let both_text = omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&content, &both))
-        .unwrap()
-        .replace("\r\n", "\n");
-    let mixed_text = omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&content, &mixed))
-        .unwrap()
-        .replace("\r\n", "\n");
-    assert_eq!(
-        road_paths(&both_text).into_iter().filter(|p| p.0 == 1.0).count(),
-        2
-    );
-    assert_eq!(
-        road_paths(&mixed_text).into_iter().filter(|p| p.0 == 1.0).count(),
-        1
-    );
+    let footways = |rel: &str| {
+        let text = omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&content, rel))
+            .unwrap()
+            .replace("\r\n", "\n");
+        road_paths(&text).into_iter().filter(|p| p.0 == 1.0).count()
+    };
+    assert_eq!(footways(&both), 2);
+    assert_eq!(footways(&mixed), 1);
+    assert_eq!(footways(&single), 1);
 
     let mut build = |file: &str| -> Vec<Vec<f32>> {
         let mut doc = crate::selection::tests::flat_map(1);
@@ -467,17 +477,13 @@ fn junctions_build_with_raised_strips_and_only_from_footways_that_have_paths() {
 
     let all = build(&both);
     let one = build(&mixed);
+    let none = build(&single);
     assert!(!all.is_empty(), "the both-footway junction has corner walks");
-    assert!(one.len() < all.len(), "fewer walks {} vs {}", one.len(), all.len());
-    for p in &one {
-        assert!(
-            all.iter().any(|q| {
-                q.len() == p.len() && q.iter().zip(p.iter()).all(|(a, b)| (*a - *b).abs() < 1e-4)
-            }),
-            "walk {:?} is not in the both-footway junction",
-            p
-        );
-    }
+    // The footway whose AI path is off contributes no corner walk: the junction is exactly
+    // the same as if that footway strip were absent.
+    assert!(same_set(&one, &none), "mixed {:?} vs single {:?}", one, none);
+    // The footway does change the junction when its path is on.
+    assert!(!same_set(&all, &one), "both and mixed should differ");
     std::fs::remove_dir_all(&content).unwrap();
 }
 
