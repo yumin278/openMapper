@@ -1,0 +1,33 @@
+name: Junction zebra / sidewalk regression
+
+on:
+  push:
+    branches:
+      - feature/junction-zebra-sidewalk-links
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  junction-zebra:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: junction-zebra-regression
+      - name: Linux libraries
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libxkbcommon-dev libwayland-dev
+      - name: Generate before/after .x and .sco; print full path blocks and vertex heights
+        run: cargo test --release --locked junction_zebra_crossings_join_sidewalks_and_clear_asphalt -- --nocapture
+      - name: Upload before/after junction files
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: junction-zebra-before-after
+          path: target/junction-zebra-regression/
+          if-no-files-found: warn
+          retention-days: 14

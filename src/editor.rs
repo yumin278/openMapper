@@ -357,6 +357,28 @@ pub(crate) fn attach_hint(n: usize) -> &'static str {
     }
 }
 
+/// A stop's selected lane and its transverse-only Alt adjustment.
+#[derive(Clone)]
+struct StopLateral {
+    lane: crate::lanes::Lane,
+    /// Mouse position at the start of this Alt adjustment.
+    pointer: DVec2,
+    /// The longitudinal point and heading frozen while Alt is down.
+    anchor: DVec3,
+    heading: f64,
+    /// Lateral distance from the traffic lane when Alt went down.
+    initial_offset: f64,
+    adjusting: bool,
+}
+
+impl StopLateral {
+    fn offset_at(&self, cursor: DVec2, lht: bool) -> f64 {
+        let flow = if self.lane.direction == 1 { roads::norm_deg(self.heading + 180.0) } else { self.heading };
+        let side = roads::right(flow) * if lht { -1.0 } else { 1.0 };
+        self.initial_offset + (cursor - self.pointer).dot(side)
+    }
+}
+
 /// What stage of vertex-to-vertex snapping is active.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum VertexSnapStage {
@@ -548,6 +570,7 @@ pub struct Editor {
     pub use_custom: bool,
     pub pocket_type: Option<String>,
     pub pocket_len: f64,
+    pub pocket_both_sides: bool,
     /// The taper into and out of a bay: metres of road per metre the width changes, and
     /// whether the two ends are kept alike. Both ends are always tapered (never a step).
     pub pocket_taper_in: f64,
@@ -557,8 +580,7 @@ pub struct Editor {
     pub pocket_metres: bool,
     pub pocket_in_m: f64,
     pub pocket_out_m: f64,
-    /// The width of the bay (m, 0: as the road type has it): a road type made in the road
-    /// maker is written again with this pocket lane.
+    /// The width added per side (m, 0: use 3 m).
     pub pocket_width: f32,
     /// Shift the bay along the road to where it fits, if the click is too near a road's end
     /// for the tapers.
@@ -662,6 +684,12 @@ pub struct Editor {
     pub road_setback: f64,
     /// The road point an aligned object was set against (for the guide line).
     align_guide: Option<(DVec3, DVec3)>,
+    /// Current candidate for a bus stop; replaced as the mouse moves normally.
+    stop_hover_lane: Option<crate::lanes::Lane>,
+    /// The lane stays selected during/after Alt until the stop is placed or cancelled.
+    stop_lateral: Option<StopLateral>,
+    /// Distance outward from the lane, preserved when Alt is released (m).
+    stop_lateral_offset: f64,
     /// Shift is held (places an object freely, not aligned).
     pub shift_held: bool,
     /// A press on what is selected and a drag of it moves it. False in OMSI 2's and Blender's
@@ -828,6 +856,7 @@ impl Default for Editor {
             use_custom: true,
             pocket_type: None,
             pocket_len: 20.0,
+            pocket_both_sides: false,
             pocket_taper_in: POCKET_TAPER,
             pocket_taper_out: POCKET_TAPER,
             pocket_alike: true,
@@ -888,6 +917,9 @@ impl Default for Editor {
             align_front: true,
             road_setback: 2.0,
             align_guide: None,
+            stop_hover_lane: None,
+            stop_lateral: None,
+            stop_lateral_offset: 3.2,
             shift_held: false,
             plant_brush: false,
             plant_erase: false,
@@ -1462,6 +1494,9 @@ impl Editor {
 
     /// Stop what the tool is in the middle of.
     pub fn cancel(&mut self) {
+        self.stop_lateral = None;
+        self.stop_hover_lane = None;
+        self.stop_lateral_offset = 3.2;
         // (a grab or a turn taken hold of by R is called off: nothing of it stands)
         if self.grab.take().is_some() || self.rot.take().is_some() {
             if let Some(doc) = &mut self.doc {
@@ -1541,7 +1576,11 @@ impl Editor {
         self.paint_layer = if doc.global.ground_textures.len() > 1 { 1 } else { 0 };
         self.session_first_id = doc.global.next_id_code;
         let mut doc = doc;
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
         doc.groups = crate::mapgroups::load(&doc.dir);
+        if let Some(content) = self.content_dir.as_deref() {
+            doc.signal_sets.reload(&doc.dir, content);
+        }
         self.doc = Some(doc);
     }
 
@@ -3049,10 +3088,35 @@ impl Editor {
 
     // ---------------------------------------------------------------- objects
 
+    /// Alt changes only a bus stop's cross-path displacement. Left-click placement is
+    /// unchanged; releasing Alt preserves the displacement and resumes along-path movement.
+    pub fn stop_lateral_key(&mut self, alt: bool) {
+        if !alt {
+            if let Some(s) = &mut self.stop_lateral {
+                s.adjusting = false;
+            }
+            return;
+        }
+        if self.tool != Tool::Logic || self.logic != LogicMode::Stops || !self.align_to_road || self.shift_held {
+            return;
+        }
+        let Some(lane) = self.stop_lateral.as_ref().map(|s| &s.lane).or(self.stop_hover_lane.as_ref()).cloned() else { return };
+        let Some(cursor) = self.cursor else { return };
+        let Some((anchor, heading, _, _)) = lane.nearest(cursor.truncate()) else { return };
+        self.stop_lateral = Some(StopLateral {
+            lane, pointer: cursor.truncate(), anchor, heading,
+            initial_offset: self.stop_lateral_offset, adjusting: true,
+        });
+    }
+
     fn plan_object(&mut self, assets: &mut Assets, lib: &Library) {
         self.ghost_pos = None;
         self.stop_twin = None;
         self.align_guide = None;
+        // Never capture a stale lane if the cursor has left the path's snap range.
+        if self.stop_lateral.is_none() {
+            self.stop_hover_lane = None;
+        }
         if self.tool == Tool::Objects && self.plant_brush {
             return;
         }
@@ -3069,13 +3133,38 @@ impl Editor {
         if self.align_to_road && !self.shift_held && (entry || park || stop) {
             if let Some(doc) = self.doc.as_ref() {
                 let lht = doc.global.left_hand_traffic;
-                let (lanes, _) = crate::lanes::near(doc, assets, c.truncate(), 25.0);
-                let best = lanes.iter().filter(|l| l.kind == 0).filter_map(|l| l.nearest(c.truncate()).map(|n| (n, l.direction))).filter(|(n, _)| n.2 < 12.0).min_by(|a, b| a.0 .2.total_cmp(&b.0 .2));
-                if let Some(((q, h, _, _), dir)) = best {
-                    let flow = if dir == 1 { roads::norm_deg(h + 180.0) } else { h };
+                // Keep the selected lane when the pointer moves sideways with Alt,
+                // even if it goes beyond the normal 12 m candidate search radius.
+                let search_at = self.stop_lateral.as_ref().filter(|_| stop)
+                    .and_then(|s| s.lane.nearest(c.truncate()).map(|n| n.0.truncate()))
+                    .unwrap_or(c.truncate());
+                let (lanes, _) = crate::lanes::near(doc, assets, search_at, 25.0);
+                let locked = self.stop_lateral.as_ref().filter(|_| stop).and_then(|s| {
+                    if s.adjusting {
+                        Some(((s.anchor, s.heading, 0.0, None), s.lane.clone()))
+                    } else {
+                        s.lane.nearest(c.truncate()).map(|n| (n, s.lane.clone()))
+                    }
+                });
+                let best = locked.or_else(|| lanes.iter()
+                    .filter(|l| l.kind == 0)
+                    .filter_map(|l| l.nearest(c.truncate()).map(|n| (n, l.clone())))
+                    .filter(|(n, _)| n.2 < 12.0)
+                    .min_by(|a, b| a.0 .2.total_cmp(&b.0 .2)));
+                if let Some(((q, h, _, _), lane)) = best {
+                    if stop {
+                        self.stop_hover_lane = Some(lane.clone());
+                    }
+                    let flow = if lane.direction == 1 { roads::norm_deg(h + 180.0) } else { h };
                     // (the kerb: right of the traffic where it keeps right)
                     let kerb = roads::right(flow) * if lht { -1.0 } else { 1.0 };
-                    let at = if entry { q.truncate() } else if park { q.truncate() + kerb * 2.6 } else { q.truncate() + kerb * 3.2 };
+                    let offset = if entry { 0.0 } else if park { 2.6 } else {
+                        if let Some(s) = self.stop_lateral.as_ref().filter(|s| s.adjusting) {
+                            self.stop_lateral_offset = s.offset_at(c.truncate(), lht);
+                        }
+                        self.stop_lateral_offset
+                    };
+                    let at = q.truncate() + kerb * offset;
                     let z = doc.ground(at);
                     let pos = DVec3::new(at.x, at.y, z);
                     self.align_guide = Some((DVec3::new(q.x, q.y, z), pos));
@@ -3440,6 +3529,12 @@ impl Editor {
         if let Some(n) = linked_to {
             self.toast(format!("{} «{n}»: {}", tr("Linked to", "Связан с"), tr("choose its light in its properties", "сигнал выберите в его свойствах")));
         }
+        // The next stop starts with the stock 3.2 m distance, not the last stop's edit.
+        if is_stop {
+            self.stop_lateral = None;
+            self.stop_hover_lane = None;
+            self.stop_lateral_offset = 3.2;
+        }
         // (the tool goes on placing: the caller chooses whether to take what was put)
         Some(Sel::Object(k, id))
     }
@@ -3782,29 +3877,39 @@ impl Editor {
     fn snap_end_point(&self, assets: &mut Assets, p: DVec2, within: f64) -> Option<(Anchor, Option<String>)> {
         let doc = self.doc.as_ref()?;
         let mut best: Option<(f64, Anchor, String)> = None;
+        // (the end of a spline without AI paths is caught where it is drawn: `end_snap`)
+        let new_mid = self.road_type.as_deref().and_then(|r| assets.spline(r)).map(|m| crate::end_snap::profile_middle(&m, false)).unwrap_or(0.0);
+        let starting = self.road_start.is_none();
         for (k, t) in &doc.tiles {
             let org = tile_origin(*k);
             for s in t.tile.splines.iter().filter(|s| !s.deleted) {
                 let start = DVec2::new(org.x + s.pos[0], org.y + s.pos[1]);
-                if !roads::can_reach(start, s.length, p, within) {
+                // (a kerb is seen up to some metres beside its line)
+                if !roads::can_reach(start, s.length, p, within + 10.0) {
                     continue;
                 }
-                if assets.spline(&s.file).map(|m| m.def.only_editor).unwrap_or(false) {
+                let m = assets.spline(&s.file);
+                if m.as_ref().map(|m| m.def.only_editor).unwrap_or(false) {
                     continue;
                 }
-                let link = assets.spline(&s.file).map(|m| !m.joinable()).unwrap_or(false);
+                let end_mid = m.as_ref().map(|m| crate::end_snap::profile_middle(m, s.mirror)).unwrap_or(0.0);
+                let link = m.as_ref().map(|m| !m.joinable()).unwrap_or(false);
+                let same = self.road_type.as_deref().is_some_and(|r| r.eq_ignore_ascii_case(&s.file));
                 let c = omsi_geometry::SplineCurve::from_map(s, org);
-                for (free, at_end, q, heading) in [
-                    (s.prev_id == 0, false, c.point_at(0.0), roads::norm_deg(s.heading + 180.0)),
-                    (s.next_id == 0, true, c.end_point(), roads::norm_deg(c.heading_at(s.length))),
+                for (free, at_end, q, heading, along) in [
+                    (s.prev_id == 0, false, c.point_at(0.0), roads::norm_deg(s.heading + 180.0), s.heading),
+                    (s.next_id == 0, true, c.end_point(), roads::norm_deg(c.heading_at(s.length)), c.heading_at(s.length)),
                 ] {
                     if !free {
                         continue;
                     }
-                    let d = (q.truncate() - p).length();
+                    let (seen, pos) = crate::end_snap::catch(q, along, heading, end_mid, new_mid, starting, same);
+                    let d = (seen.truncate() - p).length();
                     if d < within && best.as_ref().map(|b| d < b.0).unwrap_or(true) {
-                        let spline = link.then_some((*k, s.id, at_end));
-                        best = Some((d, Anchor { pos: q, heading, spline, ..Default::default() }, s.file.clone()));
+                        // (linked only where the two lines meet: another kerb put beside the
+                        // line keeps the end's way, not its link)
+                        let spline = (link && (pos - q).length() < 0.01).then_some((*k, s.id, at_end));
+                        best = Some((d, Anchor { pos, heading, spline, ..Default::default() }, s.file.clone()));
                     }
                 }
             }
@@ -3933,22 +4038,28 @@ impl Editor {
         // nothing a road joins: the ends of the other splines one sees (a kerb, a wall, a
         // footpath) are still places to start from, the point only, nothing joined to it
         let mut end: Option<(f64, Anchor, String)> = None;
+        // (a kerb's end is caught where it is drawn, the middle of its profile: `end_snap`)
+        let new_mid = self.road_type.as_deref().and_then(|r| assets.spline(r)).map(|m| crate::end_snap::profile_middle(&m, false)).unwrap_or(0.0);
+        let starting = self.road_start.is_none();
         for (k, t) in &doc.tiles {
             let org = tile_origin(*k);
             for s in t.tile.splines.iter().filter(|s| !s.deleted) {
                 let start = DVec2::new(org.x + s.pos[0], org.y + s.pos[1]);
-                if (start - p).length() > s.length + within {
+                // (a kerb is seen up to some metres beside its line)
+                if (start - p).length() > s.length + within + 10.0 {
                     continue;
                 }
                 let Some(m) = assets.spline(&s.file) else { continue };
+                let end_mid = crate::end_snap::profile_middle(&m, s.mirror);
                 if m.joinable() || m.def.only_editor || m.is_track() != track {
                     continue;
                 }
                 let c = omsi_geometry::SplineCurve::from_map(s, org);
-                for (q, heading) in [(c.point_at(0.0), roads::norm_deg(s.heading + 180.0)), (c.end_point(), roads::norm_deg(c.heading_at(s.length)))] {
-                    let d = (q.truncate() - p).length();
+                for (q, heading, along) in [(c.point_at(0.0), roads::norm_deg(s.heading + 180.0), s.heading), (c.end_point(), roads::norm_deg(c.heading_at(s.length)), c.heading_at(s.length))] {
+                    let (seen, pos) = crate::end_snap::catch(q, along, heading, end_mid, new_mid, starting, false);
+                    let d = (seen.truncate() - p).length();
                     if d < within && end.as_ref().map(|b| d < b.0).unwrap_or(true) {
-                        end = Some((d, Anchor { pos: q, heading, spline: None, mid: None }, s.file.clone()));
+                        end = Some((d, Anchor { pos, heading, spline: None, mid: None }, s.file.clone()));
                     }
                 }
             }
@@ -4057,7 +4168,8 @@ impl Editor {
             .filter(|(d, _)| *d < 4.0)
             .min_by(|a, b| a.0.total_cmp(&b.0));
         if let Some((_, e)) = end {
-            return Some((Anchor { pos: e.pos, heading: e.heading, ..Default::default() }, file));
+            let anchor = self.lane_anchor(assets, kind, Anchor { pos: e.pos, heading: e.heading, ..Default::default() }, starting);
+            return Some((anchor, file));
         }
         let along = lanes
             .iter()
@@ -4070,8 +4182,31 @@ impl Editor {
             // (on a spline's lane: the spline is cut there when the path is built, so the lane
             // has an end there for the path to join - openOMSI joins lanes only end to end)
             let mid = sp.zip(at).filter(|((_, _, len), at)| *at > 0.6 && *at < len - 0.6).map(|((k, id, _), at)| (k, id, at, 0.0));
-            (Anchor { pos: q, heading: roads::norm_deg(if starting { flow } else { flow + 180.0 }), mid, ..Default::default() }, file)
+            let anchor = Anchor { pos: q, heading: roads::norm_deg(if starting { flow } else { flow + 180.0 }), mid, ..Default::default() };
+            (self.lane_anchor(assets, kind, anchor, starting), file)
         })
+    }
+
+    /// A lane's point made the start or end of a new path of the type being drawn: the lane
+    /// lies on the road's line, the new path's own line lies its `[path]` z above (or below)
+    /// that, so the height is brought back by as much. Only the height: a path set to the
+    /// side of its spline (`x`) is left as it is (with a note), and x is not corrected.
+    fn lane_anchor(&self, assets: &mut Assets, kind: i32, mut a: Anchor, starting: bool) -> Anchor {
+        let Some(rel) = self.path_type.clone() else { return a };
+        let Some(m) = assets.spline(&rel) else { return a };
+        let Some(p) = m.def.paths.iter().find(|p| p.kind == kind) else { return a };
+        if p.start[0].abs() > 1e-6 {
+            log::warn!("AI path {rel}: its {kind} path lies {} m to the side of the spline; only the height is taken from the lane", p.start[0]);
+        }
+        let before = a.pos.z;
+        a.pos.z -= p.start[2] as f64;
+        log::info!(
+            "AI path {rel}: lane of kind {kind} (path z {:.3}) snapped at the {}: anchor z {before:.3} -> {:.3}",
+            p.start[2],
+            if starting { "start" } else { "end" },
+            a.pos.z
+        );
+        a
     }
 
     /// A path starts at a lane end of its own kind: near the end of a footway lane the path type
@@ -4177,7 +4312,9 @@ impl Editor {
         // (not joined into the road: the end is the place the new one is drawn to. One of its
         // own kind keeps that end's direction and is linked; a road's end does not, so the new
         // one is not bent round onto the road and does not take the road's link)
-        let laid_on = snap.filter(|_| !joins && !self.drawing_paths() && snap.is_some_and(|a| a.spline.is_none()));
+        // (a kerb's end that is not linked, the new one put beside its line, keeps its way)
+        let onto_road = self.road_snap_file.as_deref().and_then(|f| assets.spline(f)).map(|m| m.joinable()).unwrap_or(true);
+        let laid_on = snap.filter(|_| !joins && !self.drawing_paths() && onto_road && snap.is_some_and(|a| a.spline.is_none()));
         let mut target = if let Some(a) = laid_on {
             a.pos.truncate()
         } else {
@@ -4261,12 +4398,19 @@ impl Editor {
         let typed = self.typed();
         let z0 = start.pos.z;
         // numbers typed or the straight lock: the road is drawn by them, not to what the
-        // cursor is near
-        if (typed.any() || self.straight_lock) && !self.drawing_paths() {
+        // cursor is near. An AI path is a line of its own, not the ground's: it rises only
+        // as far as the rise typed for it.
+        if typed.any() || self.straight_lock {
             let Some(segs) = crate::draw::plan(start.pos.truncate(), fixed.then_some(start.heading), self.snap_point(c.truncate()), &typed, self.straight_lock) else { return };
             self.road_snap = None;
             let end = segs.last().unwrap().end();
-            let z1 = if self.keep_height { z0 + self.typed_rise() } else if !self.auto_terrain { z0 } else { self.doc.as_ref().map(|d| d.ground(end)).unwrap_or(c.z) };
+            let z1 = if self.drawing_paths() || self.keep_height {
+                z0 + self.typed_rise()
+            } else if !self.auto_terrain {
+                z0
+            } else {
+                self.doc.as_ref().map(|d| d.ground(end)).unwrap_or(c.z)
+            };
             self.road_plan = Some((segs, z0, z1, None));
             return;
         }
@@ -4412,12 +4556,12 @@ impl Editor {
     /// old road's ends, as (tile, id, at its end)), cut both back and lay a plate between
     /// them that tapers from one width to the other.
     fn adapt_joints(&mut self, assets: &mut Assets, ends: Vec<(TileKey, i64, bool)>) {
-        self.adapt_joints_by(assets, ends, 5.0);
+        self.adapt_joints_by(assets, ends, 5.0, None);
     }
 
     /// [`Editor::adapt_joints`] with the taper `ratio` as metres cut back per metre of
     /// difference in half width (5: 1:10 over both sides; a bus pocket's is steeper).
-    fn adapt_joints_by(&mut self, assets: &mut Assets, ends: Vec<(TileKey, i64, bool)>, ratio: f64) -> usize {
+    fn adapt_joints_by(&mut self, assets: &mut Assets, ends: Vec<(TileKey, i64, bool)>, ratio: f64, pocket_paths: Option<&std::ops::Range<usize>>) -> usize {
         let (Some(content), asphalt) = (self.content_dir.clone(), self.asphalt.clone()) else { return 0 };
         let follow = self.follow_ground;
         let Some(doc) = self.doc.as_mut() else { return 0 };
@@ -4439,8 +4583,9 @@ impl Editor {
             self.history.touch_global(doc);
             let arms: Vec<crate::junction::Arm> = [(k, id, at_end), (nk, n.id, n_end)].into_iter().filter_map(|(k, id, e)| doc.trim(k, id, e, back)).map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             // (counted only where the plate was laid: a bare bend is no taper)
-            if arms.len() == 2 && join_two(doc, assets, true, follow, &content, asphalt.as_deref(), &arms[0], &arms[1]) {
-                made += 1;
+            if let [a, b] = arms.as_slice() {
+                let placed = join_two_with_pocket(doc, assets, true, follow, &content, asphalt.as_deref(), a, b, pocket_paths);
+                made += usize::from(placed);
             }
         }
         made
@@ -4502,6 +4647,8 @@ impl Editor {
             t.touch_content();
             made.push((k, ids[i]));
         }
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
+        crate::road_maker::bus_rules::apply_for_splines(doc, &made, "editor::lay_road");
         // link the ends to what they meet (whether it is still there with that end free: a
         // one-sided link would point at nothing)
         let link = |doc: &mut Document, at: Option<(TileKey, i64, bool)>, mine: i64| -> bool {
@@ -4890,15 +5037,9 @@ impl Editor {
                 continue;
             }
             let opts = style_options(doc, &styles, &arms, centre);
-            match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                Ok(_) => {
-                    made += 1;
-                    if follow {
-                        let e = arm_ends_world(doc, &arms);
-                        let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                        conform_disc(doc, centre, reach, &e);
-                    }
-                }
+            let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+            match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                Ok(_) => made += 1,
                 Err(e) => log::warn!("junction at a node: {e}"),
             }
         }
@@ -4956,15 +5097,9 @@ impl Editor {
             let arms: Vec<crate::junction::Arm> = arms.iter().flatten().map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             if arms.len() >= 3 {
                 let opts = style_options(doc, &styles, &arms, centre);
-                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                    Ok(_) => {
-                        count += 1;
-                        if follow {
-                            let ends = arm_ends_world(doc, &arms);
-                            let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                            conform_disc(doc, centre, reach, &ends);
-                        }
-                    }
+                let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                    Ok(_) => count += 1,
                     Err(e) => log::warn!("junction: {e}"),
                 }
             } else if arms.len() == 2 {
@@ -5049,15 +5184,9 @@ impl Editor {
             let arms: Vec<crate::junction::Arm> = arms.iter().flatten().map(|x| crate::junction::Arm { key: x.0, id: x.1, at_end: x.2 }).collect();
             if arms.len() >= 3 {
                 let opts = style_options(doc, &styles, &arms, centre);
-                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
-                    Ok(_) => {
-                        count += 1;
-                        if follow {
-                            let ends = arm_ends_world(doc, &arms);
-                            let reach = crate::junction::reach(doc, assets, centre, &arms).max(r * 1.1);
-                            conform_disc(doc, centre, reach, &ends);
-                        }
-                    }
+                let edit = crate::junction::MakeEdit { conform_min_reach: follow.then_some(r * 1.1), ..Default::default() };
+                match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, edit) {
+                    Ok(_) => count += 1,
                     Err(e) => log::warn!("junction: {e}"),
                 }
             } else if arms.len() == 2 {
@@ -5700,6 +5829,7 @@ impl Editor {
         // (the dots that mark places on the ground are small: they are there to be seen, not to cover)
         let dw = w * 0.4;
         x.show_technical = self.show_technical || self.tool == Tool::Logic;
+        x.lanes_drawn = self.tool == Tool::Logic || self.show_lanes;
         x.hide = self.hide;
         // (the crossing being edited draws its own paths below, not the file's)
         let draft = self.crossing_draft.as_ref().map(|d| (d.0, d.1));
@@ -6096,16 +6226,19 @@ impl Editor {
                             continue;
                         }
                         let c = omsi_geometry::SplineCurve::from_map(s, org);
+                        // (a kerb's end is marked where it is drawn, where the tool catches it)
+                        let mid = assets.spline(&s.file).map(|m| crate::end_snap::profile_middle(&m, s.mirror)).unwrap_or(0.0);
+                        let seen = |q: DVec3, along: f64| crate::end_snap::catch(q, along, along, mid, 0.0, true, true).0;
                         if s.prev_id == 0 {
                             let a = c.point_at(0.0);
                             if (a.truncate() - focus).length() <= reach && free(a) {
-                                disc(&mut x.overlay, cam, a, dw * 2.0, [1.0, 1.0, 1.0, 0.6]);
+                                disc(&mut x.overlay, cam, seen(a, s.heading), dw * 2.0, [1.0, 1.0, 1.0, 0.6]);
                             }
                         }
                         if s.next_id == 0 {
                             let b = c.end_point();
                             if (b.truncate() - focus).length() <= reach && free(b) {
-                                disc(&mut x.overlay, cam, b, dw * 2.0, [1.0, 1.0, 1.0, 0.6]);
+                                disc(&mut x.overlay, cam, seen(b, c.heading_at(s.length)), dw * 2.0, [1.0, 1.0, 1.0, 0.6]);
                             }
                         }
                     }
@@ -6366,6 +6499,10 @@ pub fn is_own_junction(file: &str) -> bool {
     f.contains("\\openmapper\\") && f.contains("junction_")
 }
 
+fn is_bus_bay_junction(file: &str) -> bool {
+    file.to_ascii_lowercase().strip_suffix(".sco").is_some_and(|stem| stem.ends_with(crate::junction::BUS_BAY_SUFFIX))
+}
+
 /// A heading to the nearest whole 15 degrees.
 pub fn snap_deg(h: f64, step: f64) -> f64 {
     let step = if step > 0.0 { step } else { 15.0 };
@@ -6507,6 +6644,8 @@ impl Editor {
         let t = doc.tiles.get_mut(&nk).unwrap();
         t.tile.splines.push(q);
         t.touch_content();
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
+        crate::road_maker::bus_rules::apply_for_splines(doc, &[(nk, nid)], "editor::continue_spline");
         self.finish_step();
         self.select(Some(Sel::Spline(nk, nid)));
         true
@@ -7389,6 +7528,8 @@ impl Editor {
                 let t = doc.tiles.get_mut(&k).unwrap();
                 t.tile.splines.push(sp);
                 t.touch_content();
+                if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
+                crate::road_maker::bus_rules::apply_for_splines(doc, &[(k, ids[i])], "editor::connect_path_points");
             }
         }
         let (next, prev) = if ids.is_empty() { (to.1, from.1) } else { (ids[0], *ids.last().unwrap()) };
@@ -8170,20 +8311,12 @@ impl Editor {
 
     /// Give every selected spline another type.
     pub fn retype_splines(&mut self, file: &str) {
-        let sels = self.selection();
+        let splines: Vec<_> = self.selection().into_iter().filter_map(|s| if let Sel::Spline(k, id) = s { Some((k, id)) } else { None }).collect();
         let Some(doc) = self.doc.as_mut() else { return };
         self.history.begin(tr("Change road type", "Смена типа дороги"));
-        for s in &sels {
-            if let Sel::Spline(k, id) = *s {
-                self.history.touch_tile(doc, k);
-                if let Some(t) = doc.tiles.get_mut(&k) {
-                    if let Some(sp) = t.tile.splines.iter_mut().find(|x| x.id == id) {
-                        sp.file = file.to_string();
-                    }
-                    t.touch_content();
-                }
-            }
-        }
+        for &(key, _) in &splines { self.history.touch_tile(doc, key); }
+        if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
+        crate::road_maker::bus_rules::retype(doc, &splines, file, "editor::retype_splines");
         self.history.commit();
     }
 
@@ -8247,13 +8380,7 @@ impl Editor {
         if splines.is_empty() {
             return;
         }
-        // (a row of objects is measured along its spline from the start: it would move)
-        let with_rows = splines.iter().any(|(k, id)| {
-            let Some(t) = doc.tiles.get(k) else { return false };
-            let idx = t.tile.splines.iter().position(|s| s.id == *id && !s.deleted);
-            idx.map(|i| t.tile.spline_attachments.iter().any(|a| a.spline_index == i as i32)).unwrap_or(false)
-        });
-        if with_rows {
+        if splines_with_rows(doc, &splines) {
             self.error(tr("Remove the rows of objects along it first (they are measured from its start)", "Сначала уберите ряды объектов вдоль неё (они отмеряются от её начала)"));
             return;
         }
@@ -8278,6 +8405,60 @@ impl Editor {
             }
         }
         self.history.commit();
+    }
+
+    /// The one selected road turned half round about its start and then reversed: it lies
+    /// on the other side of the start, its end on the start, its traffic coming back to it.
+    /// One step: Ctrl+Z puts it back as it was. Not with a row of objects along it.
+    pub fn flip_selected(&mut self) {
+        let sels = self.selection();
+        let (k, id) = match sels.as_slice() {
+            [Sel::Spline(k, id)] => (*k, *id),
+            _ => {
+                self.toast(tr("Select one road to turn round", "Выберите одну дорогу для разворота"));
+                return;
+            }
+        };
+        let Some(doc) = self.doc.as_mut() else { return };
+        if splines_with_rows(doc, &[(k, id)]) {
+            self.error(tr("Remove the rows of objects along it first (they are measured from its start)", "Сначала уберите ряды объектов вдоль неё (они отмеряются от её начала)"));
+            return;
+        }
+        let Some(sp) = doc.spline(k, id).cloned() else { return };
+        let org = tile_origin(k);
+        let before = omsi_geometry::SplineCurve::from_map(&sp, org);
+        let (b0, b1) = (before.point_at(0.0), before.end_point());
+        let bh = before.heading_at(sp.length);
+        let Some(pivot) = road_start(doc, &sels).map(|p| p.truncate()) else { return };
+        let from: Vec<Origin> = sels.iter().filter_map(|s| selection::origin_of(doc, *s)).collect();
+        if from.is_empty() {
+            return;
+        }
+        self.history.begin(tr("Turn round and reverse", "Развернуть кругом и обратить"));
+        let now = selection::transform(doc, &mut self.history, &from, pivot, 180.0, DVec2::ZERO);
+        selection::unlink_outside(doc, &mut self.history, &now);
+        self.history.touch_tile(doc, k);
+        {
+            let org = tile_origin(k);
+            let t = doc.tiles.get_mut(&k).unwrap();
+            if let Some(s) = t.tile.splines.iter_mut().find(|s| s.id == id && !s.deleted) {
+                // (its textures start again where it now starts, as a reversal keeps them)
+                *s = reshape::reversed(s, org, 0.0);
+                t.touch_content();
+            }
+        }
+        self.set_selection_unique(now);
+        self.finish_step();
+        if let Some(s) = self.doc.as_ref().and_then(|d| d.spline(k, id)) {
+            let after = omsi_geometry::SplineCurve::from_map(s, org);
+            let (a0, a1) = (after.point_at(0.0), after.end_point());
+            let ah = after.heading_at(s.length);
+            log::info!(
+                "road {id} turned round: start ({:.3}, {:.3}, {:.3}) end ({:.3}, {:.3}, {:.3}) heading {:.3} -> start ({:.3}, {:.3}, {:.3}) end ({:.3}, {:.3}, {:.3}) heading {:.3}",
+                b0.x, b0.y, b0.z, b1.x, b1.y, b1.z, bh,
+                a0.x, a0.y, a0.z, a1.x, a1.y, a1.z, ah
+            );
+        }
     }
 
     /// The knife on or off (K); on, the Select tool takes over and the ruler goes.
@@ -9530,17 +9711,17 @@ impl Editor {
                 continue;
             }
             self.history.touch_tile(doc, k);
-            let t = doc.tiles.get_mut(&k).unwrap();
             if splines {
-                for s in t.tile.splines.iter_mut().filter(|s| !s.deleted && s.file.eq_ignore_ascii_case(from)) {
-                    s.file = to.to_string();
-                }
+                let instances: Vec<_> = doc.tiles[&k].tile.splines.iter().filter(|s| !s.deleted && s.file.eq_ignore_ascii_case(from)).map(|s| (k, s.id)).collect();
+                if self.content_dir.is_some() { doc.content_root = self.content_dir.clone(); }
+                crate::road_maker::bus_rules::retype(doc, &instances, to, "editor::replace_everywhere");
             } else {
+                let t = doc.tiles.get_mut(&k).unwrap();
                 for o in t.tile.objects.iter_mut().chain(t.tile.attach_objects.iter_mut()).filter(|o| o.file.eq_ignore_ascii_case(from)) {
                     o.file = to.to_string();
                 }
             }
-            t.touch_content();
+            doc.tiles.get_mut(&k).unwrap().touch_content();
             n += here;
         }
         self.history.commit();
@@ -9933,6 +10114,36 @@ impl Editor {
         self.pending_rebuild.push(id);
     }
 
+    /// Keep the same map object (including the IDCode used by its signal heads) and
+    /// change its file to the standalone copy only after all assets have been written.
+    pub fn persist_junction(&mut self, roots: &crate::install::Roots, k: TileKey, id: i64) -> anyhow::Result<String> {
+        let Some(doc) = self.doc.as_ref() else {
+            anyhow::bail!("{}", tr("Open a map", "Открыть карту"));
+        };
+        let Some(o) = doc.object(k, id).filter(|o| is_own_junction(&o.file)) else {
+            anyhow::bail!("{}", tr("select an object first", "сначала выделите объект"));
+        };
+        let map = doc.dir.file_name().and_then(|name| name.to_str()).unwrap_or("map");
+        let file = crate::junction::persist(roots, &o.file, map, id)?;
+
+        let doc = self.doc.as_mut().unwrap();
+        self.history.begin(tr("Persist junction", "Сохранить как объект"));
+        self.history.touch_tile(doc, k);
+        doc.object_mut(k, id).unwrap().file = file.clone();
+        doc.tiles.get_mut(&k).unwrap().touch_content();
+        self.history.commit();
+        self.junction_options.remove(&id);
+        self.pending_options.remove(&id);
+        self.pending_arms.remove(&id);
+        self.pending_rebuild.retain(|&queued| queued != id);
+        for plate in [&mut self.road_plate_start, &mut self.road_plate_end, &mut self.reshape_plate] {
+            if plate.is_some_and(|(junction, _, _)| junction == id) {
+                *plate = None;
+            }
+        }
+        Ok(file)
+    }
+
     /// After a save: the junction files of this map that nothing uses any more (not a tile,
     /// not a tile undo or redo may bring back, not an earlier version kept by a save, and not
     /// one made in this session) are deleted.
@@ -9976,8 +10187,7 @@ impl Editor {
         true
     }
 
-    /// Every junction plate of openMapper's made again at the next tick, for the roads it has
-    /// now (with the newest asphalt and kerbs); one undo step. How many.
+    /// Rebuild openMapper's junction plates in one undo step.
     pub fn remake_all_junctions(&mut self) -> usize {
         let Some(doc) = self.doc.as_ref() else { return 0 };
         let ids: Vec<i64> = doc.tiles.values().flat_map(|t| t.tile.objects.iter().filter(|o| is_own_junction(&o.file)).map(|o| o.id)).collect();
@@ -9997,8 +10207,8 @@ impl Editor {
     }
 
     /// One of openMapper's junctions made again in place for the roads now ending at its
-    /// helper points: three or more, a new plate; two, a smooth joint between them; fewer,
-    /// nothing. Inside an open history step.
+    /// helper points: a new plate for a bus bay taper or at least three arms, a joint for
+    /// two ordinary arms, or nothing for fewer. Inside an open history step.
     fn rebuild_junction(&mut self, assets: &mut Assets, id: i64) {
         let Some(content) = self.content_dir.clone() else { return };
         let asphalt = self.asphalt.clone();
@@ -10006,7 +10216,7 @@ impl Editor {
         let follow = self.follow_ground;
         let was_selected = self.selection().iter().any(|s| matches!(s, Sel::Object(_, x) if *x == id));
         let Some(doc) = self.doc.as_mut() else { return };
-        let Some((jk, o)) = doc.tiles.iter().find_map(|(k, t)| t.tile.objects.iter().find(|o| o.id == id).map(|o| (*k, o.clone()))) else { return };
+        let Some((jk, o)) = doc.tiles.iter().find_map(|(k, t)| t.tile.objects.iter().find(|o| o.id == id && is_own_junction(&o.file)).map(|o| (*k, o.clone()))) else { return };
         let mut arms: Vec<crate::junction::Arm> = Vec::new();
         // (a plate whose file is gone, a map moved without them: the roads that end facing
         // its middle are its arms; it stood at its own height)
@@ -10022,11 +10232,10 @@ impl Editor {
                 }
                 abs
             }
-            None if is_own_junction(&o.file) => {
+            None => {
                 arms = ends_facing(doc, tile_origin(jk) + DVec2::new(o.pos[0], o.pos[1]), 30.0);
                 true
             }
-            None => return,
         };
         for a in self.pending_arms.remove(&id).unwrap_or_default() {
             if doc.spline(a.key, a.id).is_some() && !arms.iter().any(|x| x.id == a.id && x.at_end == a.at_end) {
@@ -10034,22 +10243,34 @@ impl Editor {
             }
         }
         let opts = self.pending_options.remove(&id).unwrap_or_else(|| crate::junction::Options::read(&omsi_cfg::resolve_path(&content, &o.file)));
+        let pocket_paths = if is_bus_bay_junction(&o.file) {
+            let Some(paths) = crate::pocket::taper_path_indices(doc, assets, &mut arms) else {
+                log::warn!("bus bay junction {id} ({}): could not identify the bay lanes; kept the existing junction", o.file);
+                return;
+            };
+            Some(paths)
+        } else {
+            None
+        };
         let centre = doc.object_world(jk, &o, abs);
         self.history.touch_tile(doc, jk);
         for a in &arms {
             self.history.touch_tile(doc, a.key);
         }
         self.history.touch_global(doc);
-        // its signal heads go with it (new ones are put up for the new plate)
-        for (k, c) in crate::junction::children(doc, id) {
-            self.history.touch_tile(doc, k);
-            doc.delete_object(k, c);
-        }
-        doc.delete_object(jk, id);
+        let children = crate::junction::children(doc, id);
+        let remove = |doc: &mut Document, history: &mut History| {
+            for &(k, child) in &children {
+                history.touch_tile(doc, k);
+                doc.delete_object(k, child);
+            }
+            doc.delete_object(jk, id);
+        };
         self.junction_options.remove(&id);
         match arms.len() {
-            n if n >= 3 => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts) {
+            n if n >= 3 || pocket_paths.is_some() => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), pocket_paths, ..Default::default() }) {
                 Ok(new) => {
+                    remove(doc, &mut self.history);
                     if was_selected {
                         let k = doc.tiles.iter().find(|(_, t)| t.tile.objects.iter().any(|o| o.id == new)).map(|(k, _)| *k).unwrap_or(jk);
                         let v: Vec<Sel> = self.selection().into_iter().map(|s| if s == Sel::Object(jk, id) { Sel::Object(k, new) } else { s }).collect();
@@ -10057,21 +10278,18 @@ impl Editor {
                     }
                 }
                 Err(e) => {
-                    // (the plate as it was, rather than none)
                     log::warn!("junction: {e}");
-                    if let Some(t) = doc.tiles.get_mut(&jk) {
-                        t.tile.objects.push(o);
-                        t.touch_content();
-                    }
                 }
             },
             2 => {
+                remove(doc, &mut self.history);
                 join_two(doc, assets, adapt, follow, &content, asphalt.as_deref(), &arms[0], &arms[1]);
                 if was_selected {
                     self.select(None);
                 }
             }
             _ => {
+                remove(doc, &mut self.history);
                 if was_selected {
                     self.select(None);
                 }
@@ -10364,14 +10582,12 @@ impl Editor {
         let Some((main_file, mirrored)) = doc.spline(k, id).map(|s| (s.file.clone(), s.mirror)) else { return };
         let left_hand = doc.global.left_hand_traffic;
         let Some(content) = self.content_dir.clone() else { return };
-        if main_file.to_lowercase().contains("_bay_") {
+        if crate::pocket::is_bay_spline(&main_file) {
             self.toast(tr("This stretch is already of the pocket's road type", "Этот участок уже того типа, что карман"));
             return;
         }
-        // (the bay's road type: the road's own, widened along the kerb its traffic keeps to; the
-        // other side is left as it is)
         let width = if self.pocket_width > 0.0 { self.pocket_width } else { 3.0 };
-        let (cfg, _) = match crate::pocket::bay_type(assets, &content, &main_file, mirrored, left_hand, width) {
+        let cfg = match crate::pocket::bay_type(assets, &content, &main_file, mirrored, left_hand, width, self.pocket_both_sides) {
             Ok(v) => v,
             Err(e) => {
                 self.error(format!("{}: {e}", tr("The bus pocket could not be made", "Не удалось сделать автобусный карман")));
@@ -10379,11 +10595,14 @@ impl Editor {
             }
         };
         crate::hot::own_change();
-        if assets.spline_wait(&cfg, 3000).is_none() {
+        let Some(bay_model) = assets.spline_wait(&cfg, 3000) else {
             self.error(tr("The pocket's road type could not be read", "Не удалось прочитать тип дороги кармана"));
             return;
-        }
+        };
+        let Some(main_model) = assets.spline(&main_file) else { return };
+        let pocket_paths = crate::pocket::bay_path_indices(&main_model, &bay_model);
         let Some(doc) = self.doc.as_ref() else { return };
+        // The adapter measures the largest change at either edge, which is the width of one bay.
         let step = width as f64;
         let ratio_in = self.pocket_taper_in.clamp(1.0, 12.0);
         let ratio_out = if self.pocket_alike { ratio_in } else { self.pocket_taper_out.clamp(1.0, 12.0) };
@@ -10418,6 +10637,7 @@ impl Editor {
         self.history.touch_global(doc);
         let result = crate::pocket::cut_out(doc, k, id, from, from + stretch).and_then(|cut| {
             let mut inner = crate::pocket::retype(doc, &cut, &cfg, 0.0)?;
+            crate::pocket::set_bay_lane_rules(doc, &inner, pocket_paths.clone());
             // (one piece where the stretch's pieces make one curve: the taper needs length)
             let mut i = 0;
             while i + 1 < inner.len() {
@@ -10434,11 +10654,11 @@ impl Editor {
                 let (mut laid, mut wanted_plates) = (0, 0);
                 if let (Some((bk, bid)), true) = (before, !inner.is_empty()) {
                     wanted_plates += 1;
-                    laid += self.adapt_joints_by(assets, vec![(bk, bid, true)], ratio_in);
+                    laid += self.adapt_joints_by(assets, vec![(bk, bid, true)], ratio_in, Some(&pocket_paths));
                 }
                 if let (Some((ak, aid)), true) = (after, !inner.is_empty()) {
                     wanted_plates += 1;
-                    laid += self.adapt_joints_by(assets, vec![(ak, aid, false)], ratio_out);
+                    laid += self.adapt_joints_by(assets, vec![(ak, aid, false)], ratio_out, Some(&pocket_paths));
                 }
                 if wanted_plates < 2 || laid < wanted_plates {
                     if let Some(d) = self.doc.as_mut() {
@@ -10636,7 +10856,13 @@ fn ball(out: &mut Vec<OverlayPoint>, c: DVec3, r: f64, color: [f32; 4]) {
 /// zebra on every arm if any road does.
 fn style_options(doc: &Document, styles: &crate::road_maker::Styles, arms: &[crate::junction::Arm], centre: DVec3) -> crate::junction::Options {
     let st: Vec<crate::road_maker::JunctionStyle> = arms.iter().filter_map(|a| doc.spline(a.key, a.id)).map(|s| styles.get(&s.file)).collect();
-    let mut o = crate::junction::Options { lights: st.iter().any(|s| s.lights), ..Default::default() };
+    let lights = st.iter().any(|s| s.lights);
+    let mut o = crate::junction::Options {
+        lights,
+        light_objects: lights,
+        corner_walks: st.iter().all(|s| s.corner_walks),
+        ..Default::default()
+    };
     if st.iter().any(|s| s.crossings) {
         o.crossings = arm_ends_world(doc, arms).iter().map(|e| roads::heading_of(e.truncate() - centre.truncate())).collect();
     }
@@ -10700,11 +10926,16 @@ pub(crate) fn reach_along(doc: &Document, k: TileKey, id: i64, at_end: bool) -> 
 /// from the one to the other (as a junction of two roads), else a bend of the first's type.
 /// Gives back whether the plate was laid (false: the ends are only joined by a bend).
 fn join_two(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, content: &Path, asphalt: Option<&Path>, a: &crate::junction::Arm, b: &crate::junction::Arm) -> bool {
+    join_two_with_pocket(doc, assets, adapt, follow, content, asphalt, a, b, None)
+}
+
+fn join_two_with_pocket(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, content: &Path, asphalt: Option<&Path>, a: &crate::junction::Arm, b: &crate::junction::Arm, pocket_paths: Option<&std::ops::Range<usize>>) -> bool {
     if adapt && width_step(doc, assets, a, b).is_some() {
         let ends = arm_ends_world(doc, &[*a, *b]);
         if ends.len() == 2 {
             let centre = (ends[0] + ends[1]) * 0.5;
-            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default()) {
+            let edit = crate::junction::MakeEdit { pocket_paths: pocket_paths.cloned(), ..Default::default() };
+            match crate::junction::make_with(doc, assets, content, asphalt, centre, &[*a, *b], &crate::junction::Options::default(), edit) {
                 Ok(_) => {
                     if follow {
                         let reach = crate::junction::reach(doc, assets, centre, &[*a, *b]).max(4.0);
@@ -10765,6 +10996,7 @@ fn join_arms(doc: &mut Document, a: &crate::junction::Arm, b: &crate::junction::
         t.touch_content();
         ids.push((k, id));
     }
+    crate::road_maker::bus_rules::apply_for_splines(doc, &ids, "editor::join_arms");
     // link the chain: a's end -> new pieces -> b's end
     let set = |doc: &mut Document, k: TileKey, id: i64, at_end: bool, other: i64| {
         if let Some(t) = doc.tiles.get_mut(&k) {
@@ -10992,6 +11224,16 @@ fn cover_z(doc: &Document, assets: &mut Assets, hide_roads: bool, p: DVec2) -> f
         }
     }
     best
+}
+
+/// Whether a row of objects is measured along any of these splines from its start (a
+/// reversal or a turn would move it).
+fn splines_with_rows(doc: &Document, splines: &[(TileKey, i64)]) -> bool {
+    splines.iter().any(|(k, id)| {
+        let Some(t) = doc.tiles.get(k) else { return false };
+        let idx = t.tile.splines.iter().position(|s| s.id == *id && !s.deleted);
+        idx.map(|i| t.tile.spline_attachments.iter().any(|a| a.spline_index == i as i32)).unwrap_or(false)
+    })
 }
 
 fn road_profile(pieces: &[Seg], z0: f64, z1: f64, at: &mut dyn FnMut(DVec2) -> f64, limit_slope: bool) -> Vec<(f64, f64)> {
@@ -11755,10 +11997,7 @@ fn path_ends_at(doc: &Document, assets: &mut Assets, held: &Origin, pos: DVec2, 
                 if c.length <= 0.05 {
                     return None;
                 }
-                let at = |s: f64| {
-                    let q = c.point_at(s);
-                    pose.pos + pose.rot.transform_vector3(Vec3::new(q.x as f32, q.y as f32, q.z as f32)).as_dvec3()
-                };
+                let at = |s: f64| crate::object_paths::world_point(&c, s, &pose, model.deform.as_deref());
                 let (a, b) = (at(0.0), at(c.length));
                 let step = (c.length * 0.05).clamp(0.05, 1.0);
                 let ha = roads::heading_of((at(step) - a).truncate());
@@ -11774,6 +12013,76 @@ fn path_ends_at(doc: &Document, assets: &mut Assets, held: &Origin, pos: DVec2, 
 mod tests {
     use super::*;
     use crate::selection::tests::{add_object, add_spline, flat_map};
+
+    #[test]
+    fn stop_alt_lateral_moves_only_across_the_path_and_survives_release() {
+        let lane = crate::lanes::Lane {
+            pts: vec![DVec3::new(0.0, 0.0, 0.0), DVec3::new(0.0, 100.0, 0.0)],
+            kind: 0, direction: 0, spline: None, object: None, index: 0,
+        };
+        let mut ed = Editor::default();
+        ed.tool = Tool::Logic;
+        ed.logic = LogicMode::Stops;
+        ed.cursor = Some(DVec3::new(2.0, 50.0, 0.0));
+        ed.stop_hover_lane = Some(lane.clone());
+
+        let before = DVec2::new(3.2, 50.0);
+        ed.stop_lateral_key(true);
+        ed.cursor = Some(DVec3::new(5.0, 73.0, 0.0));
+        let session = ed.stop_lateral.as_ref().expect("Alt locks a vehicle lane");
+        let offset = session.offset_at(ed.cursor.unwrap().truncate(), false);
+        let during = session.anchor.truncate() + roads::right(0.0) * offset;
+        println!("RHT path={:?} original={before:?} pointer_start={:?} pointer_now={:?} locked_path_point={:?} offset_before={} offset_during={} preview_during={during:?}",
+            lane.pts, session.pointer, ed.cursor.unwrap(), session.anchor, session.initial_offset, offset);
+        assert!((offset - 6.2).abs() < 1e-9, "Alt changed only cross-path displacement");
+        assert!((during.x - 6.2).abs() < 1e-9);
+        assert!((during.y - 50.0).abs() < 1e-9, "Alt never moves longitudinally");
+
+        ed.stop_lateral_offset = offset;
+        ed.stop_lateral_key(false);
+        assert!(!ed.stop_lateral.as_ref().unwrap().adjusting);
+        let next_path_point = ed.stop_lateral.as_ref().unwrap().lane.nearest(DVec2::new(5.0, 90.0)).unwrap().0;
+        let after = next_path_point.truncate() + roads::right(0.0) * ed.stop_lateral_offset;
+        println!("Alt released: offset={} along_path_point={next_path_point:?} final_preview={after:?}", ed.stop_lateral_offset);
+        assert!((after.x - 6.2).abs() < 1e-9, "lateral offset persists");
+        assert!((after.y - 90.0).abs() < 1e-9, "normal movement resumes along the selected path");
+
+        ed.cancel();
+        println!("After cancel: offset={} session={}", ed.stop_lateral_offset, ed.stop_lateral.is_some());
+        assert!(ed.stop_lateral.is_none());
+        assert_eq!(ed.stop_lateral_offset, 3.2);
+    }
+
+    #[test]
+    fn stop_alt_lateral_respects_left_hand_and_reverse_flow() {
+        let lane = crate::lanes::Lane {
+            pts: vec![DVec3::new(0.0, 0.0, 0.0), DVec3::new(0.0, 100.0, 0.0)],
+            kind: 0, direction: 0, spline: None, object: None, index: 0,
+        };
+        for (direction, lht, dx, expected) in [
+            (0, false, 2.0, 5.2),
+            (0, true, -2.0, 5.2),
+            (1, false, -2.0, 5.2),
+            (1, true, 2.0, 5.2),
+        ] {
+            let mut ed = Editor::default();
+            ed.tool = Tool::Logic;
+            ed.logic = LogicMode::Stops;
+            ed.cursor = Some(DVec3::new(0.0, 20.0, 0.0));
+            ed.stop_hover_lane = Some(crate::lanes::Lane { direction, ..lane.clone() });
+            ed.stop_lateral_key(true);
+            let session = ed.stop_lateral.as_ref().unwrap();
+            let pointer_after = session.pointer + DVec2::new(dx, 19.0);
+            let offset = session.offset_at(pointer_after, lht);
+            let flow = if direction == 1 { 180.0 } else { 0.0 };
+            let side = roads::right(flow) * if lht { -1.0 } else { 1.0 };
+            let preview = session.anchor.truncate() + side * offset;
+            println!("direction={direction} lht={lht} lane={:?} pointer_before={:?} pointer_after={pointer_after:?} anchor={:?} offset_before={} offset_after={offset} preview={preview:?}",
+                lane.pts, session.pointer, session.anchor, session.initial_offset);
+            assert!((offset - expected).abs() < 1e-9);
+            assert!((preview.y - 20.0).abs() < 1e-9);
+        }
+    }
 
     #[test]
     fn a_click_on_the_drawn_surface_meets_it_and_the_centre_line_does_not() {
@@ -12528,6 +12837,63 @@ mod tests {
         let linked = d.spline((0, 0), 2).unwrap().next_id;
         assert_ne!(linked, 0, "the two footpaths were not linked");
         assert_eq!(d.find_spline(linked).unwrap().1.next_id, 2);
+    }
+
+    /// A kerb without AI paths whose line lies beside it is caught where it is drawn, the middle
+    /// of its profile (#55): another kerb of its type goes on from its line and is linked, a fence
+    /// is drawn to the kerb itself, keeping its way.
+    #[test]
+    fn a_kerbs_end_is_caught_where_it_is_drawn() {
+        let mut doc = flat_map(1);
+        // (a kerb running north from (100, 100) to (100, 140), drawn 3 to 3.4 m east of its line)
+        add_spline(&mut doc, (0, 0), 1, 100.0, 100.0, 0.0, 40.0, 0, 0);
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines[0].file = "Splines\\kerb.sli".into();
+        let mut ed = Editor::default();
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        let mut assets = Assets::new(std::env::temp_dir().join("openmapper-no-omsi"), std::env::temp_dir().join("openmapper-no-content"));
+        let model = |x0: f32, x1: f32| crate::assets::SplineModel {
+            def: omsi_scenery::Spline {
+                profiles: vec![omsi_scenery::SplineProfile {
+                    texture: 0,
+                    points: vec![
+                        omsi_scenery::SplineProfilePoint { x: x0, z: 0.0, ..Default::default() },
+                        omsi_scenery::SplineProfilePoint { x: x1, z: 0.0, ..Default::default() },
+                    ],
+                }],
+                ..Default::default()
+            },
+            materials: Vec::new(),
+            half_width: x0.abs().max(x1.abs()),
+        };
+        assert!(!model(3.0, 3.4).joinable());
+        assets.splines.insert("splines\\kerb.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(model(3.0, 3.4))));
+        assets.splines.insert("splines\\fence.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(model(-0.05, 0.05))));
+        let lib = crate::library::Library::default();
+        let seen = DVec2::new(103.2, 140.0);
+        // (the same kerb, started near what is drawn: from the line's end, linked)
+        ed.road_type = Some("Splines\\kerb.sli".into());
+        ed.hover_point(&mut assets, &lib, DVec3::new(104.5, 141.0, 0.0));
+        let snap = ed.road_snap.expect("the kerb's end was not caught where it is drawn");
+        assert!((snap.pos.truncate() - DVec2::new(100.0, 140.0)).length() < 1e-6, "{:?}", snap.pos);
+        assert_eq!(snap.spline, Some(((0, 0), 1, true)));
+        // (a fence drawn to it from the north: its line ends on the kerb's middle, arriving
+        // along the kerb's way)
+        ed.road_type = Some("Splines\\fence.sli".into());
+        ed.road_start = Some((Anchor { pos: DVec3::new(103.2, 180.0, 0.0), ..Default::default() }, false));
+        ed.hover_point(&mut assets, &lib, DVec3::new(105.5, 140.5, 0.0));
+        let snap = ed.road_snap.expect("the kerb's end was not caught");
+        assert!((snap.pos.truncate() - seen).length() < 1e-6, "{:?}", snap.pos);
+        assert!(snap.spline.is_none(), "beside the kerb's line it is not linked");
+        ed.left_press(&mut assets, &lib, false);
+        let d = ed.doc.as_ref().unwrap();
+        assert_eq!(d.spline((0, 0), 1).unwrap().next_id, 0, "the kerb stays as it was");
+        let made = d.tiles[&(0, 0)].tile.splines.iter().filter(|s| s.id != 1).collect::<Vec<_>>();
+        let last = made.iter().find(|s| s.next_id == 0).expect("the fence was not built");
+        let c = omsi_geometry::SplineCurve::from_map(last, tile_origin((0, 0)));
+        assert!((c.end_point().truncate() - seen).length() < 0.01, "{:?}", c.end_point());
+        let off = (roads::norm_deg(c.heading_at(last.length)) - 180.0).abs();
+        assert!(off < 0.5, "it arrives along the kerb's way: {}", c.heading_at(last.length));
     }
 
     /// A building is what it draws, not the box it was measured with: its box holds its
@@ -15811,6 +16177,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&content);
     }
 
+    include!("junction_snapshot_tests.rs");
+    include!("junction_placement_tests.rs");
+
     /// Two road types made here, the second with a pocket lane, in a scratch content folder.
     fn pocket_fixture(tag: &str) -> (Assets, std::path::PathBuf, String, String) {
         let dir = std::env::temp_dir().join(format!("om-pocket-{tag}-{}", std::process::id()));
@@ -15829,6 +16198,81 @@ mod tests {
             assert!(assets.spline_wait(rel, 5000).is_some(), "{rel} loads");
         }
         (assets, dir, a, b)
+    }
+
+    #[test]
+    fn a_bus_pocket_with_taper_junctions_restricts_each_middle_spline() {
+        let (_, dir, plain, _) = pocket_fixture("spline-rules");
+        let content = dir.join("content");
+        let path = omsi_cfg::resolve_path(&content, &plain);
+        let mut sli = omsi_cfg::vfs::read_text(&path).unwrap();
+        sli.push_str("\n[path_2]\n1\n4.5\n0.25\n1.0\n2\n0\n");
+        std::fs::write(&path, omsi_cfg::encode_text(&sli)).unwrap();
+        let mut assets = Assets::new(dir.join("omsi"), content.clone());
+        assert_eq!(assets.spline_wait(&plain, 5000).unwrap().def.paths.len(), 5);
+
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Pocket");
+        let road_rule = |index, value| omsi_map::MapRule {
+            path_index: index, kind: "speedlimit".into(), value, ..Default::default()
+        };
+        let mut input = String::new();
+        for (id, y, prev_id, next_id, speed) in [(1, 60.0, 0, 2, 30.0), (2, 150.0, 1, 0, 40.0)] {
+            let spline = MapSpline {
+                file: plain.clone(), id, prev_id, next_id, pos: [150.0, y, 0.0], length: 90.0,
+                rules: vec![road_rule(2, speed), road_rule(4, 20.0)], ..Default::default()
+            };
+            crate::doc::save::spline(&mut input, &spline);
+            doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(spline);
+        }
+        println!("Original spline type and map instances:\n{sli}\n{input}");
+
+        let mut ed = Editor::default();
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        ed.bus_pocket = true;
+        ed.pocket_len = 24.0;
+        ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+        ed.left_press(&mut assets, &Library::default(), false);
+        let doc = ed.doc.as_mut().unwrap();
+        let tile = &doc.tiles[&(0, 0)].tile;
+        let mut splines: Vec<_> = tile.splines.iter().filter(|s| !s.deleted).collect();
+        splines.sort_by(|a, b| a.pos[1].total_cmp(&b.pos[1]));
+        let mut output = String::new();
+        for spline in &splines {
+            crate::doc::save::spline(&mut output, spline);
+        }
+        println!("Generated spline type and map instances:\n{}\n{output}",
+            omsi_cfg::vfs::read_text(&omsi_cfg::resolve_path(&content, &splines[1].file)).unwrap());
+
+        assert_eq!(splines.len(), 4);
+        assert_eq!(tile.objects.iter().filter(|o| o.file.contains("junction_")).count(), 2);
+        assert_eq!(splines[0].rules, [road_rule(2, 30.0), road_rule(4, 20.0)]);
+        assert_eq!(splines[3].rules, [road_rule(2, 40.0), road_rule(4, 20.0)]);
+        for (spline, speed) in splines[1..3].iter().zip([30.0, 40.0]) {
+            assert!(spline.file.contains("_bay_"));
+            assert_eq!(spline.rules, [
+                road_rule(2, speed), road_rule(5, 20.0),
+                omsi_map::MapRule { path_index: 4, kind: "bus".into(), ..Default::default() },
+                omsi_map::MapRule { path_index: 4, kind: "no_cars".into(), ..Default::default() },
+            ]);
+        }
+        let expected: Vec<_> = splines.iter().map(|s| (s.id, s.rules.clone())).collect();
+        crate::doc::save::save(doc).unwrap();
+        let reloaded = omsi_map::Tile::load(&doc.dir.join("tile_0_0.map")).unwrap();
+        for (id, rules) in expected {
+            assert_eq!(reloaded.splines.iter().find(|s| s.id == id).unwrap().rules, rules);
+        }
+        ed.undo();
+        let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        let mut restored = String::new();
+        for spline in tile.splines.iter().filter(|s| !s.deleted) {
+            crate::doc::save::spline(&mut restored, spline);
+        }
+        assert_eq!(restored, input);
+        assert!(tile.objects.is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -15863,6 +16307,140 @@ mod tests {
         let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
         assert_eq!(t.splines.iter().filter(|s| !s.deleted).count(), 1);
         assert_eq!(t.objects.iter().filter(|o| o.file.contains("junction_")).count(), 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_bus_pocket_taper_junction_restricts_every_piece_of_each_bay_connection() {
+        let (mut assets, dir, plain, _) = pocket_fixture("taper-rules");
+        let content = dir.join("content");
+        for (heading, start_x, both) in [(90.0, 60.0, false), (270.0, 240.0, false), (90.0, 60.0, true)] {
+            let mut doc = flat_map(1);
+            doc.dir = content.join("maps").join("Pocket");
+            doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
+                file: plain.clone(), id: 1, pos: [start_x, 150.0, 0.0], heading, length: 180.0,
+                ..Default::default()
+            });
+            let mut ed = Editor::default();
+            ed.content_dir = Some(content.clone());
+            ed.open(doc);
+            ed.set_tool(Tool::Roads);
+            ed.bus_pocket = true;
+            ed.pocket_both_sides = both;
+            ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+            ed.left_press(&mut assets, &Library::default(), false);
+
+            let doc = ed.doc.as_mut().unwrap();
+            let tile = &doc.tiles[&(0, 0)].tile;
+            let expected_bay_rules: Vec<_> = (4..if both { 6 } else { 5 }).flat_map(|path_index| {
+                ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                    path_index, kind: kind.into(), ..Default::default()
+                })
+            }).collect();
+            let bay: Vec<_> = tile.splines.iter().filter(|s| !s.deleted && s.file.contains("_bay_")).collect();
+            assert_eq!(bay.len(), 1);
+            let mut before_bay = bay[0].clone();
+            before_bay.rules.clear();
+            let (mut before, mut after) = (String::new(), String::new());
+            crate::doc::save::spline(&mut before, &before_bay);
+            crate::doc::save::spline(&mut after, bay[0]);
+            println!("Heading {heading}, both sides {both}, bay spline\nBefore:\n{before}\nAfter:\n{after}");
+            assert_eq!(bay[0].rules, expected_bay_rules);
+            assert!(tile.splines.iter().filter(|s| !s.deleted && s.file == plain).all(|s| s.rules.is_empty()));
+            let bay_id = bay[0].id;
+            let mut plates = tile.objects.iter().filter(|o| o.file.contains("junction_")).collect::<Vec<_>>();
+            // The plate at the start of the spline comes first, regardless of heading.
+            plates.sort_by(|a, b| (a.pos[0] - start_x).abs().total_cmp(&(b.pos[0] - start_x).abs()));
+            assert_eq!(plates.len(), 2);
+            for (plate, single_indices) in plates.into_iter().zip([[0, 1], [2, 3]]) {
+                assert!(is_bus_bay_junction(&plate.file), "{}", plate.file);
+                let path = omsi_cfg::resolve_path(&content, &plate.file);
+                let sco = omsi_cfg::vfs::read_text(&path).unwrap();
+                let mut before = String::new();
+                let mut after = String::new();
+                let mut plain = plate.clone();
+                plain.rules.clear();
+                crate::doc::save::object(&mut before, &plain, false);
+                crate::doc::save::object(&mut after, plate, false);
+                println!("Heading {heading}, plate {}\n{sco}\nBefore:\n{before}\nAfter:\n{after}", plate.id);
+                let indices: &[i32] = if both { &[0, 1, 4, 5] } else { &single_indices };
+                let expected: Vec<_> = indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
+                    path_index: index, kind: kind.into(), ..Default::default()
+                })).collect();
+                assert_eq!(plate.rules, expected);
+            }
+            let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
+            crate::doc::save::save(doc).unwrap();
+            let cfg = doc.dir.join("global.cfg");
+            let roots = crate::install::Roots { omsi: dir.join("omsi"), content: content.clone() };
+            let mut reloaded = Document::load(&roots, &cfg, |_| {}).unwrap();
+            let tile = &mut reloaded.tiles.get_mut(&(0, 0)).unwrap().tile;
+            assert_eq!(tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
+            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+
+            // The rebuilt object must compute the rules from the arms even if its old rules are gone.
+            for object in &mut tile.objects {
+                object.rules.clear();
+            }
+            let mut before_rebuild = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut before_rebuild, object, false);
+            }
+            ed.open(reloaded);
+            ed.auto_adapt = false;
+            let mut fresh_assets = Assets::new(roots.omsi, content.clone());
+            assert_eq!(ed.remake_all_junctions(), 2);
+            ed.tick(&mut fresh_assets, 0.0, false);
+            let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+            let mut after_rebuild = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut after_rebuild, object, false);
+            }
+            println!("Global rebuild after reopening\nBefore:\n{before_rebuild}\nAfter:\n{after_rebuild}");
+            assert_eq!(tile.objects.len(), 2);
+            for (object, (_, rules)) in tile.objects.iter().zip(&expected) {
+                assert!(is_bus_bay_junction(&object.file), "{}", object.file);
+                assert!(!expected.iter().any(|(old_id, _)| *old_id == object.id));
+                assert_eq!(&object.rules, rules);
+            }
+            assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 3);
+            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+            ed.undo();
+            let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+            let mut after_undo = String::new();
+            for object in &tile.objects {
+                crate::doc::save::object(&mut after_undo, object, false);
+            }
+            assert_eq!(after_undo, before_rebuild);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_ordinary_width_adapter_junction_does_not_add_bus_pocket_rules() {
+        let (mut assets, dir, plain, _) = pocket_fixture("ordinary-adapter");
+        let content = dir.join("content");
+        let bay = crate::pocket::bay_type(&mut assets, &content, &plain, false, false, 3.0, false).unwrap();
+        assert!(assets.spline_wait(&bay, 5000).is_some());
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Ordinary");
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.extend([
+            MapSpline { file: plain, id: 1, pos: [150.0, 60.0, 0.0], length: 81.0, ..Default::default() },
+            MapSpline { file: bay, id: 2, pos: [150.0, 159.0, 0.0], length: 80.0, ..Default::default() },
+        ]);
+        let arms = [
+            crate::junction::Arm { key: (0, 0), id: 1, at_end: true },
+            crate::junction::Arm { key: (0, 0), id: 2, at_end: false },
+        ];
+        assert!(join_two(&mut doc, &mut assets, true, false, &content, None, &arms[0], &arms[1]));
+        let objects = &doc.tiles[&(0, 0)].tile.objects;
+        println!("Ordinary adapter joining the same bay spline: {objects:#?}");
+        assert_eq!(objects.len(), 1);
+        assert!(objects[0].rules.is_empty());
+        assert!(!is_bus_bay_junction(&objects[0].file));
+        let mut ed = Editor::default();
+        ed.open(doc);
+        assert_eq!(ed.remake_all_junctions(), 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -15901,6 +16479,65 @@ mod tests {
         assert!((me.0 - oe.0).abs() < 1e-3, "the left side stays: {me:?} {oe:?}");
         assert!((me.1 - oe.1 - 3.0).abs() < 1e-3, "the right side is 3 m wider: {me:?} {oe:?}");
         assert!(made.len() > own.len());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_bus_pocket_on_both_sides_shares_its_width_length_and_junction_tapers() {
+        let (mut assets, dir, plain, _) = pocket_fixture("both-sides");
+        let content = dir.join("content");
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Pocket");
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(MapSpline {
+            file: plain.clone(), id: 1, pos: [150.0, 60.0, 0.0], heading: 0.0, length: 180.0,
+            ..Default::default()
+        });
+        let mut ed = Editor::default();
+        assert!(!ed.pocket_both_sides);
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_tool(Tool::Roads);
+        ed.bus_pocket = true;
+        ed.pocket_both_sides = true;
+        ed.pocket_width = 3.25;
+        ed.pocket_len = 24.0;
+        ed.pocket_alike = false;
+        ed.pocket_metres = true;
+        ed.pocket_in_m = 14.0;
+        ed.pocket_out_m = 22.0;
+        ed.cursor = Some(DVec3::new(150.0, 150.0, 0.0));
+
+        let own = assets.spline_wait(&plain, 5000).unwrap();
+        ed.left_press(&mut assets, &Library::default(), false);
+        let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        let bays: Vec<_> = t.splines.iter().filter(|s| !s.deleted && s.file.contains("_bay_both_")).collect();
+        let plates: Vec<_> = t.objects.iter().filter(|o| o.file.contains("junction_")).collect();
+        println!("After placing: splines={:#?}, tapers={:#?}", t.splines, plates);
+        assert_eq!(bays.len(), 1);
+        let bay = bays[0];
+        let widened = assets.spline_wait(&bay.file, 5000).unwrap();
+        let (before, after) = (crate::pocket::extent(&own).unwrap(), crate::pocket::extent(&widened).unwrap());
+        println!("Original extent {before:?}, paths {:#?}", own.def.paths);
+        println!("Double bay extent {after:?}, paths {:#?}", widened.def.paths);
+        assert!((before.0 - after.0 - 3.25).abs() < 1e-3 && (after.1 - before.1 - 3.25).abs() < 1e-3);
+        assert!((bay.pos[0] - 150.0).abs() < 0.01 && (bay.pos[1] - 138.0).abs() < 0.01);
+        assert!((bay.length - 24.0).abs() < 0.01);
+        assert_eq!(plates.len(), 2);
+        let mut taper_lengths = Vec::new();
+        for plate in plates {
+            let path = omsi_cfg::resolve_path(&content, &plate.file);
+            let taper = omsi_scenery::SceneryObject::load(&path).unwrap();
+            println!("{}: helpers {:#?}, paths {:#?}", plate.file, taper.spline_helpers, taper.paths);
+            assert_eq!(taper.spline_helpers.len(), 2);
+            taper_lengths.push((taper.spline_helpers[0].z - taper.spline_helpers[1].z).abs());
+        }
+        taper_lengths.sort_by(f32::total_cmp);
+        assert_eq!(taper_lengths, [14.0, 22.0]);
+
+        ed.undo();
+        let t = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
+        assert_eq!(t.splines.iter().filter(|s| !s.deleted).count(), 1);
+        assert!(!t.objects.iter().any(|o| o.file.contains("junction_")));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -16579,3 +17216,13 @@ mod tests {
         assert!((o.rot[0] - 270.0).abs() < 1e-4);
     }
 }
+
+#[cfg(test)]
+mod bus_lane_tests;
+
+#[cfg(test)]
+mod path_snap_tests;
+#[cfg(test)]
+mod flip_tests;
+
+mod bus_rule_batch;

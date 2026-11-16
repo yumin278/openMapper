@@ -1245,6 +1245,8 @@ Zebra crossings	斑馬線
 Road	道路
 Build it again	重新建立
 Makes the plate, its kerbs and lanes again for the roads as they are now	依道路的目前狀態重新建立路口底板、路緣與行車線
+Persist junction	持久化保存
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	將這座路口儲存為 OMSI 安裝目錄中的一般景物。請儲存地圖以寫入新的參照路徑。
 Linked objects	連結的物件
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	物件可從另一物件取得狀態 ([varparent])：交通燈燈頭顯示其路口程式的燈號，站牌顯示器顯示其站牌。
 Takes its state from	取得狀態自
@@ -1908,6 +1910,10 @@ My road	我的道路
  · own	 · 自有
 Create the road type	建立道路類型
 Road type made: the Roads tool builds with it	道路類型已建立：「道路」工具會用它建造
+Save as a new road type: {file}	另存為新道路類型：{file}
+Overwrite: {file}	覆蓋：{file}
+Saved as a new road type: {file}	已另存為新道路類型：{file}
+Overwritten: {file}	已覆蓋：{file}
 Change it in the road maker	在道路製作器中變更
 Its junctions	其路口
 Make a junction where it meets another road (else they only cross)	在它與另一條道路相遇處建立路口（否則只是交叉）
@@ -1950,6 +1956,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	在視圖中選取號誌及其軌道段
 Delete the route	刪除路徑
 Lines and timetable	路線與時刻表
+Convert all Type 1 trips to Type 2	將全地圖的 Type 1 班次轉成 Type 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	轉換 {count} 條 Type 1 班次的站序後，請儲存地圖。路徑重算可另外執行。
+Converted: {converted}. Skipped: {skipped}.	已轉換 {converted} 條，略過 {skipped} 條。
 Edit timetable	編輯時刻表
 No bus stop there: click one of the orange marks	該處沒有站牌：請點擊其中一個橘色標記
 The roads can't be read without the OMSI 2 folder.	沒有 OMSI 2 資料夾就無法讀取道路。
@@ -2405,6 +2414,7 @@ Preset Key Shortcut (from other applications)	其他應用程式的預設快速�
 Controls as in OMSI 2's editor	操作方式與 OMSI 2 的編輯器相同
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	預設為關閉。中鍵旋轉視角，按住右鍵上下移動可縮放，在地面按一下右鍵前往該處（Shift + 右鍵：選單），方向鍵移動攝影機，滾輪縮放
 Bay width	停車灣闊度
+Bay width per side	每側停車灣闊度
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	若所選道路類型（道路製作器中的）闊度不同，則由它建立具有此停車灣行車線的道路類型
 Tapers in metres	錐化長度（公尺）
 Give the length of each taper in metres instead of a ratio	以公尺指定每段錐化的長度，而非比例
@@ -2781,6 +2791,25 @@ no track within 15 m	15 m 內沒有軌道
 the tracks are not joined, or run the other way (see View > AI lanes)	軌道未相連，或方向相反（見 檢視 > AI 行車線）
 no track beside	旁邊沒有軌道：
 Drives on	行駛於
+Footway paths round the corners (AI)	轉角行人路 AI 路徑
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	關閉後，轉角不會生成 AI 路徑，行人穿越道仍會連接道路兩側的行人路。請自行連接轉角，例如使用隱形路徑曲線。
+Open in text editor	在文字編輯器開啟
+Open the saved .ttp file	開啟已儲存的 .ttp 檔案
+Could not open the trip file	無法開啟 Trip 檔案
+Save the map to create this trip's .ttp file first.	請先儲存地圖，以建立此 Trip 的 .ttp 檔案。
+Change ID	更換 ID
+New stop ID	新站點 ID
+Timetable name: {name}	時刻表名稱：{name}
+No stop with this ID on the map	地圖上沒有此 ID 的站點
+Confirm	確定
+Also apply to other trips with this ID ({count})	同時套用到其他含此 ID 的 Trip（{count} 個）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	已將 ID {old} 改為 {new}（{name}），影響 {count} 個 Trip
+Insert before: click a stop on the map to insert it before this one	插入於此站前：點選地圖上的站點，將它插入此站之前
+Click a stop on the map to insert it before {stop} (Esc to cancel)	點選地圖上的站點，將插入於「{stop}」之前（Esc 取消）
+That stop is already next to the insertion point.	該站點已在插入位置旁。
+Insert stop before	插入於此站前
+Place signal heads and poles	設置燈頭與燈桿
+Paint stripes on selected crossings	在選取的行人穿越道繪製條紋
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	已選擇來源頂點。點擊目標頂點以吸附（Shift：僅水平，Esc：取消）
 Aim at a vertex of the selected object	對準所選物件的頂點
 Snapped to vertex! (Ctrl+Z to undo)	已吸附至頂點！（Ctrl+Z 復原）
@@ -2818,3 +2847,139 @@ Float	浮動
 Show Assets in a floating window	在浮動視窗中顯示資源
 Dock	停駐
 Dock Assets at the bottom	將資源停駐在底部
+Kerb height	路緣高度
+Strips run from left to right	積木依道路左至右排列
+Lane	行車線
+Median	分隔帶
+BusBay	巴士停車灣
+Forward ↑	順向 ↑
+Backward ↓	逆向 ↓
+bus only	巴士專用
+Use roadway texture	與行車道相同
+Choose file…	選擇檔案…
+Default footway texture	預設行人路貼圖
+Advanced: strip mode	進階：積木模式
+This road was made for left-hand traffic	此道路是為靠左行駛建立的
+This road was made for right-hand traffic	此道路是為靠右行駛建立的
+This road contains settings that simple mode cannot represent	此道路含簡單模式無法表示的設定
+Built-in multi-lane texture markings may not align with these lanes	內建多行車線貼圖的標線可能與行車線不符
+Lane widths differ	行車線闊度不一致
+Contains bus-only lanes	含巴士專用行車線
+Contains multiple medians	含多個分隔帶
+Median is not between opposite directions	分隔帶不在兩個行車方向的交界
+Contains a left BusBay	左側含巴士停車灣
+Footway textures differ	兩側行人路使用不同貼圖
+Names must not contain _bay_ (reserved for the bus bay tool)	名稱不能包含 _bay_（保留給巴士停車灣工具產生的道路類型）
+A road needs at least one Lane	道路至少需要一條行車線
+Strip {} has an invalid width	積木 {} 的闊度無效
+Footways must be at the outer ends	行人路只能位於道路兩端
+BusBays must border the roadway, at most one per side	巴士停車灣只能緊貼行車道外緣，每側最多一個
+Medians must be inside the roadway	分隔帶必須位於行車道內
+The roadway may contain only Lanes and Medians	行車道內只能包含行車線和分隔帶
+Lane directions do not match this road’s traffic side	行車線方向排列不符合此道路的行駛側設定
+Reset bay texture	重設停車灣貼圖
+Bay texture reset	已重設停車灣貼圖
+Could not reset bay texture	無法重設停車灣貼圖
+The roadway texture is missing	找不到行車道貼圖
+The roadway texture could not be read	無法讀取行車道貼圖
+Apply bus lane rules to all existing roads	套用巴士專用規則到所有現有道路
+Road types and spline counts to update	將套用的道路類型與 spline 數量
+Rules added	新增規則數量
+Roads changed; review the preview again	道路已變更，請重新檢查預覽
+No roads need bus lane rules	沒有需要套用巴士專用規則的道路
+BUS	巴士
+No footway texture	未設定行人路貼圖
+Road metadata not found	找不到道路製作器資料檔
+Complete to	接駁至
+Complete to: a new piece between the free ends of the selected splines	接駁至：在所選 spline的自由端之間加一段新的
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	在所選 spline的兩個自由端之間加一段新的，類型同第一條所選 spline，位置、方向和高度都與兩端吻合；原有兩段不變。再按一次：剩下的兩端相接，環就封閉。
+The two ends already meet	這兩端已經相接
+Select the splines whose free ends are to be joined	請選擇要接合自由端的 spline
+No piece of spline can join these two ends	沒有任何 spline 路段能接合這兩端
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	已開啟內容資料夾內的 openMapper 地圖副本（OMSI 2 資料夾內的地圖不會被覆寫）
+Read in again, changed on disk by another program:	已重新讀取其他程式在磁碟上修改的項目：
+Could not bring the changes over	無法匯入變更
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	自動儲存之後，其他程式（例如 OMSI 2 編輯器）修改了地圖檔案。還原會用較舊的自動儲存地塊覆蓋這些修改。
+tile(s)	地塊
+the global settings	全域設定
+the timetable	時刻表
+the traffic	交通
+the descriptions	描述
+Reload from disk	從磁碟重新載入
+The map changed on disk	地圖在磁碟上已變更
+Another program changed the map's files where it has changes here not saved yet:	其他程式修改了地圖檔案，而下列部分有未儲存的修改：
+The other changes made on disk were read in already.	磁碟上的其他變更已讀取。
+Keep mine	保留我的
+The map changed in OMSI 2's folder	地圖在 OMSI 2 資料夾中已變更
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	儲存內容資料夾內的 openMapper 副本後，其他程式（例如 OMSI 2 編輯器）修改了安裝資料夾內的地圖
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	匯入修改會覆寫 openMapper 副本內的相關檔案。舊檔案會保留在備份內（檔案 > 較早版本）。
+Bring the changes over	匯入變更
+Keep openMapper's copy	保留 openMapper 副本
+its way has a gap after path	其路線有斷口，在路徑之後：
+its way does not pass	其路線不經過
+On demand	按需要停站
+Not served (checkpoint)	不停站（檢查點）
+Wait for departure time	等待開車時間
+Always + wait for departure time	永遠 + 等待開車時間
+The bus stops only when somebody waits or wants to get off (the game's default)	僅在有人候車或要下車時停站（遊戲預設）
+The bus always stops here	巴士永遠在此停站
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	巴士不停駛過：該站只標記路線（檢查點）
+The bus stops only when it is early, and waits there for its departure time	僅在巴士早到時停站，並在此等到開車時間
+The bus always stops here, and when it is early it waits for its departure time	巴士永遠在此停站，早到時等到開車時間
+All trips	所有班次
+Every trip of the map, those no tour drives too	地圖上的所有班次，包括沒有車班行駛的
+The line number the trip shows; the line of this number lists it among its trips	班次顯示的路線號碼；該號碼的路線在其班次中列出它
+Way picked by hand:	手動選取的路線：
+the paths picked do not pass this stop	選取的路徑不經過這個站
+Other trips	其他班次
+The time profile this departure runs to	此開車所依照的行車時間設定
+Time profile	行車時間設定
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	一個班次可有多個時間設定（繁忙時間、夜間…）：車班的每次開車註明依照哪一個
+The profile's name	時間設定名稱
+A new profile, a copy of this one	新時間設定，複製此時間設定
+Delete this profile (its departures run to the first)	刪除此時間設定（其開車改依第一個時間設定）
+Times from stop to stop	站間時間
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	可在每個站設定距上一站的時間：其後的時間隨之移動，班次時長也一樣。未設定的時間依固定站之間的距離分配；在固定站，早到的巴士會等待。
+From the stop before	距上一站
+After departure	開車後
+Minutes from the stop before to this one	從上一站到本站的分鐘數
+As in OMSI 2's editor. Hover a choice to see what the bus does.	與 OMSI 2 編輯器相同。將滑鼠停在選項上可查看巴士的行為。
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	地圖上的所有班次，無論由哪條路線顯示或哪個車班行駛。沒有車班行駛的班次也會保留，可在此編輯、指派給車班或刪除。
+trips	個班次
+driven by no tour	無車班
+no tour	無車班
+departures	次開車
+No path there: click a lane of a road (View > AI lanes shows them)	此處沒有路徑：請點擊道路的行車線（可在「檢視 > AI 行車線」顯示）
+Done picking paths	選取完成
+Pick the paths on the map	在地圖上選取路徑
+Choose the way yourself, path by path, as in OMSI 2's editor	像 OMSI 2 編輯器那樣，逐條選取路徑來自己決定路線
+Find the way automatically	自動尋找路線
+Forget the paths picked: the way is found along the roads again	忘掉選取的路徑：重新沿道路尋找路線
+The paths were picked by hand: they are kept when the stops change.	路徑是手動選取的：站點改變時會保留。
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	在畫面上點擊路徑。終點之後或起點之前的路徑會連同通往它的路徑一起加入；路線旁邊的路徑會取代它繞過的那一段（路口的另一分支）；路線上的路徑會被移除。路線可以在第一站之前開始，並在最後一站之後繼續。
+The way breaks after path	路線中斷，在路徑之後：
+the paths do not join, the bus's GPS loses its way here in the game	路徑沒有相連，遊戲中巴士的 GPS 在此會迷路
+Paths of the way	路線的路徑
+Cut before the first stop	剪掉第一站之前
+Cut after the last stop	剪掉最後一站之後
+path	路徑
+Some characters in the road name cannot be used. File: {file}	道路名稱含有檔名不支援的字元。實際檔名：{file}
+Another road already uses this file: {file}	這個檔案已由另一條道路使用：{file}
+Hand-picked routes kept: {count}	已保留手動選取的路徑：{count} 條
+Overwrite hand-picked routes	覆蓋手動選取的路徑
+Turn round and reverse	轉向並反轉
+Turn the road round and reverse it	將道路轉向並反轉
+Select one road to turn round	請選取一條要轉向的道路
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	一條道路以其起點為中心轉半圈再反轉：道路位於起點另一側，終點落在起點上，行進方向朝向起點
+In multiplayer the host saves the map. Leave the session to rename this.	多人編輯時由主機儲存地圖。請離開工作階段才能重新命名。
+Name saved	名稱已儲存
+The name has not changed	名稱沒有變更
+A name cannot have a line break	名稱不可包含換行
+A name cannot be empty	名稱不可為空
+A name cannot begin with "["	名稱不可用「[」開頭
+the object cannot be read, so it is left as it is	無法讀取物件，因此保持原狀
+its openMapper source cannot be read, so the name would come back on its next save	無法讀取其 openMapper 來源，否則下次儲存時名稱會變回舊的
+its openMapper source cannot be written	無法寫入其 openMapper 來源
+and its openMapper source could not be put back	而且無法還原其 openMapper 來源
+the name could not be saved	名稱無法儲存
+Save the name	儲存名稱

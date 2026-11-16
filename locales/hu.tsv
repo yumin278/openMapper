@@ -1236,6 +1236,8 @@ Zebra crossings	Gyalogátkelők
 Road	Út
 Build it again	Újraépítés
 Makes the plate, its kerbs and lanes again for the roads as they are now	Újra elkészíti a lapot, a szegélyeket és a sávokat az utakhoz, ahogy most vannak
+Persist junction	Csomópont végleges mentése
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	A csomópont mentése szokásos tereptárgyként az OMSI telepítési mappájába. Az új hivatkozás megőrzéséhez mentse a térképet.
 Linked objects	Kapcsolt objektumok
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Egy objektum átveheti az állapotát egy másiktól ([varparent]): a jelzőfej a kereszteződés programjának fényét mutatja, a megálló kijelzője a megállóját.
 Takes its state from	Az állapotát innen veszi:
@@ -1899,6 +1901,10 @@ My road	Az utam
  · own	 · saját
 Create the road type	Úttípus létrehozása
 Road type made: the Roads tool builds with it	Úttípus elkészült: az Utak eszköz ezzel épít
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Módosítás az útkészítőben
 Its junctions	Csomópontjai
 Make a junction where it meets another road (else they only cross)	Csomópont készítése, ahol másik úttal találkozik (különben csak keresztezik egymást)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	A jelző és darabjai kijelölése a nézetben
 Delete the route	Útvonal törlése
 Lines and timetable	Járatok és menetrend
+Convert all Type 1 trips to Type 2	Minden 1-es típusú járat átalakítása 2-es típusúvá
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Alakítsd át {count} 1-es típusú járat megállólistáját, majd mentsd a térképet. Az útvonalak újraszámítását külön indítsd el.
+Converted: {converted}. Skipped: {skipped}.	Átalakítva: {converted}. Kihagyva: {skipped}.
 Edit timetable	Menetrend szerkesztése
 No bus stop there: click one of the orange marks	Itt nincs megálló: kattints az egyik narancs jelölésre
 The roads can't be read without the OMSI 2 folder.	Az OMSI 2 mappa nélkül az utak nem olvashatók.
@@ -2396,6 +2405,7 @@ Advanced users	Haladó felhasználók
 Controls as in OMSI 2's editor	Vezérlés az OMSI 2 szerkesztőjéhez hasonlóan
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Alapból ki van kapcsolva. A középső gomb forgatja a nézetet, a lenyomva tartott jobb gomb fel-le mozgatása nagyít, a talajra jobb kattintva odaugrik (Shift + jobb kattintás: a menü), a nyilak mozgatják a kamerát, a görgő nagyít
 Bay width	Öböl szélessége
+Bay width per side	A buszöböl szélessége oldalanként
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Az ilyen öbölsávos útpályatípus a kiválasztottból (az útkészítőből) készül, ha annak nem ez a szélessége
 Tapers in metres	Szűkítések méterben
 Give the length of each taper in metres instead of a ratio	Az arány helyett az egyes szűkítések hosszát adja meg méterben
@@ -2785,6 +2795,25 @@ no track within 15 m	15 m-en belül nincs sín
 the tracks are not joined, or run the other way (see View > AI lanes)	a sínek nincsenek összekötve, vagy másfelé futnak (lásd Nézet > MI-sávok)
 no track beside	nincs sín mellette:
 Drives on	Közlekedik
+Footway paths round the corners (AI)	Gyalogos útvonalak a sarkokon (MI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kikapcsolva: a sarkokon nincs MI-útvonal, de az átkelők továbbra is összekötik a járdákat. Kösd össze a sarkokat kézzel (például láthatatlan útvonalspline-nal).
+Open in text editor	Megnyitás szövegszerkesztőben
+Open the saved .ttp file	A mentett .ttp-fájl megnyitása
+Could not open the trip file	A járatfájl nem nyitható meg
+Save the map to create this trip's .ttp file first.	A járat .ttp-fájljának létrehozásához előbb mentsd a térképet.
+Change ID	ID módosítása
+New stop ID	Új megálló-ID
+Timetable name: {name}	Név a menetrendben: {name}
+No stop with this ID on the map	Nincs ilyen ID-jű megálló a térképen
+Confirm	Megerősítés
+Also apply to other trips with this ID ({count})	Alkalmazás a többi, ilyen ID-t tartalmazó járatra is ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	A(z) {old} megálló-ID {new} ({name}) értékre módosult {count} járatban
+Insert before: click a stop on the map to insert it before this one	Beszúrás elé: válassz egy megállót a térképen, amelyet ez elé szúrsz be
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Válassz a térképen egy megállót, hogy „{stop}” elé szúrd be (Esc: mégse)
+That stop is already next to the insertion point.	Ez a megálló már a beszúrás helye mellett van.
+Insert stop before	Megálló beszúrása elé
+Place signal heads and poles	Jelzőfejek és oszlopok elhelyezése
+Paint stripes on selected crossings	Csíkok festése a kijelölt gyalogátkelőhelyekre
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Forráscsúcs kiválasztva. Kattintson egy célcsúcsra a rögzítéshez (Shift: csak vízszintes, Esc: Mégse)
 Aim at a vertex of the selected object	Célozzon a kiválasztott objektum egyik csúcsára
 Snapped to vertex! (Ctrl+Z to undo)	Csúcshoz illesztve! (Ctrl+Z a visszavonáshoz)
@@ -2822,3 +2851,136 @@ Float	Lebegtetés
 Show Assets in a floating window	Eszközök megjelenítése lebegő ablakban
 Dock	Dokkolás
 Dock Assets at the bottom	Eszközök dokkolása alul
+Complete to	Kiegészítés eddig
+Complete to: a new piece between the free ends of the selected splines	Kiegészítés eddig: új darab a kijelölt spline-ok szabad végei között
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Új darab az elsőként kijelölt spline típusából a kijelölt spline-ok két szabad vége között, amely helyben, irányban és magasságban mindkettőhöz illeszkedik; azok nem változnak. Újra: a megmaradt két vég kapcsolódik össze, a gyűrű bezárul.
+The two ends already meet	A két vég már találkozik
+Select the splines whose free ends are to be joined	Jelölje ki azokat a spline-okat, amelyek szabad végeit össze kell kötni
+No piece of spline can join these two ends	Egyetlen spline-darab sem kötheti össze ezt a két véget
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Megnyitva az openMapper másolata erről a térképről a tartalommappában (az OMSI 2 mappájában lévőt sosem írja)
+Read in again, changed on disk by another program:	Újra beolvasva, egy másik program módosította a lemezen:
+Could not bring the changes over	Nem sikerült átvenni a módosításokat
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	A térkép fájljai ezen automatikus mentés után módosultak (egy másik programmal, pl. az OMSI 2 szerkesztőjével). A visszaállítás a mentés régebbi csempéit teszi e módosítások fölé.
+tile(s)	csempe
+the global settings	a globális beállítások
+the timetable	a menetrend
+the traffic	a forgalom
+the descriptions	a leírások
+Reload from disk	Újratöltés lemezről
+The map changed on disk	A térkép megváltozott a lemezen
+Another program changed the map's files where it has changes here not saved yet:	Egy másik program módosította a térkép fájljait ott, ahol itt nem mentett módosítások vannak:
+The other changes made on disk were read in already.	A lemez többi módosítása már be lett olvasva.
+Keep mine	Az enyém marad
+The map changed in OMSI 2's folder	A térkép megváltozott az OMSI 2 mappájában
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	A térkép telepítésbeli másolata módosult, miután az openMapper másolata a tartalommappában el lett mentve, pl. az OMSI 2 szerkesztőjével
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Az átvétel lecseréli ezeket a fájlokat az openMapper másolatában; a lecserélt fájlok biztonsági mentésbe kerülnek (Fájl > Korábbi verziók).
+Bring the changes over	Módosítások átvétele
+Keep openMapper's copy	Az openMapper másolata marad
+its way has a gap after path	az útjában hézag van ez után az útvonal után:
+its way does not pass	az útja nem halad el emellett:
+On demand	Igény szerint
+Not served (checkpoint)	Nem szolgált ki (ellenőrzőpont)
+Wait for departure time	Várakozás az indulási időre
+Always + wait for departure time	Mindig + várakozás az indulási időre
+The bus stops only when somebody waits or wants to get off (the game's default)	A busz csak akkor áll meg, ha valaki vár vagy le akar szállni (a játék alapértéke)
+The bus always stops here	A busz itt mindig megáll
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	A busz megállás nélkül elhalad: a megálló csak az utat jelöli (ellenőrzőpont)
+The bus stops only when it is early, and waits there for its departure time	A busz csak akkor áll meg, ha korán jár, és ott megvárja az indulási idejét
+The bus always stops here, and when it is early it waits for its departure time	A busz itt mindig megáll, és ha korán jár, megvárja az indulási idejét
+All trips	Minden menet
+Every trip of the map, those no tour drives too	A térkép minden menete, azok is, amelyeket egy forda sem vezet
+The line number the trip shows; the line of this number lists it among its trips	A menet által mutatott vonalszám; az ilyen számú járat a menetei között sorolja fel
+Way picked by hand:	Kézzel választott út:
+the paths picked do not pass this stop	a választott útvonalak nem haladnak el e megálló mellett
+Other trips	Más menetek
+The time profile this departure runs to	Az időprofil, amely szerint ez az indulás megy
+Time profile	Időprofil
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Egy menetnek több profilja lehet (csúcsidő, éjszaka…): a forda minden indulása megmondja, melyik szerint megy
+The profile's name	A profil neve
+A new profile, a copy of this one	Új profil, ennek másolata
+Delete this profile (its departures run to the first)	Profil törlése (az indulásai az első szerint mennek)
+Times from stop to stop	Idők megállótól megállóig
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Minden megállónál megadható az előző megállótól mért idő: az utána következő idők vele tolódnak, és velük a menet ideje. A meg nem adott idők a rögzítettek közötti távolságot követik; rögzített megállóban a korán érkező busz vár.
+From the stop before	Az előző megállótól
+After departure	Indulás után
+Minutes from the stop before to this one	Percek az előző megállótól eddig
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Mint az OMSI 2 szerkesztőjében. Vidd az egeret egy lehetőség fölé, hogy lásd, mit tesz a busz.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	A térkép minden menete, bármelyik járat mutatja vagy bármelyik forda vezeti. Az a menet, amelyet egy forda sem vezet, megmarad, és itt szerkeszthető, fordához adható vagy törölhető.
+trips	menet
+driven by no tour	forda nélkül
+no tour	nincs forda
+departures	indulás
+No path there: click a lane of a road (View > AI lanes shows them)	Itt nincs útvonal: kattints egy út sávjára (Nézet > MI-sávok mutatja őket)
+Done picking paths	Kész a választással
+Pick the paths on the map	Útvonalak kiválasztása a térképen
+Choose the way yourself, path by path, as in OMSI 2's editor	Válaszd ki magad az utat, útvonalról útvonalra, mint az OMSI 2 szerkesztőjében
+Find the way automatically	Út automatikus keresése
+Forget the paths picked: the way is found along the roads again	A választott útvonalak elfelejtése: az út újra az utak mentén keresődik
+The paths were picked by hand: they are kept when the stops change.	Az útvonalakat kézzel választották: a megállók változásakor megmaradnak.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Kattints útvonalakra a nézetben. A vég után vagy a kezdet előtt lévő hozzáadódik, a hozzá vezető útvonalakkal együtt; az út melletti átveszi annak a szakasznak a helyét, amelyet megkerül (másik ág egy csomópontban); az út egy útvonala kikerül. Az út kezdődhet az első megálló előtt és folytatódhat az utolsó után.
+The way breaks after path	Az út megszakad ez után az útvonal után:
+the paths do not join, the bus's GPS loses its way here in the game	az útvonalak nem csatlakoznak, a busz GPS-e itt a játékban elveszti az utat
+Paths of the way	Az út útvonalai
+Cut before the first stop	Levágás az első megálló előtt
+Cut after the last stop	Levágás az utolsó megálló után
+path	útvonal
+Lane widths differ	A pályák szélessége eltér
+Contains bus-only lanes	Csak buszjáratokat tartalmaz
+Contains multiple medians	Több médiánot tartalmaz
+Median is not between opposite directions	A medián nem ellentétes irányok között van.
+Contains a left BusBay	Van egy bal BusBay
+Footway textures differ	A lábás texturái eltérőek
+Names must not contain _bay_ (reserved for the bus bay tool)	Ez a lánc a buszbázeszközökre van fenntartva: _bay_
+The roadway texture is missing	Hiányzik az utcai textúra.
+The roadway texture could not be read	Az utcai textúrát nem lehetett olvasni.
+Road metadata not found	Közúti metadatok nem találtak
+Some characters in the road name cannot be used. File: {file}	A közúti név egyes karakterjeit nem lehet felhasználni egy fájlnéven.: {file}
+Another road already uses this file: {file}	Egy másik út már használja ezt a fájlt: {file}
+A road needs at least one Lane	Egy útnak legalább egy vonal kell.
+Strip {} has an invalid width	Az útvonal helytelen szélessége: {}
+Footways must be at the outer ends	A lábútoknak a külső végén kell lenniük.
+BusBays must border the roadway, at most one per side	A BusBays-eknek a közúti útvonalon kell határolniuk, legfeljebb egy oldalra
+Medians must be inside the roadway	A médiumok a közúton vannak.
+The roadway may contain only Lanes and Medians	Az útvonalon csak az utakat és a mediánokat lehet látni.
+Lane directions do not match this road’s traffic side	A vonal irányát nem egyezik a forgalom által használt út oldalával.
+Apply bus lane rules to all existing roads	Az összes meglévő úton kell alkalmazni az autóbuszvonalak szabályait
+Road types and spline counts to update	Úttörő úttípusok és sziklák számának frissítése
+No roads need bus lane rules	Az autópályákra nincs szükség.
+Rules added	Beillesztett szabályok
+This road was made for left-hand traffic	Ez az út a baloldali közlekedéshez készült.
+This road was made for right-hand traffic	Ez az út jobboldali közlekedéshez készült.
+Advanced: strip mode	Fejlesztett: strip mód
+This road contains settings that simple mode cannot represent	Ez az út olyan beállításokat tartalmaz, amelyeket a egyszerű mód nem jelenthet.
+Built-in multi-lane texture markings may not align with these lanes	A beépített többvonalú textúrajelzések nem felelnek meg e pályáknak
+No footway texture	A lábút textúrája nincs
+Reset bay texture	Újra beállítókészülék
+Bay texture reset	Az öböl textúrájának visszaállítása
+Could not reset bay texture	Nem tudott visszaállítani a tányér textúráját.
+Kerb height	Kerb-magasság
+Lane	A forgalmi pálya
+Median	Mediánoszlop
+BusBay	Autópályaudvar
+Forward ↑	Előre ↑
+Backward ↓	Vissza ↓
+bus only	Csak busz
+Default footway texture	Az alapértelmezett lépcsőút textúrája
+Choose file…	Válassza ki a fájlt…
+BUS	BUS
+Hand-picked routes kept: {count}	Kézilag kiválasztott útvonalak: {count}
+Overwrite hand-picked routes	Kézilag kiválasztott útvonalak átírása
+Turn round and reverse	Fordítsd meg és fordítsd vissza az irányt
+Turn the road round and reverse it	Fordítsd meg az utat és az irányát
+Select one road to turn round	Válassz egy utat a megfordításhoz
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Az út fél fordulattal elfordul a kezdete körül, majd megfordul: a kezdet másik oldalán fekszik, a vége a kezdeten, a forgalom visszafelé halad rajta
+In multiplayer the host saves the map. Leave the session to rename this.	Közös szerkesztésben a házigazda menti a térképet. Lépj ki a munkamenetből az átnevezéshez.
+Name saved	Név mentve
+The name has not changed	A név nem változott
+A name cannot have a line break	A név nem tartalmazhat sortörést
+A name cannot be empty	A név nem lehet üres
+A name cannot begin with "["	A név nem kezdődhet „[” jellel
+the object cannot be read, so it is left as it is	az objektum nem olvasható, ezért úgy marad, ahogy van
+its openMapper source cannot be read, so the name would come back on its next save	az openMapper-forrása nem olvasható, különben a név visszatérne a következő mentéskor
+its openMapper source cannot be written	az openMapper-forrása nem írható
+and its openMapper source could not be put back	és az openMapper-forrását nem sikerült visszatenni
+the name could not be saved	a nevet nem sikerült menteni
+Save the name	Név mentése

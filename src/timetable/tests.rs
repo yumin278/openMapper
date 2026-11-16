@@ -63,6 +63,81 @@ fn same(a: &Timetable, b: &TimetableData, what: &str) {
 }
 
 #[test]
+fn global_type2_conversion_saves_only_the_converted_trips() {
+    let out = scratch("global-type2");
+    let dir = out.join("TTData");
+    let trip = |track: &str, stations: &str| {
+        format!("[trip]\n{track}\nTerminus\n66\n\n{stations}\n[profile]\nstandard\n18.000\n\n[profile_man_dep_time]\n2\n12.250\n[profile_otherstopping]\n1\n2\n")
+    };
+    let legacy = "[station]\n5521173\n5\nSouth Valley Railway Station\n271\n0.781\n41.792\n11.642\n150.000\n\n[station]\n5521015\n119\nBus Rally\n342\n1.812\n4189.310\n5.810\n150.000\n\n[station]\n5521173\n225\nSouth Valley Railway Station\n271\n0.000\n7912.901\n16.330\n0.000\n";
+    let mut originals = Vec::new();
+    for (file, text) in [
+        ("66.ttp", trip("66", legacy)),
+        ("variant.ttp", trip("66", legacy)),
+        ("converted.ttp", trip("", "[station_typ2]\n42\n\n[station_typ2]\n43\n")),
+        ("invalid.ttp", trip("66", &legacy.replace("5521015", "not an id"))),
+        ("mixed.ttp", trip("66", &format!("[station_typ2]\n42\n\n{legacy}"))),
+        ("rail.ttp", trip("66", &format!("[trainreverse]\n\n{legacy}"))),
+        ("66.ttr", "[track_entry]\n1756623\n58\n271\n144\n3.4700000000\n0\n\n".into()),
+        ("66.ttl", "[userallowed]\n\n[priority]\n1\n\n[newtour]\n1\nBusses\n1023\n\n[addtrip]\n66\n0\n360.000\n".into()),
+        ("StnLinks.cfg", "[StnLink]\n1\n42\n43\n0\n0\n0\n1\n0\n0\n\n[StnLink_entry]\n1756623\n58\n0\n1\n-1\n0\n0\n".into()),
+        ("Busstops.cfg", "[busstop]\nBus Rally\n0\n5521015\n0.0000000000\n0\n0\n\n".into()),
+    ] {
+        let bytes = encode(&text);
+        std::fs::write(dir.join(file), &bytes).unwrap();
+        if !matches!(file, "66.ttp" | "variant.ttp") {
+            originals.push((file, bytes));
+        }
+    }
+    let mut tt = Timetable::load(&out, &[]);
+    let before = tt.trips.clone();
+    tt.reroute.insert("66".into());
+    assert_eq!(tt.convert_all_to_type2(), (2, 3));
+    assert!(tt.reroute.is_empty());
+    assert_eq!(tt.convert_all_to_type2(), (0, 3));
+    save_to(&mut tt, &out, &[]).unwrap();
+    assert!(tt.type2_converted.is_empty());
+    let back = Timetable::load(&out, &[]);
+    for t in before {
+        let after = back.trip(&t.name).unwrap();
+        if matches!(t.name.as_str(), "66" | "variant") {
+            println!("{} before:\n{}\n{} after:\n{}", t.name, trip_text(&t), t.name, trip_text(after));
+            assert_eq!(after, &Trip { display_name: String::new(), stations_legacy: Vec::new(), stations: vec![5521173, 5521015, 5521173], ..t });
+        } else {
+            assert_eq!(after, &t);
+        }
+    }
+    for (file, bytes) in originals {
+        assert_eq!(std::fs::read(dir.join(file)).unwrap(), bytes, "{file}");
+    }
+    let _ = std::fs::remove_dir_all(out);
+}
+
+#[test]
+fn timetable_writes_names_for_stops_attached_to_splines() {
+    let _map = one_map();
+    let out = scratch("attached-stop-name");
+    let roots = crate::install::Roots::new(out.clone());
+    let mut doc = Document::new_map(&roots, "attached-stop", "Attached stop", 1);
+    let k = doc.order[0];
+    let tile = &mut doc.tiles.get_mut(&k).unwrap().tile;
+    let file = "Sceneryobjects\\Generic\\bus_stop.sco";
+    let labels = |name: &str| vec![name.into(), "0".into(), "0".into(), "15.0".into()];
+    tile.objects.push(omsi_map::MapObject { file: file.into(), id: 2544995, extra: labels("Aberdeen Tunnel"), ..Default::default() });
+    tile.spline_attachments.push(omsi_map::SplineAttachment { file: file.into(), id: 2353752, strings: labels("Ocean Park"), ..Default::default() });
+    let ids = [(k, 2544995), (k, 2353752)];
+    let before = stop_entries(&doc, &ids[..1]);
+    let after = stop_entries(&doc, &ids);
+    println!("Before:\n{}\nAfter:\n{}", busstops_text(&before), busstops_text(&after));
+    assert_eq!(after, [before[0].clone(), BusStopEntry { name: "Ocean Park".into(), group: 0, object_id: 2353752, params: [15.0, 0.0, 0.0] }]);
+    doc.timetable.sync_stops(after);
+    save_to(&mut doc.timetable, &out, &doc.order).unwrap();
+    let back = Timetable::load(&out, &doc.order);
+    assert_eq!(back.stop_name(2353752), Some("Ocean Park"));
+    let _ = std::fs::remove_dir_all(out);
+}
+
+#[test]
 fn stock_timetables_round_trip() {
     let Some(root) = omsi_root() else { return };
     for m in ["Grundorf", "Berlin-Spandau"] {
@@ -109,6 +184,44 @@ fn only_what_changed_is_written() {
     let back = TimetableData::load(&out);
     assert!(back.lines.is_empty() && back.trips.is_empty());
     let _ = std::fs::remove_dir_all(&out);
+}
+
+#[test]
+fn open_trip_in_text_editor_uses_the_saved_station_list() {
+    let source = scratch("open-trip-source");
+    let working = scratch("open-trip-working");
+    let trip = "73E_ba-gb";
+    let mut tt = Timetable::default();
+    let line = tt.add_line("73E");
+    tt.add_trip(&line, trip, vec![11, 12, 13]);
+    let look_up = |source_dir: Option<&Path>, fresh, name| saved_trip_path(&working, source_dir, fresh, name);
+
+    std::fs::write(working.join("TTData").join(format!("{trip}.ttl")), "not the trip file").unwrap();
+    let before = look_up(None, false, trip);
+    println!("Before saving {trip} with stations [11, 12, 13]: {before:?}");
+    assert_eq!(before, None);
+
+    save_to(&mut tt, &source, &[]).unwrap();
+    let source_file = source.join("TTData").join(format!("{trip}.ttp"));
+    assert_eq!(look_up(Some(&source), false, trip), Some(source_file.clone()));
+    assert_eq!(look_up(Some(&source), true, trip), None);
+
+    tt.trip_mut(trip).unwrap().stations.reverse();
+    tt.touch_trip(trip);
+    save_to(&mut tt, &working, &[]).unwrap();
+    let working_file = working.join("TTData").join(format!("{trip}.ttp"));
+    assert_eq!(look_up(Some(&source), false, trip), Some(source_file.clone()));
+    assert_eq!(look_up(None, false, "73e_BA-GB"), Some(working_file.clone()));
+    assert_eq!(look_up(None, false, "73E_unsaved"), None);
+
+    for (path, expected) in [(source_file, vec![11, 12, 13]), (working_file, vec![13, 12, 11])] {
+        let text = std::fs::read_to_string(&path).unwrap();
+        println!("Opened {}:\n{text}", path.display());
+        let trip = omsi_timetable::Trip::load(&path).unwrap();
+        assert_eq!(trip.stations, expected);
+    }
+    std::fs::remove_dir_all(source).unwrap();
+    std::fs::remove_dir_all(working).unwrap();
 }
 
 /// A tour without a depot (a new map's ailists.cfg has none) keeps its days.
@@ -527,4 +640,179 @@ fn a_tram_trip_runs_on_its_track() {
     assert_eq!(route::ways_of(&tt, &trip, &net, &[tile]), None);
     tt.set_route(&trip, r.track(&net, &[tile]), r.links(&net, &[tile], &[10, 11]));
     assert_eq!(route::ways_of(&tt, &trip, &net, &[tile]), Some(route::Ways::Rail));
+}
+
+/// A road object's lane that ends a couple of metres off the road it meets (laid a little
+/// under it, as Städtedreieck's are) still runs on into the road, as openOMSI links them
+/// (#120); a road on a bridge over it, 6 m up, does not.
+#[test]
+fn a_lane_a_little_off_the_road_in_height_runs_on_into_it() {
+    let tile = (0, 0);
+    let mut net = Network::default();
+    let north = |y0: f64, y1: f64, z: f64| vec![DVec3::new(0.0, y0, z), DVec3::new(0.0, y1, z)];
+    net.add(PathKey { tile, id: 1, path: 0 }, north(0.0, 20.0, -2.5), 20.0, 0, 0, (false, false));
+    net.add(PathKey { tile, id: 2, path: 0 }, north(20.0, 120.0, 0.0), 100.0, 1, 0, (true, false));
+    net.add(PathKey { tile, id: 3, path: 0 }, north(20.0, 120.0, 6.0), 100.0, 2, 0, (true, false));
+    net.link();
+    let first = net.by_key[&PathKey { tile, id: 1, path: 0 }][0];
+    let ids: Vec<i64> = net.lanes[first].next.iter().map(|&l| net.lanes[l].key.id).collect();
+    assert_eq!(ids, vec![2]);
+}
+
+/// A road north: `A` to y 100, a 1 m piece `S` (a junction's connector), `B` on from y 101
+/// to a junction at y 120 and a detour `D` beside it; on past the junction, and a road
+/// leading into `A` from the south.
+fn junction_net() -> (Network, std::collections::HashMap<i64, usize>) {
+    let tile = (0, 0);
+    let mut net = Network::default();
+    let p = |pts: &[(f64, f64)]| pts.iter().map(|q| DVec3::new(q.0, q.1, 0.0)).collect::<Vec<_>>();
+    // (one way each: direction 0, the way the points run)
+    let mut add = |id: i64, pts: Vec<DVec3>, spline: bool| {
+        let len: f64 = pts.windows(2).map(|w| (w[1] - w[0]).length()).sum();
+        net.add(PathKey { tile, id, path: 0 }, pts, len, id as usize, 0, (spline, false));
+    };
+    add(1, p(&[(0.0, 0.0), (0.0, 100.0)]), true);
+    add(2, p(&[(0.0, 100.0), (0.0, 101.0)]), false);
+    add(3, p(&[(0.0, 101.0), (0.0, 120.0)]), true);
+    add(4, p(&[(0.0, 101.0), (2.0, 106.0), (2.0, 115.0), (0.0, 120.0)]), false);
+    add(5, p(&[(0.0, 120.0), (0.0, 220.0)]), true);
+    add(6, p(&[(0.0, -100.0), (0.0, 0.0)]), true);
+    net.link();
+    let ids = (1..=6).map(|id| (id, net.by_key[&PathKey { tile, id, path: 0 }][0])).collect();
+    (net, ids)
+}
+
+/// A short piece between two paths is driven, not jumped over to the path after it: the
+/// way found joins all along, as the game's bus needs it to (#122).
+#[test]
+fn a_short_connector_is_driven_not_jumped() {
+    let (net, id) = junction_net();
+    // (path 3 starts 1 m past path 1's end, within the 1.5 m a link may span)
+    assert_eq!(net.lanes[id[&1]].next, vec![id[&2]]);
+    let at = |pts: &[(f64, f64)]| pts.iter().map(|p| Some(DVec3::new(p.0, p.1, 0.0))).collect::<Vec<_>>();
+    let r = route::find(&net, &at(&[(2.5, 50.0), (2.5, 180.0)]), false, None);
+    assert!(r.ok(), "{:?}", r.problems);
+    let ids: Vec<i64> = r.lanes.iter().map(|l| net.lanes[*l].key.id).collect();
+    assert_eq!(ids, vec![1, 2, 3, 5]);
+    assert!(way::gaps(&net, &r.lanes).is_empty());
+    // the track read back names the same lanes
+    let track = r.track(&net, &[(0, 0)]);
+    let back: Vec<Option<usize>> = way::lanes_of_track(&net, &track, &[(0, 0)]);
+    assert_eq!(back, r.lanes.iter().map(|l| Some(*l)).collect::<Vec<_>>());
+    // a way that leaves the piece out breaks where it is
+    let broken = vec![id[&1], id[&3], id[&5]];
+    let g = way::gaps(&net, &broken);
+    assert_eq!(g.len(), 1);
+    assert_eq!(g[0].0, 0);
+    assert!((g[0].1 - 1.0).abs() < 1e-6);
+}
+
+/// The way picked path by path as in OMSI 2's editor: a path clicked after the end comes
+/// with the paths to it, one before the start goes first, another branch at a junction
+/// takes the place of the one it goes round, and a path of the way clicked is taken out.
+#[test]
+fn a_way_picked_by_hand() {
+    let (net, id) = junction_net();
+    let ids = |lanes: &[usize]| lanes.iter().map(|l| net.lanes[*l].key.id).collect::<Vec<_>>();
+    let mut w = way::with_lane(&net, &[], id[&1]);
+    assert_eq!(ids(&w), vec![1]);
+    // after the end: the connector and the straight way filled in
+    w = way::with_lane(&net, &w, id[&5]);
+    assert_eq!(ids(&w), vec![1, 2, 3, 5]);
+    // before the start (a way before the first stop)
+    w = way::with_lane(&net, &w, id[&6]);
+    assert_eq!(ids(&w), vec![6, 1, 2, 3, 5]);
+    // the detour in place of the straight way
+    w = way::with_lane(&net, &w, id[&4]);
+    assert_eq!(ids(&w), vec![6, 1, 2, 4, 5]);
+    assert!(way::gaps(&net, &w).is_empty());
+    // the first taken out again
+    w = way::with_lane(&net, &w, id[&6]);
+    assert_eq!(ids(&w), vec![1, 2, 4, 5]);
+    // the stops found along it, the way running on past the last
+    let at = |pts: &[(f64, f64)]| pts.iter().map(|p| Some(DVec3::new(p.0, p.1, 0.0))).collect::<Vec<_>>();
+    let r = way::along(&net, &w, &at(&[(2.5, 50.0), (2.5, 150.0)]), false);
+    assert!(r.ok() && r.by_hand, "{:?}", r.problems);
+    assert_eq!(r.stops.iter().map(|s| s.0).collect::<Vec<_>>(), vec![0, 3]);
+    assert!((r.legs[0] - (50.0 + 1.0 + net.lanes[id[&4]].length() + 30.0)).abs() < 1e-6, "{:?}", r.legs);
+    // a stop the way does not pass
+    let r = way::along(&net, &w, &at(&[(2.5, 50.0), (40.0, 150.0)]), false);
+    assert_eq!(r.problems, vec![route::Problem::OffWay(1)]);
+}
+
+/// A trip's paths picked by hand are kept as they are when saved and read again: its track
+/// says so in a line the game passes over, and it reads back the same.
+#[test]
+fn a_track_picked_by_hand_reads_back() {
+    let mut tt = Timetable::default();
+    let out = scratch("byhand");
+    let line = tt.add_line("4");
+    let trip = tt.add_trip(&line, "4_A", vec![1, 2]);
+    let entries = vec![TrackEntry { values: vec![10.0, 0.0, 0.0, 3.0, 50.0, 0.0] }, TrackEntry { values: vec![11.0, 1.0, 0.0, 7.0, 12.5, 0.0] }];
+    tt.set_by_hand(&trip, Some((entries.clone(), Vec::new())));
+    assert!(tt.by_hand(&trip));
+    save_to(&mut tt, &out, &[]).unwrap();
+    let text = std::fs::read_to_string(out.join("TTData").join("4_A.ttr")).unwrap();
+    assert!(text.contains(BY_HAND));
+    let back = TimetableData::load(&out);
+    assert!(back.errors.is_empty(), "{:?}", back.errors);
+    assert_eq!(back.tracks[0].entries, entries);
+    let again = Timetable::load(&out, &[]);
+    assert!(again.by_hand("4_a"));
+    // renamed, it stays picked by hand; found automatically again, it is not
+    tt.rename_trip(&trip, "4_B").unwrap();
+    assert!(tt.by_hand("4_B") && !tt.by_hand("4_A"));
+    tt.set_by_hand("4_B", None);
+    assert!(!tt.by_hand("4_B") && tt.reroute.contains("4_b"));
+    let _ = std::fs::remove_dir_all(&out);
+}
+
+/// The time from stop to stop set in a profile: the stop before keeps its time, the times
+/// after move along and the trip's time with them; a second profile, and the departures
+/// that ran to a profile taken away run to the first (#116).
+#[test]
+fn the_time_from_stop_to_stop() {
+    let mut p = omsi_timetable::TripProfile { name: "standard".into(), factor: 12.0, ..Default::default() };
+    let legs = [100.0, 100.0, 100.0];
+    // 0, 4, 8, 12: the leg into stop 2 from 4 to 6 minutes
+    profile::set_leg(&mut p, 4, &legs, 2, 6.0);
+    let t: Vec<f32> = stop_times(4, &legs, &p).iter().map(|x| x.0).collect();
+    assert_eq!(t, vec![0.0, 4.0, 10.0, 14.0]);
+    assert_eq!(p.factor, 14.0);
+    // the last leg: the trip's time follows, nothing else moves
+    profile::set_leg(&mut p, 4, &legs, 3, 1.5);
+    let t: Vec<f32> = stop_times(4, &legs, &p).iter().map(|x| x.0).collect();
+    assert_eq!(t, vec![0.0, 4.0, 10.0, 11.5]);
+    assert_eq!(p.factor, 11.5);
+    // the first leg: the later stops move with it
+    profile::set_leg(&mut p, 4, &legs, 1, 2.0);
+    let t: Vec<f32> = stop_times(4, &legs, &p).iter().map(|x| x.0).collect();
+    assert_eq!(t, vec![0.0, 2.0, 8.0, 9.5]);
+    profile::set_total(&mut p, 4, 20.0);
+    assert_eq!(stop_times(4, &legs, &p)[3].0, 20.0);
+    // a second profile; the departures follow when one is taken away
+    let mut tt = Timetable::default();
+    let line = tt.add_line("9");
+    let trip = tt.add_trip(&line, "9_A", vec![1, 2, 3, 4]);
+    tt.trip_mut(&trip).unwrap().profiles[0] = p.clone();
+    assert_eq!(tt.add_profile(&trip, 0), Some(1));
+    assert_eq!(tt.add_profile(&trip, 0), Some(2));
+    let names: Vec<String> = tt.trip(&trip).unwrap().profiles.iter().map(|p| p.name.clone()).collect();
+    assert_eq!(names, vec!["standard", "standard 2", "standard 3"]);
+    tt.lines[0].tours.push(omsi_timetable::Tour { number: "1".into(), ai_group: String::new(), extra: ALL_DAYS.to_string(), trips: (0..3).map(|k| omsi_timetable::TourTrip { trip: trip.clone(), profile: k, departure: 300.0 + k as f32 * 30.0 }).collect() });
+    tt.remove_profile(&trip, 1);
+    assert_eq!(tt.lines[0].tours[0].trips.iter().map(|x| x.profile).collect::<Vec<_>>(), vec![0, 0, 1]);
+    // the profiles as OMSI 2 reads them
+    let back = omsi_timetable::Trip::parse(&omsi_cfg::CfgFile::from_str(format!("{trip}.ttp"), &trip_text(tt.trip(&trip).unwrap())));
+    assert_eq!(back.profiles, tt.trip(&trip).unwrap().profiles);
+}
+
+/// The ways OMSI 2 serves a stop, each said in its own words.
+#[test]
+fn every_way_a_stop_is_served_has_a_name() {
+    let mut names: Vec<&str> = crate::stops::StopKind::SERVE.iter().map(|v| crate::stops::StopKind::of_serve(*v).unwrap()).collect();
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), 5);
+    assert!(crate::stops::StopKind::SERVE.contains(&2));
 }

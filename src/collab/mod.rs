@@ -449,6 +449,7 @@ fn guest_doc(roots: &Roots, w: &Welcome) -> Result<Document, String> {
 /// An empty document to fill.
 fn placeholder() -> Document {
     Document {
+        content_root: None,
         global: Default::default(),
         tiles: Default::default(),
         order: Vec::new(),
@@ -461,6 +462,7 @@ fn placeholder() -> Document {
         traffic: Default::default(),
         descriptions: Default::default(),
         groups: Vec::new(),
+        signal_sets: Default::default(),
     }
 }
 

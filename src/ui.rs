@@ -82,6 +82,8 @@ pub enum Action {
     PlaceAsset(String),
     /// Show an asset's file in the system's file manager.
     RevealAsset(String),
+    /// An asset's name in the catalogue: its path, and the name as it was typed.
+    RenameAsset(String, String),
     /// Move an asset of the content folder into openMapper's bin.
     DeleteAsset(String),
     /// Welcome list: a map's folder shown in the file manager (its global.cfg).
@@ -96,6 +98,8 @@ pub enum Action {
     ComplexJunctions,
     /// The crossing path editor window on the picked object (or a crossing picked there).
     CrossingPaths,
+    /// Save the selected automatic junction as a standalone OMSI object.
+    PersistJunction(crate::doc::TileKey, i64),
     /// Put the crossing being edited in the middle of the map's view, close enough that its
     /// paths fill it.
     CrossingFrame,
@@ -181,6 +185,8 @@ pub enum Action {
     /// Put the map's folder back as it was before the save kept in this backup (and the
     /// later ones), then open it again.
     RestoreBackup(PathBuf),
+    /// File > Reload from disk: the map read again from its files.
+    ReloadFromDisk,
     /// Open or close the Traffic and AI window.
     Traffic,
     /// Open or close the Satellite and terrain window.
@@ -819,8 +825,9 @@ pub fn editor(root: &mut egui::Ui, st: &mut UiState, u: EditorUi, actions: &mut 
         tool_panel(ui, st, ed, lib, thumbs, wanted, swatches, wanted_swatches, actions);
     });
     egui::Panel::right("properties").resizable(true).default_size(270.0).size_range(220.0..=420.0).frame(panel_frame()).show(root, |ui| {
-        // (a road's rows of objects can make it long)
-        egui::ScrollArea::vertical().id_salt("properties scroll").auto_shrink([false, false]).show(ui, |ui| {
+        // (a road's rows of objects can make it long; a row wider than the panel scrolls
+        // sideways instead of widening it: the map view shrank and slid away under the click)
+        egui::ScrollArea::both().id_salt("properties scroll").auto_shrink([false, false]).show(ui, |ui| {
             properties(ui, st, ed, lib, actions);
         });
     });
@@ -904,6 +911,9 @@ fn menu_bar(root: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, can_undo: bo
                 ui.separator();
                 if menu_item(ui, Some(Icon::Save), tr("Save", "Сохранить"), "Ctrl+S", true) {
                     actions.push(Action::Save);
+                }
+                if menu_item(ui, None, tr("Reload from disk", "Загрузить с диска"), "", ed.doc.as_ref().map(|d| !d.fresh).unwrap_or(false)) {
+                    actions.push(Action::ReloadFromDisk);
                 }
                 if menu_item(ui, Some(Icon::Copy), tr("Export map for sharing…", "Экспорт карты для обмена…"), "", true) {
                     actions.push(Action::Export);
@@ -2338,6 +2348,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
     let mut knife = false;
     let mut join_next = false;
     let mut reverse = false;
+    let mut flip = false;
     let mut lay = false;
     let mut align_road = false;
     let mut lean = false;
@@ -2732,6 +2743,9 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
                 if ui.small_button(tr("Reverse direction", "Развернуть направление")).on_hover_text(crate::ui_edit::reverse_help()).clicked() {
                     reverse = true;
                 }
+                if ui.small_button(tr("Turn round and reverse", "Развернуть кругом и обратить")).on_hover_text(crate::ui_edit::flip_help()).clicked() {
+                    flip = true;
+                }
                 if s.prev_id != 0 || s.next_id != 0 {
                     if ui.small_button(tr("Select the whole road", "Выбрать всю дорогу")).on_hover_text(tr("Every piece linked on from this one (or double-click the road)", "Все куски, связанные с этим (или двойной клик по дороге)")).clicked() {
                         whole_road = true;
@@ -2853,7 +2867,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
     }
     match sel {
         Sel::Object(k, id) => {
-            crate::ui_edit::junction_section(ui, ed, k, id);
+            crate::ui_edit::junction_section(ui, ed, k, id, actions);
             crate::ui_edit::array_section(ui, ed, lib);
             crate::ui_edit::link_section(ui, ed, lib, k, id, obj_info.as_ref(), parent_lights.as_ref());
             if has_paths {
@@ -3039,6 +3053,10 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
             }
             if reverse {
                 ed.reverse_selected();
+                return;
+            }
+            if flip {
+                ed.flip_selected();
                 return;
             }
             if lay {

@@ -739,6 +739,7 @@ pub mod tests {
     pub fn flat_map(n: i32) -> Document {
         crate::doc::hold_map_for_test();
         let mut doc = Document {
+            content_root: None,
             global: omsi_map::GlobalCfg { next_id_code: 100, ..Default::default() },
             tiles: Default::default(),
             order: Vec::new(),
@@ -751,6 +752,7 @@ pub mod tests {
             traffic: Default::default(),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
         };
         for x in 0..n {
             doc.tiles.insert((x, 0), TileDoc::new_flat(0.0));

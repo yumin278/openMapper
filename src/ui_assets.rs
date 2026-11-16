@@ -67,6 +67,9 @@ pub struct AssetBrowser {
     /// A picture being dragged towards the view.
     pub dragging: Option<String>,
     confirm_delete: Option<String>,
+    /// The name being typed for the picked object (its path, and the text so far): written
+    /// only when the button is pressed or Enter is, never while it is typed.
+    rename: Option<(String, String)>,
     /// The texture folder shown (None: all) and the texture picked.
     tex_folder: Option<String>,
     tex_picked: Option<String>,
@@ -75,7 +78,7 @@ pub struct AssetBrowser {
 
 impl Default for AssetBrowser {
     fn default() -> Self {
-        AssetBrowser { open: false, layout: None, search: String::new(), show: Show::All, folder: None, size: 88.0, picked: None, dragging: None, confirm_delete: None, tex_folder: None, tex_picked: None, cache: None }
+        AssetBrowser { open: false, layout: None, search: String::new(), show: Show::All, folder: None, size: 88.0, picked: None, dragging: None, confirm_delete: None, rename: None, tex_folder: None, tex_picked: None, cache: None }
     }
 }
 
@@ -106,7 +109,7 @@ impl AssetBrowser {
         let key = {
             use std::hash::{Hash, Hasher};
             let mut h = std::collections::hash_map::DefaultHasher::new();
-            (lib.assets.len(), textures.len(), self.search.trim().to_lowercase(), self.show as u8, &self.folder, &self.tex_folder, favourites).hash(&mut h);
+            (lib.assets.len(), lib.rev, textures.len(), self.search.trim().to_lowercase(), self.show as u8, &self.folder, &self.tex_folder, favourites).hash(&mut h);
             h.finish()
         };
         let cache = match self.cache.take() {
@@ -469,6 +472,27 @@ impl AssetBrowser {
         ui.label(RichText::new(&a.name).strong().color(Color32::WHITE));
         ui.label(RichText::new(&a.rel).small().color(Color32::from_gray(140)));
         ui.label(RichText::new(format!("{} · {}", a.category.label(), if a.from_content { tr("content folder (mod, import, own)", "папка контента (мод, импорт, своё)") } else { tr("OMSI 2", "OMSI 2") })).small());
+        if a.kind == Kind::Object {
+            // (the name being typed for this object: another one picked starts from its name)
+            if self.rename.as_ref().map(|(rel, _)| rel != &a.rel).unwrap_or(true) {
+                self.rename = Some((a.rel.clone(), a.name.clone()));
+            }
+            if let Some((_, text)) = self.rename.as_mut() {
+                ui.add_space(4.0);
+                let mut entered = false;
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(tr("Name", "Название")).small());
+                    let edit = ui.add(egui::TextEdit::singleline(text).desired_width(f32::INFINITY));
+                    // (written on the button or Enter only: a file is not written per keystroke)
+                    entered = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                });
+                // (the pane puts its actions under the text, one button a row, so this one too)
+                let clicked = ui.button(icons::labelled(Icon::Save, tr("Save the name", "Сохранить название"))).clicked();
+                if entered || clicked {
+                    actions.push(Action::RenameAsset(a.rel.clone(), text.clone()));
+                }
+            }
+        }
         if a.kind == Kind::Spline && a.half_width > 0.0 {
             ui.label(RichText::new(format!("{} {:.1} m", tr("width", "ширина"), a.half_width * 2.0)).small());
         }

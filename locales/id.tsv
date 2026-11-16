@@ -1236,6 +1236,8 @@ Zebra crossings	Penyeberangan zebra
 Road	Jalan
 Build it again	Bangun ulang
 Makes the plate, its kerbs and lanes again for the roads as they are now	Membuat ulang pelat, tepi jalan, dan lajurnya untuk jalan seperti sekarang
+Persist junction	Simpan persimpangan
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Simpan persimpangan ini sebagai objek pemandangan biasa di folder instalasi OMSI. Simpan peta untuk mempertahankan referensi baru.
 Linked objects	Objek tertaut
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Objek dapat mengambil statusnya dari objek lain ([varparent]): lampu sinyal menampilkan cahaya program persimpangannya, layar halte menampilkan haltenya.
 Takes its state from	Mengambil status dari
@@ -1899,6 +1901,10 @@ My road	Jalan saya
  · own	 · milik sendiri
 Create the road type	Buat jenis jalan
 Road type made: the Roads tool builds with it	Jenis jalan dibuat: alat Jalan membangun dengannya
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Ubah di pembuat jalan
 Its junctions	Persimpangannya
 Make a junction where it meets another road (else they only cross)	Buat persimpangan di tempat jalan bertemu jalan lain (jika tidak, hanya bersilangan)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Pilih sinyal dan bagiannya di tampilan
 Delete the route	Hapus rute
 Lines and timetable	Jalur dan jadwal
+Convert all Type 1 trips to Type 2	Ubah semua perjalanan Tipe 1 ke Tipe 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Ubah daftar halte untuk {count} perjalanan Tipe 1, lalu simpan peta. Penghitungan ulang rute dijalankan secara terpisah.
+Converted: {converted}. Skipped: {skipped}.	Diubah: {converted}. Dilewati: {skipped}.
 Edit timetable	Edit jadwal
 No bus stop there: click one of the orange marks	Tidak ada halte di sana: klik salah satu tanda oranye
 The roads can't be read without the OMSI 2 folder.	Jalan tidak dapat dibaca tanpa folder OMSI 2.
@@ -2396,6 +2405,7 @@ Advanced users	Pengguna mahir
 Controls as in OMSI 2's editor	Kontrol seperti di editor OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Nonaktif secara default. Tombol tengah memutar tampilan, tombol kanan ditahan dan digerakkan naik turun untuk zoom, klik kanan pada tanah menuju ke sana (Shift + klik kanan: menu), tombol panah menggerakkan kamera, roda mouse untuk zoom
 Bay width	Lebar kantong
+Bay width per side	Lebar teluk bus per sisi
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Tipe jalan dengan lajur kantong ini dibuat dari tipe yang dipilih (milik pembuat jalan), jika lebarnya bukan itu
 Tapers in metres	Runcing dalam meter
 Give the length of each taper in metres instead of a ratio	Berikan panjang setiap runcing dalam meter, bukan rasio
@@ -2785,6 +2795,25 @@ no track within 15 m	tidak ada rel dalam 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	rel tidak tersambung, atau berlawanan arah (lihat Tampilan > Lajur AI)
 no track beside	tidak ada rel di samping
 Drives on	Berjalan di
+Footway paths round the corners (AI)	Jalur pejalan kaki di tikungan (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Nonaktif: tikungan tidak memiliki jalur AI, tetapi penyeberangan tetap menghubungkan trotoar. Hubungkan tikungan secara manual (misalnya dengan spline jalur tak terlihat).
+Open in text editor	Buka di editor teks
+Open the saved .ttp file	Buka berkas .ttp yang tersimpan
+Could not open the trip file	Berkas perjalanan tidak dapat dibuka
+Save the map to create this trip's .ttp file first.	Simpan peta terlebih dahulu untuk membuat berkas .ttp perjalanan ini.
+Change ID	Ubah ID
+New stop ID	ID halte baru
+Timetable name: {name}	Nama di jadwal: {name}
+No stop with this ID on the map	Tidak ada halte dengan ID ini di peta
+Confirm	Konfirmasi
+Also apply to other trips with this ID ({count})	Terapkan juga ke perjalanan lain dengan ID ini ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID halte {old} diubah menjadi {new} ({name}) pada {count} perjalanan
+Insert before: click a stop on the map to insert it before this one	Sisipkan sebelum: pilih halte di peta untuk disisipkan sebelum halte ini
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Pilih halte di peta untuk disisipkan sebelum “{stop}” (Esc untuk membatalkan)
+That stop is already next to the insertion point.	Halte itu sudah berada di sebelah titik penyisipan.
+Insert stop before	Sisipkan halte sebelumnya
+Place signal heads and poles	Pasang kepala dan tiang lampu lalu lintas
+Paint stripes on selected crossings	Beri garis pada penyeberangan yang dipilih
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Titik sumber dipilih. Klik titik sasaran yang akan diambil (Shift: horizontal saja, Esc: batal)
 Aim at a vertex of the selected object	Arahkan ke titik puncak objek yang dipilih
 Snapped to vertex! (Ctrl+Z to undo)	Terjepret ke titik puncak! (Ctrl+Z untuk membatalkan)
@@ -2822,3 +2851,136 @@ Float	Melayang
 Show Assets in a floating window	Tampilkan aset di jendela melayang
 Dock	Dok
 Dock Assets at the bottom	Dok aset di bawah
+Complete to	Lengkapi sampai
+Complete to: a new piece between the free ends of the selected splines	Lengkapi sampai: bagian baru di antara ujung bebas spline yang dipilih
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Bagian baru dengan tipe spline yang pertama dipilih di antara dua ujung bebas spline yang dipilih, tersambung dengan keduanya dalam posisi, arah, dan ketinggian; keduanya tidak diubah. Sekali lagi: dua ujung yang tersisa disambung, lingkaran tertutup.
+The two ends already meet	Kedua ujung sudah bertemu
+Select the splines whose free ends are to be joined	Pilih spline yang ujung bebasnya akan disambung
+No piece of spline can join these two ends	Tidak ada bagian spline yang dapat menyambung kedua ujung ini
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Salinan openMapper dari peta ini di folder konten dibuka (yang ada di folder OMSI 2 tidak pernah ditulis)
+Read in again, changed on disk by another program:	Dibaca ulang, diubah di disk oleh program lain:
+Could not bring the changes over	Tidak dapat membawa perubahan
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	File peta diubah setelah simpan otomatis ini (oleh program lain, misalnya editor OMSI 2). Memulihkan menaruh tile lama dari simpanan di atas perubahan itu.
+tile(s)	tile
+the global settings	pengaturan global
+the timetable	jadwal
+the traffic	lalu lintas
+the descriptions	deskripsi
+Reload from disk	Muat ulang dari disk
+The map changed on disk	Peta berubah di disk
+Another program changed the map's files where it has changes here not saved yet:	Program lain mengubah file peta di bagian yang di sini punya perubahan belum disimpan:
+The other changes made on disk were read in already.	Perubahan lain di disk sudah dibaca.
+Keep mine	Simpan milik saya
+The map changed in OMSI 2's folder	Peta berubah di folder OMSI 2
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	Salinan peta ini di instalasi diubah setelah salinan openMapper di folder konten disimpan, misalnya oleh editor OMSI 2
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Membawa perubahan mengganti file itu di salinan openMapper; file yang diganti disimpan dalam cadangan (File > Versi sebelumnya).
+Bring the changes over	Bawa perubahan
+Keep openMapper's copy	Simpan salinan openMapper
+its way has a gap after path	rutenya terputus setelah jalur
+its way does not pass	rutenya tidak melewati
+On demand	Sesuai permintaan
+Not served (checkpoint)	Tidak dilayani (titik periksa)
+Wait for departure time	Tunggu waktu berangkat
+Always + wait for departure time	Selalu + tunggu waktu berangkat
+The bus stops only when somebody waits or wants to get off (the game's default)	Bus berhenti hanya jika ada yang menunggu atau ingin turun (bawaan game)
+The bus always stops here	Bus selalu berhenti di sini
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	Bus lewat tanpa berhenti: halte hanya menandai rute (titik periksa)
+The bus stops only when it is early, and waits there for its departure time	Bus berhenti hanya jika datang lebih awal, dan menunggu di sana sampai waktu berangkatnya
+The bus always stops here, and when it is early it waits for its departure time	Bus selalu berhenti di sini, dan jika datang lebih awal ia menunggu waktu berangkatnya
+All trips	Semua perjalanan
+Every trip of the map, those no tour drives too	Setiap perjalanan di peta, juga yang tidak dijalani dinas mana pun
+The line number the trip shows; the line of this number lists it among its trips	Nomor jalur yang ditampilkan perjalanan; jalur dengan nomor ini mencantumkannya di antara perjalanannya
+Way picked by hand:	Rute dipilih manual:
+the paths picked do not pass this stop	jalur yang dipilih tidak melewati halte ini
+Other trips	Perjalanan lain
+The time profile this departure runs to	Profil waktu yang diikuti keberangkatan ini
+Time profile	Profil waktu
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Satu perjalanan bisa punya beberapa profil (jam sibuk, malam…): setiap keberangkatan dinas menyebut profil mana yang diikutinya
+The profile's name	Nama profil
+A new profile, a copy of this one	Profil baru, salinan profil ini
+Delete this profile (its departures run to the first)	Hapus profil ini (keberangkatannya mengikuti yang pertama)
+Times from stop to stop	Waktu dari halte ke halte
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Waktu dari halte sebelumnya bisa diatur di setiap halte: waktu sesudahnya ikut bergeser, begitu juga waktu perjalanan. Waktu yang tidak diatur mengikuti jarak antara yang tetap; di halte tetap, bus yang datang lebih awal menunggu.
+From the stop before	Dari halte sebelumnya
+After departure	Setelah berangkat
+Minutes from the stop before to this one	Menit dari halte sebelumnya ke halte ini
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Seperti di editor OMSI 2. Arahkan kursor ke pilihan untuk melihat apa yang dilakukan bus.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Setiap perjalanan di peta, jalur mana pun yang menampilkannya atau dinas mana pun yang menjalaninya. Perjalanan yang tidak dijalani dinas mana pun tetap disimpan, dan di sini bisa diedit, diberikan ke dinas, atau dihapus.
+trips	perjalanan
+driven by no tour	tanpa dinas
+no tour	tanpa dinas
+departures	keberangkatan
+No path there: click a lane of a road (View > AI lanes shows them)	Tidak ada jalur di situ: klik lajur sebuah jalan (Tampilan > Lajur AI menampilkannya)
+Done picking paths	Selesai memilih
+Pick the paths on the map	Pilih jalur di peta
+Choose the way yourself, path by path, as in OMSI 2's editor	Pilih rute sendiri, jalur demi jalur, seperti di editor OMSI 2
+Find the way automatically	Cari rute otomatis
+Forget the paths picked: the way is found along the roads again	Lupakan jalur yang dipilih: rute dicari lagi menyusuri jalan
+The paths were picked by hand: they are kept when the stops change.	Jalur dipilih manual: tetap disimpan saat halte berubah.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Klik jalur di tampilan. Jalur setelah ujung atau sebelum awal ditambahkan, beserta jalur menuju ke sana; jalur di samping rute menggantikan bagian yang dikelilinginya (cabang lain di persimpangan); jalur dari rute dikeluarkan. Rute boleh dimulai sebelum halte pertama dan berlanjut setelah halte terakhir.
+The way breaks after path	Rute terputus setelah jalur
+the paths do not join, the bus's GPS loses its way here in the game	jalur tidak tersambung, GPS bus kehilangan arah di sini dalam game
+Paths of the way	Jalur dari rute
+Cut before the first stop	Potong sebelum halte pertama
+Cut after the last stop	Potong setelah halte terakhir
+path	jalur
+Lane widths differ	Luas jalur berbeda
+Contains bus-only lanes	Mengandung jalur hanya bus
+Contains multiple medians	Mengandung beberapa median
+Median is not between opposite directions	Median tidak antara arah yang berlawanan
+Contains a left BusBay	Isi busbay kiri
+Footway textures differ	Tekstur kaki berbeda
+Names must not contain _bay_ (reserved for the bus bay tool)	String ini disediakan untuk alat bus bay: _bay_
+The roadway texture is missing	Tekstur jalan hilang
+The roadway texture could not be read	Tekstur jalan tidak bisa dibaca
+Road metadata not found	Metadata jalan tidak ditemukan
+Some characters in the road name cannot be used. File: {file}	Beberapa karakter dalam nama jalan tidak dapat digunakan dalam nama file.: {file}
+Another road already uses this file: {file}	Jalan lain sudah menggunakan file ini: {file}
+A road needs at least one Lane	Sebuah jalan membutuhkan setidaknya satu jalur
+Strip {} has an invalid width	Jarak jalur jalan yang tidak valid: {}
+Footways must be at the outer ends	Jalur kaki harus di ujung luar
+BusBays must border the roadway, at most one per side	BusBays harus berbatasan dengan jalan raya, paling tidak satu per sisi
+Medians must be inside the roadway	Media harus berada di dalam jalan.
+The roadway may contain only Lanes and Medians	Jalan mungkin hanya berisi Lane dan Medians
+Lane directions do not match this road’s traffic side	Arah jalur tidak sesuai dengan sisi jalan yang digunakan oleh lalu lintas.
+Apply bus lane rules to all existing roads	Menerapkan aturan jalur bus untuk semua jalan yang ada
+Road types and spline counts to update	Jenis jalan dan hitungan spline untuk diperbarui
+No roads need bus lane rules	Tidak ada jalan yang membutuhkan aturan jalur bus
+Rules added	Aturan ditambahkan
+This road was made for left-hand traffic	Jalan ini dibuat untuk lalu lintas kiri
+This road was made for right-hand traffic	Jalan ini dibuat untuk lalu lintas kanan
+Advanced: strip mode	Advanced: mode strip
+This road contains settings that simple mode cannot represent	Jalan ini berisi pengaturan yang mode sederhana tidak dapat mewakili
+Built-in multi-lane texture markings may not align with these lanes	Tanda tekstur multi-lane yang tertanam mungkin tidak selaras dengan jalur ini
+No footway texture	Tidak ada tekstur jalan kaki
+Reset bay texture	Reset tekstur bay
+Bay texture reset	Reset tekstur teluk
+Could not reset bay texture	Tidak bisa mengatur kembali tekstur bay
+Kerb height	Ketinggian kerb
+Lane	jalur lalu lintas
+Median	Median strip
+BusBay	Teluk bus
+Forward ↑	Ke depan ↑
+Backward ↓	Kembali ↓
+bus only	bus saja
+Default footway texture	Tekstur jalan kaki standar
+Choose file…	Pilih file…
+BUS	BUS
+Hand-picked routes kept: {count}	Lalu lintas yang dipilih secara manual disimpan: {count}
+Overwrite hand-picked routes	Menulis ulang rute yang dipilih secara manual
+Turn round and reverse	Putar balik dan balik arah
+Turn the road round and reverse it	Putar balik jalan dan balik arahnya
+Select one road to turn round	Pilih satu jalan untuk diputar balik
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Satu jalan diputar setengah putaran mengelilingi awalnya lalu dibalik: jalan berada di sisi lain awal, ujungnya di awal, lalu lintas kembali ke arahnya
+In multiplayer the host saves the map. Leave the session to rename this.	Dalam penyuntingan bersama, host yang menyimpan peta. Keluar dari sesi untuk mengganti nama ini.
+Name saved	Nama disimpan
+The name has not changed	Nama tidak berubah
+A name cannot have a line break	Nama tidak boleh berisi baris baru
+A name cannot be empty	Nama tidak boleh kosong
+A name cannot begin with "["	Nama tidak boleh diawali „[”
+the object cannot be read, so it is left as it is	objek tidak dapat dibaca, jadi dibiarkan apa adanya
+its openMapper source cannot be read, so the name would come back on its next save	sumber openMapper-nya tidak dapat dibaca, kalau tidak namanya akan kembali saat disimpan berikutnya
+its openMapper source cannot be written	sumber openMapper-nya tidak dapat ditulis
+and its openMapper source could not be put back	dan sumber openMapper-nya tidak dapat dikembalikan
+the name could not be saved	nama tidak dapat disimpan
+Save the name	Simpan nama

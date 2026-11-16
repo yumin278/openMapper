@@ -1236,6 +1236,8 @@ Zebra crossings	Пішохідні переходи
 Road	Дорога
 Build it again	Побудувати заново
 Makes the plate, its kerbs and lanes again for the roads as they are now	Заново будує майданчик, бордюри й смуги під дороги, як вони зараз
+Persist junction	Зберегти перехрестя
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Збережіть це перехрестя як звичайний об’єкт сцени в папці встановлення OMSI. Збережіть карту, щоб записати нове посилання.
 Linked objects	Пов'язані об'єкти
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Об'єкт може брати стан від іншого ([varparent]): світлофор показує сигнал програми свого перехрестя, табло зупинки — свою зупинку.
 Takes its state from	Бере стан від
@@ -1899,6 +1901,10 @@ My road	Моя дорога
  · own	 · своя
 Create the road type	Створити тип дороги
 Road type made: the Roads tool builds with it	Тип дороги створено: інструмент «Дороги» будує ним
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Змінити в конструкторі
 Its junctions	Його перехрестя
 Make a junction where it meets another road (else they only cross)	Робити перехрестя, де вона зустрічає іншу дорогу (інакше просто перетинаються)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Виділити сигнал і його ділянки у вікні виду
 Delete the route	Видалити маршрут
 Lines and timetable	Лінії та розклад
+Convert all Type 1 trips to Type 2	Перетворити всі рейси типу 1 на тип 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Перетворіть списки зупинок для рейсів типу 1 ({count}), а потім збережіть карту. Перерахунок маршрутів запускається окремо.
+Converted: {converted}. Skipped: {skipped}.	Перетворено: {converted}. Пропущено: {skipped}.
 Edit timetable	Правка розкладу
 No bus stop there: click one of the orange marks	Тут немає зупинки: клацніть по помаранчевій мітці
 The roads can't be read without the OMSI 2 folder.	Без теки OMSI 2 дороги не прочитати.
@@ -2396,6 +2405,7 @@ Advanced users	Досвідчені користувачі
 Controls as in OMSI 2's editor	Керування як у редакторі OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Типово вимкнено. Середня кнопка обертає вигляд, права кнопка з рухом угору й униз масштабує, правий клік по землі веде туди (Shift + правий клік: меню), стрілки рухають камеру, колесо масштабує
 Bay width	Ширина кишені
+Bay width per side	Ширина автобусної кишені з кожного боку
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Тип дороги з такою смугою кишені створюється з обраного (з конструктора дороги), якщо він не має такої ширини
 Tapers in metres	Звуження в метрах
 Give the length of each taper in metres instead of a ratio	Вкажіть довжину кожного звуження в метрах замість пропорції
@@ -2783,6 +2793,25 @@ no track within 15 m	у 15 м немає рейок
 the tracks are not joined, or run the other way (see View > AI lanes)	рейки не з'єднані або йдуть в інший бік (Вигляд > Смуги ШІ)
 no track beside	немає рейок біля
 Drives on	Їздить по
+Footway paths round the corners (AI)	Пішохідні шляхи на кутах (ШІ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Вимкнено: на кутах немає шляхів ШІ, але переходи й далі з’єднують тротуари. З’єднайте кути вручну (наприклад, невидимим сплайном шляху).
+Open in text editor	Відкрити в текстовому редакторі
+Open the saved .ttp file	Відкрити збережений файл .ttp
+Could not open the trip file	Не вдалося відкрити файл рейсу
+Save the map to create this trip's .ttp file first.	Спочатку збережіть мапу, щоб створити файл .ttp цього рейсу.
+Change ID	Змінити ID
+New stop ID	Новий ID зупинки
+Timetable name: {name}	Назва в розкладі: {name}
+No stop with this ID on the map	На мапі немає зупинки з таким ID
+Confirm	Підтвердити
+Also apply to other trips with this ID ({count})	Застосувати також до інших рейсів із цим ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	ID зупинки змінено з {old} на {new} ({name}). Кількість рейсів: {count}
+Insert before: click a stop on the map to insert it before this one	Вставити перед: виберіть зупинку на мапі, щоб вставити її перед цією
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Виберіть зупинку на мапі, щоб вставити її перед «{stop}» (Esc — скасувати)
+That stop is already next to the insertion point.	Ця зупинка вже поруч із місцем вставлення.
+Insert stop before	Вставити зупинку перед цією
+Place signal heads and poles	Установити світлофори та опори
+Paint stripes on selected crossings	Намалювати смуги на вибраних переходах
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Вибрана вихідна вершина. Клацніть цільову вершину, щоб зробити прив’язку (Shift: лише горизонтально, Esc: скасувати)
 Aim at a vertex of the selected object	Наведіть приціл у вершину вибраного об'єкта
 Snapped to vertex! (Ctrl+Z to undo)	Прищеплено до вершини! (Ctrl+Z, щоб скасувати)
@@ -2820,3 +2849,136 @@ Float	Відокремити
 Show Assets in a floating window	Показати ассети в плаваючому вікні
 Dock	Закріпити
 Dock Assets at the bottom	Закріпити ассети внизу
+Complete to	Добудувати до
+Complete to: a new piece between the free ends of the selected splines	Добудувати до: новий шматок між вільними кінцями вибраних сплайнів
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Новий шматок типу першого вибраного сплайна між двома вільними кінцями вибраних сплайнів, що збігається з обома за місцем, напрямком і висотою; самі вони не змінюються. Ще раз: з'єднуються два кінці, що лишилися, кільце замикається.
+The two ends already meet	Ці два кінці вже сходяться
+Select the splines whose free ends are to be joined	Виберіть сплайни, вільні кінці яких треба з'єднати
+No piece of spline can join these two ends	Жоден шматок сплайна не з'єднає ці два кінці
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Відкрито копію цієї карти openMapper у теці вмісту (карта в теці OMSI 2 не змінюється)
+Read in again, changed on disk by another program:	Завантажено заново, змінено на диску іншою програмою:
+Could not bring the changes over	Не вдалося перенести зміни
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Файли карти змінено після цього автозбереження (іншою програмою, наприклад редактором OMSI 2). Відновлення покладе старі тайли з автозбереження поверх цих змін.
+tile(s)	тайл(ів)
+the global settings	загальні налаштування
+the timetable	розклад
+the traffic	трафік
+the descriptions	описи
+Reload from disk	Завантажити з диска
+The map changed on disk	Карта змінилася на диску
+Another program changed the map's files where it has changes here not saved yet:	Інша програма змінила файли карти там, де тут є незбережені зміни:
+The other changes made on disk were read in already.	Решту змін з диска вже завантажено.
+Keep mine	Залишити мої
+The map changed in OMSI 2's folder	Карта змінилася в теці OMSI 2
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	Копію цієї карти в установці OMSI 2 змінено після збереження копії openMapper у теці вмісту, наприклад редактором OMSI 2
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Перенесення замінить ці файли в копії openMapper; замінені файли зберігаються в резервній копії (Файл > Попередні версії).
+Bring the changes over	Перенести зміни
+Keep openMapper's copy	Залишити копію openMapper
+its way has a gap after path	у його шляху розрив після шляху
+its way does not pass	його шлях не проходить біля
+On demand	На вимогу
+Not served (checkpoint)	Не обслуговується (контрольна точка)
+Wait for departure time	Чекати часу відправлення
+Always + wait for departure time	Завжди + чекати часу відправлення
+The bus stops only when somebody waits or wants to get off (the game's default)	Автобус зупиняється, лише якщо хтось чекає або хоче вийти (так за замовчуванням у грі)
+The bus always stops here	Автобус завжди тут зупиняється
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	Автобус проїжджає без зупинки: зупинка лише позначає шлях (контрольна точка)
+The bus stops only when it is early, and waits there for its departure time	Автобус зупиняється, лише якщо йде раніше часу, і чекає там часу відправлення
+The bus always stops here, and when it is early it waits for its departure time	Автобус завжди тут зупиняється, а якщо йде раніше часу, чекає часу відправлення
+All trips	Усі рейси
+Every trip of the map, those no tour drives too	Усі рейси карти, і ті, якими не їздить жоден оборот
+The line number the trip shows; the line of this number lists it among its trips	Номер лінії, який показує рейс; лінія з цим номером показує його серед своїх рейсів
+Way picked by hand:	Шлях вибрано вручну:
+the paths picked do not pass this stop	вибрані шляхи не проходять біля цієї зупинки
+Other trips	Інші рейси
+The time profile this departure runs to	Профіль часу цього відправлення
+Time profile	Профіль часу
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	У рейсу може бути кілька профілів (година пік, ніч…): кожне відправлення обороту вказує, за яким воно йде
+The profile's name	Назва профілю
+A new profile, a copy of this one	Новий профіль, копія цього
+Delete this profile (its departures run to the first)	Видалити цей профіль (його відправлення йтимуть за першим)
+Times from stop to stop	Час від зупинки до зупинки
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Біля кожної зупинки можна задати час від попередньої: наступні часи зсуваються, а з ними і час рейсу. Незадані часи йдуть за відстанню між закріпленими; на закріпленій зупинці автобус, що прийшов раніше, чекає.
+From the stop before	Від попередньої
+After departure	Після відправлення
+Minutes from the stop before to this one	Хвилини від попередньої зупинки до цієї
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Як у редакторі OMSI 2. Наведіть на варіант, щоб побачити, що робить автобус.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Усі рейси карти, хоч би яка лінія їх показувала і хоч би який оборот їздив. Рейс, яким не їздить жоден оборот, зберігається: його можна правити, дати обороту або видалити тут.
+trips	рейсів
+driven by no tour	без оборотів
+no tour	немає оборотів
+departures	відпр.
+No path there: click a lane of a road (View > AI lanes shows them)	Тут немає шляху: клацніть по смузі дороги (Вигляд > Смуги ШІ показує їх)
+Done picking paths	Готово
+Pick the paths on the map	Вибрати шляхи на карті
+Choose the way yourself, path by path, as in OMSI 2's editor	Виберіть шлях самі, шлях за шляхом, як у редакторі OMSI 2
+Find the way automatically	Знайти шлях автоматично
+Forget the paths picked: the way is found along the roads again	Забути вибрані шляхи: шлях знову знайдеться по дорогах
+The paths were picked by hand: they are kept when the stops change.	Шляхи вибрано вручну: вони зберігаються, коли змінюються зупинки.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Клацайте шляхи на карті. Шлях після кінця або перед початком додається разом зі шляхами до нього; шлях збоку замінює ділянку, яку він об'їжджає (інша гілка на перехресті); шлях із маршруту прибирається. Шлях може йти і до першої зупинки, і після останньої.
+The way breaks after path	Шлях переривається після шляху
+the paths do not join, the bus's GPS loses its way here in the game	шляхи не з'єднані, GPS автобуса в грі тут губить маршрут
+Paths of the way	Шляхи маршруту
+Cut before the first stop	Прибрати до першої зупинки
+Cut after the last stop	Прибрати після останньої зупинки
+path	шлях
+Lane widths differ	Ширини смуг відрізняються
+Contains bus-only lanes	З'єднує лише автобусні смуги
+Contains multiple medians	З'єднує кілька медианів
+Median is not between opposite directions	Медиан не між протилежними напрямками
+Contains a left BusBay	У ньому є лівий BusBay.
+Footway textures differ	Розрізняються текстури стоп
+Names must not contain _bay_ (reserved for the bus bay tool)	Цей шнурок захищений для інструменту автобусної баки: _bay_
+The roadway texture is missing	Відсутність текстури дорожнього шляху
+The roadway texture could not be read	Текст дорожнього шляху не можна було прочитати.
+Road metadata not found	Метадані дорожнього руху не знайдені
+Some characters in the road name cannot be used. File: {file}	Деякі символи у ім'я дороги не можуть бути використані в назві файлу.: {file}
+Another road already uses this file: {file}	Інша дорога вже використовує цей файл: {file}
+A road needs at least one Lane	Дорога потребує хоча б однієї лані.
+Strip {} has an invalid width	Недійсна ширина дорожньої смуги: {}
+Footways must be at the outer ends	Ноги повинні бути на зовнішніх краях
+BusBays must border the roadway, at most one per side	BusBays повинні обмежувати дорожній шлях, максимум один на одну сторону
+Medians must be inside the roadway	Медианці повинні бути на дорозі.
+The roadway may contain only Lanes and Medians	Дорога може містити тільки Лені і Медіан
+Lane directions do not match this road’s traffic side	Направлення смуги не відповідають стороні дороги, яка використовується дорогою.
+Apply bus lane rules to all existing roads	Приведення правил автобусної смуги на всі існуючі дороги
+Road types and spline counts to update	Навчання типів дорог і розрахунків прокладу
+No roads need bus lane rules	Жодна дорога не потребує правил автобусної смуги
+Rules added	Додані правила
+This road was made for left-hand traffic	Ця дорога була зроблена для лівого руху
+This road was made for right-hand traffic	Ця дорога була зроблена для правого руху
+Advanced: strip mode	Просунуто: режим смуги
+This road contains settings that simple mode cannot represent	Ця дорога містить налаштування, які простой режим не може відобразити
+Built-in multi-lane texture markings may not align with these lanes	Вбудовані ознаки текстури для декількох смуг можуть не відповідати цим смугам
+No footway texture	Без текстури стоп
+Reset bay texture	Структура перезавантаження
+Bay texture reset	Реставрація текстури заливу
+Could not reset bay texture	Не вдалося відновити текстуру заливу
+Kerb height	Висота керу
+Lane	Транспортний шлях
+Median	Медіанна смуга
+BusBay	Автобусний багажник
+Forward ↑	Наперед ↑
+Backward ↓	Зверні ↓
+bus only	тільки автобусом
+Default footway texture	Дефолтова текстура пішки
+Choose file…	Виберіть файл…
+BUS	Автобус
+Hand-picked routes kept: {count}	Ручно обрані маршрути: {count}
+Overwrite hand-picked routes	Перезаписати ручно обрані маршрути
+Turn round and reverse	Розвернути кругом і змінити напрям
+Turn the road round and reverse it	Розвернути дорогу кругом і змінити її напрям
+Select one road to turn round	Виберіть одну дорогу для розвороту
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Дорога повертається на півоберта навколо свого початку й розвертається: вона лежить з іншого боку початку, її кінець — на початку, рух іде назад до нього
+In multiplayer the host saves the map. Leave the session to rename this.	У спільному редагуванні карту зберігає хост. Вийдіть із сесії, щоб перейменувати це.
+Name saved	Назву збережено
+The name has not changed	Назва не змінилася
+A name cannot have a line break	Назва не може містити переведення рядка
+A name cannot be empty	Назва не може бути порожньою
+A name cannot begin with "["	Назва не може починатися з «[»
+the object cannot be read, so it is left as it is	об'єкт не читається, тому лишається як є
+its openMapper source cannot be read, so the name would come back on its next save	його джерело openMapper не читається, інакше назва повернулася б під час наступного збереження
+its openMapper source cannot be written	його джерело openMapper не записується
+and its openMapper source could not be put back	а його джерело openMapper не вдалося повернути
+the name could not be saved	не вдалося зберегти назву
+Save the name	Зберегти назву

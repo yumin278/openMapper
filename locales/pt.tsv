@@ -1236,6 +1236,8 @@ Zebra crossings	Faixas de pedestres
 Road	Estrada
 Build it again	Construir de novo
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refaz a placa, seus meios-fios e faixas para as estradas como estão agora
+Persist junction	Salvar o cruzamento
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Salva este cruzamento como um objeto de cenário comum na instalação do OMSI. Salve o mapa para manter a nova referência.
 Linked objects	Objetos vinculados
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Um objeto pode tomar seu estado de outro ([varparent]): um foco de semáforo mostra uma luz do programa do seu cruzamento, o painel de um ponto mostra o seu ponto.
 Takes its state from	Toma o estado de
@@ -1899,6 +1901,10 @@ My road	Minha estrada
  · own	 · própria
 Create the road type	Criar o tipo de estrada
 Road type made: the Roads tool builds with it	Tipo de estrada criado: a ferramenta Estradas constrói com ele
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Alterar no construtor de estradas
 Its junctions	Seus cruzamentos
 Make a junction where it meets another road (else they only cross)	Criar um cruzamento onde ela encontra outra estrada (senão só se cruzam)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Selecionar o sinal e seus trechos na vista
 Delete the route	Excluir a rota
 Lines and timetable	Linhas e horário
+Convert all Type 1 trips to Type 2	Converter todas as viagens do tipo 1 para o tipo 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Converta as listas de paradas de {count} viagens do tipo 1 e salve o mapa. Recalcule as rotas separadamente.
+Converted: {converted}. Skipped: {skipped}.	Convertidas: {converted}. Ignoradas: {skipped}.
 Edit timetable	Editar horário
 No bus stop there: click one of the orange marks	Não há ponto de ônibus aí: clique numa das marcas laranja
 The roads can't be read without the OMSI 2 folder.	As estradas não podem ser lidas sem a pasta do OMSI 2.
@@ -2396,6 +2405,7 @@ Advanced users	Usuários avançados
 Controls as in OMSI 2's editor	Controles como no editor do OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Desativado por padrão. O botão do meio gira a vista, o botão direito mantido e movido para cima e para baixo dá zoom, um clique direito no terreno vai até lá (Shift + clique direito: o menu), as setas movem a câmera, a roda dá zoom
 Bay width	Largura da baia
+Bay width per side	Largura da baia por lado
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Um tipo de via com esta faixa da baia é criado a partir do escolhido (o do construtor de estradas), se não tiver essa largura
 Tapers in metres	Afunilamentos em metros
 Give the length of each taper in metres instead of a ratio	Informe o comprimento de cada afunilamento em metros em vez de uma proporção
@@ -2785,6 +2795,25 @@ no track within 15 m	nenhum trilho a 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	os trilhos não estão unidos ou seguem no outro sentido (veja Exibir > Faixas de IA)
 no track beside	sem trilho junto a
 Drives on	Circula por
+Footway paths round the corners (AI)	Caminhos de pedestres nas esquinas (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desativado: não há caminhos de IA nas esquinas, mas as faixas ainda conectam as calçadas. Conecte as esquinas manualmente (por exemplo, com uma spline de caminho invisível).
+Open in text editor	Abrir no editor de texto
+Open the saved .ttp file	Abrir o arquivo .ttp salvo
+Could not open the trip file	Não foi possível abrir o arquivo da viagem
+Save the map to create this trip's .ttp file first.	Salve primeiro o mapa para criar o arquivo .ttp desta viagem.
+Change ID	Alterar ID
+New stop ID	Novo ID da parada
+Timetable name: {name}	Nome no horário: {name}
+No stop with this ID on the map	Não há nenhuma parada com esse ID no mapa
+Confirm	Confirmar
+Also apply to other trips with this ID ({count})	Aplicar também às outras viagens com esse ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	O ID da parada foi alterado de {old} para {new} ({name}) em {count} viagens
+Insert before: click a stop on the map to insert it before this one	Inserir antes: escolha uma parada no mapa para inseri-la antes desta
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Escolha uma parada no mapa para inseri-la antes de “{stop}” (Esc para cancelar)
+That stop is already next to the insertion point.	Essa parada já está ao lado do ponto de inserção.
+Insert stop before	Inserir parada antes desta
+Place signal heads and poles	Posicionar focos e postes de semáforo
+Paint stripes on selected crossings	Pintar listras nas faixas de pedestres selecionadas
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Vértice de origem escolhido. Clique em um vértice de destino para ajustar (Shift: apenas horizontal, Esc: cancelar)
 Aim at a vertex of the selected object	Mire em um vértice do objeto selecionado
 Snapped to vertex! (Ctrl+Z to undo)	Ajustado ao vértice! (Ctrl+Z para desfazer)
@@ -2822,3 +2851,136 @@ Float	Desacoplar
 Show Assets in a floating window	Mostrar os recursos em uma janela flutuante
 Dock	Acoplar
 Dock Assets at the bottom	Acoplar os recursos na parte inferior
+Complete to	Completar até
+Complete to: a new piece between the free ends of the selected splines	Completar até: um trecho novo entre as pontas livres das splines selecionadas
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Um trecho novo do tipo da primeira spline selecionada entre duas pontas livres das splines selecionadas, que coincide com ambas em posição, direção e altura; elas não mudam. De novo: as duas pontas restantes são unidas e o anel se fecha.
+The two ends already meet	As duas pontas já se encontram
+Select the splines whose free ends are to be joined	Selecione as splines cujas pontas livres devem ser unidas
+No piece of spline can join these two ends	Nenhum trecho de spline consegue unir estas duas pontas
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Aberta a cópia do openMapper deste mapa na pasta de conteúdo (a da pasta do OMSI 2 nunca é escrita)
+Read in again, changed on disk by another program:	Lido de novo, alterado no disco por outro programa:
+Could not bring the changes over	Não foi possível trazer as alterações
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Os arquivos do mapa foram alterados depois deste salvamento automático (por outro programa, como o editor do OMSI 2). Restaurar põe os tiles antigos do salvamento sobre essas alterações.
+tile(s)	tile(s)
+the global settings	as configurações globais
+the timetable	o horário
+the traffic	o tráfego
+the descriptions	as descrições
+Reload from disk	Recarregar do disco
+The map changed on disk	O mapa mudou no disco
+Another program changed the map's files where it has changes here not saved yet:	Outro programa alterou arquivos do mapa onde aqui há alterações não salvas:
+The other changes made on disk were read in already.	As outras alterações do disco já foram lidas.
+Keep mine	Manter as minhas
+The map changed in OMSI 2's folder	O mapa mudou na pasta do OMSI 2
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	A cópia deste mapa na instalação foi alterada depois que a cópia do openMapper na pasta de conteúdo foi salva, por exemplo pelo editor do OMSI 2
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Trazer as alterações substitui esses arquivos da cópia do openMapper; os substituídos ficam num backup (Arquivo > Versões anteriores).
+Bring the changes over	Trazer as alterações
+Keep openMapper's copy	Manter a cópia do openMapper
+its way has a gap after path	seu caminho tem uma falha após o caminho
+its way does not pass	seu caminho não passa por
+On demand	Sob demanda
+Not served (checkpoint)	Não atendido (ponto de controle)
+Wait for departure time	Esperar a hora de partida
+Always + wait for departure time	Sempre + esperar a hora de partida
+The bus stops only when somebody waits or wants to get off (the game's default)	O ônibus só para se alguém espera ou quer descer (o padrão do jogo)
+The bus always stops here	O ônibus sempre para aqui
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	O ônibus passa sem parar: o ponto só marca o caminho (um ponto de controle)
+The bus stops only when it is early, and waits there for its departure time	O ônibus só para quando está adiantado, e espera ali a sua hora de partida
+The bus always stops here, and when it is early it waits for its departure time	O ônibus sempre para aqui, e quando está adiantado espera a sua hora de partida
+All trips	Todas as viagens
+Every trip of the map, those no tour drives too	Todas as viagens do mapa, também as que nenhuma escala faz
+The line number the trip shows; the line of this number lists it among its trips	O número de linha que a viagem mostra; a linha com esse número a lista entre suas viagens
+Way picked by hand:	Caminho escolhido à mão:
+the paths picked do not pass this stop	os caminhos escolhidos não passam por este ponto
+Other trips	Outras viagens
+The time profile this departure runs to	O perfil de tempos que esta partida segue
+Time profile	Perfil de tempos
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Uma viagem pode ter vários perfis (hora do rush, noite…): cada partida de uma escala diz qual segue
+The profile's name	O nome do perfil
+A new profile, a copy of this one	Um perfil novo, cópia deste
+Delete this profile (its departures run to the first)	Excluir este perfil (suas partidas seguem o primeiro)
+Times from stop to stop	Tempos de ponto a ponto
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	O tempo desde o ponto anterior pode ser definido em cada ponto: os tempos seguintes se deslocam, e o tempo da viagem com eles. Tempos não definidos seguem a distância entre os fixos; num ponto fixo, um ônibus adiantado espera.
+From the stop before	Desde o ponto anterior
+After departure	Após a partida
+Minutes from the stop before to this one	Minutos do ponto anterior até este
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Como no editor do OMSI 2. Passe o mouse sobre uma opção para ver o que o ônibus faz.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Todas as viagens do mapa, qualquer que seja a linha que as mostra ou a escala que as faz. Uma viagem que nenhuma escala faz é mantida, e pode ser editada, dada a uma escala ou excluída aqui.
+trips	viagens
+driven by no tour	sem nenhuma escala
+no tour	sem escala
+departures	partidas
+No path there: click a lane of a road (View > AI lanes shows them)	Nenhum caminho aí: clique numa faixa de uma estrada (Exibir > Faixas de IA as mostra)
+Done picking paths	Escolha concluída
+Pick the paths on the map	Escolher os caminhos no mapa
+Choose the way yourself, path by path, as in OMSI 2's editor	Escolha o percurso você mesmo, caminho a caminho, como no editor do OMSI 2
+Find the way automatically	Achar o caminho automaticamente
+Forget the paths picked: the way is found along the roads again	Esquecer os caminhos escolhidos: o percurso volta a ser achado pelas estradas
+The paths were picked by hand: they are kept when the stops change.	Os caminhos foram escolhidos à mão: são mantidos quando os pontos mudam.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Clique em caminhos na vista. Um após o fim ou antes do início é adicionado, com os caminhos até ele; um ao lado do percurso toma o lugar do trecho que contorna (outro ramo num cruzamento); um caminho do percurso é retirado. O percurso pode começar antes do primeiro ponto e seguir após o último.
+The way breaks after path	O percurso se interrompe após o caminho
+the paths do not join, the bus's GPS loses its way here in the game	os caminhos não se ligam, o GPS do ônibus se perde aqui no jogo
+Paths of the way	Caminhos do percurso
+Cut before the first stop	Cortar antes do primeiro ponto
+Cut after the last stop	Cortar após o último ponto
+path	caminho
+Lane widths differ	Ampliações de vias diferem
+Contains bus-only lanes	Contém ruas de ônibus
+Contains multiple medians	Contém múltiplos medianos
+Median is not between opposite directions	O mediano não é entre direções opostas
+Contains a left BusBay	Contém um BusBay esquerdo
+Footway textures differ	As texturas dos caminhos diferem
+Names must not contain _bay_ (reserved for the bus bay tool)	Esta cadeia é reservada para a ferramenta de bus bay: _bay_
+The roadway texture is missing	A textura da estrada está faltando
+The roadway texture could not be read	A textura da estrada não podia ser lida
+Road metadata not found	Metadados rodoviários não encontrados
+Some characters in the road name cannot be used. File: {file}	Alguns caracteres do nome da estrada não podem ser usados em um nome de arquivo.: {file}
+Another road already uses this file: {file}	Outra estrada já usa este ficheiro: {file}
+A road needs at least one Lane	Uma estrada precisa de pelo menos uma faixa
+Strip {} has an invalid width	Largura inválida da faixa rodoviária: {}
+Footways must be at the outer ends	As passagens devem estar nas extremidades externas
+BusBays must border the roadway, at most one per side	BusBays devem limitar a estrada, no máximo uma por lado
+Medians must be inside the roadway	Os médiuns devem estar dentro da estrada.
+The roadway may contain only Lanes and Medians	A estrada pode conter apenas Lanes e Medians
+Lane directions do not match this road’s traffic side	As direcções das faixas não correspondem ao lado da estrada utilizado pelo tráfego.
+Apply bus lane rules to all existing roads	Aplicar as regras de faixa dos ônibus a todas as estradas existentes
+Road types and spline counts to update	Tipos de rodovias e contagens de esferas para atualização
+No roads need bus lane rules	As estradas não precisam de regras de carros.
+Rules added	Regras adicionadas
+This road was made for left-hand traffic	Esta estrada foi feita para o trânsito à esquerda
+This road was made for right-hand traffic	Esta estrada foi feita para o trânsito à direita
+Advanced: strip mode	Avançado: modo strip
+This road contains settings that simple mode cannot represent	Esta estrada contém configurações que o modo simples não pode representar
+Built-in multi-lane texture markings may not align with these lanes	As marcas de textura integradas para várias pistas podem não estar alinhadas com estas pistas
+No footway texture	Nenhuma textura de passagem
+Reset bay texture	Reset de textura da bacia
+Bay texture reset	Reset de textura da baía
+Could not reset bay texture	Não consegui restabelecer a textura da baía
+Kerb height	Alturas de carvalho
+Lane	Linha de trânsito
+Median	Faixa média
+BusBay	Bahia de autocarros
+Forward ↑	Para a frente ↑
+Backward ↓	Para trás ↓
+bus only	Apenas ônibus
+Default footway texture	Texturas padrão de passagem
+Choose file…	Escolha o arquivo…
+BUS	BUS
+Hand-picked routes kept: {count}	rotas manuais selecionadas: {count}
+Overwrite hand-picked routes	Reescrever rotas selecionadas manualmente
+Turn round and reverse	Rodar e inverter o sentido
+Turn the road round and reverse it	Rodar a estrada e inverter o sentido
+Select one road to turn round	Selecione uma estrada para rodar
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Uma estrada é rodada meia volta em torno de seu início e invertida: fica do outro lado do início, seu fim sobre o início, o trânsito voltando para ele
+In multiplayer the host saves the map. Leave the session to rename this.	Na edição partilhada é o anfitrião que guarda o mapa. Saia da sessão para mudar este nome.
+Name saved	Nome guardado
+The name has not changed	O nome não mudou
+A name cannot have a line break	Um nome não pode ter uma quebra de linha
+A name cannot be empty	Um nome não pode estar vazio
+A name cannot begin with "["	Um nome não pode começar por «[»
+the object cannot be read, so it is left as it is	o objeto não pode ser lido, por isso fica como está
+its openMapper source cannot be read, so the name would come back on its next save	a sua origem openMapper não pode ser lida, senão o nome voltaria no próximo guardar
+its openMapper source cannot be written	a sua origem openMapper não pode ser escrita
+and its openMapper source could not be put back	e a sua origem openMapper não pôde ser reposta
+the name could not be saved	não foi possível guardar o nome
+Save the name	Guardar o nome

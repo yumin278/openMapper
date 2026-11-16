@@ -123,6 +123,9 @@ pub enum ScanMsg {
 pub struct Library {
     pub assets: Vec<Asset>,
     pub scanning: bool,
+    /// Goes up whenever an asset's own facts change without a scan (a rename): what the asset
+    /// browser works out of the library is worked out again then.
+    pub rev: u64,
     rx: Option<mpsc::Receiver<ScanMsg>>,
     /// Where each asset is in `assets`, by its lower-case path (`find` is asked many times
     /// a frame).
@@ -196,6 +199,23 @@ impl Library {
     #[cfg(test)]
     pub fn reindex_for_tests(&mut self) {
         self.index = self.assets.iter().enumerate().map(|(i, a)| (a.rel.to_lowercase(), i)).collect();
+    }
+
+    /// An asset was renamed: its name, and the search text with it. Its place in `assets` is
+    /// kept (the asset browser's cache holds positions): the list is not sorted again here.
+    pub fn rename(&mut self, rel: &str, name: &str) {
+        let Some(&i) = self.index.get(&rel.to_lowercase()) else { return };
+        let Some(a) = self.assets.get_mut(i) else { return };
+        let old = a.name.to_lowercase();
+        let new = name.to_lowercase();
+        // (`haystack` is the name, then the path, the groups and the folder: only the name's
+        // part is swapped, the rest is kept as the scan worked it out)
+        a.name = name.to_string();
+        a.haystack = match a.haystack.strip_prefix(&old) {
+            Some(rest) => format!("{new}{rest}"),
+            None => format!("{new} {}", a.haystack),
+        };
+        self.rev += 1;
     }
 
     pub fn find(&self, rel: &str) -> Option<&Asset> {

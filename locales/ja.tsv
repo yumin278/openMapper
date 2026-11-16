@@ -1236,6 +1236,8 @@ Zebra crossings	横断歩道
 Road	道路
 Build it again	再作成
 Makes the plate, its kerbs and lanes again for the roads as they are now	現在の道路に合わせて、プレート、縁石、車線を作り直します
+Persist junction	交差点を永続化
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	この交差点を通常の景観オブジェクトとして OMSI のインストール先に保存します。新しい参照先を保持するにはマップを保存してください。
 Linked objects	リンクされたオブジェクト
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	オブジェクトは別のオブジェクトから状態を取得できます（[varparent]）：信号灯器は交差点のプログラムの点灯、停留所の表示器はその停留所を表示します。
 Takes its state from	状態の取得元
@@ -1899,6 +1901,10 @@ My road	私の道路
  · own	 · 自作
 Create the road type	道路タイプを作成
 Road type made: the Roads tool builds with it	道路タイプを作成しました：道路ツールで使用できます
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	道路メーカーで変更
 Its junctions	その交差点
 Make a junction where it meets another road (else they only cross)	他の道路と出会う所に交差点を作成（オフなら単に交差）
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	ビューで信号とその区間を選択
 Delete the route	経路を削除
 Lines and timetable	系統と時刻表
+Convert all Type 1 trips to Type 2	すべてのタイプ1便をタイプ2に変換
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	タイプ1の{count}便の停留所リストを変換してから、マップを保存してください。経路の再計算は別に実行します。
+Converted: {converted}. Skipped: {skipped}.	変換済み：{converted}。スキップ：{skipped}。
 Edit timetable	時刻表を編集
 No bus stop there: click one of the orange marks	そこに停留所がありません：オレンジのマークをクリックしてください
 The roads can't be read without the OMSI 2 folder.	OMSI 2フォルダがないと道路を読み取れません。
@@ -2396,6 +2405,7 @@ Advanced users	上級者向け
 Controls as in OMSI 2's editor	OMSI 2 のエディタと同じ操作
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	初期設定ではオフ。中ボタンで視点を回転、右ボタンを押したまま上下に動かすとズーム、地面を右クリックでその場所へ移動 (Shift + 右クリック: メニュー)、矢印キーでカメラを移動、ホイールでズーム
 Bay width	ポケットの幅
+Bay width per side	片側あたりのバスベイ幅
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	このポケット車線を持つ道路タイプは、選んだ道路タイプ（道路メーカーのもの）から作られます。幅が異なる場合に限ります
 Tapers in metres	先細りをメートルで指定
 Give the length of each taper in metres instead of a ratio	比率ではなく、各先細りの長さをメートルで指定します
@@ -2785,6 +2795,25 @@ no track within 15 m	15 m以内に線路がありません
 the tracks are not joined, or run the other way (see View > AI lanes)	線路が接続されていないか、逆向きです（表示 > AI車線を参照）
 no track beside	線路なし：
 Drives on	走行
+Footway paths round the corners (AI)	角の歩行者経路（AI）
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	オフにすると角の AI 経路は作成されません。横断歩道は引き続き歩道につながります。角は手動で接続してください（例：非表示の経路スプライン）。
+Open in text editor	テキストエディターで開く
+Open the saved .ttp file	保存済みの .ttp ファイルを開く
+Could not open the trip file	便のファイルを開けませんでした
+Save the map to create this trip's .ttp file first.	先にマップを保存して、この便の .ttp ファイルを作成してください。
+Change ID	ID を変更
+New stop ID	新しい停留所 ID
+Timetable name: {name}	時刻表での名称：{name}
+No stop with this ID on the map	この ID の停留所はマップにありません
+Confirm	確定
+Also apply to other trips with this ID ({count})	この ID を含むほかの便にも適用（{count} 件）
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	停留所 ID を {old} から {new}（{name}）に変更しました（{count} 件）
+Insert before: click a stop on the map to insert it before this one	この停留所の前に挿入：マップ上の停留所をクリックして選択
+Click a stop on the map to insert it before {stop} (Esc to cancel)	マップ上の停留所をクリックして「{stop}」の前に挿入（Esc でキャンセル）
+That stop is already next to the insertion point.	この停留所はすでに挿入位置の隣にあります。
+Insert stop before	この停留所の前に挿入
+Place signal heads and poles	信号灯器と支柱を設置
+Paint stripes on selected crossings	選択した横断歩道に白線を描画
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	ソース頂点が選択されました。スナップする対象の頂点をクリックします (Shift: 水平のみ、Esc: キャンセル)
 Aim at a vertex of the selected object	選択したオブジェクトの頂点を狙う
 Snapped to vertex! (Ctrl+Z to undo)	頂点にスナップされました! (元に戻すには Ctrl+Z)
@@ -2822,3 +2851,136 @@ Float	フローティング
 Show Assets in a floating window	アセットをフローティングウィンドウで表示
 Dock	ドッキング
 Dock Assets at the bottom	アセットを下部にドッキング
+Complete to	ここまで補完
+Complete to: a new piece between the free ends of the selected splines	ここまで補完：選択したスプラインの空いた端の間に新しい部品
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	最初に選択したスプラインの種類で、選択したスプラインの空いた二つの端の間に新しい部品を作り、両方と位置・向き・高さを合わせます。元の二つは変わりません。もう一度押すと、残る二つの端がつながり、輪が閉じます。
+The two ends already meet	この二つの端はもうつながっています
+Select the splines whose free ends are to be joined	空いた端をつなぐスプラインを選択してください
+No piece of spline can join these two ends	この二つの端をつなげるスプラインの部品がありません
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	このマップの openMapper のコピーをコンテンツフォルダで開きました(OMSI 2 フォルダのものは書き換えません)
+Read in again, changed on disk by another program:	読み直しました。別のプログラムがディスク上で変更:
+Could not bring the changes over	変更を取り込めませんでした
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	この自動保存の後にマップのファイルが変更されています(別のプログラム、例えば OMSI 2 のエディタによる)。復元すると、自動保存の古いタイルがその変更の上に置かれます。
+tile(s)	タイル
+the global settings	全体設定
+the timetable	時刻表
+the traffic	交通
+the descriptions	説明
+Reload from disk	ディスクから再読み込み
+The map changed on disk	マップがディスク上で変更されました
+Another program changed the map's files where it has changes here not saved yet:	ここに未保存の変更がある部分のマップファイルを、別のプログラムが変更しました:
+The other changes made on disk were read in already.	ディスク上のその他の変更は読み込み済みです。
+Keep mine	自分の変更を残す
+The map changed in OMSI 2's folder	OMSI 2 フォルダでマップが変更されました
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	コンテンツフォルダの openMapper のコピーを保存した後に、インストール先のこのマップが変更されました(例えば OMSI 2 のエディタで)
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	取り込むと openMapper のコピーのそれらのファイルが置き換わります。置き換えられたファイルはバックアップに残ります(ファイル > 以前のバージョン)。
+Bring the changes over	変更を取り込む
+Keep openMapper's copy	openMapper のコピーを残す
+its way has a gap after path	経路に途切れがあります。この後のパス：
+its way does not pass	経路が通らない停留所：
+On demand	要求時
+Not served (checkpoint)	通過（チェックポイント）
+Wait for departure time	発車時刻まで待つ
+Always + wait for departure time	常に + 発車時刻まで待つ
+The bus stops only when somebody waits or wants to get off (the game's default)	誰かが待っているか降りたい時だけ停車します（ゲームの既定）
+The bus always stops here	ここでは常に停車します
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	停車せずに通過します：停留所は経路を示すだけです（チェックポイント）
+The bus stops only when it is early, and waits there for its departure time	早着した時だけ停車し、発車時刻まで待ちます
+The bus always stops here, and when it is early it waits for its departure time	ここでは常に停車し、早着した時は発車時刻まで待ちます
+All trips	すべての便
+Every trip of the map, those no tour drives too	マップのすべての便（どの行路も走らない便も含む）
+The line number the trip shows; the line of this number lists it among its trips	便が表示する系統番号。この番号の系統は自分の便の中にこの便を表示します
+Way picked by hand:	手動で選んだ経路：
+the paths picked do not pass this stop	選んだパスがこの停留所を通りません
+Other trips	その他の便
+The time profile this departure runs to	この出発が従う時間プロファイル
+Time profile	時間プロファイル
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	便は複数のプロファイル（ラッシュ時、夜間…）を持てます。行路の各出発がどれに従うかを指定します
+The profile's name	プロファイル名
+A new profile, a copy of this one	新しいプロファイル（これのコピー）
+Delete this profile (its departures run to the first)	このプロファイルを削除（その出発は最初のプロファイルに従います）
+Times from stop to stop	停留所間の時間
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	各停留所で前の停留所からの時間を設定できます。以降の時間はずれ、便の所要時間も一緒に変わります。設定していない時間は固定した停留所間の距離に従います。固定した停留所では、早着したバスが待ちます。
+From the stop before	前の停留所から
+After departure	出発後
+Minutes from the stop before to this one	前の停留所からここまでの分
+As in OMSI 2's editor. Hover a choice to see what the bus does.	OMSI 2のエディタと同じです。選択肢にマウスを重ねると、バスの動きが表示されます。
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	マップのすべての便（どの系統が表示し、どの行路が走るかを問わず）。どの行路も走らない便も残り、ここで編集したり、行路に割り当てたり、削除したりできます。
+trips	便
+driven by no tour	行路なし
+no tour	行路なし
+departures	出発
+No path there: click a lane of a road (View > AI lanes shows them)	ここにパスはありません：道路の車線をクリックしてください（表示 > AI車線 で表示）
+Done picking paths	選択完了
+Pick the paths on the map	マップでパスを選択
+Choose the way yourself, path by path, as in OMSI 2's editor	OMSI 2のエディタと同じく、パスを一つずつ選んで経路を自分で決めます
+Find the way automatically	経路を自動で探す
+Forget the paths picked: the way is found along the roads again	選んだパスを破棄：経路は再び道路に沿って探されます
+The paths were picked by hand: they are kept when the stops change.	パスは手動で選ばれました：停留所が変わってもそのまま残ります。
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	ビューでパスをクリックします。終点の後や始点の前のパスは、そこまでのパスと一緒に追加されます。経路の脇のパスは、それが迂回する区間と置き換わります（交差点の別の分岐）。経路上のパスは外されます。経路は最初の停留所より前から始まり、最後の停留所より後まで続けられます。
+The way breaks after path	経路が途切れています。この後のパス：
+the paths do not join, the bus's GPS loses its way here in the game	パスがつながっていないため、ゲーム内でバスのGPSがここで経路を見失います
+Paths of the way	経路のパス
+Cut before the first stop	最初の停留所より前を切る
+Cut after the last stop	最後の停留所より後を切る
+path	パス
+Lane widths differ	車線幅が異なります
+Contains bus-only lanes	バス専用車線があります
+Contains multiple medians	中央分離帯が複数あります
+Median is not between opposite directions	中央分離帯が対向する車線の間にありません
+Contains a left BusBay	左側にバスベイがあります
+Footway textures differ	歩道のテクスチャが異なります
+Names must not contain _bay_ (reserved for the bus bay tool)	名前に _bay_ は使用できません（バスベイツールで使用）
+The roadway texture is missing	車道のテクスチャが見つかりません
+The roadway texture could not be read	車道のテクスチャを読み込めませんでした
+Road metadata not found	道路のメタデータが見つかりません
+Some characters in the road name cannot be used. File: {file}	道路名にファイル名として使用できない文字があります。ファイル名：{file}
+Another road already uses this file: {file}	このファイルは別の道路で既に使用されています：{file}
+A road needs at least one Lane	道路には車線が1本以上必要です
+Strip {} has an invalid width	区画 {} の幅が無効です
+Footways must be at the outer ends	歩道は両端に配置してください
+BusBays must border the roadway, at most one per side	バスベイは車道に隣接し、左右それぞれ1つまで配置できます
+Medians must be inside the roadway	中央分離帯は車道の内側に配置してください
+The roadway may contain only Lanes and Medians	車道の内側には車線と中央分離帯のみ配置できます
+Lane directions do not match this road’s traffic side	車線の進行方向が道路の通行区分と一致しません
+Apply bus lane rules to all existing roads	既存のすべての道路にバス車線のルールを適用
+Road types and spline counts to update	更新する道路タイプとスプライン数
+No roads need bus lane rules	バス車線のルールを追加する道路はありません
+Rules added	追加したルール
+This road was made for left-hand traffic	この道路は左側通行用に作成されています
+This road was made for right-hand traffic	この道路は右側通行用に作成されています
+Advanced: strip mode	詳細設定：断面構成モード
+This road contains settings that simple mode cannot represent	この道路には簡易モードで設定できない項目があります
+Built-in multi-lane texture markings may not align with these lanes	テクスチャに含まれる複数車線用の区画線が車線とずれることがあります
+No footway texture	歩道のテクスチャなし
+Reset bay texture	バスベイのテクスチャをリセット
+Bay texture reset	バスベイのテクスチャをリセットしました
+Could not reset bay texture	バスベイのテクスチャをリセットできませんでした
+Kerb height	縁石の高さ
+Lane	車線
+Median	中央分離帯
+BusBay	バスベイ
+Forward ↑	順方向 ↑
+Backward ↓	逆方向 ↓
+bus only	バス専用
+Default footway texture	既定の歩道テクスチャ
+Choose file…	ファイルを選択…
+BUS	バス
+Hand-picked routes kept: {count}	保持した手動選択経路：{count} 件
+Overwrite hand-picked routes	手動で選択した経路を上書き
+Turn round and reverse	反転して向きを変える
+Turn the road round and reverse it	道路を反転して向きを変える
+Select one road to turn round	向きを変える道路を1本選んでください
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	道路を始点を中心に半回転させてから反転します。道路は始点の反対側にあり、終点は始点の上、進行方向は始点へ向きます
+In multiplayer the host saves the map. Leave the session to rename this.	共同編集ではホストがマップを保存します。名前を変えるにはセッションを退出してください。
+Name saved	名前を保存しました
+The name has not changed	名前は変わっていません
+A name cannot have a line break	名前に改行は使えません
+A name cannot be empty	名前は空にできません
+A name cannot begin with "["	名前は「[」で始められません
+the object cannot be read, so it is left as it is	オブジェクトを読み取れないため、そのままにしました
+its openMapper source cannot be read, so the name would come back on its next save	openMapper のソースを読み取れないため、次回保存で名前が戻ります
+its openMapper source cannot be written	openMapper のソースを書き込めません
+and its openMapper source could not be put back	openMapper のソースを元に戻せませんでした
+the name could not be saved	名前を保存できませんでした
+Save the name	名前を保存

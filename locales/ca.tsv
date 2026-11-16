@@ -1236,6 +1236,8 @@ Zebra crossings	Passos de vianants
 Road	Carretera
 Build it again	Construeix-lo de nou
 Makes the plate, its kerbs and lanes again for the roads as they are now	Refà la placa, les seves vorades i carrils per a les carreteres tal com són ara
+Persist junction	Desa la cruïlla
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Desa aquesta cruïlla com a objecte d’escenari normal a la instal·lació d’OMSI. Desa el mapa per conservar la referència nova.
 Linked objects	Objectes enllaçats
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Un objecte pot prendre el seu estat d'un altre ([varparent]): un cap de semàfor mostra una llum del programa del seu creuament, la pantalla d'una parada la seva parada.
 Takes its state from	Pren l'estat de
@@ -1899,6 +1901,10 @@ My road	La meva carretera
  · own	 · pròpia
 Create the road type	Crea el tipus de carretera
 Road type made: the Roads tool builds with it	Tipus de carretera creat: l'eina Carreteres construeix amb ell
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Canvia'l al creador de carreteres
 Its junctions	Els seus creuaments
 Make a junction where it meets another road (else they only cross)	Fes un creuament on troba una altra carretera (si no, només s'encreuen)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Selecciona el senyal i els seus trams a la vista
 Delete the route	Elimina la ruta
 Lines and timetable	Línies i horari
+Convert all Type 1 trips to Type 2	Converteix tots els trajectes de tipus 1 a tipus 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Converteix les llistes de parades de {count} trajectes de tipus 1 i desa el mapa. El recàlcul de rutes es fa per separat.
+Converted: {converted}. Skipped: {skipped}.	Convertits: {converted}. Omesos: {skipped}.
 Edit timetable	Edita l'horari
 No bus stop there: click one of the orange marks	Aquí no hi ha cap parada: fes clic en una de les marques taronges
 The roads can't be read without the OMSI 2 folder.	Les carreteres no es poden llegir sense la carpeta d'OMSI 2.
@@ -2396,6 +2405,7 @@ Advanced users	Usuaris avançats
 Controls as in OMSI 2's editor	Controls com a l'editor d'OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Desactivat per defecte. El botó del mig gira la vista, el botó dret mantingut i mogut amunt i avall fa zoom, un clic dret al terreny hi va (Shift + clic dret: el menú), les fletxes mouen la càmera, la roda fa zoom
 Bay width	Amplada del badiu
+Bay width per side	Amplada de la badia per costat
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Un tipus de carretera amb aquest carril de badiu es crea a partir de l'escollit (el del creador de carreteres), si no té aquesta amplada
 Tapers in metres	Estretiments en metres
 Give the length of each taper in metres instead of a ratio	Indiqueu la longitud de cada estretiment en metres en lloc d'una proporció
@@ -2785,6 +2795,25 @@ no track within 15 m	cap via a menys de 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	les vies no estan unides o van en sentit contrari (vegeu Vista > Carrils d'IA)
 no track beside	cap via al costat de
 Drives on	Circula per
+Footway paths round the corners (AI)	Camins de vianants a les cantonades (IA)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Desactivat: no hi ha camins d’IA a les cantonades, però els passos de vianants encara connecten les voreres. Connecteu les cantonades manualment (p. ex., amb una spline de camí invisible).
+Open in text editor	Obre en un editor de text
+Open the saved .ttp file	Obre el fitxer .ttp desat
+Could not open the trip file	No s’ha pogut obrir el fitxer del trajecte
+Save the map to create this trip's .ttp file first.	Deseu el mapa per crear el fitxer .ttp d’aquest trajecte.
+Change ID	Canvia l’ID
+New stop ID	ID nou de la parada
+Timetable name: {name}	Nom a l’horari: {name}
+No stop with this ID on the map	Al mapa no hi ha cap parada amb aquest ID
+Confirm	Confirma
+Also apply to other trips with this ID ({count})	Aplica-ho també als altres trajectes amb aquest ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	S’ha canviat l’ID de parada {old} a {new} ({name}) en {count} trajectes
+Insert before: click a stop on the map to insert it before this one	Insereix abans: trieu al mapa una parada per inserir-la abans d’aquesta
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Trieu al mapa una parada per inserir-la abans de «{stop}» (Esc per cancel·lar)
+That stop is already next to the insertion point.	Aquesta parada ja és al costat del punt d’inserció.
+Insert stop before	Insereix una parada abans
+Place signal heads and poles	Col·loca els caps i els pals dels semàfors
+Paint stripes on selected crossings	Pinta les franges als passos seleccionats
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Vèrtex font escollit. Feu clic a un vèrtex objectiu per ajustar-lo (Maj: només horitzontal, Esc: cancel·la)
 Aim at a vertex of the selected object	Apunta a un vèrtex de l'objecte seleccionat
 Snapped to vertex! (Ctrl+Z to undo)	Enganxat al vèrtex! (Ctrl+Z per desfer)
@@ -2822,3 +2851,136 @@ Float	Desacobla
 Show Assets in a floating window	Mostra els recursos en una finestra flotant
 Dock	Acobla
 Dock Assets at the bottom	Acobla els recursos a la part inferior
+Complete to	Completa fins a
+Complete to: a new piece between the free ends of the selected splines	Completa fins a: un tram nou entre els extrems lliures de les splines seleccionades
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Un tram nou del tipus de la primera spline seleccionada entre dos extrems lliures de les splines seleccionades, que coincideix amb tots dos en posició, direcció i alçada; aquestes no canvien. Un altre cop: s'uneixen els dos extrems que queden i es tanca l'anell.
+The two ends already meet	Els dos extrems ja es troben
+Select the splines whose free ends are to be joined	Selecciona les splines els extrems lliures de les quals s'han d'unir
+No piece of spline can join these two ends	Cap tram de spline no pot unir aquests dos extrems
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	S'ha obert la còpia d'openMapper d'aquest mapa a la carpeta de contingut (la de la carpeta d'OMSI 2 no s'escriu mai)
+Read in again, changed on disk by another program:	Llegit de nou, canviat al disc per un altre programa:
+Could not bring the changes over	No s'han pogut portar els canvis
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Els fitxers del mapa es van canviar després d'aquest desament automàtic (per un altre programa, com l'editor d'OMSI 2). Restaurar posa les caselles antigues del desament sobre aquests canvis.
+tile(s)	casella(es)
+the global settings	la configuració global
+the timetable	l'horari
+the traffic	el trànsit
+the descriptions	les descripcions
+Reload from disk	Torna a carregar des del disc
+The map changed on disk	El mapa ha canviat al disc
+Another program changed the map's files where it has changes here not saved yet:	Un altre programa ha canviat fitxers del mapa on aquí hi ha canvis sense desar:
+The other changes made on disk were read in already.	La resta de canvis del disc ja s'han llegit.
+Keep mine	Conserva els meus
+The map changed in OMSI 2's folder	El mapa ha canviat a la carpeta d'OMSI 2
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	La còpia d'aquest mapa a la instal·lació es va canviar després de desar la còpia d'openMapper a la carpeta de contingut, per exemple amb l'editor d'OMSI 2
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Portar els canvis substitueix aquests fitxers de la còpia d'openMapper; els fitxers substituïts es guarden en una còpia de seguretat (Fitxer > Versions anteriors).
+Bring the changes over	Porta els canvis
+Keep openMapper's copy	Conserva la còpia d'openMapper
+its way has a gap after path	el seu camí té un buit després del camí
+its way does not pass	el seu camí no passa per
+On demand	A demanda
+Not served (checkpoint)	Sense servei (punt de control)
+Wait for departure time	Esperar l'hora de sortida
+Always + wait for departure time	Sempre + esperar l'hora de sortida
+The bus stops only when somebody waits or wants to get off (the game's default)	L'autobús només para si algú espera o vol baixar (el predeterminat del joc)
+The bus always stops here	L'autobús sempre para aquí
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	L'autobús passa sense parar: la parada només marca el camí (un punt de control)
+The bus stops only when it is early, and waits there for its departure time	L'autobús només para si va avançat, i hi espera la seva hora de sortida
+The bus always stops here, and when it is early it waits for its departure time	L'autobús sempre para aquí, i si va avançat espera la seva hora de sortida
+All trips	Tots els viatges
+Every trip of the map, those no tour drives too	Tots els viatges del mapa, també els que no fa cap torn
+The line number the trip shows; the line of this number lists it among its trips	El número de línia que mostra el viatge; la línia amb aquest número el mostra entre els seus viatges
+Way picked by hand:	Camí triat a mà:
+the paths picked do not pass this stop	els camins triats no passen per aquesta parada
+Other trips	Altres viatges
+The time profile this departure runs to	El perfil de temps que segueix aquesta sortida
+Time profile	Perfil de temps
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Un viatge pot tenir diversos perfils (hora punta, nit…): cada sortida d'un torn diu quin segueix
+The profile's name	El nom del perfil
+A new profile, a copy of this one	Un perfil nou, còpia d'aquest
+Delete this profile (its departures run to the first)	Elimina aquest perfil (les seves sortides segueixen el primer)
+Times from stop to stop	Temps de parada a parada
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	El temps des de la parada anterior es pot fixar a cada parada: els temps següents es desplacen, i amb ells el temps del viatge. Els temps no fixats segueixen la distància entre els fixats; en una parada fixada, un autobús avançat espera.
+From the stop before	Des de la parada anterior
+After departure	Després de la sortida
+Minutes from the stop before to this one	Minuts des de la parada anterior fins a aquesta
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Com a l'editor d'OMSI 2. Passeu el ratolí per una opció per veure què fa l'autobús.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Tots els viatges del mapa, sigui quina sigui la línia que els mostra o el torn que els fa. Un viatge que no fa cap torn es conserva, i aquí es pot editar, donar a un torn o eliminar.
+trips	viatges
+driven by no tour	sense cap torn
+no tour	sense torn
+departures	sortides
+No path there: click a lane of a road (View > AI lanes shows them)	Aquí no hi ha cap camí: feu clic a un carril d'una carretera (Visualitza > Carrils d'IA els mostra)
+Done picking paths	Fet
+Pick the paths on the map	Tria els camins al mapa
+Choose the way yourself, path by path, as in OMSI 2's editor	Trieu el camí vosaltres, camí a camí, com a l'editor d'OMSI 2
+Find the way automatically	Troba el camí automàticament
+Forget the paths picked: the way is found along the roads again	Oblida els camins triats: el camí es torna a trobar per les carreteres
+The paths were picked by hand: they are kept when the stops change.	Els camins s'han triat a mà: es conserven quan canvien les parades.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Feu clic a camins a la vista. Un després del final o abans de l'inici s'afegeix, amb els camins fins a ell; un al costat del recorregut ocupa el lloc del tram que envolta (una altra branca en una cruïlla); un camí del recorregut es treu. El recorregut pot començar abans de la primera parada i continuar després de l'última.
+The way breaks after path	El camí s'interromp després del camí
+the paths do not join, the bus's GPS loses its way here in the game	els camins no s'uneixen, el GPS de l'autobús s'hi perd en el joc
+Paths of the way	Camins del recorregut
+Cut before the first stop	Retalla abans de la primera parada
+Cut after the last stop	Retalla després de l'última parada
+path	camí
+Lane widths differ	Les llargueses de carrers són diferents
+Contains bus-only lanes	Contigueix carrers només per autobusos
+Contains multiple medians	Conté múltiples medians
+Median is not between opposite directions	La mediana no és entre direccions oposades
+Contains a left BusBay	Contigueix un BusBay esquerra
+Footway textures differ	Les textures de la pista són diferents
+Names must not contain _bay_ (reserved for the bus bay tool)	Aquesta cadena està reservada per a l'eina de bus bay: _bay_
+The roadway texture is missing	La textura de la carretera falta
+The roadway texture could not be read	La textura de la carretera no es podia llegir
+Road metadata not found	Metadades de carretera no trobades
+Some characters in the road name cannot be used. File: {file}	Alguns caràcters del nom de la carretera no poden ser utilitzats en un nom d'arxiu.: {file}
+Another road already uses this file: {file}	Un altre camí ja utilitza aquest fitxer: {file}
+A road needs at least one Lane	Un camí necessita almenys un carril
+Strip {} has an invalid width	Largura invalida de la banda viària: {}
+Footways must be at the outer ends	Els camins han de ser als extrems exteriors
+BusBays must border the roadway, at most one per side	BusBays hauran de bordar la carretera, un màxim per costat
+Medians must be inside the roadway	Els medians han d'estar dins de la carretera.
+The roadway may contain only Lanes and Medians	La carretera pot contenir només Lanes i Medians
+Lane directions do not match this road’s traffic side	Les direccions del carril no coincideixen amb el costat de la carretera utilitzada pel trànsit.
+Apply bus lane rules to all existing roads	Aplicar les normes de corses d'autobús a totes les carreteres existents
+Road types and spline counts to update	Tipos de carreteres i comptes d'esplines per actualitzar
+No roads need bus lane rules	No hi ha carreteres que necessitin regles d'autobús.
+Rules added	Regles afegides
+This road was made for left-hand traffic	Aquest camí va ser fet per al trànsit a l'esquerra
+This road was made for right-hand traffic	Aquest camí va ser fet per al trànsit a la dreta
+Advanced: strip mode	Avançat: mode de tira
+This road contains settings that simple mode cannot represent	Aquest camí conté configuracions que el mode simple no pot representar
+Built-in multi-lane texture markings may not align with these lanes	Les marques de textura integrades en múltiples carrers poden no estar alineades amb aquests carrers
+No footway texture	No té textura de pas
+Reset bay texture	Repetició de la textura
+Bay texture reset	Reinicialització de la textura
+Could not reset bay texture	No va poder restaurar la textura de la cala
+Kerb height	L'altura de la corba
+Lane	Carretera de trànsit
+Median	Llista mediana
+BusBay	Carrera de buses
+Forward ↑	Forward ↑
+Backward ↓	Enrere ↓
+bus only	Autobús només
+Default footway texture	Textura de la ruta per defecte
+Choose file…	Elegir el fitxer…
+BUS	BUS
+Hand-picked routes kept: {count}	Rutes seleccionades manualment conservades: {count}
+Overwrite hand-picked routes	Reescriure les rutes seleccionades manualment
+Turn round and reverse	Girar i invertir el sentit
+Turn the road round and reverse it	Girar la carretera i invertir-ne el sentit
+Select one road to turn round	Seleccioneu una carretera per girar
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Una carretera gira mitja volta al voltant del seu inici i s'inverteix: queda a l'altre costat de l'inici, el seu final sobre l'inici i el trànsit torna cap a ell
+In multiplayer the host saves the map. Leave the session to rename this.	En edició compartida, l'amfitrió desa el mapa. Surt de la sessió per canviar aquest nom.
+Name saved	Nom desat
+The name has not changed	El nom no ha canviat
+A name cannot have a line break	Un nom no pot contenir un salt de línia
+A name cannot be empty	Un nom no pot estar buit
+A name cannot begin with "["	Un nom no pot començar per «[»
+the object cannot be read, so it is left as it is	l'objecte no es pot llegir, així que es deixa com està
+its openMapper source cannot be read, so the name would come back on its next save	la seva font d'openMapper no es pot llegir, o el nom tornaria al proper desat
+its openMapper source cannot be written	la seva font d'openMapper no es pot escriure
+and its openMapper source could not be put back	i la seva font d'openMapper no s'ha pogut tornar a posar
+the name could not be saved	no s'ha pogut desar el nom
+Save the name	Desa el nom

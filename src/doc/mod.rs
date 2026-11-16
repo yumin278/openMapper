@@ -3,6 +3,7 @@
 
 pub mod autosave;
 pub mod safe;
+pub mod sync;
 mod transaction;
 pub(crate) mod save;
 #[cfg(test)]
@@ -190,6 +191,8 @@ pub enum Sel {
 
 /// The map.
 pub struct Document {
+    /// Active editor content root, independent of the map save location.
+    pub content_root: Option<PathBuf>,
     pub global: GlobalCfg,
     pub tiles: BTreeMap<TileKey, TileDoc>,
     /// The `[map]` list in file order: entry points and repeaters name tiles by their place
@@ -212,6 +215,7 @@ pub struct Document {
     pub descriptions: crate::descriptions::Descriptions,
     /// Things kept together (openMapper's own: `openMapper/groups.json` beside the map).
     pub groups: Vec<crate::mapgroups::MapGroup>,
+    pub(crate) signal_sets: crate::signal_sets::SignalSets,
 }
 
 impl Document {
@@ -240,6 +244,7 @@ impl Document {
         omsi_map::set_world_coordinates(false);
         omsi_map::set_tile_size(omsi_map::TILE_SIZE);
         let mut doc = Document {
+            content_root: Some(roots.content.clone()),
             global,
             tiles: BTreeMap::new(),
             order: Vec::new(),
@@ -247,6 +252,7 @@ impl Document {
             traffic: crate::traffic::Traffic::load(&template),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
             source: Some(template),
             global_dirty: true,
             fresh: true,
@@ -334,6 +340,7 @@ impl Document {
         progress(1.0);
         crate::render::profile::log_time(&format!("read {} tiles", tiles.len()), started);
         Ok(Document {
+            content_root: Some(roots.content.clone()),
             global,
             tiles,
             order,
@@ -346,6 +353,7 @@ impl Document {
             traffic,
             descriptions,
             groups: Vec::new(),
+            signal_sets: Default::default(),
         })
     }
 
@@ -385,6 +393,7 @@ impl Document {
     /// and chrono patches, which take room and are not looked at.
     pub fn for_reading(&self) -> Document {
         Document {
+            content_root: self.content_root.clone(),
             global: self.global.clone(),
             tiles: self.tiles.iter().map(|(k, t)| (*k, TileDoc { tile: t.tile.clone(), terrain: t.terrain.clone(), masks: Vec::new(), chrono: Vec::new(), water: t.water, terrain_rev: t.terrain_rev, mask_rev: t.mask_rev, content_rev: t.content_rev, dirty: t.dirty })).collect(),
             order: self.order.clone(),
@@ -397,6 +406,7 @@ impl Document {
             traffic: self.traffic.clone(),
             descriptions: Default::default(),
             groups: Vec::new(),
+            signal_sets: Default::default(),
         }
     }
 
@@ -718,6 +728,7 @@ impl Document {
                 }
             }
         }
+        crate::road_maker::bus_rules::apply_for_splines(self, &[(k, new)], "doc::split_spline");
         Some(new)
     }
 

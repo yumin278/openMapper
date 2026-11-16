@@ -47,7 +47,7 @@ fn textures_of(text: &str) -> Vec<String> {
 pub fn lane_free_copy(roots: &Roots, rel: &str) -> anyhow::Result<String> {
     let from = [&roots.content, &roots.omsi].iter().map(|r| omsi_cfg::resolve_path(r, rel)).find(|p| p.is_file()).ok_or_else(|| anyhow::anyhow!("{rel} is not installed"))?;
     let text = omsi_cfg::decode_text(&std::fs::read(&from)?);
-    let stem = Path::new(&rel.replace('\\', "/")).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "road".into());
+    let stem = crate::editable::safe_name(&Path::new(&rel.replace('\\', "/")).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "road".into()));
     let dir = roots.content.join("Splines").join("openMapper");
     let tex_dir = dir.join("texture");
     std::fs::create_dir_all(&tex_dir)?;
@@ -148,7 +148,7 @@ pub fn detach(doc: &mut Document, assets: &mut Assets, pieces: &[(TileKey, i64)]
             continue;
         }
         let mut made: Vec<(TileKey, MapSpline)> = Vec::new();
-        for p in &model.def.paths {
+        for (path_index, p) in model.def.paths.iter().enumerate() {
             let file = if p.kind == 1 { walk } else { car };
             let (x, z) = (p.start[0] as f64, p.start[2] as f64);
             // (the lane's own direction, turned round on a mirrored road)
@@ -167,8 +167,12 @@ pub fn detach(doc: &mut Document, assets: &mut Assets, pieces: &[(TileKey, i64)]
             };
             for &reverse in ways {
                 let new_id = doc.new_id();
-                if let Some(m) = lane_spline(&s, *k, x, z, reverse, file, new_id) {
-                    made.push(m);
+                if let Some((key, mut lane)) = lane_spline(&s, *k, x, z, reverse, file, new_id) {
+                    lane.rules = s.rules.iter().filter(|r| !r.kill && r.path_index == path_index as i32).map(|rule| {
+                        log::info!("detach rule: source_spline_id={} source_path_index={path_index} new_spline_id={new_id} kind={} value={}", s.id, rule.kind, rule.value);
+                        omsi_map::MapRule { path_index: 0, ..rule.clone() }
+                    }).collect();
+                    made.push((key, lane));
                 }
             }
         }
@@ -181,7 +185,7 @@ pub fn detach(doc: &mut Document, assets: &mut Assets, pieces: &[(TileKey, i64)]
         if let Some(t) = doc.tiles.get_mut(k) {
             if let Some(sp) = t.tile.splines.iter_mut().find(|q| q.id == *id) {
                 sp.file = copy.clone();
-                // (the rules were for the lanes by number: they no longer apply)
+                // Rules now live on the corresponding detached AI path splines.
                 sp.rules.clear();
             }
             t.touch_content();
@@ -234,3 +238,6 @@ mod tests {
         assert!((b.end_point() - c.offset_point(0.0, 2.0, 0.0)).truncate().length() < 0.01, "{:?}", b.end_point());
     }
 }
+
+#[cfg(test)]
+mod review_tests;

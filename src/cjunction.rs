@@ -346,12 +346,17 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
     std::fs::create_dir_all(dir.join("texture"))?;
     // the plate between the arms: the roadway, kerbs and footways, with its lanes
     let mut plate_paths = String::new();
+    let mut plate_bus_paths = Vec::new();
+    let mut plate_path_count = 0;
+    let asphalt = crate::junction::asphalt_texture(&roots.omsi);
     for arms in &resolved.plates {
         for a in arms {
             anyhow::ensure!(assets.spline_wait(&a.file, 5000).is_some(), "{}: {}", tr("the spline cannot be read", "сплайн не читается"), a.file);
         }
-        let plate = crate::junction::layout_plate(assets, arms, Some(&dir.join("texture")), None).ok_or_else(|| anyhow::anyhow!("{}", tr("the plate could not be made from these arms", "плиту не удалось построить из этих въездов")))?;
+        let plate = crate::junction::layout_plate(assets, arms, asphalt.as_deref()).ok_or_else(|| anyhow::anyhow!("{}", tr("the plate could not be made from these arms", "плиту не удалось построить из этих въездов")))?;
         joined.append(&plate.model_mesh(&mut src.model.materials, &mut textures), 0);
+        plate_bus_paths.extend(plate.bus_paths.iter().map(|i| i + plate_path_count));
+        plate_path_count += plate.lanes.len();
         plate_paths.push_str(&plate.paths);
     }
     for piece in resolved.pieces.iter().filter(|p| !p.hidden) {
@@ -376,6 +381,9 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
     let mut cut = layout.clone();
     cut.pieces = resolved.pieces.clone();
     src.extra = extra_lines(&cut, &|f| models.get(&f.to_lowercase()).cloned());
+    let preceding_paths = src.extra.lines().filter(|line| line.trim() == "[path]").count();
+    let indices: Vec<_> = plate_bus_paths.into_iter().map(|i| i + preceding_paths).collect();
+    src.extra.push_str(&crate::junction::bus_path_metadata(&indices));
     src.extra.push_str(&plate_paths);
     for (name, path) in &textures {
         let _ = name;

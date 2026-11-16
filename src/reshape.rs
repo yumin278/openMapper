@@ -338,6 +338,8 @@ pub fn apply(doc: &mut Document, plan: &Plan) {
         // (the others go at the end: attachment rows name splines by their place)
         t.tile.splines.extend(parts);
         t.touch_content();
+        let made: Vec<_> = ids.iter().map(|id| (p.key, *id)).collect();
+        crate::road_maker::bus_rules::apply_for_splines(doc, &made, "reshape::apply");
         // the spline after it now follows the last piece
         if last != old.id && old.next_id != 0 {
             if let Some((nk, _)) = doc.find_spline(old.next_id) {

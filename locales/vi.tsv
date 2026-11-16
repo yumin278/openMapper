@@ -1236,6 +1236,8 @@ Zebra crossings	Vạch qua đường
 Road	Đường
 Build it again	Xây lại
 Makes the plate, its kerbs and lanes again for the roads as they are now	Tạo lại tấm nền, lề đường và làn cho các đường như hiện tại
+Persist junction	Lưu cố định giao lộ
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Lưu giao lộ này dưới dạng vật thể cảnh quan thông thường trong thư mục cài đặt OMSI. Lưu bản đồ để giữ tham chiếu mới.
 Linked objects	Đối tượng liên kết
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Một đối tượng có thể lấy trạng thái từ đối tượng khác ([varparent]): đèn tín hiệu hiện đèn của chương trình ngã tư, màn hình điểm dừng hiện điểm dừng của nó.
 Takes its state from	Lấy trạng thái từ
@@ -1899,6 +1901,10 @@ My road	Đường của tôi
  · own	 · của riêng
 Create the road type	Tạo loại đường
 Road type made: the Roads tool builds with it	Đã tạo loại đường: công cụ Đường xây bằng nó
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Đổi trong trình tạo đường
 Its junctions	Nút giao của nó
 Make a junction where it meets another road (else they only cross)	Tạo nút giao nơi nó gặp đường khác (nếu không chúng chỉ cắt nhau)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Chọn tín hiệu và các đoạn của nó trong khung nhìn
 Delete the route	Xóa tuyến
 Lines and timetable	Tuyến và bảng giờ
+Convert all Type 1 trips to Type 2	Chuyển tất cả chuyến loại 1 sang loại 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Chuyển danh sách điểm dừng của {count} chuyến loại 1, sau đó lưu bản đồ. Tính lại lộ trình bằng thao tác riêng.
+Converted: {converted}. Skipped: {skipped}.	Đã chuyển: {converted}. Đã bỏ qua: {skipped}.
 Edit timetable	Sửa bảng giờ
 No bus stop there: click one of the orange marks	Không có điểm dừng ở đó: nhấp một trong các dấu màu cam
 The roads can't be read without the OMSI 2 folder.	Không đọc được đường nếu thiếu thư mục OMSI 2.
@@ -2396,6 +2405,7 @@ Advanced users	Người dùng nâng cao
 Controls as in OMSI 2's editor	Điều khiển như trong trình chỉnh sửa của OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Mặc định tắt. Nút giữa xoay góc nhìn, giữ nút phải và di chuyển lên xuống để thu phóng, nhấp chuột phải vào mặt đất để đến đó (Shift + nhấp chuột phải: menu), phím mũi tên di chuyển camera, con lăn để thu phóng
 Bay width	Chiều rộng ô đỗ
+Bay width per side	Chiều rộng vịnh dừng xe buýt mỗi bên
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Loại đường có làn ô đỗ này được tạo từ loại đã chọn (của trình tạo đường), nếu nó không có chiều rộng này
 Tapers in metres	Thu hẹp tính bằng mét
 Give the length of each taper in metres instead of a ratio	Nhập chiều dài mỗi đoạn thu hẹp bằng mét thay vì tỉ lệ
@@ -2785,6 +2795,25 @@ no track within 15 m	không có đường ray trong 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	các đường ray chưa nối, hoặc chạy ngược chiều (xem Xem > Làn AI)
 no track beside	không có đường ray bên cạnh
 Drives on	Chạy trên
+Footway paths round the corners (AI)	Lối đi bộ quanh góc đường (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Tắt: không có đường AI ở góc đường, nhưng lối sang đường vẫn nối các vỉa hè. Hãy tự nối các góc (ví dụ bằng spline đường đi vô hình).
+Open in text editor	Mở trong trình soạn thảo văn bản
+Open the saved .ttp file	Mở tệp .ttp đã lưu
+Could not open the trip file	Không mở được tệp lượt chạy
+Save the map to create this trip's .ttp file first.	Lưu bản đồ trước để tạo tệp .ttp của lượt chạy này.
+Change ID	Đổi ID
+New stop ID	ID điểm dừng mới
+Timetable name: {name}	Tên trong thời gian biểu: {name}
+No stop with this ID on the map	Không có điểm dừng nào mang ID này trên bản đồ
+Confirm	Xác nhận
+Also apply to other trips with this ID ({count})	Áp dụng cả cho các lượt chạy khác có ID này ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Đã đổi ID điểm dừng từ {old} thành {new} ({name}) trong {count} lượt chạy
+Insert before: click a stop on the map to insert it before this one	Chèn trước: chọn một điểm dừng trên bản đồ để chèn trước điểm này
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Chọn một điểm dừng trên bản đồ để chèn trước “{stop}” (Esc để hủy)
+That stop is already next to the insertion point.	Điểm dừng đó đã nằm ngay cạnh vị trí chèn.
+Insert stop before	Chèn điểm dừng trước điểm này
+Place signal heads and poles	Đặt cụm đèn và cột tín hiệu giao thông
+Paint stripes on selected crossings	Kẻ vạch trên các lối sang đường đã chọn
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Đỉnh nguồn được chọn. Bấm vào một đỉnh mục tiêu để chụp (Shift: chỉ theo chiều ngang, Esc: hủy)
 Aim at a vertex of the selected object	Nhắm vào một đỉnh của đối tượng đã chọn
 Snapped to vertex! (Ctrl+Z to undo)	Đã chụp đến đỉnh! (Ctrl + Z để hoàn tác)
@@ -2822,3 +2851,136 @@ Float	Tách
 Show Assets in a floating window	Hiện tài nguyên trong cửa sổ nổi
 Dock	Gắn
 Dock Assets at the bottom	Gắn tài nguyên ở dưới cùng
+Complete to	Hoàn thiện đến
+Complete to: a new piece between the free ends of the selected splines	Hoàn thiện đến: đoạn mới giữa các đầu tự do của các spline đã chọn
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Một đoạn mới cùng loại với spline được chọn đầu tiên, nằm giữa hai đầu tự do của các spline đã chọn, khớp với cả hai về vị trí, hướng và độ cao; hai spline đó không bị thay đổi. Làm lại: hai đầu còn lại được nối, khép kín vòng.
+The two ends already meet	Hai đầu đã gặp nhau
+Select the splines whose free ends are to be joined	Chọn các spline có đầu tự do cần nối
+No piece of spline can join these two ends	Không đoạn spline nào nối được hai đầu này
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Đã mở bản sao của openMapper cho bản đồ này trong thư mục nội dung (bản trong thư mục OMSI 2 không bao giờ bị ghi)
+Read in again, changed on disk by another program:	Đã đọc lại, bị chương trình khác thay đổi trên đĩa:
+Could not bring the changes over	Không thể đưa các thay đổi sang
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Các tệp của bản đồ đã bị thay đổi sau lần tự lưu này (bởi chương trình khác, ví dụ trình soạn thảo OMSI 2). Khôi phục sẽ đặt các ô cũ hơn của bản tự lưu lên trên những thay đổi đó.
+tile(s)	ô
+the global settings	cài đặt chung
+the timetable	thời gian biểu
+the traffic	giao thông
+the descriptions	mô tả
+Reload from disk	Tải lại từ đĩa
+The map changed on disk	Bản đồ đã thay đổi trên đĩa
+Another program changed the map's files where it has changes here not saved yet:	Một chương trình khác đã thay đổi tệp của bản đồ ở chỗ tại đây có thay đổi chưa lưu:
+The other changes made on disk were read in already.	Các thay đổi khác trên đĩa đã được đọc.
+Keep mine	Giữ của tôi
+The map changed in OMSI 2's folder	Bản đồ đã thay đổi trong thư mục OMSI 2
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	Bản sao của bản đồ này trong bản cài đặt đã bị thay đổi sau khi bản sao của openMapper trong thư mục nội dung được lưu, ví dụ bởi trình soạn thảo OMSI 2
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Đưa thay đổi sang sẽ thay các tệp đó trong bản sao của openMapper; các tệp bị thay được giữ trong bản sao lưu (Tệp > Phiên bản cũ hơn).
+Bring the changes over	Đưa thay đổi sang
+Keep openMapper's copy	Giữ bản sao của openMapper
+its way has a gap after path	đường đi của nó bị hở sau làn
+its way does not pass	đường đi của nó không qua
+On demand	Theo yêu cầu
+Not served (checkpoint)	Không phục vụ (điểm kiểm tra)
+Wait for departure time	Chờ giờ xuất bến
+Always + wait for departure time	Luôn luôn + chờ giờ xuất bến
+The bus stops only when somebody waits or wants to get off (the game's default)	Xe buýt chỉ dừng khi có người chờ hoặc muốn xuống (mặc định của game)
+The bus always stops here	Xe buýt luôn dừng ở đây
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	Xe buýt chạy qua không dừng: điểm dừng chỉ đánh dấu đường đi (điểm kiểm tra)
+The bus stops only when it is early, and waits there for its departure time	Xe buýt chỉ dừng khi đến sớm, và chờ ở đó đến giờ xuất bến
+The bus always stops here, and when it is early it waits for its departure time	Xe buýt luôn dừng ở đây, và khi đến sớm thì chờ đến giờ xuất bến
+All trips	Tất cả chuyến
+Every trip of the map, those no tour drives too	Mọi chuyến của bản đồ, cả những chuyến không lượt nào chạy
+The line number the trip shows; the line of this number lists it among its trips	Số tuyến mà chuyến hiển thị; tuyến mang số này liệt kê nó trong các chuyến của mình
+Way picked by hand:	Đường đi chọn bằng tay:
+the paths picked do not pass this stop	các làn đã chọn không qua điểm dừng này
+Other trips	Chuyến khác
+The time profile this departure runs to	Hồ sơ thời gian mà giờ xuất bến này chạy theo
+Time profile	Hồ sơ thời gian
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Một chuyến có thể có nhiều hồ sơ (giờ cao điểm, ban đêm…): mỗi giờ xuất bến của lượt cho biết nó chạy theo hồ sơ nào
+The profile's name	Tên hồ sơ
+A new profile, a copy of this one	Hồ sơ mới, bản sao của hồ sơ này
+Delete this profile (its departures run to the first)	Xóa hồ sơ này (các giờ xuất bến của nó chạy theo hồ sơ đầu tiên)
+Times from stop to stop	Thời gian từ điểm dừng đến điểm dừng
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Có thể đặt thời gian từ điểm dừng trước ở mỗi điểm dừng: các thời gian sau đó dịch theo, và thời gian chuyến cũng vậy. Thời gian chưa đặt theo khoảng cách giữa các điểm cố định; ở điểm dừng cố định, xe buýt đến sớm sẽ chờ.
+From the stop before	Từ điểm dừng trước
+After departure	Sau khi xuất bến
+Minutes from the stop before to this one	Số phút từ điểm dừng trước đến điểm này
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Như trong trình soạn thảo của OMSI 2. Di chuột lên một lựa chọn để xem xe buýt làm gì.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Mọi chuyến của bản đồ, bất kể tuyến nào hiển thị hay lượt nào chạy. Chuyến không lượt nào chạy vẫn được giữ, và có thể sửa, giao cho một lượt hoặc xóa ở đây.
+trips	chuyến
+driven by no tour	không lượt nào chạy
+no tour	không có lượt
+departures	giờ xuất bến
+No path there: click a lane of a road (View > AI lanes shows them)	Không có làn ở đó: hãy bấm vào một làn của đường (Xem > Làn AI hiện chúng)
+Done picking paths	Xong chọn
+Pick the paths on the map	Chọn các làn trên bản đồ
+Choose the way yourself, path by path, as in OMSI 2's editor	Tự chọn đường đi, từng làn một, như trong trình soạn thảo của OMSI 2
+Find the way automatically	Tự động tìm đường đi
+Forget the paths picked: the way is found along the roads again	Quên các làn đã chọn: đường đi lại được tìm theo các con đường
+The paths were picked by hand: they are kept when the stops change.	Các làn đã được chọn bằng tay: chúng được giữ khi điểm dừng thay đổi.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Bấm vào các làn trong khung nhìn. Làn sau điểm cuối hoặc trước điểm đầu được thêm vào, cùng các làn dẫn tới nó; làn bên cạnh đường đi thay cho đoạn mà nó đi vòng (nhánh khác ở giao lộ); làn thuộc đường đi bị bỏ ra. Đường đi có thể bắt đầu trước điểm dừng đầu tiên và tiếp tục sau điểm cuối cùng.
+The way breaks after path	Đường đi bị đứt sau làn
+the paths do not join, the bus's GPS loses its way here in the game	các làn không nối nhau, GPS của xe buýt trong game bị lạc ở đây
+Paths of the way	Các làn của đường đi
+Cut before the first stop	Cắt trước điểm dừng đầu tiên
+Cut after the last stop	Cắt sau điểm dừng cuối cùng
+path	làn
+Lane widths differ	Độ rộng đường đua khác nhau
+Contains bus-only lanes	Bao gồm chỉ đường xe buýt
+Contains multiple medians	Bao gồm nhiều trung gian
+Median is not between opposite directions	Median không phải là giữa các hướng đối lập
+Contains a left BusBay	Bao gồm một BusBay bên trái
+Footway textures differ	Các kết cấu đường chân khác nhau
+Names must not contain _bay_ (reserved for the bus bay tool)	Dòng này được dành riêng cho công cụ bus bay: _bay_
+The roadway texture is missing	Dòng đường bị mất tích.
+The roadway texture could not be read	Bản chất đường không thể đọc được
+Road metadata not found	Các metadata đường không được tìm thấy
+Some characters in the road name cannot be used. File: {file}	Một số ký tự trong tên đường không thể được sử dụng trong tên tập tin.: {file}
+Another road already uses this file: {file}	Một con đường khác đã sử dụng tập tin này: {file}
+A road needs at least one Lane	Một con đường cần ít nhất một làn đường
+Strip {} has an invalid width	Độ rộng không hợp lệ của dải đường: {}
+Footways must be at the outer ends	Đường chân phải ở đầu bên ngoài
+BusBays must border the roadway, at most one per side	BusBays phải biên giới con đường, tối đa là một bên
+Medians must be inside the roadway	Những người trung gian phải ở bên trong đường.
+The roadway may contain only Lanes and Medians	Con đường có thể chỉ chứa Lanes và Medians
+Lane directions do not match this road’s traffic side	Các hướng đường không phù hợp với phía của con đường được sử dụng bởi giao thông.
+Apply bus lane rules to all existing roads	Sử dụng các quy tắc đường xe buýt cho tất cả những con đường hiện có
+Road types and spline counts to update	Các loại đường và số lượng tròn để cập nhật
+No roads need bus lane rules	Không có con đường nào cần quy tắc xe buýt
+Rules added	Các quy tắc bổ sung
+This road was made for left-hand traffic	Con đường này được làm cho giao thông bên trái
+This road was made for right-hand traffic	Con đường này được làm cho giao thông bên phải
+Advanced: strip mode	Tiến bộ: chế độ dải
+This road contains settings that simple mode cannot represent	Con đường này chứa các cài đặt mà chế độ đơn giản không thể đại diện cho
+Built-in multi-lane texture markings may not align with these lanes	Các dấu hiệu kết cấu nhiều làn có thể không phù hợp với các làn này
+No footway texture	Không có kết cấu đường chân
+Reset bay texture	Tơ cấu vỏ thiết lập lại
+Bay texture reset	Bay texture reset
+Could not reset bay texture	Không thể thiết lập lại kết cấu bay
+Kerb height	Độ cao của cỏ
+Lane	Hành vi giao thông
+Median	Dải trung bình
+BusBay	Khu xe buýt
+Forward ↑	Tiếp tục ↑
+Backward ↓	Trở lại ↓
+bus only	xe buýt
+Default footway texture	Thiết kế đường chân mặc định
+Choose file…	Chọn tập tin…
+BUS	BUS
+Hand-picked routes kept: {count}	Các tuyến đường được lựa chọn bằng tay: {count}
+Overwrite hand-picked routes	Viết lại các tuyến đường được chọn bằng tay
+Turn round and reverse	Xoay vòng và đảo chiều
+Turn the road round and reverse it	Xoay đường và đảo chiều
+Select one road to turn round	Chọn một con đường để xoay vòng
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Một con đường được xoay nửa vòng quanh điểm đầu rồi đảo chiều: nó nằm ở phía bên kia điểm đầu, điểm cuối nằm trên điểm đầu, giao thông quay lại về phía đó
+In multiplayer the host saves the map. Leave the session to rename this.	Khi chỉnh sửa chung, máy chủ lưu bản đồ. Hãy rời phiên để đổi tên mục này.
+Name saved	Đã lưu tên
+The name has not changed	Tên không thay đổi
+A name cannot have a line break	Tên không được có dấu xuống dòng
+A name cannot be empty	Tên không được để trống
+A name cannot begin with "["	Tên không được bắt đầu bằng „[”
+the object cannot be read, so it is left as it is	không đọc được đối tượng nên giữ nguyên như cũ
+its openMapper source cannot be read, so the name would come back on its next save	không đọc được nguồn openMapper của nó, nếu không tên sẽ quay lại ở lần lưu sau
+its openMapper source cannot be written	không ghi được nguồn openMapper của nó
+and its openMapper source could not be put back	và không khôi phục được nguồn openMapper của nó
+the name could not be saved	không lưu được tên
+Save the name	Lưu tên

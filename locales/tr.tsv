@@ -1236,6 +1236,8 @@ Zebra crossings	Yaya geçitleri
 Road	Yol
 Build it again	Yeniden yap
 Makes the plate, its kerbs and lanes again for the roads as they are now	Yolların şu anki haline göre platformu, kaldırım kenarlarını ve şeritleri yeniden yapar
+Persist junction	Kavşağı kalıcı olarak kaydet
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Bu kavşağı OMSI kurulum klasörüne sıradan bir sahne nesnesi olarak kaydedin. Yeni başvuruyu korumak için haritayı kaydedin.
 Linked objects	Bağlı nesneler
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Bir nesne durumunu başkasından alabilir ([varparent]): sinyal başlığı kavşağın programından bir ışık gösterir, durak ekranı kendi durağını.
 Takes its state from	Durumu şundan alır:
@@ -1899,6 +1901,10 @@ My road	Benim yolum
  · own	 · özel
 Create the road type	Yol türünü oluştur
 Road type made: the Roads tool builds with it	Yol türü yapıldı: Yollar aracı bununla yapar
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Yol yapıcıda değiştir
 Its junctions	Kavşakları
 Make a junction where it meets another road (else they only cross)	Başka bir yolla buluştuğu yerde kavşak yap (yoksa yalnızca kesişirler)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Sinyali ve parçalarını görünümde seç
 Delete the route	Güzergâhı sil
 Lines and timetable	Hatlar ve tarife
+Convert all Type 1 trips to Type 2	Tüm Tip 1 seferlerini Tip 2’ye dönüştür
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	{count} Tip 1 seferinin durak listesini dönüştürün, ardından haritayı kaydedin. Güzergâhları yeniden hesaplamayı ayrı olarak başlatın.
+Converted: {converted}. Skipped: {skipped}.	Dönüştürülen: {converted}. Atlanan: {skipped}.
 Edit timetable	Tarifeyi düzenle
 No bus stop there: click one of the orange marks	Orada durak yok: turuncu işaretlerden birine tıklayın
 The roads can't be read without the OMSI 2 folder.	OMSI 2 klasörü olmadan yollar okunamaz.
@@ -2396,6 +2405,7 @@ Advanced users	Gelişmiş kullanıcılar
 Controls as in OMSI 2's editor	OMSI 2'nin düzenleyicisindeki gibi kontroller
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Varsayılan olarak kapalı. Orta tuş görünümü döndürür, basılı tutulup yukarı aşağı hareket ettirilen sağ tuş yakınlaştırır, zemine sağ tık oraya gider (Shift + sağ tık: menü), ok tuşları kamerayı hareket ettirir, tekerlek yakınlaştırır
 Bay width	Cep genişliği
+Bay width per side	Her taraftaki otobüs cebi genişliği
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Bu cep şeridine sahip bir yol türü, seçilen türden (yol yapıcıdaki) oluşturulur; genişliği bu değilse
 Tapers in metres	Daralmalar metre olarak
 Give the length of each taper in metres instead of a ratio	Oran yerine her daralmanın uzunluğunu metre olarak girin
@@ -2785,6 +2795,25 @@ no track within 15 m	15 m içinde ray yok
 the tracks are not joined, or run the other way (see View > AI lanes)	raylar bağlı değil ya da ters yöne gidiyor (Görünüm > YZ şeritleri)
 no track beside	yanında ray yok:
 Drives on	Gittiği yol
+Footway paths round the corners (AI)	Köşelerdeki yaya yolları (YZ)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Kapalı: köşelerde YZ yolu yoktur, ancak geçitler kaldırımları bağlamaya devam eder. Köşeleri kendiniz bağlayın (ör. görünmez bir yol eğrisiyle).
+Open in text editor	Metin düzenleyicide aç
+Open the saved .ttp file	Kaydedilmiş .ttp dosyasını aç
+Could not open the trip file	Sefer dosyası açılamadı
+Save the map to create this trip's .ttp file first.	Bu seferin .ttp dosyasını oluşturmak için önce haritayı kaydedin.
+Change ID	ID’yi değiştir
+New stop ID	Yeni durak ID’si
+Timetable name: {name}	Tarifedeki ad: {name}
+No stop with this ID on the map	Haritada bu ID’ye sahip durak yok
+Confirm	Onayla
+Also apply to other trips with this ID ({count})	Bu ID’nin geçtiği diğer seferlere de uygula ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	{count} seferde durak ID’si {old} yerine {new} ({name}) olarak değiştirildi
+Insert before: click a stop on the map to insert it before this one	Önüne ekle: bu durağın önüne eklemek için haritada bir durağa tıklayın
+Click a stop on the map to insert it before {stop} (Esc to cancel)	“{stop}” durağının önüne eklemek için haritada bir durağa tıklayın (iptal için Esc)
+That stop is already next to the insertion point.	Bu durak ekleme noktasının hemen yanında zaten var.
+Insert stop before	Önüne durak ekle
+Place signal heads and poles	Sinyal başlıklarını ve direkleri yerleştir
+Paint stripes on selected crossings	Seçili yaya geçitlerine şerit çiz
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Kaynak köşesi seçildi. Yakalamak için hedef köşeyi tıklayın (Shift: yalnızca yatay, Esc: cancel)
 Aim at a vertex of the selected object	Seçilen nesnenin bir tepe noktasına nişan alın
 Snapped to vertex! (Ctrl+Z to undo)	Köşeye sıkıştı! (Geri almak için Ctrl+Z)
@@ -2822,3 +2851,136 @@ Float	Ayır
 Show Assets in a floating window	Varlıkları yüzen bir pencerede göster
 Dock	Sabitle
 Dock Assets at the bottom	Varlıkları alta sabitle
+Complete to	Şuraya kadar tamamla
+Complete to: a new piece between the free ends of the selected splines	Şuraya kadar tamamla: seçili spline'ların serbest uçları arasına yeni parça
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Seçili spline'ların iki serbest ucu arasına, ilk seçilen spline'ın türünde, ikisiyle de konum, yön ve yükseklikte buluşan yeni bir parça; ikisi değişmez. Tekrar: kalan iki uç birleştirilir, halka kapanır.
+The two ends already meet	İki uç zaten buluşuyor
+Select the splines whose free ends are to be joined	Serbest uçları birleştirilecek spline'ları seçin
+No piece of spline can join these two ends	Hiçbir spline parçası bu iki ucu birleştiremez
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Bu haritanın openMapper kopyası içerik klasöründe açıldı (OMSI 2 klasöründeki asla yazılmaz)
+Read in again, changed on disk by another program:	Yeniden okundu, diskte başka bir program tarafından değiştirildi:
+Could not bring the changes over	Değişiklikler aktarılamadı
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Haritanın dosyaları bu otomatik kayıttan sonra değiştirildi (başka bir programla, örneğin OMSI 2 editörüyle). Geri yüklemek, kayıttaki eski karoları bu değişikliklerin üzerine koyar.
+tile(s)	karo
+the global settings	genel ayarlar
+the timetable	tarife
+the traffic	trafik
+the descriptions	açıklamalar
+Reload from disk	Diskten yeniden yükle
+The map changed on disk	Harita diskte değişti
+Another program changed the map's files where it has changes here not saved yet:	Başka bir program, burada kaydedilmemiş değişiklikler olan yerlerde haritanın dosyalarını değiştirdi:
+The other changes made on disk were read in already.	Diskteki diğer değişiklikler zaten okundu.
+Keep mine	Benimkileri tut
+The map changed in OMSI 2's folder	Harita OMSI 2 klasöründe değişti
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	Bu haritanın kurulumdaki kopyası, openMapper'ın içerik klasöründeki kopyası kaydedildikten sonra değiştirildi, örneğin OMSI 2 editörüyle
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Değişiklikleri aktarmak openMapper kopyasındaki bu dosyaları değiştirir; değiştirilen dosyalar bir yedekte tutulur (Dosya > Önceki sürümler).
+Bring the changes over	Değişiklikleri aktar
+Keep openMapper's copy	openMapper kopyasını tut
+its way has a gap after path	güzergâhında şu yoldan sonra boşluk var:
+its way does not pass	güzergâhı şuradan geçmiyor:
+On demand	İsteğe bağlı
+Not served (checkpoint)	Hizmet yok (kontrol noktası)
+Wait for departure time	Kalkış saatini bekle
+Always + wait for departure time	Her zaman + kalkış saatini bekle
+The bus stops only when somebody waits or wants to get off (the game's default)	Otobüs yalnızca biri bekliyorsa ya da inmek istiyorsa durur (oyunun varsayılanı)
+The bus always stops here	Otobüs burada her zaman durur
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	Otobüs durmadan geçer: durak yalnızca güzergâhı işaretler (kontrol noktası)
+The bus stops only when it is early, and waits there for its departure time	Otobüs yalnızca erkense durur ve orada kalkış saatini bekler
+The bus always stops here, and when it is early it waits for its departure time	Otobüs burada her zaman durur ve erkense kalkış saatini bekler
+All trips	Tüm seferler
+Every trip of the map, those no tour drives too	Haritanın her seferi, hiçbir sefer turunun yapmadıkları da
+The line number the trip shows; the line of this number lists it among its trips	Seferin gösterdiği hat numarası; bu numaralı hat onu kendi seferleri arasında listeler
+Way picked by hand:	Güzergâh elle seçildi:
+the paths picked do not pass this stop	seçilen yollar bu duraktan geçmiyor
+Other trips	Diğer seferler
+The time profile this departure runs to	Bu kalkışın izlediği zaman profili
+Time profile	Zaman profili
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Bir seferin birkaç profili olabilir (yoğun saat, gece…): sefer turunun her kalkışı hangisini izlediğini söyler
+The profile's name	Profilin adı
+A new profile, a copy of this one	Yeni bir profil, bunun kopyası
+Delete this profile (its departures run to the first)	Bu profili sil (kalkışları ilkini izler)
+Times from stop to stop	Duraktan durağa süreler
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Her durakta önceki duraktan süre ayarlanabilir: sonraki süreler kayar, onlarla birlikte seferin süresi de. Ayarlanmamış süreler sabit olanlar arasındaki mesafeyi izler; sabit bir durakta erken gelen otobüs bekler.
+From the stop before	Önceki duraktan
+After departure	Kalkıştan sonra
+Minutes from the stop before to this one	Önceki duraktan buna kadar dakika
+As in OMSI 2's editor. Hover a choice to see what the bus does.	OMSI 2'nin editöründeki gibi. Otobüsün ne yaptığını görmek için bir seçeneğin üzerine gelin.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Haritanın her seferi, hangi hat gösterirse ya da hangi sefer turu yaparsa yapsın. Hiçbir sefer turunun yapmadığı sefer saklanır; burada düzenlenebilir, bir sefer turuna verilebilir ya da silinebilir.
+trips	sefer
+driven by no tour	hiçbir sefer turu yapmıyor
+no tour	sefer turu yok
+departures	kalkış
+No path there: click a lane of a road (View > AI lanes shows them)	Orada yol yok: bir yolun şeridine tıklayın (Görünüm > YZ şeritleri onları gösterir)
+Done picking paths	Seçim bitti
+Pick the paths on the map	Yolları haritada seç
+Choose the way yourself, path by path, as in OMSI 2's editor	Güzergâhı kendiniz seçin, yol yol, OMSI 2'nin editöründeki gibi
+Find the way automatically	Güzergâhı otomatik bul
+Forget the paths picked: the way is found along the roads again	Seçilen yolları unut: güzergâh yeniden yollar boyunca bulunur
+The paths were picked by hand: they are kept when the stops change.	Yollar elle seçildi: duraklar değişince korunur.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Görünümde yollara tıklayın. Sondan sonraki ya da baştan önceki yol, ona giden yollarla birlikte eklenir; güzergâhın yanındaki yol, dolandığı parçanın yerini alır (kavşakta başka bir kol); güzergâhtaki yol çıkarılır. Güzergâh ilk duraktan önce başlayıp son duraktan sonra sürebilir.
+The way breaks after path	Güzergâh şu yoldan sonra kopuyor:
+the paths do not join, the bus's GPS loses its way here in the game	yollar birleşmiyor, otobüsün GPS'i oyunda burada yolunu kaybediyor
+Paths of the way	Güzergâhın yolları
+Cut before the first stop	İlk duraktan öncesini kes
+Cut after the last stop	Son duraktan sonrasını kes
+path	yol
+Lane widths differ	Yol genişliği farklıdır
+Contains bus-only lanes	Sadece otobüs yolları içerir
+Contains multiple medians	Çoklu ortalama içerir.
+Median is not between opposite directions	Ortalama karşı yönler arasında değil.
+Contains a left BusBay	Sol bir BusBay içerir.
+Footway textures differ	Yürüyüş yapısı farklıdır.
+Names must not contain _bay_ (reserved for the bus bay tool)	Bu ip otobüs bahçesi aracı için ayrılmıştır: _bay_
+The roadway texture is missing	Yol yapısı yok .
+The roadway texture could not be read	Yol yapısı okunamadı.
+Road metadata not found	Yol metadataları bulunamadı
+Some characters in the road name cannot be used. File: {file}	Yol adındaki bazı karakterler bir dosya adında kullanılamaz.: {file}
+Another road already uses this file: {file}	Başka bir yol zaten bu dosyayı kullanıyor: {file}
+A road needs at least one Lane	Bir yolun en az bir şeridine ihtiyacı vardır.
+Strip {} has an invalid width	Yol şeridinin geçersiz genişliği: {}
+Footways must be at the outer ends	Ayak yolları dış uçlarda olmalı.
+BusBays must border the roadway, at most one per side	BusBays, yolun en fazla bir tarafında sınırlandırılması gerekir.
+Medians must be inside the roadway	Medyenler yolun içinde olmalı .
+The roadway may contain only Lanes and Medians	Yol sadece Lanes ve Medians'ı içerebilir.
+Lane directions do not match this road’s traffic side	Şerit yönleri trafik tarafından kullanılan yolun kenarına eşleşmez.
+Apply bus lane rules to all existing roads	Tüm mevcut yollara otobüs rotası kurallarını uygulamak
+Road types and spline counts to update	Yol türleri ve çizgi sayıları güncelleyecek
+No roads need bus lane rules	Yollara otobüs tarzı kuralları gerekmez.
+Rules added	Eklenmiş Kurallar
+This road was made for left-hand traffic	Bu yol sol taraftaki trafik için yapılmış.
+This road was made for right-hand traffic	Bu yol sağ el trafiği için yapılmış.
+Advanced: strip mode	Gelişmiş: Çizgi modu
+This road contains settings that simple mode cannot represent	Bu yol basit modun temsil edemeyeceği ayarları içerir.
+Built-in multi-lane texture markings may not align with these lanes	İçinde yerleştirilmiş çok yollu doku işaretleri bu yollara uymayabilir.
+No footway texture	Yürüyüş yapısı yok
+Reset bay texture	Dönüştürücüleri yeniden ayarlayın
+Bay texture reset	Bay yapısı yeniden ayarlama
+Could not reset bay texture	Bay dokusunu yeniden ayarlayamadım
+Kerb height	Kerb yüksekliği
+Lane	Trafik şeridi
+Median	Orta çizgi
+BusBay	Otobüs bahçesi
+Forward ↑	Önüne ^ ↑
+Backward ↓	Geriye ↓
+bus only	Sadece otobüs
+Default footway texture	Öntanımlı ayak yol yapısı
+Choose file…	Dosyayı seç…
+BUS	BUS
+Hand-picked routes kept: {count}	Elle seçilen yollar: {count}
+Overwrite hand-picked routes	Elle seçilen yolları yazma
+Turn round and reverse	Yana döndür ve yönünü tersine çevir
+Turn the road round and reverse it	Yolu yana döndür ve yönünü tersine çevir
+Select one road to turn round	Döndürülecek bir yol seçin
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Bir yol başlangıcı etrafında yarım tur döndürülüp ters çevrilir: başlangıcın diğer tarafında durur, sonu başlangıçta, trafik ona geri gelir
+In multiplayer the host saves the map. Leave the session to rename this.	Ortak düzenlemede haritayı sunucu kaydeder. Bunu yeniden adlandırmak için oturumdan çıkın.
+Name saved	Ad kaydedildi
+The name has not changed	Ad değişmedi
+A name cannot have a line break	Bir ad satır sonu içeremez
+A name cannot be empty	Bir ad boş olamaz
+A name cannot begin with "["	Bir ad „[” ile başlayamaz
+the object cannot be read, so it is left as it is	nesne okunamıyor, bu yüzden olduğu gibi bırakıldı
+its openMapper source cannot be read, so the name would come back on its next save	openMapper kaynağı okunamıyor, yoksa ad bir sonraki kayıtta geri gelirdi
+its openMapper source cannot be written	openMapper kaynağı yazılamıyor
+and its openMapper source could not be put back	ve openMapper kaynağı geri konulamadı
+the name could not be saved	ad kaydedilemedi
+Save the name	Adı kaydet

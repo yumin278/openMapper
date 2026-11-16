@@ -1236,6 +1236,8 @@ Zebra crossings	Övergångsställen
 Road	Väg
 Build it again	Bygg den igen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Gör plattan, dess trottoarkanter och körfält igen för vägarna som de är nu
+Persist junction	Spara korsningen permanent
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Spara korsningen som ett vanligt sceneryobjekt i OMSI-installationen. Spara kartan för att behålla den nya referensen.
 Linked objects	Länkade objekt
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Ett objekt kan ta sitt tillstånd från ett annat ([varparent]): ett signalhuvud visar ett ljus från sin korsnings program, en hållplatsdisplay sin hållplats.
 Takes its state from	Tar sitt tillstånd från
@@ -1899,6 +1901,10 @@ My road	Min väg
  · own	 · egen
 Create the road type	Skapa vägtypen
 Road type made: the Roads tool builds with it	Vägtyp skapad: Väg-verktyget bygger med den
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Ändra den i väggeneratorn
 Its junctions	Dess korsningar
 Make a junction where it meets another road (else they only cross)	Gör en korsning där den möter en annan väg (annars korsar de bara)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Markera signalen och dess delar i vyn
 Delete the route	Ta bort vägen
 Lines and timetable	Linjer och tidtabell
+Convert all Type 1 trips to Type 2	Konvertera alla turer från typ 1 till typ 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Konvertera hållplatslistorna för {count} turer av typ 1 och spara sedan kartan. Räkna om rutterna separat.
+Converted: {converted}. Skipped: {skipped}.	Konverterade: {converted}. Överhoppade: {skipped}.
 Edit timetable	Redigera tidtabell
 No bus stop there: click one of the orange marks	Ingen hållplats där: klicka på ett av de orange märkena
 The roads can't be read without the OMSI 2 folder.	Vägarna kan inte läsas utan OMSI 2-mappen.
@@ -2396,6 +2405,7 @@ Advanced users	Avancerade användare
 Controls as in OMSI 2's editor	Kontroller som i OMSI 2:s editor
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Av som standard. Mittknappen vrider vyn, högerknappen hållen och förd upp och ned zoomar, ett högerklick på marken går dit (Shift + högerklick: menyn), piltangenterna flyttar kameran, hjulet zoomar
 Bay width	Fickans bredd
+Bay width per side	Bredd på bussfickan per sida
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	En vägtyp med detta fickfält skapas av den valda (den från väggeneratorn), om den inte har den bredden
 Tapers in metres	Avsmalningar i meter
 Give the length of each taper in metres instead of a ratio	Ange längden på varje avsmalning i meter i stället för en proportion
@@ -2785,6 +2795,25 @@ no track within 15 m	inget spår inom 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	spåren är inte sammanfogade, eller går åt andra hållet (se Visa > AI-körfält)
 no track beside	inget spår vid
 Drives on	Kör på
+Footway paths round the corners (AI)	Gångvägar runt hörnen (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Av: hörnen saknar AI-vägar, men övergångsställena förbinder fortfarande trottoarerna. Anslut hörnen manuellt (t.ex. med en osynlig vägspline).
+Open in text editor	Öppna i textredigerare
+Open the saved .ttp file	Öppna den sparade .ttp-filen
+Could not open the trip file	Det gick inte att öppna turfilen
+Save the map to create this trip's .ttp file first.	Spara kartan först för att skapa turens .ttp-fil.
+Change ID	Ändra ID
+New stop ID	Nytt hållplats-ID
+Timetable name: {name}	Namn i tidtabellen: {name}
+No stop with this ID on the map	Det finns ingen hållplats med detta ID på kartan
+Confirm	Bekräfta
+Also apply to other trips with this ID ({count})	Tillämpa också på andra turer med detta ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Hållplats-ID {old} ändrades till {new} ({name}) i {count} turer
+Insert before: click a stop on the map to insert it before this one	Infoga före: välj en hållplats på kartan för att infoga den före denna
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Välj en hållplats på kartan för att infoga den före ”{stop}” (Esc för att avbryta)
+That stop is already next to the insertion point.	Hållplatsen ligger redan intill infogningspunkten.
+Insert stop before	Infoga hållplats före denna
+Place signal heads and poles	Placera signalhuvuden och stolpar
+Paint stripes on selected crossings	Måla ränder på valda övergångsställen
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Källa vertex vald. Klicka på en målpunkt för att fästa (Shift: endast horisontell, Esc: avbryt)
 Aim at a vertex of the selected object	Sikta på ett hörn av det valda objektet
 Snapped to vertex! (Ctrl+Z to undo)	Snäppt till vertex! (Ctrl+Z för att ångra)
@@ -2822,3 +2851,136 @@ Float	Lossa
 Show Assets in a floating window	Visa tillgångar i ett flytande fönster
 Dock	Docka
 Dock Assets at the bottom	Docka tillgångarna längst ned
+Complete to	Komplettera till
+Complete to: a new piece between the free ends of the selected splines	Komplettera till: en ny del mellan de valda splinernas fria ändar
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	En ny del av den först valda splinens typ mellan två fria ändar på de valda splinerna, som möter båda i läge, riktning och höjd; de själva ändras inte. Igen: de två ändar som är kvar sammanfogas och ringen sluts.
+The two ends already meet	De två ändarna möts redan
+Select the splines whose free ends are to be joined	Välj de spliner vars fria ändar ska sammanfogas
+No piece of spline can join these two ends	Ingen splinedel kan sammanfoga dessa två ändar
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Öppnade openMappers kopia av kartan i innehållsmappen (den i OMSI 2-mappen skrivs aldrig)
+Read in again, changed on disk by another program:	Inläst igen, ändrad på disken av ett annat program:
+Could not bring the changes over	Kunde inte föra över ändringarna
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Kartans filer ändrades efter denna autosparning (av ett annat program, t.ex. OMSI 2:s editor). Att återställa lägger autosparningens äldre rutor över de ändringarna.
+tile(s)	ruta/rutor
+the global settings	de globala inställningarna
+the timetable	tidtabellen
+the traffic	trafiken
+the descriptions	beskrivningarna
+Reload from disk	Läs in från disken igen
+The map changed on disk	Kartan ändrades på disken
+Another program changed the map's files where it has changes here not saved yet:	Ett annat program ändrade kartans filer där den har osparade ändringar här:
+The other changes made on disk were read in already.	Övriga ändringar på disken är redan inlästa.
+Keep mine	Behåll mina
+The map changed in OMSI 2's folder	Kartan ändrades i OMSI 2-mappen
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	Kopian av kartan i installationen ändrades efter att openMappers kopia i innehållsmappen sparades, t.ex. av OMSI 2:s editor
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Att föra över ändringarna ersätter de filerna i openMappers kopia; de ersatta filerna sparas i en säkerhetskopia (Arkiv > Tidigare versioner).
+Bring the changes over	För över ändringarna
+Keep openMapper's copy	Behåll openMappers kopia
+its way has a gap after path	dess väg har ett glapp efter körfält
+its way does not pass	dess väg passerar inte
+On demand	Vid behov
+Not served (checkpoint)	Betjänas inte (kontrollpunkt)
+Wait for departure time	Vänta på avgångstid
+Always + wait for departure time	Alltid + vänta på avgångstid
+The bus stops only when somebody waits or wants to get off (the game's default)	Bussen stannar bara om någon väntar eller vill gå av (spelets standard)
+The bus always stops here	Bussen stannar alltid här
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	Bussen kör förbi utan att stanna: hållplatsen markerar bara vägen (en kontrollpunkt)
+The bus stops only when it is early, and waits there for its departure time	Bussen stannar bara när den är tidig, och väntar där på sin avgångstid
+The bus always stops here, and when it is early it waits for its departure time	Bussen stannar alltid här, och när den är tidig väntar den på sin avgångstid
+All trips	Alla turer
+Every trip of the map, those no tour drives too	Varje tur på kartan, även de som inget omlopp kör
+The line number the trip shows; the line of this number lists it among its trips	Linjenumret som turen visar; linjen med det numret listar den bland sina turer
+Way picked by hand:	Väg vald för hand:
+the paths picked do not pass this stop	de valda körfälten passerar inte den här hållplatsen
+Other trips	Andra turer
+The time profile this departure runs to	Tidsprofilen som avgången går efter
+Time profile	Tidsprofil
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	En tur kan ha flera profiler (rusningstid, natt…): varje avgång i ett omlopp säger vilken den går efter
+The profile's name	Profilens namn
+A new profile, a copy of this one	En ny profil, en kopia av den här
+Delete this profile (its departures run to the first)	Ta bort den här profilen (dess avgångar går efter den första)
+Times from stop to stop	Tider från hållplats till hållplats
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Tiden från hållplatsen innan kan anges vid varje hållplats: tiderna efter flyttas med, och turens tid med dem. Tider som inte är angivna följer avståndet mellan de fasta; vid en fast hållplats väntar en buss som är tidig.
+From the stop before	Från hållplatsen innan
+After departure	Efter avgång
+Minutes from the stop before to this one	Minuter från hållplatsen innan till den här
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Som i OMSI 2:s redigerare. Håll muspekaren över ett val för att se vad bussen gör.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Varje tur på kartan, vilken linje som än visar den eller vilket omlopp som än kör den. En tur som inget omlopp kör sparas, och kan redigeras, ges till ett omlopp eller tas bort här.
+trips	turer
+driven by no tour	körs av inget omlopp
+no tour	inget omlopp
+departures	avgångar
+No path there: click a lane of a road (View > AI lanes shows them)	Inget körfält där: klicka på ett körfält på en väg (Visa > AI-körfält visar dem)
+Done picking paths	Klart med valet
+Pick the paths on the map	Välj körfälten på kartan
+Choose the way yourself, path by path, as in OMSI 2's editor	Välj vägen själv, körfält för körfält, som i OMSI 2:s redigerare
+Find the way automatically	Hitta vägen automatiskt
+Forget the paths picked: the way is found along the roads again	Glöm de valda körfälten: vägen hittas längs vägarna igen
+The paths were picked by hand: they are kept when the stops change.	Körfälten valdes för hand: de behålls när hållplatserna ändras.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Klicka på körfält i vyn. Ett efter slutet eller före början läggs till, med körfälten dit; ett bredvid vägen ersätter den del det går runt (en annan gren i en korsning); ett körfält i vägen tas ut. Vägen får börja före den första hållplatsen och fortsätta efter den sista.
+The way breaks after path	Vägen bryts efter körfält
+the paths do not join, the bus's GPS loses its way here in the game	körfälten hänger inte ihop, bussens GPS tappar vägen här i spelet
+Paths of the way	Vägens körfält
+Cut before the first stop	Klipp före den första hållplatsen
+Cut after the last stop	Klipp efter den sista hållplatsen
+path	körfält
+Lane widths differ	Lanebredd skiljer sig
+Contains bus-only lanes	Innehåller bara busstrålar
+Contains multiple medians	Innehåller flera medianer
+Median is not between opposite directions	Median är inte mellan motsatta riktningar
+Contains a left BusBay	Innehåller en vänster BusBay
+Footway textures differ	Föttrakturen är annorlunda
+Names must not contain _bay_ (reserved for the bus bay tool)	Den här strängen är reserverad för verktyget: _bay_
+The roadway texture is missing	Vägteksturen saknas.
+The roadway texture could not be read	Vägteksturen kunde inte läsas
+Road metadata not found	Vägsmetadata inte hittats
+Some characters in the road name cannot be used. File: {file}	Vissa tecken i vägnamnet kan inte användas i ett filnamn.: {file}
+Another road already uses this file: {file}	En annan väg använder redan den här filen: {file}
+A road needs at least one Lane	En väg behöver minst en lane.
+Strip {} has an invalid width	Invalid bredd på vägsträckan: {}
+Footways must be at the outer ends	Föttrader måste vara vid de yttre ändarna.
+BusBays must border the roadway, at most one per side	BusBays måste gränsa vägen, högst en per sida
+Medians must be inside the roadway	Medianerna måste vara inne på vägen.
+The roadway may contain only Lanes and Medians	Vägen får endast innehålla Lanes och Medians
+Lane directions do not match this road’s traffic side	Länningsriktningen motsvarar inte den sida av vägen som trafiken använder.
+Apply bus lane rules to all existing roads	Tillämpning av busstrafikregler på alla befintliga vägar
+Road types and spline counts to update	Vägtyper och antal spliner att uppdatera
+No roads need bus lane rules	Inga vägar behöver busstridsregler
+Rules added	Lämnade regler
+This road was made for left-hand traffic	Den här vägen gjordes för vänsterhandtrafik.
+This road was made for right-hand traffic	Den här vägen var gjord för högerhands trafik.
+Advanced: strip mode	Avancerat: strippläge
+This road contains settings that simple mode cannot represent	Denna väg innehåller inställningar som en enkel läge inte kan representera
+Built-in multi-lane texture markings may not align with these lanes	Inbyggda texturmärkningar för flera banor kan inte överensstämma med dessa banor
+No footway texture	Ingen fotvägsinstruktion
+Reset bay texture	Återställning av texturen
+Bay texture reset	Återställning av texturen
+Could not reset bay texture	Kan inte återställa buktens textur
+Kerb height	Kärb höjd
+Lane	Trafikvägen
+Median	Medelstrip
+BusBay	Busshus
+Forward ↑	Framåt ↑
+Backward ↓	Tillbaka ↓
+bus only	Enbart buss
+Default footway texture	Förebyggande fotvägsinstruktion
+Choose file…	Välj filen…
+BUS	BUS
+Hand-picked routes kept: {count}	Manuellt utvalda vägar som hålls: {count}
+Overwrite hand-picked routes	Överskriva manuellt utvalda rutter
+Turn round and reverse	Vänd och byt riktning
+Turn the road round and reverse it	Vänd vägen och byt riktning
+Select one road to turn round	Välj en väg att vända
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	En väg vrids ett halvt varv kring sin början och vänds: den ligger på andra sidan början, dess slut på början, trafiken kommer tillbaka till den
+In multiplayer the host saves the map. Leave the session to rename this.	Vid gemensam redigering sparar värden kartan. Lämna sessionen för att byta namn på detta.
+Name saved	Namnet sparat
+The name has not changed	Namnet har inte ändrats
+A name cannot have a line break	Ett namn kan inte innehålla en radbrytning
+A name cannot be empty	Ett namn kan inte vara tomt
+A name cannot begin with "["	Ett namn kan inte börja med ”[”
+the object cannot be read, so it is left as it is	objektet kan inte läsas, så det lämnas som det är
+its openMapper source cannot be read, so the name would come back on its next save	dess openMapper-källa kan inte läsas, annars skulle namnet komma tillbaka vid nästa sparning
+its openMapper source cannot be written	dess openMapper-källa kan inte skrivas
+and its openMapper source could not be put back	och dess openMapper-källa kunde inte läggas tillbaka
+the name could not be saved	namnet kunde inte sparas
+Save the name	Spara namnet

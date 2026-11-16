@@ -28,6 +28,7 @@ pub(crate) fn sample_map(roots: &Roots) -> Document {
         GroundTex { texture: "Texture\\sand.bmp".into(), detail_texture: "Texture\\noise_low.bmp".into(), params: [8.0, 16.0, 4.0] },
     ];
     let mut doc = Document {
+        content_root: None,
         global,
         tiles: Default::default(),
         order: Vec::new(),
@@ -40,6 +41,7 @@ pub(crate) fn sample_map(roots: &Roots) -> Document {
         traffic: Default::default(),
         descriptions: Default::default(),
         groups: Vec::new(),
+        signal_sets: Default::default(),
     };
     for k in [(0, 0), (1, 0), (0, -1)] {
         doc.add_tile(k);

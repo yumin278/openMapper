@@ -169,6 +169,11 @@ fn json_of(roots: &Roots, rel: &str) -> PathBuf {
     dir.join(format!("{stem}{SUFFIX}"))
 }
 
+/// The file the object's source is kept in (`<name>.openmapper.json`, beside its `.sco`).
+pub fn source_path(roots: &Roots, rel: &str) -> PathBuf {
+    json_of(roots, rel)
+}
+
 /// Whether `rel` is an openMapper object (its source is beside it).
 pub fn is_editable(roots: &Roots, rel: &str) -> bool {
     json_of(roots, rel).is_file()
@@ -179,9 +184,9 @@ pub fn load(roots: &Roots, rel: &str) -> Option<Source> {
     serde_json::from_str(&text).map_err(|e| log::warn!("{rel}: {e}")).ok()
 }
 
-/// A file name of letters, digits, `_` and `-`.
+/// A file name of ASCII letters, digits, `_` and `-`, as OMSI 2 reads it (see `omsi_name`).
 pub fn safe_name(name: &str) -> String {
-    let s: String = name.trim().chars().map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect();
+    let s = crate::omsi_name::ascii_stem(name);
     if s.is_empty() {
         "Object".into()
     } else {

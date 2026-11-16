@@ -1236,6 +1236,8 @@ Zebra crossings	ज़ेब्रा क्रॉसिंग
 Road	सड़क
 Build it again	फिर से बनाएँ
 Makes the plate, its kerbs and lanes again for the roads as they are now	सड़कों के अभी के रूप के हिसाब से प्लेट, उसके कर्ब और लेन फिर से बनाता है
+Persist junction	चौराहा सहेजें
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	इस चौराहे को OMSI की स्थापना में एक सामान्य दृश्य वस्तु के रूप में सहेजें। नया संदर्भ रखने के लिए नक्शा सहेजें।
 Linked objects	जुड़े ऑब्जेक्ट
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	ऑब्जेक्ट दूसरे से अपनी स्थिति ले सकता है ([varparent]): सिग्नल हेड अपने चौराहे के प्रोग्राम की रोशनी दिखाता है, स्टॉप का डिस्प्ले अपना स्टॉप।
 Takes its state from	स्थिति लेता है
@@ -1899,6 +1901,10 @@ My road	मेरी सड़क
  · own	 · अपना
 Create the road type	सड़क प्रकार बनाएँ
 Road type made: the Roads tool builds with it	सड़क प्रकार बना: "सड़कें" टूल इसी से बनाता है
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	रोड मेकर में बदलें
 Its junctions	इसके जंक्शन
 Make a junction where it meets another road (else they only cross)	जहाँ यह दूसरी सड़क से मिले वहाँ जंक्शन बनाएँ (वरना सिर्फ़ पार करती हैं)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	व्यू में सिग्नल और उसके टुकड़े चुनें
 Delete the route	रूट हटाएँ
 Lines and timetable	लाइनें और टाइमटेबल
+Convert all Type 1 trips to Type 2	सभी प्रकार 1 की यात्राओं को प्रकार 2 में बदलें
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	प्रकार 1 की {count} यात्राओं की स्टॉप सूची बदलें, फिर नक्शा सहेजें। मार्गों की दोबारा गणना अलग से करें।
+Converted: {converted}. Skipped: {skipped}.	बदली गईं: {converted}। छोड़ी गईं: {skipped}।
 Edit timetable	टाइमटेबल बदलें
 No bus stop there: click one of the orange marks	वहाँ कोई बस स्टॉप नहीं: नारंगी निशानों में से एक पर क्लिक करें
 The roads can't be read without the OMSI 2 folder.	OMSI 2 फ़ोल्डर के बिना सड़कें पढ़ी नहीं जा सकतीं।
@@ -2396,6 +2405,7 @@ Advanced users	एडवांस्ड उपयोगकर्ता
 Controls as in OMSI 2's editor	OMSI 2 के एडिटर जैसे नियंत्रण
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	डिफ़ॉल्ट रूप से बंद। बीच का बटन दृश्य घुमाता है, दायाँ बटन दबाकर ऊपर-नीचे हिलाने से ज़ूम होता है, ज़मीन पर दायाँ क्लिक वहाँ जाता है (Shift + दायाँ क्लिक: मेनू), तीर कुंजियाँ कैमरा हिलाती हैं, व्हील ज़ूम करता है
 Bay width	पॉकेट की चौड़ाई
+Bay width per side	प्रति ओर बस बे की चौड़ाई
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	इस पॉकेट लेन वाला सड़क प्रकार चुने गए प्रकार (रोड मेकर वाले) से बनाया जाता है, यदि उसकी चौड़ाई यह नहीं है
 Tapers in metres	मीटर में टेपर
 Give the length of each taper in metres instead of a ratio	अनुपात के बजाय हर टेपर की लंबाई मीटर में दें
@@ -2785,6 +2795,25 @@ no track within 15 m	15 m के भीतर ट्रैक नहीं
 the tracks are not joined, or run the other way (see View > AI lanes)	ट्रैक जुड़े नहीं हैं, या उल्टी दिशा में हैं (व्यू > AI लेन देखें)
 no track beside	पास में ट्रैक नहीं:
 Drives on	किस पर चलती है
+Footway paths round the corners (AI)	कोनों पर पैदल पथ (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	बंद: कोनों पर AI के लिए पथ नहीं हैं, लेकिन क्रॉसिंग अब भी सड़कों के फुटपाथ जोड़ती हैं। कोनों को खुद जोड़ें (जैसे किसी अदृश्य पथ स्प्लाइन से)।
+Open in text editor	टेक्स्ट एडिटर में खोलें
+Open the saved .ttp file	सहेजी गई .ttp फ़ाइल खोलें
+Could not open the trip file	यात्रा की फ़ाइल नहीं खुल सकी
+Save the map to create this trip's .ttp file first.	इस यात्रा की .ttp फ़ाइल बनाने के लिए पहले नक्शा सहेजें।
+Change ID	ID बदलें
+New stop ID	स्टॉप का नया ID
+Timetable name: {name}	समय-सारणी में नाम: {name}
+No stop with this ID on the map	नक्शे पर इस ID का कोई स्टॉप नहीं है
+Confirm	पुष्टि करें
+Also apply to other trips with this ID ({count})	इस ID वाली अन्य यात्राओं पर भी लागू करें ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	{count} यात्राओं में स्टॉप का ID {old} से {new} ({name}) किया गया
+Insert before: click a stop on the map to insert it before this one	पहले जोड़ें: नक्शे पर किसी स्टॉप को चुनकर इस स्टॉप से पहले जोड़ें
+Click a stop on the map to insert it before {stop} (Esc to cancel)	नक्शे पर किसी स्टॉप को चुनकर उसे “{stop}” से पहले जोड़ें (रद्द करने के लिए Esc)
+That stop is already next to the insertion point.	यह स्टॉप पहले से ही जोड़ने की जगह के पास है।
+Insert stop before	इससे पहले स्टॉप जोड़ें
+Place signal heads and poles	सिग्नल हेड और खंभे लगाएँ
+Paint stripes on selected crossings	चुने गए पैदल पारपथों पर पट्टियाँ बनाएँ
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	स्रोत शीर्ष चुना गया. स्नैप करने के लिए लक्ष्य शीर्ष पर क्लिक करें (शिफ्ट: केवल क्षैतिज, Esc: रद्द करें)
 Aim at a vertex of the selected object	चयनित वस्तु के शीर्ष पर निशाना लगाओ
 Snapped to vertex! (Ctrl+Z to undo)	शीर्ष पर पहुंच गया! (पूर्ववत करने के लिए Ctrl+Z)
@@ -2822,3 +2851,136 @@ Float	फ़्लोट करें
 Show Assets in a floating window	एसेट को तैरती विंडो में दिखाएँ
 Dock	डॉक करें
 Dock Assets at the bottom	एसेट को नीचे डॉक करें
+Complete to	तक पूरा करें
+Complete to: a new piece between the free ends of the selected splines	तक पूरा करें: चुनी हुई स्प्लाइनों के खुले सिरों के बीच नया टुकड़ा
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	पहली चुनी हुई स्प्लाइन के प्रकार का नया टुकड़ा, चुनी हुई स्प्लाइनों के दो खुले सिरों के बीच, जो दोनों से जगह, दिशा और ऊँचाई में मिलता है; वे दोनों नहीं बदलतीं। फिर से: बचे हुए दो सिरे जुड़ते हैं और घेरा बंद होता है।
+The two ends already meet	ये दोनों सिरे पहले से मिलते हैं
+Select the splines whose free ends are to be joined	वे स्प्लाइनें चुनें जिनके खुले सिरे जोड़ने हैं
+No piece of spline can join these two ends	स्प्लाइन का कोई टुकड़ा इन दो सिरों को नहीं जोड़ सकता
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	इस मैप की openMapper प्रति कंटेंट फ़ोल्डर में खोली गई (OMSI 2 फ़ोल्डर वाली कभी नहीं लिखी जाती)
+Read in again, changed on disk by another program:	फिर से पढ़ा गया, डिस्क पर किसी दूसरे प्रोग्राम ने बदला:
+Could not bring the changes over	बदलाव नहीं लाए जा सके
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	इस ऑटोसेव के बाद मैप की फ़ाइलें बदली गईं (किसी दूसरे प्रोग्राम से, जैसे OMSI 2 का एडिटर)। पुनर्स्थापित करने से ऑटोसेव की पुरानी टाइलें उन बदलावों के ऊपर आ जाएँगी।
+tile(s)	टाइल
+the global settings	वैश्विक सेटिंग्स
+the timetable	समय-सारणी
+the traffic	ट्रैफ़िक
+the descriptions	विवरण
+Reload from disk	डिस्क से फिर लोड करें
+The map changed on disk	मैप डिस्क पर बदल गया
+Another program changed the map's files where it has changes here not saved yet:	किसी दूसरे प्रोग्राम ने मैप की फ़ाइलें वहाँ बदलीं जहाँ यहाँ बिना सहेजे बदलाव हैं:
+The other changes made on disk were read in already.	डिस्क के बाकी बदलाव पहले ही पढ़ लिए गए।
+Keep mine	मेरे रखें
+The map changed in OMSI 2's folder	मैप OMSI 2 फ़ोल्डर में बदल गया
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	इंस्टॉलेशन में इस मैप की प्रति, कंटेंट फ़ोल्डर में openMapper की प्रति सहेजे जाने के बाद बदली गई, जैसे OMSI 2 के एडिटर से
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	बदलाव लाने से openMapper की प्रति की वे फ़ाइलें बदल जाएँगी; बदली गई फ़ाइलें बैकअप में रहती हैं (फ़ाइल > पिछले संस्करण)।
+Bring the changes over	बदलाव लाएँ
+Keep openMapper's copy	openMapper की प्रति रखें
+its way has a gap after path	इसके रास्ते में इस पाथ के बाद अंतर है:
+its way does not pass	इसका रास्ता इसके पास से नहीं जाता:
+On demand	माँग पर
+Not served (checkpoint)	सेवा नहीं (चेकपॉइंट)
+Wait for departure time	डिपार्चर समय का इंतज़ार करें
+Always + wait for departure time	हमेशा + डिपार्चर समय का इंतज़ार करें
+The bus stops only when somebody waits or wants to get off (the game's default)	बस तभी रुकती है जब कोई इंतज़ार कर रहा हो या उतरना चाहे (गेम का डिफ़ॉल्ट)
+The bus always stops here	बस यहाँ हमेशा रुकती है
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	बस बिना रुके निकल जाती है: स्टॉप केवल रास्ता चिह्नित करता है (चेकपॉइंट)
+The bus stops only when it is early, and waits there for its departure time	बस तभी रुकती है जब वह जल्दी हो, और वहाँ अपने डिपार्चर समय का इंतज़ार करती है
+The bus always stops here, and when it is early it waits for its departure time	बस यहाँ हमेशा रुकती है, और जल्दी होने पर अपने डिपार्चर समय का इंतज़ार करती है
+All trips	सभी ट्रिप
+Every trip of the map, those no tour drives too	मैप का हर ट्रिप, वे भी जिन्हें कोई टूर नहीं चलाता
+The line number the trip shows; the line of this number lists it among its trips	ट्रिप जो लाइन नंबर दिखाता है; इस नंबर की लाइन इसे अपने ट्रिप में गिनती है
+Way picked by hand:	रास्ता हाथ से चुना गया:
+the paths picked do not pass this stop	चुने गए पाथ इस स्टॉप के पास से नहीं जाते
+Other trips	दूसरे ट्रिप
+The time profile this departure runs to	वह टाइम प्रोफ़ाइल जिससे यह डिपार्चर चलता है
+Time profile	टाइम प्रोफ़ाइल
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	एक ट्रिप की कई प्रोफ़ाइल हो सकती हैं (भीड़ का समय, रात…): टूर का हर डिपार्चर बताता है कि वह किससे चलता है
+The profile's name	प्रोफ़ाइल का नाम
+A new profile, a copy of this one	नई प्रोफ़ाइल, इसकी कॉपी
+Delete this profile (its departures run to the first)	यह प्रोफ़ाइल हटाएँ (इसके डिपार्चर पहली से चलेंगे)
+Times from stop to stop	स्टॉप से स्टॉप तक का समय
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	हर स्टॉप पर पिछले स्टॉप से समय तय किया जा सकता है: उसके बाद के समय साथ खिसकते हैं, और उनके साथ ट्रिप का समय भी। जो समय तय नहीं हैं वे तय समयों के बीच की दूरी के हिसाब से चलते हैं; तय स्टॉप पर जल्दी पहुँची बस इंतज़ार करती है।
+From the stop before	पिछले स्टॉप से
+After departure	डिपार्चर के बाद
+Minutes from the stop before to this one	पिछले स्टॉप से इस तक मिनट
+As in OMSI 2's editor. Hover a choice to see what the bus does.	OMSI 2 के एडिटर की तरह। बस क्या करती है यह देखने के लिए किसी विकल्प पर माउस ले जाएँ।
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	मैप का हर ट्रिप, चाहे कोई भी लाइन उसे दिखाए या कोई भी टूर उसे चलाए। जिस ट्रिप को कोई टूर नहीं चलाता वह रखा जाता है, और यहाँ बदला, किसी टूर को दिया या हटाया जा सकता है।
+trips	ट्रिप
+driven by no tour	किसी टूर से नहीं
+no tour	कोई टूर नहीं
+departures	डिपार्चर
+No path there: click a lane of a road (View > AI lanes shows them)	वहाँ कोई पाथ नहीं: किसी सड़क की लेन पर क्लिक करें (दृश्य > AI लेन उन्हें दिखाता है)
+Done picking paths	चुनना पूरा
+Pick the paths on the map	मैप पर पाथ चुनें
+Choose the way yourself, path by path, as in OMSI 2's editor	रास्ता खुद चुनें, पाथ दर पाथ, OMSI 2 के एडिटर की तरह
+Find the way automatically	रास्ता अपने-आप ढूँढें
+Forget the paths picked: the way is found along the roads again	चुने गए पाथ भूल जाएँ: रास्ता फिर से सड़कों के साथ ढूँढा जाता है
+The paths were picked by hand: they are kept when the stops change.	पाथ हाथ से चुने गए थे: स्टॉप बदलने पर वे बने रहते हैं।
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	व्यू में पाथ पर क्लिक करें। अंत के बाद या शुरुआत से पहले वाला पाथ, उस तक के पाथों के साथ, जुड़ जाता है; रास्ते के बगल वाला पाथ उस हिस्से की जगह लेता है जिसके चारों ओर वह जाता है (जंक्शन पर दूसरी शाखा); रास्ते का पाथ निकाल दिया जाता है। रास्ता पहले स्टॉप से पहले शुरू हो सकता है और आखिरी के बाद आगे जा सकता है।
+The way breaks after path	रास्ता इस पाथ के बाद टूटता है:
+the paths do not join, the bus's GPS loses its way here in the game	पाथ आपस में नहीं जुड़ते, गेम में बस का GPS यहाँ रास्ता खो देता है
+Paths of the way	रास्ते के पाथ
+Cut before the first stop	पहले स्टॉप से पहले काटें
+Cut after the last stop	आखिरी स्टॉप के बाद काटें
+path	पाथ
+Lane widths differ	लेन की चौड़ाई भिन्न है
+Contains bus-only lanes	बसों के लिए केवल लेन शामिल हैं
+Contains multiple medians	इसमें कई माध्यम होते हैं
+Median is not between opposite directions	मध्यम विपरीत दिशाओं के बीच नहीं है
+Contains a left BusBay	एक बाएं BusBay शामिल है
+Footway textures differ	फुटपाथ की बनावट भिन्न होती है
+Names must not contain _bay_ (reserved for the bus bay tool)	यह स्ट्रिंग बस खाड़ी उपकरण के लिए आरक्षित हैः: _bay_
+The roadway texture is missing	सड़क की बनावट गायब है
+The roadway texture could not be read	सड़क की बनावट को नहीं पढ़ा जा सका
+Road metadata not found	सड़क मेटाडेटा नहीं मिला
+Some characters in the road name cannot be used. File: {file}	सड़क के नाम में कुछ अक्षरों का उपयोग फाइलनाम में नहीं किया जा सकता है।: {file}
+Another road already uses this file: {file}	एक और सड़क पहले से ही इस फ़ाइल का उपयोग करता हैः: {file}
+A road needs at least one Lane	एक सड़क को कम से कम एक लेन की आवश्यकता होती है
+Strip {} has an invalid width	सड़क पट्टी की अमान्य चौड़ाईः: {}
+Footways must be at the outer ends	पैदल मार्ग बाहरी छोरों पर होना चाहिए
+BusBays must border the roadway, at most one per side	BusBays को सड़क मार्ग की सीमा पर होना चाहिए, अधिकतम एक प्रति पक्ष
+Medians must be inside the roadway	मध्यवर्ती सड़क के अंदर होना चाहिए
+The roadway may contain only Lanes and Medians	सड़क मार्ग में केवल लेन और मीडियन शामिल हो सकते हैं
+Lane directions do not match this road’s traffic side	लेन दिशाएं सड़क के उस किनारे से मेल नहीं खाती जो यातायात द्वारा उपयोग की जाती है।
+Apply bus lane rules to all existing roads	सभी मौजूदा सड़कों पर बस लेन नियम लागू करें
+Road types and spline counts to update	अद्यतन करने के लिए सड़क प्रकार और स्प्लेन गिनती
+No roads need bus lane rules	कोई सड़क को बस लेन नियमों की आवश्यकता नहीं है
+Rules added	अतिरिक्त नियम
+This road was made for left-hand traffic	यह सड़क वामपंथी यातायात के लिए बनाई गई थी
+This road was made for right-hand traffic	यह सड़क दाहिने हाथ की आवाजाही के लिए बनाई गई थी
+Advanced: strip mode	उन्नत: पट्टी मोड
+This road contains settings that simple mode cannot represent	इस सड़क में ऐसी सेटिंग्स हैं जिन्हें सरल मोड नहीं दिखा सकता है
+Built-in multi-lane texture markings may not align with these lanes	इन लेनों के साथ बिल्ट-इन मल्टी-लेन बनावट चिह्न नहीं हो सकते हैं
+No footway texture	पैरों का कोई बनावट नहीं
+Reset bay texture	रीसेट बे की बनावट
+Bay texture reset	खाड़ी बनावट रीसेट
+Could not reset bay texture	खाड़ी बनावट को रीसेट नहीं किया जा सका
+Kerb height	कर्ब की ऊंचाई
+Lane	ट्रैफिक लेन
+Median	मध्य पट्टी
+BusBay	बस बे
+Forward ↑	आगे ↑
+Backward ↓	पीछे की ओर ↓
+bus only	बस केवल
+Default footway texture	डिफ़ॉल्ट फुटपाथ बनावट
+Choose file…	फ़ाइल चुनें…
+BUS	बस
+Hand-picked routes kept: {count}	मैन्युअल रूप से चुने गए मार्ग बनाए रखे जाते हैंः: {count}
+Overwrite hand-picked routes	मैन्युअल रूप से चयनित मार्गों को ओवरराइट करें
+Turn round and reverse	पलटें और दिशा उलटें
+Turn the road round and reverse it	सड़क को पलटें और उसकी दिशा उलटें
+Select one road to turn round	पलटने के लिए एक सड़क चुनें
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	एक सड़क अपने आरंभ के चारों ओर आधा घूमकर उलट दी जाती है: वह आरंभ के दूसरी ओर होती है, उसका अंत आरंभ पर, यातायात उसकी ओर वापस आता है
+In multiplayer the host saves the map. Leave the session to rename this.	साझा संपादन में नक्शा होस्ट सहेजता है। इसका नाम बदलने के लिए सत्र छोड़ें।
+Name saved	नाम सहेजा गया
+The name has not changed	नाम नहीं बदला
+A name cannot have a line break	नाम में पंक्ति विराम नहीं हो सकता
+A name cannot be empty	नाम खाली नहीं हो सकता
+A name cannot begin with "["	नाम „[” से शुरू नहीं हो सकता
+the object cannot be read, so it is left as it is	ऑब्जेक्ट पढ़ा नहीं जा सकता, इसलिए जैसा है वैसा ही छोड़ा गया
+its openMapper source cannot be read, so the name would come back on its next save	इसका openMapper स्रोत पढ़ा नहीं जा सकता, वरना अगली बार सहेजने पर नाम लौट आएगा
+its openMapper source cannot be written	इसका openMapper स्रोत लिखा नहीं जा सकता
+and its openMapper source could not be put back	और इसका openMapper स्रोत वापस नहीं रखा जा सका
+the name could not be saved	नाम सहेजा नहीं जा सका
+Save the name	नाम सहेजें

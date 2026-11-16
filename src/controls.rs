@@ -151,6 +151,8 @@ impl Preset {
             // (Enter confirms; the road is built on Ctrl+Enter the same way)
             (Preset::Omsi, Confirm) => Some(Chord::key(KeyCode::Enter)),
             (Preset::Omsi, BuildRoad) => Some(Chord::ctrl(KeyCode::Enter)),
+            // (a new command, on no key in any set until one is chosen)
+            (_, Cmd::FlipPath) => None,
             _ => Some(c.default()),
         }
     }
@@ -183,6 +185,7 @@ pub enum Cmd {
     ToolTiles,
     NewObject,
     Rotate,
+    FlipPath,
     XformMove,
     XformRotate,
     XformScale,
@@ -190,6 +193,7 @@ pub enum Cmd {
     JoinObjects,
     Ruler,
     Knife,
+    CompleteTo,
     BuildRoad,
     Confirm,
     TileGrid,
@@ -216,7 +220,7 @@ use Cmd::*;
 
 pub const ALL: &[Cmd] = &[
     Forward, Back, Left, Right, TurnLeft, TurnRight, LookDown, View2d, Focus, TileGrid, Overview, Assets, Lines, Traffic, Imagery, ToolSelect, ToolRoads, ToolObjects, ToolLogic,
-    ToolTerrain, ToolPaint, ToolTiles, NewObject, XformMove, XformRotate, XformScale, EditMesh, JoinObjects, Rotate, Ruler, Knife, BuildRoad, Confirm, BrushSmaller, BrushLarger, Delete, Group, Ungroup, Copy, Cut, Paste, Duplicate, SelectAll, Undo,
+    ToolTerrain, ToolPaint, ToolTiles, NewObject, FlipPath, XformMove, XformRotate, XformScale, EditMesh, JoinObjects, Rotate, Ruler, Knife, CompleteTo, BuildRoad, Confirm, BrushSmaller, BrushLarger, Delete, Group, Ungroup, Copy, Cut, Paste, Duplicate, SelectAll, Undo,
     Redo, Save, Find, Commands, TestDrive, Picture, Polygon, PolygonClick,
 ];
 
@@ -249,6 +253,7 @@ impl Cmd {
             ToolTiles => "tool_tiles",
             NewObject => "new_object",
             Rotate => "rotate",
+            FlipPath => "flip_path",
             XformMove => "gizmo_move",
             XformRotate => "gizmo_rotate",
             XformScale => "gizmo_scale",
@@ -256,6 +261,7 @@ impl Cmd {
             JoinObjects => "join_objects",
             Ruler => "ruler",
             Knife => "knife",
+            CompleteTo => "complete_to",
             BuildRoad => "build_road",
             Confirm => "confirm",
             TileGrid => "tile_grid",
@@ -306,8 +312,10 @@ impl Cmd {
             ToolTiles => tr("Tool: Tiles", "Инструмент: Тайлы"),
             NewObject => tr("Place a new object at the cursor", "Поставить новый объект у курсора"),
             Rotate => tr("Turn the object (Shift: the other way)", "Повернуть объект (Shift: в другую сторону)"),
+            FlipPath => tr("Turn the road round and reverse it", "Развернуть дорогу кругом и обратить"),
             Ruler => tr("Ruler", "Линейка"),
             Knife => tr("Knife", "Нож"),
+            CompleteTo => tr("Complete to: a new piece between the free ends of the selected splines", "Достроить до: новый кусок между свободными концами выбранных сплайнов"),
             XformMove => tr("Move handles", "Ручки перемещения"),
             XformRotate => tr("Rotate handles", "Ручки поворота"),
             XformScale => tr("Scale handles", "Ручки масштаба"),
@@ -363,6 +371,8 @@ impl Cmd {
             ToolTiles => Chord::key(KeyCode::Digit7),
             NewObject => Chord::key(KeyCode::KeyN),
             Rotate => Chord::key(KeyCode::KeyR),
+            // (on no key until one is put on it in the settings)
+            FlipPath => Chord::key(KeyCode::F24),
             XformMove => Chord::key(KeyCode::KeyV),
             XformRotate => Chord::key(KeyCode::KeyC),
             XformScale => Chord::key(KeyCode::KeyX),
@@ -370,6 +380,7 @@ impl Cmd {
             JoinObjects => Chord::ctrl(KeyCode::KeyJ),
             Ruler => Chord::key(KeyCode::KeyU),
             Knife => Chord::key(KeyCode::KeyK),
+            CompleteTo => Chord::key(KeyCode::KeyJ),
             BuildRoad => Chord::key(KeyCode::Enter),
             Confirm => Chord::key(KeyCode::NumpadEnter),
             TileGrid => Chord::key(KeyCode::KeyG),

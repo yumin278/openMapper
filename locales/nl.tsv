@@ -1236,6 +1236,8 @@ Zebra crossings	Zebrapaden
 Road	Weg
 Build it again	Opnieuw bouwen
 Makes the plate, its kerbs and lanes again for the roads as they are now	Maakt de plaat, zijn stoepranden en rijstroken opnieuw voor de wegen zoals ze nu zijn
+Persist junction	Kruispunt blijvend opslaan
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	Sla dit kruispunt op als een normaal landschapsobject in de OMSI-installatie. Sla de kaart op om de nieuwe verwijzing te bewaren.
 Linked objects	Gekoppelde objecten
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Een object kan zijn toestand van een ander nemen ([varparent]): een seinkop toont een licht van het programma van zijn kruising, het display van een halte zijn halte.
 Takes its state from	Neemt zijn toestand van
@@ -1899,6 +1901,10 @@ My road	Mijn weg
  · own	 · eigen
 Create the road type	Het wegtype maken
 Road type made: the Roads tool builds with it	Wegtype gemaakt: het gereedschap Wegen bouwt ermee
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Wijzigen in de wegbouwer
 Its junctions	Zijn kruispunten
 Make a junction where it meets another road (else they only cross)	Een kruispunt maken waar hij een andere weg ontmoet (anders kruisen ze alleen)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Het sein en zijn delen in het beeld selecteren
 Delete the route	De route verwijderen
 Lines and timetable	Lijnen en dienstregeling
+Convert all Type 1 trips to Type 2	Alle ritten van type 1 omzetten naar type 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Zet de haltelijsten van {count} type 1-ritten om en sla daarna de kaart op. Bereken de routes afzonderlijk opnieuw.
+Converted: {converted}. Skipped: {skipped}.	Omgezet: {converted}. Overgeslagen: {skipped}.
 Edit timetable	Dienstregeling bewerken
 No bus stop there: click one of the orange marks	Daar is geen halte: klik op een van de oranje markeringen
 The roads can't be read without the OMSI 2 folder.	De wegen kunnen zonder de OMSI 2-map niet worden gelezen.
@@ -2396,6 +2405,7 @@ Advanced users	Gevorderde gebruikers
 Controls as in OMSI 2's editor	Besturing zoals in de editor van OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Standaard uit. De middelste knop draait het beeld, de ingedrukte rechterknop op en neer bewegen zoomt, een rechtsklik op de grond gaat erheen (Shift + rechtsklik: het menu), de pijltjes bewegen de camera, het wiel zoomt
 Bay width	Havenbreedte
+Bay width per side	Breedte van de haltehaven per zijde
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Een wegtype met deze havenstrook wordt gemaakt van het gekozen type (dat van de wegbouwer), als het niet deze breedte heeft
 Tapers in metres	Versmallingen in meters
 Give the length of each taper in metres instead of a ratio	Geef de lengte van elke versmalling in meters in plaats van een verhouding
@@ -2785,6 +2795,25 @@ no track within 15 m	geen spoor binnen 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	de sporen zijn niet verbonden, of lopen de andere kant op (zie Beeld > AI-rijstroken)
 no track beside	geen spoor naast
 Drives on	Rijdt over
+Footway paths round the corners (AI)	Voetpaden bij de hoeken (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Uit: er zijn geen AI-paden bij de hoeken, maar de oversteekplaatsen verbinden de trottoirs nog steeds. Verbind de hoeken zelf (bijvoorbeeld met een onzichtbare padspline).
+Open in text editor	Openen in teksteditor
+Open the saved .ttp file	Opgeslagen .ttp-bestand openen
+Could not open the trip file	Het ritbestand kon niet worden geopend
+Save the map to create this trip's .ttp file first.	Sla de kaart eerst op om het .ttp-bestand van deze rit te maken.
+Change ID	ID wijzigen
+New stop ID	Nieuwe halte-ID
+Timetable name: {name}	Naam in de dienstregeling: {name}
+No stop with this ID on the map	Geen halte met deze ID op de kaart
+Confirm	Bevestigen
+Also apply to other trips with this ID ({count})	Ook toepassen op andere ritten met deze ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Halte-ID {old} gewijzigd in {new} ({name}) in {count} ritten
+Insert before: click a stop on the map to insert it before this one	Ervoor invoegen: klik op een halte op de kaart om die vóór deze in te voegen
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Klik op een halte op de kaart om die vóór ‘{stop}’ in te voegen (Esc om te annuleren)
+That stop is already next to the insertion point.	Die halte staat al naast het invoegpunt.
+Insert stop before	Halte ervoor invoegen
+Place signal heads and poles	Verkeerslichten en palen plaatsen
+Paint stripes on selected crossings	Strepen tekenen op geselecteerde oversteekplaatsen
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Bronpunt gekozen. Klik op een doelhoekpunt om te snappen (Shift: alleen horizontaal, Esc: annuleren)
 Aim at a vertex of the selected object	Richt op een hoekpunt van het geselecteerde object
 Snapped to vertex! (Ctrl+Z to undo)	Geknapt naar het hoekpunt! (Ctrl+Z om ongedaan te maken)
@@ -2823,3 +2852,136 @@ Float	Losmaken
 Show Assets in a floating window	Assets in een zwevend venster tonen
 Dock	Vastmaken
 Dock Assets at the bottom	Assets onderaan vastmaken
+Complete to	Aanvullen tot
+Complete to: a new piece between the free ends of the selected splines	Aanvullen tot: een nieuw stuk tussen de vrije uiteinden van de geselecteerde splines
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Een nieuw stuk van het type van de eerst geselecteerde spline tussen twee vrije uiteinden van de geselecteerde splines, dat op beide aansluit in plaats, richting en hoogte; die zelf veranderen niet. Nog eens: de twee overgebleven uiteinden worden verbonden en de ring sluit.
+The two ends already meet	De twee uiteinden raken elkaar al
+Select the splines whose free ends are to be joined	Selecteer de splines waarvan de vrije uiteinden verbonden moeten worden
+No piece of spline can join these two ends	Geen stuk spline kan deze twee uiteinden verbinden
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	openMappers kopie van deze kaart in de inhoudsmap geopend (die in de OMSI 2-map wordt nooit beschreven)
+Read in again, changed on disk by another program:	Opnieuw ingelezen, op schijf gewijzigd door een ander programma:
+Could not bring the changes over	De wijzigingen konden niet worden overgenomen
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	De bestanden van de kaart zijn na deze automatische opslag gewijzigd (door een ander programma, zoals de OMSI 2-editor). Herstellen legt de oudere tegels uit de opslag over die wijzigingen.
+tile(s)	tegel(s)
+the global settings	de algemene instellingen
+the timetable	de dienstregeling
+the traffic	het verkeer
+the descriptions	de beschrijvingen
+Reload from disk	Opnieuw laden van schijf
+The map changed on disk	De kaart is op schijf gewijzigd
+Another program changed the map's files where it has changes here not saved yet:	Een ander programma heeft bestanden van de kaart gewijzigd waar hier niet-opgeslagen wijzigingen zijn:
+The other changes made on disk were read in already.	De overige wijzigingen op schijf zijn al ingelezen.
+Keep mine	Mijne behouden
+The map changed in OMSI 2's folder	De kaart is gewijzigd in de OMSI 2-map
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	De kopie van deze kaart in de installatie is gewijzigd nadat openMappers kopie in de inhoudsmap was opgeslagen, bijvoorbeeld door de OMSI 2-editor
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Overnemen vervangt die bestanden in openMappers kopie; de vervangen bestanden blijven bewaard in een back-up (Bestand > Eerdere versies).
+Bring the changes over	Wijzigingen overnemen
+Keep openMapper's copy	openMappers kopie behouden
+its way has a gap after path	zijn route heeft een gat na pad
+its way does not pass	zijn route komt niet langs
+On demand	Op verzoek
+Not served (checkpoint)	Niet bediend (controlepunt)
+Wait for departure time	Wachten op vertrektijd
+Always + wait for departure time	Altijd + wachten op vertrektijd
+The bus stops only when somebody waits or wants to get off (the game's default)	De bus stopt alleen als iemand wacht of wil uitstappen (de standaard van het spel)
+The bus always stops here	De bus stopt hier altijd
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	De bus rijdt door zonder te stoppen: de halte markeert alleen de route (een controlepunt)
+The bus stops only when it is early, and waits there for its departure time	De bus stopt alleen als hij te vroeg is, en wacht daar op zijn vertrektijd
+The bus always stops here, and when it is early it waits for its departure time	De bus stopt hier altijd, en als hij te vroeg is wacht hij op zijn vertrektijd
+All trips	Alle ritten
+Every trip of the map, those no tour drives too	Elke rit van de kaart, ook die geen omloop rijdt
+The line number the trip shows; the line of this number lists it among its trips	Het lijnnummer dat de rit toont; de lijn met dit nummer toont hem bij zijn ritten
+Way picked by hand:	Route met de hand gekozen:
+the paths picked do not pass this stop	de gekozen paden komen niet langs deze halte
+Other trips	Andere ritten
+The time profile this departure runs to	Het tijdprofiel waarnaar dit vertrek rijdt
+Time profile	Tijdprofiel
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Een rit kan meerdere profielen hebben (spits, nacht…): elk vertrek van een omloop zegt naar welk het rijdt
+The profile's name	De naam van het profiel
+A new profile, a copy of this one	Een nieuw profiel, een kopie van dit
+Delete this profile (its departures run to the first)	Dit profiel verwijderen (zijn vertrekken rijden naar het eerste)
+Times from stop to stop	Tijden van halte tot halte
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Bij elke halte kan de tijd vanaf de halte ervoor worden ingesteld: de tijden erna schuiven mee, en de rittijd met ze. Niet ingestelde tijden volgen de afstand tussen de vaste; bij een vaste halte wacht een bus die te vroeg is.
+From the stop before	Vanaf de halte ervoor
+After departure	Na vertrek
+Minutes from the stop before to this one	Minuten van de halte ervoor tot deze
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Zoals in de editor van OMSI 2. Wijs een keuze aan om te zien wat de bus doet.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Elke rit van de kaart, welke lijn hem ook toont of welke omloop hem ook rijdt. Een rit die geen omloop rijdt blijft bewaard, en kan hier worden bewerkt, aan een omloop gegeven of verwijderd.
+trips	ritten
+driven by no tour	door geen omloop gereden
+no tour	geen omloop
+departures	vertrekken
+No path there: click a lane of a road (View > AI lanes shows them)	Geen pad hier: klik op een rijstrook van een weg (Beeld > AI-rijstroken toont ze)
+Done picking paths	Klaar met kiezen
+Pick the paths on the map	De paden op de kaart kiezen
+Choose the way yourself, path by path, as in OMSI 2's editor	Kies de route zelf, pad voor pad, zoals in de editor van OMSI 2
+Find the way automatically	De route automatisch vinden
+Forget the paths picked: the way is found along the roads again	De gekozen paden vergeten: de route wordt weer langs de wegen gevonden
+The paths were picked by hand: they are kept when the stops change.	De paden zijn met de hand gekozen: ze blijven als de haltes veranderen.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Klik paden aan in het beeld. Een na het einde of voor het begin wordt toegevoegd, met de paden ernaartoe; een naast de route neemt de plaats in van het stuk waar het omheen gaat (een andere tak op een kruising); een pad van de route wordt weggehaald. De route mag al voor de eerste halte beginnen en na de laatste doorlopen.
+The way breaks after path	De route breekt af na pad
+the paths do not join, the bus's GPS loses its way here in the game	de paden sluiten niet op elkaar aan, de gps van de bus raakt hier in het spel de weg kwijt
+Paths of the way	Paden van de route
+Cut before the first stop	Afknippen voor de eerste halte
+Cut after the last stop	Afknippen na de laatste halte
+path	pad
+Lane widths differ	Landenbreedte verschilt
+Contains bus-only lanes	Bevat alleen autobussporen
+Contains multiple medians	Bevat meerdere medianen
+Median is not between opposite directions	Median is niet tussen tegengestelde richtingen
+Contains a left BusBay	Bevat een linker BusBay
+Footway textures differ	De textuur van de voetstappen verschilt
+Names must not contain _bay_ (reserved for the bus bay tool)	Deze string is gereserveerd voor het busbaktool: _bay_
+The roadway texture is missing	De teksture van de weg ontbreekt.
+The roadway texture could not be read	De tekst van de weg kon niet worden gelezen .
+Road metadata not found	Niet gevonden verkeersmetadata
+Some characters in the road name cannot be used. File: {file}	Sommige tekens in de wegnaam kunnen niet worden gebruikt in een bestandsnaam.: {file}
+Another road already uses this file: {file}	Een andere weg gebruikt al dit bestand: {file}
+A road needs at least one Lane	Een weg heeft minstens één baan nodig.
+Strip {} has an invalid width	Niet geldige breedte van de wegstreep: {}
+Footways must be at the outer ends	Voetpaden moeten aan de buitenkant liggen.
+BusBays must border the roadway, at most one per side	BusBays moeten aan de weg grenzen, maximaal één per kant
+Medians must be inside the roadway	De medianen moeten in de weg zijn.
+The roadway may contain only Lanes and Medians	De weg mag alleen Lannen en Medianen bevatten
+Lane directions do not match this road’s traffic side	De richting van de rijstrook komt niet overeen met de zijkant van het verkeer.
+Apply bus lane rules to all existing roads	Op alle bestaande wegen moeten de regels voor buslijnen worden toegepast.
+Road types and spline counts to update	Opgedateerde wegtypen en splintergetallen
+No roads need bus lane rules	Geen wegen hebben regels nodig.
+Rules added	Voegde regels
+This road was made for left-hand traffic	Deze weg is gemaakt voor links verkeer .
+This road was made for right-hand traffic	Deze weg is gemaakt voor rechtse verkeer.
+Advanced: strip mode	Geavanceerd: stripmodus
+This road contains settings that simple mode cannot represent	Deze weg bevat instellingen die de eenvoudige modus niet kan weergeven
+Built-in multi-lane texture markings may not align with these lanes	Ingebouwde multi-lane textuurmarkering mag niet overeenstemmen met deze banen
+No footway texture	Geen voetafdruk
+Reset bay texture	De textuur van de baai opnieuw instellen
+Bay texture reset	Verpakking van de textuur
+Could not reset bay texture	Kon de teksturen van de baai niet opnieuw instellen
+Kerb height	Hoogte van de kerb
+Lane	Verkeersbaan
+Median	Middenstreep
+BusBay	Busbuis
+Forward ↑	Vooruit ↑
+Backward ↓	Achteruit ↓
+bus only	alleen bus
+Default footway texture	Standaardvoettekst
+Choose file…	Kies het bestand…
+BUS	BUS
+Hand-picked routes kept: {count}	Handmatig geselecteerde routes: {count}
+Overwrite hand-picked routes	Handmatig geselecteerde routes overschrijven
+Turn round and reverse	Omkeren en richting omdraaien
+Turn the road round and reverse it	De weg omkeren en de richting omdraaien
+Select one road to turn round	Kies één weg om om te keren
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Een weg wordt een halve slag om zijn begin gedraaid en omgekeerd: hij ligt aan de andere kant van het begin, zijn einde op het begin, het verkeer komt er terug naartoe
+In multiplayer the host saves the map. Leave the session to rename this.	Bij samen bewerken slaat de host de kaart op. Verlaat de sessie om dit een andere naam te geven.
+Name saved	Naam opgeslagen
+The name has not changed	De naam is niet veranderd
+A name cannot have a line break	Een naam mag geen regelafbreking hebben
+A name cannot be empty	Een naam mag niet leeg zijn
+A name cannot begin with "["	Een naam mag niet met „[“ beginnen
+the object cannot be read, so it is left as it is	het object is niet leesbaar en blijft daarom zoals het is
+its openMapper source cannot be read, so the name would come back on its next save	de openMapper-bron is niet leesbaar, anders komt de naam bij het volgende opslaan terug
+its openMapper source cannot be written	de openMapper-bron kan niet worden geschreven
+and its openMapper source could not be put back	en de openMapper-bron kon niet worden teruggezet
+the name could not be saved	de naam kon niet worden opgeslagen
+Save the name	Naam opslaan

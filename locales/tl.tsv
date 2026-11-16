@@ -1236,6 +1236,8 @@ Zebra crossings	Mga tawiran
 Road	Kalsada
 Build it again	Buuin muli
 Makes the plate, its kerbs and lanes again for the roads as they are now	Muling ginagawa ang plate, mga kerb at lane para sa mga kalsada ayon sa kasalukuyan
+Persist junction	I-save ang interseksyon
+Save this junction as a regular scenery object in the OMSI installation. Save the map to keep the new reference.	I-save ang interseksyon bilang karaniwang bagay sa tanawin sa folder ng instalasyon ng OMSI. I-save ang mapa upang mapanatili ang bagong sanggunian.
 Linked objects	Mga naka-link na object
 An object can take its state from another ([varparent]): a signal head shows a light of its crossing's program, a stop's display its stop.	Maaaring kunin ng object ang state nito sa iba ([varparent]): ang signal head ay nagpapakita ng ilaw mula sa program ng crossing nito, ang display ng hintuan ay ang hintuan nito.
 Takes its state from	Kinukuha ang state mula sa
@@ -1899,6 +1901,10 @@ My road	Aking kalsada
  · own	 · sarili
 Create the road type	Gawin ang uri ng kalsada
 Road type made: the Roads tool builds with it	Nagawa ang uri ng kalsada: gagamitin ito ng Roads tool sa pagtatayo
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Baguhin sa road maker
 Its junctions	Mga junction nito
 Make a junction where it meets another road (else they only cross)	Gumawa ng junction kung saan ito nakakasalubong ng ibang kalsada (kung hindi, magkakrus lang)
@@ -1941,6 +1947,9 @@ Every rail path of the selected tracks and switches (double-click a track: all o
 Select the signal and its pieces in the view	Piliin ang signal at mga piraso nito sa view
 Delete the route	Burahin ang ruta
 Lines and timetable	Mga linya at timetable
+Convert all Type 1 trips to Type 2	I-convert ang lahat ng biyaheng Type 1 sa Type 2
+Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	I-convert ang mga listahan ng hintuan ng {count} biyaheng Type 1, pagkatapos ay i-save ang mapa. Hiwalay na kalkulahin muli ang mga ruta.
+Converted: {converted}. Skipped: {skipped}.	Na-convert: {converted}. Nilaktawan: {skipped}.
 Edit timetable	I-edit ang timetable
 No bus stop there: click one of the orange marks	Walang hintuan doon: i-click ang isa sa mga orange na marka
 The roads can't be read without the OMSI 2 folder.	Hindi mabasa ang mga kalsada kung walang folder ng OMSI 2.
@@ -2396,6 +2405,7 @@ Advanced users	Mga advanced na user
 Controls as in OMSI 2's editor	Mga kontrol tulad ng sa editor ng OMSI 2
 Off by default. The middle button turns the view, the right button held and moved up and down zooms, a right click on the ground goes there (Shift + right click: the menu), the arrows move the camera, the wheel zooms	Naka-off bilang default. Ang gitnang button ay iniikot ang view, ang kanang button na hawak at ginagalaw pataas at pababa ay nagzo-zoom, ang right click sa lupa ay pupunta roon (Shift + right click: ang menu), ang mga arrow ay gumagalaw sa camera, ang wheel ay nagzo-zoom
 Bay width	Lapad ng pocket
+Bay width per side	Lapad ng hintuan ng bus sa bawat gilid
 A road type with this pocket lane is made from the chosen one (the road maker's), if it is not the width it has	Ang uri ng kalsada na may ganitong pocket lane ay ginagawa mula sa napili (sa road maker), kung hindi ito ang lapad nito
 Tapers in metres	Mga taper sa metro
 Give the length of each taper in metres instead of a ratio	Ibigay ang haba ng bawat taper sa metro sa halip na ratio
@@ -2785,6 +2795,25 @@ no track within 15 m	walang riles sa loob ng 15 m
 the tracks are not joined, or run the other way (see View > AI lanes)	hindi nakakabit ang mga riles, o kabilang direksyon ang takbo (tingnan ang View > Mga AI lane)
 no track beside	walang riles sa tabi ng
 Drives on	Tumatakbo sa
+Footway paths round the corners (AI)	Mga daanan ng tao sa mga kanto (AI)
+Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).	Naka-off: walang daanan ng AI sa mga kanto, pero magkadugtong pa rin ang mga bangketa sa mga tawiran. Ikonekta ang mga kanto nang mano-mano (halimbawa, gamit ang hindi nakikitang spline ng daanan).
+Open in text editor	Buksan sa text editor
+Open the saved .ttp file	Buksan ang naka-save na .ttp file
+Could not open the trip file	Hindi mabuksan ang file ng biyahe
+Save the map to create this trip's .ttp file first.	I-save muna ang mapa para malikha ang .ttp file ng biyaheng ito.
+Change ID	Palitan ang ID
+New stop ID	Bagong ID ng hintuan
+Timetable name: {name}	Pangalan sa iskedyul: {name}
+No stop with this ID on the map	Walang hintuan sa mapa na may ganitong ID
+Confirm	Kumpirmahin
+Also apply to other trips with this ID ({count})	Ilapat din sa ibang biyaheng may ganitong ID ({count})
+Changed stop ID {old} to {new} ({name}) in {count} trip(s)	Pinalitan ang ID ng hintuan mula {old} patungong {new} ({name}) sa {count} biyahe
+Insert before: click a stop on the map to insert it before this one	Isingit bago rito: pumili ng hintuan sa mapa para isingit bago sa hintuang ito
+Click a stop on the map to insert it before {stop} (Esc to cancel)	Pumili ng hintuan sa mapa para isingit bago sa “{stop}” (Esc para kanselahin)
+That stop is already next to the insertion point.	Katabi na ng pagsisingitan ang hintuang iyon.
+Insert stop before	Isingit ang hintuan bago rito
+Place signal heads and poles	Maglagay ng mga ulo at poste ng ilaw-trapiko
+Paint stripes on selected crossings	Gumuhit ng mga guhit sa mga napiling tawiran
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Pinili ang source vertex. I-click ang isang target na vertex para i-snap (Shift: pahalang lang, Esc: kanselahin)
 Aim at a vertex of the selected object	Layunin ang isang vertex ng napiling bagay
 Snapped to vertex! (Ctrl+Z to undo)	Na-snap sa vertex! (Ctrl+Z para i-undo)
@@ -2822,3 +2851,136 @@ Float	Ilutang
 Show Assets in a floating window	Ipakita ang mga asset sa lumulutang na window
 Dock	I-dock
 Dock Assets at the bottom	I-dock ang mga asset sa ibaba
+Complete to	Kumpletuhin hanggang
+Complete to: a new piece between the free ends of the selected splines	Kumpletuhin hanggang: bagong piraso sa pagitan ng malayang dulo ng mga napiling spline
+A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Bagong piraso na kauri ng unang napiling spline sa pagitan ng dalawang malayang dulo ng mga napiling spline, tugma sa pareho sa puwesto, direksyon at taas; hindi binabago ang dalawa. Muli: pinagdudugtong ang dalawang natitirang dulo at nasasara ang singsing.
+The two ends already meet	Nagtatagpo na ang dalawang dulo
+Select the splines whose free ends are to be joined	Piliin ang mga spline na pagdudugtungin ang malayang dulo
+No piece of spline can join these two ends	Walang piraso ng spline na makapagdudugtong sa dalawang dulong ito
+Opened openMapper's copy of this map in the content folder (the OMSI 2 folder's own is never written)	Binuksan ang kopya ng openMapper ng mapang ito sa content folder (hindi kailanman sinusulatan ang nasa folder ng OMSI 2)
+Read in again, changed on disk by another program:	Binasa muli, binago sa disk ng ibang programa:
+Could not bring the changes over	Hindi madala ang mga pagbabago
+The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.	Binago ang mga file ng mapa pagkatapos ng autosave na ito (ng ibang programa, gaya ng editor ng OMSI 2). Ang pagbalik ay maglalagay ng mas lumang tile ng autosave sa ibabaw ng mga pagbabagong iyon.
+tile(s)	tile
+the global settings	ang pangkalahatang setting
+the timetable	ang timetable
+the traffic	ang trapiko
+the descriptions	ang mga paglalarawan
+Reload from disk	I-reload mula sa disk
+The map changed on disk	Nagbago ang mapa sa disk
+Another program changed the map's files where it has changes here not saved yet:	Binago ng ibang programa ang mga file ng mapa kung saan may mga hindi pa naseseyb na pagbabago rito:
+The other changes made on disk were read in already.	Nabasa na ang iba pang pagbabago sa disk.
+Keep mine	Panatilihin ang akin
+The map changed in OMSI 2's folder	Nagbago ang mapa sa folder ng OMSI 2
+The installation's own copy of this map was changed after openMapper's copy in the content folder was saved, by OMSI 2's editor say	Binago ang kopya ng mapang ito sa instalasyon pagkatapos maseyb ang kopya ng openMapper sa content folder, halimbawa ng editor ng OMSI 2
+Bringing the changes over replaces those files of openMapper's copy; the files replaced are kept in a backup (File > Earlier versions).	Papalitan ng pagdadala ang mga file na iyon sa kopya ng openMapper; itinatabi ang mga napalitang file sa isang backup (File > Mga naunang bersyon).
+Bring the changes over	Dalhin ang mga pagbabago
+Keep openMapper's copy	Panatilihin ang kopya ng openMapper
+its way has a gap after path	may puwang ang daan nito pagkatapos ng path
+its way does not pass	hindi dumadaan ang daan nito sa
+On demand	Kapag may sasakay o bababa
+Not served (checkpoint)	Hindi hinihintuan (checkpoint)
+Wait for departure time	Hintayin ang oras ng alis
+Always + wait for departure time	Palagi + hintayin ang oras ng alis
+The bus stops only when somebody waits or wants to get off (the game's default)	Humihinto lang ang bus kapag may naghihintay o gustong bumaba (default ng laro)
+The bus always stops here	Palaging humihinto rito ang bus
+The bus drives past without stopping: the stop only marks the way (a checkpoint)	Dumadaan ang bus nang hindi humihinto: tanda lang ng daan ang hintuan (checkpoint)
+The bus stops only when it is early, and waits there for its departure time	Humihinto lang ang bus kapag maaga ito, at doon hinihintay ang oras ng alis nito
+The bus always stops here, and when it is early it waits for its departure time	Palaging humihinto rito ang bus, at kapag maaga ito hinihintay nito ang oras ng alis
+All trips	Lahat ng biyahe
+Every trip of the map, those no tour drives too	Bawat biyahe ng mapa, pati ang mga walang tour na nagmamaneho
+The line number the trip shows; the line of this number lists it among its trips	Ang numero ng linyang ipinapakita ng biyahe; inililista ito ng linyang may numerong ito sa mga biyahe nito
+Way picked by hand:	Daang pinili nang manu-mano:
+the paths picked do not pass this stop	hindi dumadaan sa hintuang ito ang mga napiling path
+Other trips	Ibang biyahe
+The time profile this departure runs to	Ang time profile na sinusunod ng departure na ito
+Time profile	Time profile
+A trip can have several profiles (rush hour, night…): each tour's departure says which one it runs to	Puwedeng may ilang profile ang biyahe (rush hour, gabi…): sinasabi ng bawat departure ng tour kung alin ang sinusunod nito
+The profile's name	Ang pangalan ng profile
+A new profile, a copy of this one	Bagong profile, kopya nito
+Delete this profile (its departures run to the first)	Burahin ang profile na ito (susunod sa una ang mga departure nito)
+Times from stop to stop	Oras mula hintuan hanggang hintuan
+The time from the stop before can be set at each stop: the times after it move along, the trip's time with them. Times not set follow the distance between the fixed ones; at a fixed stop a bus that is early waits.	Maitatakda sa bawat hintuan ang oras mula sa naunang hintuan: gumagalaw kasabay ang mga oras pagkatapos nito, pati ang oras ng biyahe. Ang mga oras na hindi itinakda ay sumusunod sa layo sa pagitan ng mga nakapirmi; sa nakapirming hintuan, naghihintay ang bus na maaga.
+From the stop before	Mula sa naunang hintuan
+After departure	Pagkaalis
+Minutes from the stop before to this one	Minuto mula sa naunang hintuan hanggang dito
+As in OMSI 2's editor. Hover a choice to see what the bus does.	Gaya sa editor ng OMSI 2. I-hover ang isang pagpipilian para makita ang ginagawa ng bus.
+Every trip of the map, whichever line shows it or tour drives it. A trip no tour drives is kept, and can be edited, given to a tour or deleted here.	Bawat biyahe ng mapa, anumang linya ang nagpapakita nito o anumang tour ang nagmamaneho nito. Iniingatan ang biyaheng walang tour na nagmamaneho, at dito ito maaaring i-edit, ibigay sa isang tour o burahin.
+trips	biyahe
+driven by no tour	walang tour na nagmamaneho
+no tour	walang tour
+departures	departure
+No path there: click a lane of a road (View > AI lanes shows them)	Walang path diyan: mag-click ng lane ng kalsada (ipinapakita ang mga ito ng Tingnan > Mga AI lane)
+Done picking paths	Tapos na sa pagpili
+Pick the paths on the map	Piliin ang mga path sa mapa
+Choose the way yourself, path by path, as in OMSI 2's editor	Ikaw ang pumili ng daan, isa-isang path, gaya sa editor ng OMSI 2
+Find the way automatically	Hanapin ang daan nang awtomatiko
+Forget the paths picked: the way is found along the roads again	Kalimutan ang mga napiling path: muling hahanapin ang daan sa mga kalsada
+The paths were picked by hand: they are kept when the stops change.	Pinili nang manu-mano ang mga path: iniingatan ang mga ito kapag nagbago ang mga hintuan.
+Click paths in the view. One after the end or before the start is added, with the paths to it; one beside the way takes the place of the part it goes round (another branch at a junction); a path of the way is taken out. The way may run on before the first stop and after the last.	Mag-click ng mga path sa view. Idinadagdag ang isang path pagkatapos ng dulo o bago ang simula, kasama ang mga path papunta roon; ang isang nasa tabi ng daan ay pumapalit sa bahaging iniikutan nito (ibang sanga sa isang junction); inaalis ang path na nasa daan. Puwedeng magsimula ang daan bago ang unang hintuan at magpatuloy pagkatapos ng huli.
+The way breaks after path	Napuputol ang daan pagkatapos ng path
+the paths do not join, the bus's GPS loses its way here in the game	hindi nagdudugtong ang mga path, naliligaw dito ang GPS ng bus sa laro
+Paths of the way	Mga path ng daan
+Cut before the first stop	Putulin bago ang unang hintuan
+Cut after the last stop	Putulin pagkatapos ng huling hintuan
+path	path
+Lane widths differ	Nagkakaiba ang lapad ng landas
+Contains bus-only lanes	Naglalaman ng mga lansangan para sa bus lamang
+Contains multiple medians	Naglalaman ng maraming mga median
+Median is not between opposite directions	Ang median ay hindi sa pagitan ng kabaligtaran na direksyon
+Contains a left BusBay	Naglalaman ng isang kaliwang BusBay
+Footway textures differ	Nagkakaiba ang mga tekstura ng landas
+Names must not contain _bay_ (reserved for the bus bay tool)	Ang string na ito ay naka-reserve para sa bus bay tool: _bay_
+The roadway texture is missing	Ang texture ng kalsada ay nawawala
+The roadway texture could not be read	Hindi mabasa ang texture ng kalsada
+Road metadata not found	Hindi natagpuan ang metadata sa kalsada
+Some characters in the road name cannot be used. File: {file}	Ang ilang mga character sa pangalan ng kalsada ay hindi maaaring gamitin sa isang pangalan ng file.: {file}
+Another road already uses this file: {file}	Ang isa pang kalsada ay gumagamit na ng file na ito: {file}
+A road needs at least one Lane	Ang isang kalsada ay nangangailangan ng hindi bababa sa isa na Lane
+Strip {} has an invalid width	Invalid width of the road strip: {}
+Footways must be at the outer ends	Ang mga landas ay dapat sa panlabas na dulo
+BusBays must border the roadway, at most one per side	Ang mga BusBays ay dapat magpahinga sa kalsada, hindi bababa sa isa bawat gilid
+Medians must be inside the roadway	Ang mga medians ay dapat sa loob ng kalsada
+The roadway may contain only Lanes and Medians	Ang landas ay maaaring maglalaman lamang ng Lines at Medians
+Lane directions do not match this road’s traffic side	Ang mga direksyon ng lane ay hindi tumutugma sa gilid ng kalsada na ginagamit ng trapiko.
+Apply bus lane rules to all existing roads	I-apply ang mga patakaran sa bus lane sa lahat ng umiiral na kalsada
+Road types and spline counts to update	Mga uri ng kalsada at bilang ng spline upang ma-update
+No roads need bus lane rules	Walang kalsada ang nangangailangan ng mga patakaran sa bus lane
+Rules added	Nagdagdag ng mga patakaran
+This road was made for left-hand traffic	Ang daan na ito ay ginawa para sa kaliwang kamay ng trapiko
+This road was made for right-hand traffic	Ang kalsada na ito ay ginawa para sa right-hand traffic
+Advanced: strip mode	Advanced: mode ng strip
+This road contains settings that simple mode cannot represent	Ang daan na ito ay naglalaman ng mga setting na simple mode ay hindi maaaring kumakatawan
+Built-in multi-lane texture markings may not align with these lanes	Ang mga naka-built-in na multi-lane texture markings ay maaaring hindi magkasama sa mga lane na ito
+No footway texture	Walang texture sa landas
+Reset bay texture	Reset bay texture
+Bay texture reset	Pag-reset ng texture sa bay
+Could not reset bay texture	Hindi maaaring i-reset ang texture ng bay
+Kerb height	Ang taas ng kerb
+Lane	Lanaw ng trapiko
+Median	Median strip
+BusBay	Bus bay
+Forward ↑	Magpatuloy ↑
+Backward ↓	Lumabas ↓
+bus only	bus lamang
+Default footway texture	Default texture ng landas
+Choose file…	Pumili ng file…
+BUS	BUS
+Hand-picked routes kept: {count}	Ang mga itinuturing na manu-manually selected routes: {count}
+Overwrite hand-picked routes	I-overwrite ang mga manually selected na ruta
+Turn round and reverse	Ikot at baliktarin
+Turn the road round and reverse it	Ikutin ang kalsada at baliktarin ang direksyon
+Select one road to turn round	Pumili ng isang kalsada na ikukot
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Ang isang kalsada ay iikot nang kalahating ikot sa paligid ng simula nito at babaliktarin: ito ay nasa kabilang panig ng simula, ang dulo nito ay nasa simula, bumabalik ang trapiko patungo rito
+In multiplayer the host saves the map. Leave the session to rename this.	Sa pinagsamang pag-edit, ang host ang nagse-save ng mapa. Lumabas sa session para palitan ang pangalang ito.
+Name saved	Na-save ang pangalan
+The name has not changed	Hindi nagbago ang pangalan
+A name cannot have a line break	Hindi puwedeng may line break ang pangalan
+A name cannot be empty	Hindi puwedeng walang laman ang pangalan
+A name cannot begin with "["	Hindi puwedeng magsimula sa „[” ang pangalan
+the object cannot be read, so it is left as it is	hindi mabasa ang object, kaya iniiwan itong ganito
+its openMapper source cannot be read, so the name would come back on its next save	hindi mabasa ang openMapper source nito, kung hindi babalik ang pangalan sa susunod na save
+its openMapper source cannot be written	hindi maisulat ang openMapper source nito
+and its openMapper source could not be put back	at hindi naibalik ang openMapper source nito
+the name could not be saved	hindi na-save ang pangalan
+Save the name	I-save ang pangalan
