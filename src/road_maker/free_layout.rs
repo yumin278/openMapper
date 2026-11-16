@@ -132,6 +132,9 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
         }
     }
     for (i, (strip, (lo, hi))) in strips.iter().zip(&positions).enumerate() {
+        if !strip.has_ai_path() {
+            continue;
+        }
         let (kind, direction, scale) = match strip {
             Strip::Lane { dir, .. } => (0, dir.path_direction(), 0.9),
             Strip::Footway { .. } => (1, 2, 0.4),

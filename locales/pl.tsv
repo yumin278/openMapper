@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	nie można zapisać jego źródła openM
 and its openMapper source could not be put back	a jego źródła openMapper nie udało się przywrócić
 the name could not be saved	nie udało się zapisać nazwy
 Save the name	Zapisz nazwę
+AI path	Ścieżka AI
+The median and footway must not be lower than the roadway	Pas środkowy i chodnik nie mogą być niżej niż jezdnia
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Ten chodnik jest na poziomie jezdni: narzędzie zatoki autobusowej otworzy zatokę na zewnątrz
+Contains a footway without an AI path	Zawiera chodnik bez ścieżki AI
+Contains strips with a fixed height	Zawiera paski o stałej wysokości

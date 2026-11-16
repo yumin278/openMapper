@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	su origen de openMapper no se puede escr
 and its openMapper source could not be put back	y su origen de openMapper no se pudo devolver
 the name could not be saved	no se pudo guardar el nombre
 Save the name	Guardar el nombre
+AI path	Ruta de IA
+The median and footway must not be lower than the roadway	La banda mediana y la acera no pueden estar por debajo de la calzada
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Esta acera está al nivel de la calzada: la herramienta de bahía de autobús abrirá la bahía por fuera
+Contains a footway without an AI path	Contiene una acera sin ruta de IA
+Contains strips with a fixed height	Contiene bandas con una altura fija

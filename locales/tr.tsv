@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	openMapper kaynağı yazılamıyor
 and its openMapper source could not be put back	ve openMapper kaynağı geri konulamadı
 the name could not be saved	ad kaydedilemedi
 Save the name	Adı kaydet
+AI path	YZ yolu
+The median and footway must not be lower than the roadway	Orta şerit ve yaya yolu, yol yüzeyinden aşağıda olamaz
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Bu yaya yolu yol yüzeyiyle aynı hizadadır: otobüs cebi aracı cebi onun dışında açar
+Contains a footway without an AI path	YZ yolu olmayan bir yaya yolu içerir
+Contains strips with a fixed height	Sabit yüksekliğe sahip şeritler içerir

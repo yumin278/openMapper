@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	jeho zdroj openMapper nelze zapsat
 and its openMapper source could not be put back	a jeho zdroj openMapper nešlo vrátit zpět
 the name could not be saved	název nešlo uložit
 Save the name	Uložit název
+AI path	Cesta AI
+The median and footway must not be lower than the roadway	Střední pás a chodník nesmí být níže než vozovka
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Tento chodník je v rovině s vozovkou: nástroj autobusového zálivu otevře záliv vně něj
+Contains a footway without an AI path	Obsahuje chodník bez cesty AI
+Contains strips with a fixed height	Obsahuje pásy s pevnou výškou

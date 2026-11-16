@@ -408,6 +408,9 @@ impl RoadTypes {
         }
         if !s.advanced { s.rebuild_strips(left_hand); }
         if let Err(error) = s.validate() { ui.colored_label(Color32::RED, error); }
+        for warning in s.warnings() {
+            ui.colored_label(Color32::YELLOW, warning);
+        }
         if !s.marked && s.unequal_lane_widths() {
             ui.colored_label(Color32::YELLOW, crate::i18n::tr("Built-in multi-lane texture markings may not align with these lanes", "Разметка многополосной текстуры может не совпадать с полосами"));
         }

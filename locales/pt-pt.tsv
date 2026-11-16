@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	a sua origem openMapper não pode ser es
 and its openMapper source could not be put back	e a sua origem openMapper não pôde ser reposta
 the name could not be saved	não foi possível guardar o nome
 Save the name	Guardar o nome
+AI path	Caminho de IA
+The median and footway must not be lower than the roadway	A faixa média e a passadeira não podem ficar abaixo da faixa de rodagem
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Esta passadeira está ao nível da faixa de rodagem: a ferramenta de baia de autocarro abrirá a baia por fora
+Contains a footway without an AI path	Contém uma passadeira sem caminho de IA
+Contains strips with a fixed height	Contém faixas com altura fixa

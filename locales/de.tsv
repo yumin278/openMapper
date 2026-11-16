@@ -2982,3 +2982,8 @@ its openMapper source cannot be written	seine openMapper-Quelle lässt sich nich
 and its openMapper source could not be put back	und seine openMapper-Quelle ließ sich nicht zurücklegen
 the name could not be saved	der Name ließ sich nicht speichern
 Save the name	Namen speichern
+AI path	KI-Pfad
+The median and footway must not be lower than the roadway	Mittelstreifen und Gehweg dürfen nicht unter der Fahrbahn liegen
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Dieser Gehweg liegt auf Höhe der Fahrbahn: das Bushaltebucht-Werkzeug legt die Bucht außerhalb davon an
+Contains a footway without an AI path	Enthält einen Gehweg ohne KI-Pfad
+Contains strips with a fixed height	Enthält Streifen mit fester Höhe

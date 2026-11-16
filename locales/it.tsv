@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	la sua sorgente openMapper non si può s
 and its openMapper source could not be put back	e la sua sorgente openMapper non è stata rimessa a posto
 the name could not be saved	non è stato possibile salvare il nome
 Save the name	Salva il nome
+AI path	Percorso IA
+The median and footway must not be lower than the roadway	La fascia mediana e il marciapiede non possono stare sotto la carreggiata
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Questo marciapiede è a livello della carreggiata: lo strumento piazzola bus aprirà la piazzola all'esterno
+Contains a footway without an AI path	Contiene un marciapiede senza percorso IA
+Contains strips with a fixed height	Contiene strisce con altezza fissa

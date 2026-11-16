@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	hindi maisulat ang openMapper source nit
 and its openMapper source could not be put back	at hindi naibalik ang openMapper source nito
 the name could not be saved	hindi na-save ang pangalan
 Save the name	I-save ang pangalan
+AI path	AI path
+The median and footway must not be lower than the roadway	Ang median strip at lakaran ng tao ay hindi maaaring mas mababa sa daanan
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Ang lakaran ng tao na ito ay kapantay ng daanan: ang tool ng bus bay ay bubuksan ang bay sa labas nito
+Contains a footway without an AI path	Naglalaman ng lakaran ng tao na walang AI path
+Contains strips with a fixed height	Naglalaman ng mga strip na may takdang taas

@@ -2,6 +2,7 @@ use super::*;
 use crate::road_maker::{Direction, Strip};
 
 pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
+    let kerb = s.kerb;
     ui.horizontal(|ui| {
         ui.label(crate::i18n::tr("Name", "Название"));
         ui.text_edit_singleline(&mut s.name);
@@ -69,12 +70,18 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                             );
                             ui.checkbox(bus_only, crate::i18n::tr("bus only", "только автобусы"));
                         }
-                        Strip::Median { width, raised, .. } => {
+                        Strip::Median { width, raised, height, .. } => {
                             ui.add(egui::Slider::new(width, 0.0..=12.0).suffix(" m"));
-                            ui.checkbox(raised, crate::i18n::tr("raised", "приподнят"));
+                            ui.add_enabled(
+                                height.is_none(),
+                                egui::Checkbox::new(raised, crate::i18n::tr("raised", "приподнят")),
+                            );
+                            height_field(ui, height, if *raised { 0.10 + kerb } else { 0.10 });
                         }
-                        Strip::Footway { width, .. } => {
+                        Strip::Footway { width, path, height, .. } => {
                             ui.add(egui::Slider::new(width, 0.1..=8.0).suffix(" m"));
+                            ui.checkbox(path, crate::i18n::tr("AI path", "Путь ИИ"));
+                            height_field(ui, height, 0.10 + kerb);
                         }
                         Strip::BusBay { width } => {
                             ui.add(egui::Slider::new(width, 0.1..=4.0).suffix(" m"));
@@ -164,12 +171,15 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                 width: 2.0,
                 raised: true,
                 tex: s.median_tex.clone(),
+                height: None,
             });
         }
         if ui.button(crate::i18n::tr("Footway", "Тротуар")).clicked() {
             s.strips.push(Strip::Footway {
                 width: 2.0,
                 tex: s.footway_tex.clone(),
+                path: true,
+                height: None,
             });
         }
         if ui
@@ -179,4 +189,38 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
             s.strips.push(Strip::BusBay { width: 3.0 });
         }
     });
+}
+
+/// A strip's absolute height (m) with an empty value meaning automatic. The shown value is the
+/// effective height; moving it fixes the height, and the cross returns it to automatic.
+fn height_field(ui: &mut egui::Ui, height: &mut Option<f32>, automatic: f32) {
+    ui.label(crate::i18n::tr("Height", "Высота"));
+    let mut value = height.unwrap_or(automatic);
+    if ui
+        .add(
+            egui::DragValue::new(&mut value)
+                .range(0.10..=2.00)
+                .speed(0.01)
+                .fixed_decimals(2)
+                .suffix(" m"),
+        )
+        .changed()
+    {
+        *height = Some(value);
+    }
+    if height.is_some() {
+        if ui
+            .small_button("×")
+            .on_hover_text(crate::i18n::tr("Automatic", "Автоматически"))
+            .clicked()
+        {
+            *height = None;
+        }
+    } else {
+        ui.label(
+            egui::RichText::new(crate::i18n::tr("Automatic", "Автоматически"))
+                .small()
+                .color(egui::Color32::from_gray(140)),
+        );
+    }
 }

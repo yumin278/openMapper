@@ -2980,3 +2980,8 @@ its openMapper source cannot be written	无法写入其 openMapper 源文件
 and its openMapper source could not be put back	而且无法恢复其 openMapper 源文件
 the name could not be saved	名称无法保存
 Save the name	保存名称
+AI path	AI 路径
+The median and footway must not be lower than the roadway	中央分隔带和人行道不得低于路面
+This footway is level with the roadway: the bus bay tool opens the bay outside it	此人行道与路面同高：巴士停车湾工具会将停车湾开在它外侧
+Contains a footway without an AI path	包含无 AI 路径的人行道
+Contains strips with a fixed height	包含固定高度的条带

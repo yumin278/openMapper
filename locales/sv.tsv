@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	dess openMapper-källa kan inte skrivas
 and its openMapper source could not be put back	och dess openMapper-källa kunde inte läggas tillbaka
 the name could not be saved	namnet kunde inte sparas
 Save the name	Spara namnet
+AI path	AI-väg
+The median and footway must not be lower than the roadway	Medelstrip och gångbana får inte ligga under vägbanan
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Denna gångbana ligger i nivå med vägbanan: bussfickeverktyget lägger fickan utanför den
+Contains a footway without an AI path	Innehåller en gångbana utan AI-väg
+Contains strips with a fixed height	Innehåller remsor med fast höjd

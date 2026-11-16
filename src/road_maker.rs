@@ -56,6 +56,9 @@ pub struct Marking {
 pub const WHITE: [u8; 3] = [235, 235, 230];
 pub const YELLOW: [u8; 3] = [232, 190, 60];
 
+/// The road surface's height (m); strips stand at or above it.
+pub const ROAD_H: f32 = 0.10;
+
 impl Default for Marking {
     fn default() -> Self {
         Marking { x: 0.0, style: MarkStyle::Solid, color: WHITE, width: 0.12, dash: 3.0, gap: 6.0 }
@@ -311,12 +314,12 @@ impl RoadSpec {
                     if *dir == left_dir { s.lanes_back += 1; } else { s.lanes_fwd += 1; }
                     s.lane_width = *width;
                 }
-                Strip::Median { width, raised, tex } => {
+                Strip::Median { width, raised, tex, .. } => {
                     s.median += width;
                     s.median_raised = *raised;
                     s.median_tex = tex.clone();
                 }
-                Strip::Footway { width, tex } => {
+                Strip::Footway { width, tex, .. } => {
                     if i == 0 { s.footway = *width; } else { s.footway_right = Some(*width); }
                     if !tex.as_os_str().is_empty() { s.footway_tex = tex.clone(); }
                 }
@@ -329,19 +332,21 @@ impl RoadSpec {
     pub fn strip_positions(&self) -> Vec<(f32, f32)> { strips::positions(&self.effective_strips()) }
 
     pub fn bus_path_indices(&self) -> Vec<usize> {
-        let mut path = 0;
-        let mut result = Vec::new();
-        for strip in &self.strips {
-            if matches!(strip, Strip::Median { .. }) { continue; }
-            if matches!(strip, Strip::Lane { bus_only: true, .. }) { result.push(path); }
-            path += 1;
-        }
-        result
+        self.strips
+            .iter()
+            .filter(|s| s.has_ai_path())
+            .enumerate()
+            .filter_map(|(i, s)| matches!(s, Strip::Lane { bus_only: true, .. }).then_some(i))
+            .collect()
     }
 
     pub fn bay_path_indices(&self) -> Vec<usize> {
-        self.strips.iter().filter(|s| !matches!(s, Strip::Median { .. })).enumerate()
-            .filter_map(|(i, s)| matches!(s, Strip::BusBay { .. }).then_some(i)).collect()
+        self.strips
+            .iter()
+            .filter(|s| s.has_ai_path())
+            .enumerate()
+            .filter_map(|(i, s)| matches!(s, Strip::BusBay { .. }).then_some(i))
+            .collect()
     }
 
     pub fn simple_mode_issues(&self) -> Vec<String> {
@@ -362,6 +367,12 @@ impl RoadSpec {
         if strips[..first_lane].iter().any(|s| matches!(s, Strip::BusBay { .. })) { issues.push(crate::i18n::tr("Contains a left BusBay", "Есть левый автобусный карман").into()); }
         let textures: Vec<_> = strips.iter().filter_map(|s| if let Strip::Footway { tex, .. } = s { Some(if tex.as_os_str().is_empty() { &self.footway_tex } else { tex }) } else { None }).collect();
         if textures.windows(2).any(|p| p[0] != p[1]) { issues.push(crate::i18n::tr("Footway textures differ", "Разные текстуры тротуаров").into()); }
+        if strips.iter().any(|s| matches!(s, Strip::Footway { path: false, .. })) {
+            issues.push(crate::i18n::tr("Contains a footway without an AI path", "Есть тротуар без пути ИИ").into());
+        }
+        if strips.iter().any(|s| matches!(s, Strip::Footway { height: Some(_), .. } | Strip::Median { height: Some(_), .. })) {
+            issues.push(crate::i18n::tr("Contains strips with a fixed height", "Есть полосы заданной высоты").into());
+        }
         issues
     }
 
@@ -383,7 +394,26 @@ impl RoadSpec {
         if crate::pocket::is_bay_spline(&self.file_stem()) {
             return Err(crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)").into());
         }
-        strips::validate(&self.effective_strips(), self.left_hand.unwrap_or(false))
+        strips::validate(&self.effective_strips(), self.left_hand.unwrap_or(false), self.kerb)
+    }
+
+    /// Things worth saying that do not stop the road being written: an outermost footway level
+    /// with the roadway looks right but the bus bay tool would open its bay outside it.
+    pub fn warnings(&self) -> Vec<String> {
+        let strips = self.effective_strips();
+        let mut outer = [strips.first(), strips.last()].into_iter().flatten();
+        let level = outer.any(|s| {
+            matches!(s, Strip::Footway { .. }) && (s.height(self.kerb) - ROAD_H).abs() < 1e-4
+        });
+        if level {
+            vec![crate::i18n::tr(
+                "This footway is level with the roadway: the bus bay tool opens the bay outside it",
+                "Этот тротуар на одном уровне с проезжей частью: инструмент автобусного кармана сделает карман снаружи него",
+            )
+            .into()]
+        } else {
+            Vec::new()
+        }
     }
 
     fn bay_tex_name(&self) -> String {
@@ -1238,3 +1268,6 @@ mod layout_tests;
 
 #[cfg(test)]
 mod review_tests;
+
+#[cfg(test)]
+mod advanced_tests;

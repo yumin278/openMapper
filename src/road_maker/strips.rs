@@ -30,14 +30,31 @@ pub enum Strip {
         width: f32,
         raised: bool,
         tex: PathBuf,
+        /// The strip's height (m) above the ground; `None` derives it from `raised`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        height: Option<f32>,
     },
     Footway {
         width: f32,
         tex: PathBuf,
+        /// Whether the footway gets an AI path (`[path]`) of its own.
+        #[serde(default = "path_default", skip_serializing_if = "path_is_default")]
+        path: bool,
+        /// The footway's height (m) above the ground; `None` derives it from the kerb.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        height: Option<f32>,
     },
     BusBay {
         width: f32,
     },
+}
+
+fn path_default() -> bool {
+    true
+}
+
+fn path_is_default(path: &bool) -> bool {
+    *path
 }
 
 impl Strip {
@@ -52,8 +69,19 @@ impl Strip {
 
     pub fn height(&self, kerb: f32) -> f32 {
         match self {
-            Self::Footway { .. } | Self::Median { raised: true, .. } => 0.10 + kerb,
-            _ => 0.10,
+            Self::Footway { height: Some(h), .. } | Self::Median { height: Some(h), .. } => *h,
+            Self::Footway { .. } | Self::Median { raised: true, .. } => super::ROAD_H + kerb,
+            _ => super::ROAD_H,
+        }
+    }
+
+    /// Whether this strip writes a `[path]` of its own: every strip but a middle strip and a
+    /// footway whose AI path is turned off.
+    pub fn has_ai_path(&self) -> bool {
+        match self {
+            Self::Median { .. } => false,
+            Self::Footway { path, .. } => *path,
+            _ => true,
         }
     }
 
@@ -63,7 +91,7 @@ impl Strip {
 }
 
 /// Validate before writing any files; an invalid editor state remains editable.
-pub fn validate(strips: &[Strip], left_hand: bool) -> Result<(), String> {
+pub fn validate(strips: &[Strip], left_hand: bool, kerb: f32) -> Result<(), String> {
     let first = strips
         .iter()
         .position(|s| matches!(s, Strip::Lane { .. }))
@@ -76,6 +104,14 @@ pub fn validate(strips: &[Strip], left_hand: bool) -> Result<(), String> {
         let w = strip.width();
         if !w.is_finite() || w < 0.0 || (w == 0.0 && !matches!(strip, Strip::Median { .. })) {
             return Err(crate::i18n::tr("Strip {} has an invalid width", "Недопустимая ширина полосы {}").replace("{}", &(i + 1).to_string()));
+        }
+        let h = strip.height(kerb);
+        if !h.is_finite() || h < super::ROAD_H - 1e-4 {
+            return Err(crate::i18n::tr(
+                "The median and footway must not be lower than the roadway",
+                "Разделительная полоса и тротуар не могут быть ниже проезжей части",
+            )
+            .into());
         }
         match strip {
             Strip::Footway { .. } if i != 0 && i + 1 != strips.len() => {
@@ -208,6 +244,8 @@ mod tests {
             Strip::Footway {
                 width: 2.0,
                 tex: "side.png".into(),
+                path: true,
+                height: None,
             },
             Strip::BusBay { width: 3.0 },
             lane(Direction::Back, 3.0),
@@ -215,6 +253,7 @@ mod tests {
                 width: 2.0,
                 raised: true,
                 tex: "grass.png".into(),
+                height: None,
             },
             lane(Direction::Fwd, 4.0),
             Strip::BusBay { width: 2.5 },
@@ -236,8 +275,8 @@ mod tests {
         assert_eq!(roadway_u(&strips, -4.5), 0.0);
         assert_eq!(roadway_u(&strips, 4.5), 1.0);
         assert_eq!(roadway_u(&strips, -1.5), roadway_u(&strips, 0.5));
-        assert!(validate(&strips, false).is_ok());
-        assert!(validate(&strips, true).is_err());
+        assert!(validate(&strips, false, 0.15).is_ok());
+        assert!(validate(&strips, true, 0.15).is_err());
     }
 
     #[test]
@@ -245,11 +284,14 @@ mod tests {
         let foot = Strip::Footway {
             width: 2.0,
             tex: PathBuf::new(),
+            path: true,
+            height: None,
         };
         let median = Strip::Median {
             width: 2.0,
             raised: false,
             tex: PathBuf::new(),
+            height: None,
         };
         for strips in [
             vec![],
@@ -263,7 +305,41 @@ mod tests {
                 lane(Direction::Fwd, 3.0),
             ],
         ] {
-            assert!(validate(&strips, false).is_err(), "{strips:?}");
+            assert!(validate(&strips, false, 0.15).is_err(), "{strips:?}");
         }
+    }
+
+    #[test]
+    fn a_specified_height_overrides_raised_and_the_kerb() {
+        let foot = Strip::Footway {
+            width: 2.0,
+            tex: PathBuf::new(),
+            path: true,
+            height: Some(0.30),
+        };
+        let raised = Strip::Median {
+            width: 2.0,
+            raised: true,
+            tex: PathBuf::new(),
+            height: Some(0.25),
+        };
+        assert_eq!(foot.height(0.15), 0.30);
+        assert_eq!(raised.height(0.15), 0.25);
+        // `raised` is ignored once a height is set.
+        let level = Strip::Median {
+            width: 2.0,
+            raised: false,
+            tex: PathBuf::new(),
+            height: Some(0.25),
+        };
+        assert_eq!(level.height(0.15), 0.25);
+        // Without a height the old behaviour holds.
+        let plain = Strip::Median {
+            width: 2.0,
+            raised: false,
+            tex: PathBuf::new(),
+            height: None,
+        };
+        assert_eq!(plain.height(0.15), 0.10);
     }
 }

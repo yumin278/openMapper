@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	openMapper 원본을 쓸 수 없습니�
 and its openMapper source could not be put back	openMapper 원본을 되돌려 놓지 못했습니다
 the name could not be saved	이름을 저장하지 못했습니다
 Save the name	이름 저장
+AI path	AI 경로
+The median and footway must not be lower than the roadway	중간 스트립과 보도는 차도보다 낮을 수 없습니다
+This footway is level with the roadway: the bus bay tool opens the bay outside it	이 보도는 차도와 같은 높이입니다: 버스 정차대 도구는 정차대를 바깥쪽에 만듭니다
+Contains a footway without an AI path	AI 경로가 없는 보도가 포함되어 있습니다
+Contains strips with a fixed height	고정 높이의 스트립이 포함되어 있습니다

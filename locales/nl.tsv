@@ -2985,3 +2985,8 @@ its openMapper source cannot be written	de openMapper-bron kan niet worden gesch
 and its openMapper source could not be put back	en de openMapper-bron kon niet worden teruggezet
 the name could not be saved	de naam kon niet worden opgeslagen
 Save the name	Naam opslaan
+AI path	AI-pad
+The median and footway must not be lower than the roadway	De middenstreep en het voetpad mogen niet onder de rijbaan liggen
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Dit voetpad ligt gelijk met de rijbaan: de bushalfte-tool legt de halte erbuiten aan
+Contains a footway without an AI path	Bevat een voetpad zonder AI-pad
+Contains strips with a fixed height	Bevat stroken met een vaste hoogte

@@ -2984,3 +2984,8 @@ its openMapper source cannot be written	az openMapper-forrása nem írható
 and its openMapper source could not be put back	és az openMapper-forrását nem sikerült visszatenni
 the name could not be saved	a nevet nem sikerült menteni
 Save the name	Név mentése
+AI path	MI-útvonal
+The median and footway must not be lower than the roadway	A középső sáv és a járda nem lehet az úttest alatt
+This footway is level with the roadway: the bus bay tool opens the bay outside it	Ez a járda az úttest szintjén van: a buszöböl eszköz az öblöt rajta kívül nyitja meg
+Contains a footway without an AI path	MI-útvonal nélküli járdát tartalmaz
+Contains strips with a fixed height	Rögzített magasságú sávokat tartalmaz
