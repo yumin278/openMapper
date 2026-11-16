@@ -2960,3 +2960,7 @@ Choose file…	选择文件…
 BUS	公交
 Hand-picked routes kept: {count}	已保留手动选择的路径：{count} 条
 Overwrite hand-picked routes	覆盖手动选择的路径
+Turn round and reverse	转向并反转
+Turn the road round and reverse it	将道路转向并反转
+Select one road to turn round	请选择一条要转向的道路
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	一条道路以其起点为中心转半圈再反转：道路位于起点另一侧，终点落在起点上，行进方向朝向起点

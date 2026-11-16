@@ -2345,6 +2345,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
     let mut knife = false;
     let mut join_next = false;
     let mut reverse = false;
+    let mut flip = false;
     let mut lay = false;
     let mut align_road = false;
     let mut lean = false;
@@ -2739,6 +2740,9 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
                 if ui.small_button(tr("Reverse direction", "Развернуть направление")).on_hover_text(crate::ui_edit::reverse_help()).clicked() {
                     reverse = true;
                 }
+                if ui.small_button(tr("Turn round and reverse", "Развернуть кругом и обратить")).on_hover_text(crate::ui_edit::flip_help()).clicked() {
+                    flip = true;
+                }
                 if s.prev_id != 0 || s.next_id != 0 {
                     if ui.small_button(tr("Select the whole road", "Выбрать всю дорогу")).on_hover_text(tr("Every piece linked on from this one (or double-click the road)", "Все куски, связанные с этим (или двойной клик по дороге)")).clicked() {
                         whole_road = true;
@@ -3046,6 +3050,10 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
             }
             if reverse {
                 ed.reverse_selected();
+                return;
+            }
+            if flip {
+                ed.flip_selected();
                 return;
             }
             if lay {

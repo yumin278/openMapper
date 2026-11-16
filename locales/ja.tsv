@@ -2964,3 +2964,7 @@ Choose file…	ファイルを選択…
 BUS	バス
 Hand-picked routes kept: {count}	保持した手動選択経路：{count} 件
 Overwrite hand-picked routes	手動で選択した経路を上書き
+Turn round and reverse	反転して向きを変える
+Turn the road round and reverse it	道路を反転して向きを変える
+Select one road to turn round	向きを変える道路を1本選んでください
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	道路を始点を中心に半回転させてから反転します。道路は始点の反対側にあり、終点は始点の上、進行方向は始点へ向きます

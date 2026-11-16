@@ -2964,3 +2964,7 @@ Choose file…	Pumili ng file…
 BUS	BUS
 Hand-picked routes kept: {count}	Ang mga itinuturing na manu-manually selected routes: {count}
 Overwrite hand-picked routes	I-overwrite ang mga manually selected na ruta
+Turn round and reverse	Ikot at baliktarin
+Turn the road round and reverse it	Ikutin ang kalsada at baliktarin ang direksyon
+Select one road to turn round	Pumili ng isang kalsada na ikukot
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Ang isang kalsada ay iikot nang kalahating ikot sa paligid ng simula nito at babaliktarin: ito ay nasa kabilang panig ng simula, ang dulo nito ay nasa simula, bumabalik ang trapiko patungo rito

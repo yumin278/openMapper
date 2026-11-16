@@ -2962,3 +2962,7 @@ Choose file…	Виберіть файл…
 BUS	Автобус
 Hand-picked routes kept: {count}	Ручно обрані маршрути: {count}
 Overwrite hand-picked routes	Перезаписати ручно обрані маршрути
+Turn round and reverse	Розвернути кругом і змінити напрям
+Turn the road round and reverse it	Розвернути дорогу кругом і змінити її напрям
+Select one road to turn round	Виберіть одну дорогу для розвороту
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Дорога повертається на півоберта навколо свого початку й розвертається: вона лежить з іншого боку початку, її кінець — на початку, рух іде назад до нього

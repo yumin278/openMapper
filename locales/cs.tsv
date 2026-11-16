@@ -2964,3 +2964,7 @@ Choose file…	Vyber si složku…
 BUS	Autobus
 Hand-picked routes kept: {count}	Ručně vybrané trasy: {count}
 Overwrite hand-picked routes	Přepis ručně vybraných tras
+Turn round and reverse	Otočit a obrátit směr
+Turn the road round and reverse it	Otočit cestu a obrátit její směr
+Select one road to turn round	Vyberte jednu cestu k otočení
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Cesta se otočí o půl otáčky kolem svého začátku a obrátí: leží na druhé straně začátku, její konec na začátku, provoz se k němu vrací
