@@ -187,165 +187,165 @@ impl AssetBrowser {
     #[allow(clippy::too_many_arguments)]
     fn contents(&mut self, ui: &mut egui::Ui, ed: &mut Editor, lib: &Library, thumbs: &HashMap<String, Option<Thumb>>, wanted: &mut Vec<(String, bool)>, favourites: &[String], textures: &[String], swatches: &HashMap<String, egui::TextureHandle>, wanted_swatches: &mut Vec<String>, cache: &Cache, actions: &mut Vec<Action>) {
         let on_textures = self.show == Show::Textures;
-            // the bar: search, kind, size, import
-            ui.horizontal(|ui| {
-                ui.label(icons::labelled(Icon::Objects, tr("Assets", "Ассеты")));
-                ui.add(egui::TextEdit::singleline(&mut self.search).hint_text(tr("Search", "Поиск")).desired_width(200.0));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let docked = self.layout.unwrap().docked;
-                    if docked && ui.small_button("×").on_hover_text(tr("Close (B)", "Закрыть (B)")).clicked() {
-                        self.open = false;
-                    }
-                    let (label, tip) = if docked {
-                        (tr("Float", "Отделить"), tr("Show Assets in a floating window", "Показать ассеты в плавающем окне"))
-                    } else {
-                        (tr("Dock", "Закрепить"), tr("Dock Assets at the bottom", "Закрепить ассеты внизу"))
-                    };
-                    if ui.small_button(label).on_hover_text(tip).clicked() {
-                        self.layout.as_mut().unwrap().docked = !docked;
-                    }
-                });
-            });
-            ui.horizontal_wrapped(|ui| {
-                let armed = matches!(ed.sample, Some(Sample::Either));
-                let tip = tr("Click an object or a spline in the view", "Щёлкните объект или сплайн в виде");
-                if ui.add(egui::Button::new(Icon::Dropper.text(16.0)).selected(armed)).on_hover_text(tip).clicked() {
-                    if armed {
-                        ed.sample = None;
-                    } else {
-                        ed.sample = Some(Sample::Either);
-                        ed.sample_browser = true;
-                        ed.toast(tip);
-                    }
+        // the bar: search, kind, size, import
+        ui.horizontal(|ui| {
+            ui.label(icons::labelled(Icon::Objects, tr("Assets", "Ассеты")));
+            ui.add(egui::TextEdit::singleline(&mut self.search).hint_text(tr("Search", "Поиск")).desired_width(200.0));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let docked = self.layout.unwrap().docked;
+                if docked && ui.small_button("×").on_hover_text(tr("Close (B)", "Закрыть (B)")).clicked() {
+                    self.open = false;
                 }
-                for (s, label) in [(Show::All, tr("All", "Все")), (Show::Objects, tr("Objects", "Объекты")), (Show::Splines, tr("Roads and splines", "Дороги и сплайны")), (Show::Textures, tr("Textures", "Текстуры"))] {
-                    if ui.selectable_label(self.show == s, label).clicked() {
-                        self.show = s;
+                let (label, tip) = if docked {
+                    (tr("Float", "Отделить"), tr("Show Assets in a floating window", "Показать ассеты в плавающем окне"))
+                } else {
+                    (tr("Dock", "Закрепить"), tr("Dock Assets at the bottom", "Закрепить ассеты внизу"))
+                };
+                if ui.small_button(label).on_hover_text(tip).clicked() {
+                    self.layout.as_mut().unwrap().docked = !docked;
+                }
+            });
+        });
+        ui.horizontal_wrapped(|ui| {
+            let armed = matches!(ed.sample, Some(Sample::Either));
+            let tip = tr("Click an object or a spline in the view", "Щёлкните объект или сплайн в виде");
+            if ui.add(egui::Button::new(Icon::Dropper.text(16.0)).selected(armed)).on_hover_text(tip).clicked() {
+                if armed {
+                    ed.sample = None;
+                } else {
+                    ed.sample = Some(Sample::Either);
+                    ed.sample_browser = true;
+                    ed.toast(tip);
+                }
+            }
+            for (s, label) in [(Show::All, tr("All", "Все")), (Show::Objects, tr("Objects", "Объекты")), (Show::Splines, tr("Roads and splines", "Дороги и сплайны")), (Show::Textures, tr("Textures", "Текстуры"))] {
+                if ui.selectable_label(self.show == s, label).clicked() {
+                    self.show = s;
+                    self.folder = None;
+                    self.tex_folder = None;
+                }
+            }
+            ui.separator();
+            ui.add(egui::Slider::new(&mut self.size, 56.0..=160.0).show_value(false)).on_hover_text(tr("Picture size", "Размер картинок"));
+            if ui.button(icons::labelled(Icon::Import, tr("Import…", "Импорт…"))).clicked() {
+                actions.push(Action::Import);
+            }
+            ui.menu_button(tr("Shapes…", "Фигуры…"), |ui| crate::ui_mesh::primitives_menu(ui, actions));
+        });
+        ui.separator();
+        let kinds: &[Kind] = match self.show {
+            Show::All => &[Kind::Object, Kind::Spline],
+            Show::Objects => &[Kind::Object],
+            Show::Splines => &[Kind::Spline],
+            Show::Textures => &[],
+        };
+        let height = ui.available_height().max(0.0);
+        let folder_w = (ui.available_width() * 0.25).clamp(100.0, 220.0);
+        ui.horizontal_top(|ui| {
+            // the folders
+            ui.vertical(|ui| {
+                ui.set_width(folder_w);
+                egui::ScrollArea::vertical().id_salt("asset folders").max_height(height).auto_shrink([false, false]).show(ui, |ui| {
+                    let none = if on_textures { self.tex_folder.is_none() } else { self.folder.is_none() };
+                    if ui.selectable_label(none, RichText::new(tr("Everything", "Всё")).strong()).clicked() {
                         self.folder = None;
                         self.tex_folder = None;
                     }
-                }
-                ui.separator();
-                ui.add(egui::Slider::new(&mut self.size, 56.0..=160.0).show_value(false)).on_hover_text(tr("Picture size", "Размер картинок"));
-                if ui.button(icons::labelled(Icon::Import, tr("Import…", "Импорт…"))).clicked() {
-                    actions.push(Action::Import);
-                }
-                ui.menu_button(tr("Shapes…", "Фигуры…"), |ui| crate::ui_mesh::primitives_menu(ui, actions));
-            });
-            ui.separator();
-            let kinds: &[Kind] = match self.show {
-                Show::All => &[Kind::Object, Kind::Spline],
-                Show::Objects => &[Kind::Object],
-                Show::Splines => &[Kind::Spline],
-                Show::Textures => &[],
-            };
-            let height = ui.available_height().max(0.0);
-            let folder_w = (ui.available_width() * 0.25).clamp(100.0, 220.0);
-            ui.horizontal_top(|ui| {
-                // the folders
-                ui.vertical(|ui| {
-                    ui.set_width(folder_w);
-                    egui::ScrollArea::vertical().id_salt("asset folders").max_height(height).auto_shrink([false, false]).show(ui, |ui| {
-                        let none = if on_textures { self.tex_folder.is_none() } else { self.folder.is_none() };
-                        if ui.selectable_label(none, RichText::new(tr("Everything", "Всё")).strong()).clicked() {
-                            self.folder = None;
-                            self.tex_folder = None;
+                    if on_textures {
+                        for (top, n, subs) in &cache.tex_tree {
+                            let on = self.tex_folder.as_deref() == Some(top.as_str());
+                            let text = RichText::new(format!("{top} ({n})"));
+                            let r = egui::CollapsingHeader::new(if on { text.color(Color32::from_rgb(232, 150, 80)) } else { text }).id_salt(("tex top", top)).show(ui, |ui| {
+                                for (sub, n) in subs {
+                                    let path = format!("{top}\\{sub}");
+                                    if ui.selectable_label(self.tex_folder.as_deref() == Some(path.as_str()), format!("{sub} ({n})")).clicked() {
+                                        self.tex_folder = Some(path);
+                                    }
+                                }
+                            });
+                            if r.header_response.clicked() {
+                                self.tex_folder = Some(top.clone());
+                            }
                         }
-                        if on_textures {
-                            for (top, n, subs) in &cache.tex_tree {
-                                let on = self.tex_folder.as_deref() == Some(top.as_str());
+                        return;
+                    }
+                    if !favourites.is_empty() && ui.selectable_label(self.folder.as_ref().map(|f| f.1 == "\u{2605}").unwrap_or(false), icons::labelled(Icon::Star, tr("Favourites", "Избранное"))).clicked() {
+                        self.folder = Some((Kind::Object, "\u{2605}".into()));
+                    }
+                    for (kind, tops) in cache.tree.iter().filter(|(k, _)| kinds.contains(k)) {
+                        let title = if *kind == Kind::Object { tr("Scenery objects", "Объекты") } else { tr("Splines (roads, tracks…)", "Сплайны (дороги, рельсы…)") };
+                        egui::CollapsingHeader::new(RichText::new(title).strong()).id_salt(("asset kind", *kind == Kind::Spline)).default_open(true).show(ui, |ui| {
+                            for (top, n, subs) in tops {
+                                let on = self.folder.as_ref().map(|f| f.0 == *kind && f.1 == *top).unwrap_or(false);
                                 let text = RichText::new(format!("{top} ({n})"));
-                                let r = egui::CollapsingHeader::new(if on { text.color(Color32::from_rgb(232, 150, 80)) } else { text }).id_salt(("tex top", top)).show(ui, |ui| {
+                                let r = egui::CollapsingHeader::new(if on { text.color(Color32::from_rgb(232, 150, 80)) } else { text }).id_salt(("asset top", *kind == Kind::Spline, top)).show(ui, |ui| {
                                     for (sub, n) in subs {
                                         let path = format!("{top}\\{sub}");
-                                        if ui.selectable_label(self.tex_folder.as_deref() == Some(path.as_str()), format!("{sub} ({n})")).clicked() {
-                                            self.tex_folder = Some(path);
+                                        let on = self.folder.as_ref().map(|f| f.0 == *kind && f.1 == path).unwrap_or(false);
+                                        if ui.selectable_label(on, format!("{sub} ({n})")).clicked() {
+                                            self.folder = Some((*kind, path));
                                         }
                                     }
                                 });
                                 if r.header_response.clicked() {
-                                    self.tex_folder = Some(top.clone());
+                                    self.folder = Some((*kind, top.clone()));
                                 }
                             }
-                            return;
-                        }
-                        if !favourites.is_empty() && ui.selectable_label(self.folder.as_ref().map(|f| f.1 == "\u{2605}").unwrap_or(false), icons::labelled(Icon::Star, tr("Favourites", "Избранное"))).clicked() {
-                            self.folder = Some((Kind::Object, "\u{2605}".into()));
-                        }
-                        for (kind, tops) in cache.tree.iter().filter(|(k, _)| kinds.contains(k)) {
-                            let title = if *kind == Kind::Object { tr("Scenery objects", "Объекты") } else { tr("Splines (roads, tracks…)", "Сплайны (дороги, рельсы…)") };
-                            egui::CollapsingHeader::new(RichText::new(title).strong()).id_salt(("asset kind", *kind == Kind::Spline)).default_open(true).show(ui, |ui| {
-                                for (top, n, subs) in tops {
-                                    let on = self.folder.as_ref().map(|f| f.0 == *kind && f.1 == *top).unwrap_or(false);
-                                    let text = RichText::new(format!("{top} ({n})"));
-                                    let r = egui::CollapsingHeader::new(if on { text.color(Color32::from_rgb(232, 150, 80)) } else { text }).id_salt(("asset top", *kind == Kind::Spline, top)).show(ui, |ui| {
-                                        for (sub, n) in subs {
-                                            let path = format!("{top}\\{sub}");
-                                            let on = self.folder.as_ref().map(|f| f.0 == *kind && f.1 == path).unwrap_or(false);
-                                            if ui.selectable_label(on, format!("{sub} ({n})")).clicked() {
-                                                self.folder = Some((*kind, path));
-                                            }
-                                        }
-                                    });
-                                    if r.header_response.clicked() {
-                                        self.folder = Some((*kind, top.clone()));
-                                    }
-                                }
-                            });
-                        }
-                    });
-                });
-                ui.separator();
-                // the pictures
-                ui.vertical(|ui| {
-                    let picked = if on_textures { self.tex_picked.is_some() } else { self.picked.is_some() };
-                    let detail_w = if picked { (ui.available_width() * 0.35).clamp(100.0, 240.0) } else { 0.0 };
-                    ui.horizontal_top(|ui| {
-                        let grid_w = (ui.available_width() - detail_w - 8.0).max(120.0);
-                        ui.vertical(|ui| {
-                            ui.set_width(grid_w);
-                            ui.label(RichText::new(format!("{} {}", cache.items.len(), tr("items", "шт."))).small().color(Color32::from_gray(140)));
-                            let cell = Vec2::new(self.size + 8.0, self.size + 30.0);
-                            let per_row = ((grid_w / cell.x).floor() as usize).max(1);
-                            // (only the rows in view are drawn, and only those ask for pictures)
-                            egui::ScrollArea::vertical().id_salt(("asset grid", on_textures)).max_height((height - 20.0).max(0.0)).auto_shrink([false, false]).show_rows(ui, cell.y, cache.items.len().div_ceil(per_row), |ui, rows| {
-                                for r in rows {
-                                    ui.horizontal(|ui| {
-                                        for &i in cache.items.iter().skip(r * per_row).take(per_row) {
-                                            if on_textures {
-                                                self.texture_cell(ui, &textures[i], cell, swatches, wanted_swatches);
-                                            } else {
-                                                self.cell(ui, &lib.assets[i], cell, ed, thumbs, wanted, actions);
-                                            }
-                                        }
-                                    });
-                                }
-                            });
                         });
-                        if on_textures {
-                            if let Some(rel) = self.tex_picked.clone() {
-                                ui.separator();
-                                ui.vertical(|ui| {
-                                    ui.set_width(detail_w);
-                                    egui::ScrollArea::vertical().id_salt("asset texture details").max_height(height).show(ui, |ui| {
-                                        self.texture_details(ui, &rel, swatches, actions);
-                                    });
-                                });
-                            }
-                        } else if let Some(rel) = self.picked.clone() {
-                            if let Some(a) = lib.find(&rel) {
-                                ui.separator();
-                                ui.vertical(|ui| {
-                                    ui.set_width(detail_w);
-                                    egui::ScrollArea::vertical().id_salt("asset details").max_height(height).show(ui, |ui| {
-                                        self.details(ui, a, ed, thumbs, favourites, actions);
-                                    });
-                                });
-                            }
-                        }
-                    });
+                    }
                 });
             });
+            ui.separator();
+            // the pictures
+            ui.vertical(|ui| {
+                let picked = if on_textures { self.tex_picked.is_some() } else { self.picked.is_some() };
+                let detail_w = if picked { (ui.available_width() * 0.35).clamp(100.0, 240.0) } else { 0.0 };
+                ui.horizontal_top(|ui| {
+                    let grid_w = (ui.available_width() - detail_w - 8.0).max(120.0);
+                    ui.vertical(|ui| {
+                        ui.set_width(grid_w);
+                        ui.label(RichText::new(format!("{} {}", cache.items.len(), tr("items", "шт."))).small().color(Color32::from_gray(140)));
+                        let cell = Vec2::new(self.size + 8.0, self.size + 30.0);
+                        let per_row = ((grid_w / cell.x).floor() as usize).max(1);
+                        // (only the rows in view are drawn, and only those ask for pictures)
+                        egui::ScrollArea::vertical().id_salt(("asset grid", on_textures)).max_height((height - 20.0).max(0.0)).auto_shrink([false, false]).show_rows(ui, cell.y, cache.items.len().div_ceil(per_row), |ui, rows| {
+                            for r in rows {
+                                ui.horizontal(|ui| {
+                                    for &i in cache.items.iter().skip(r * per_row).take(per_row) {
+                                        if on_textures {
+                                            self.texture_cell(ui, &textures[i], cell, swatches, wanted_swatches);
+                                        } else {
+                                            self.cell(ui, &lib.assets[i], cell, ed, thumbs, wanted, actions);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    });
+                    if on_textures {
+                        if let Some(rel) = self.tex_picked.clone() {
+                            ui.separator();
+                            ui.vertical(|ui| {
+                                ui.set_width(detail_w);
+                                egui::ScrollArea::vertical().id_salt("asset texture details").max_height(height).show(ui, |ui| {
+                                    self.texture_details(ui, &rel, swatches, actions);
+                                });
+                            });
+                        }
+                    } else if let Some(rel) = self.picked.clone() {
+                        if let Some(a) = lib.find(&rel) {
+                            ui.separator();
+                            ui.vertical(|ui| {
+                                ui.set_width(detail_w);
+                                egui::ScrollArea::vertical().id_salt("asset details").max_height(height).show(ui, |ui| {
+                                    self.details(ui, a, ed, thumbs, favourites, actions);
+                                });
+                            });
+                        }
+                    }
+                });
+            });
+        });
     }
 
     fn build_cache(&self, key: u64, lib: &Library, favourites: &[String], textures: &[String]) -> Cache {
