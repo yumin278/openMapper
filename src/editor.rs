@@ -4168,7 +4168,8 @@ impl Editor {
             .filter(|(d, _)| *d < 4.0)
             .min_by(|a, b| a.0.total_cmp(&b.0));
         if let Some((_, e)) = end {
-            return Some((Anchor { pos: e.pos, heading: e.heading, ..Default::default() }, file));
+            let anchor = self.lane_anchor(assets, kind, Anchor { pos: e.pos, heading: e.heading, ..Default::default() }, starting);
+            return Some((anchor, file));
         }
         let along = lanes
             .iter()
@@ -4181,8 +4182,31 @@ impl Editor {
             // (on a spline's lane: the spline is cut there when the path is built, so the lane
             // has an end there for the path to join - openOMSI joins lanes only end to end)
             let mid = sp.zip(at).filter(|((_, _, len), at)| *at > 0.6 && *at < len - 0.6).map(|((k, id, _), at)| (k, id, at, 0.0));
-            (Anchor { pos: q, heading: roads::norm_deg(if starting { flow } else { flow + 180.0 }), mid, ..Default::default() }, file)
+            let anchor = Anchor { pos: q, heading: roads::norm_deg(if starting { flow } else { flow + 180.0 }), mid, ..Default::default() };
+            (self.lane_anchor(assets, kind, anchor, starting), file)
         })
+    }
+
+    /// A lane's point made the start or end of a new path of the type being drawn: the lane
+    /// lies on the road's line, the new path's own line lies its `[path]` z above (or below)
+    /// that, so the height is brought back by as much. Only the height: a path set to the
+    /// side of its spline (`x`) is left as it is (with a note), and x is not corrected.
+    fn lane_anchor(&self, assets: &mut Assets, kind: i32, mut a: Anchor, starting: bool) -> Anchor {
+        let Some(rel) = self.path_type.clone() else { return a };
+        let Some(m) = assets.spline(&rel) else { return a };
+        let Some(p) = m.def.paths.iter().find(|p| p.kind == kind) else { return a };
+        if p.start[0].abs() > 1e-6 {
+            log::warn!("AI path {rel}: its {kind} path lies {} m to the side of the spline; only the height is taken from the lane", p.start[0]);
+        }
+        let before = a.pos.z;
+        a.pos.z -= p.start[2] as f64;
+        log::info!(
+            "AI path {rel}: lane of kind {kind} (path z {:.3}) snapped at the {}: anchor z {before:.3} -> {:.3}",
+            p.start[2],
+            if starting { "start" } else { "end" },
+            a.pos.z
+        );
+        a
     }
 
     /// A path starts at a lane end of its own kind: near the end of a footway lane the path type
@@ -17130,5 +17154,8 @@ mod tests {
 
 #[cfg(test)]
 mod bus_lane_tests;
+
+#[cfg(test)]
+mod path_snap_tests;
 
 mod bus_rule_batch;
