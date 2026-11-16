@@ -4398,12 +4398,19 @@ impl Editor {
         let typed = self.typed();
         let z0 = start.pos.z;
         // numbers typed or the straight lock: the road is drawn by them, not to what the
-        // cursor is near
-        if (typed.any() || self.straight_lock) && !self.drawing_paths() {
+        // cursor is near. An AI path is a line of its own, not the ground's: it rises only
+        // as far as the rise typed for it.
+        if typed.any() || self.straight_lock {
             let Some(segs) = crate::draw::plan(start.pos.truncate(), fixed.then_some(start.heading), self.snap_point(c.truncate()), &typed, self.straight_lock) else { return };
             self.road_snap = None;
             let end = segs.last().unwrap().end();
-            let z1 = if self.keep_height { z0 + self.typed_rise() } else if !self.auto_terrain { z0 } else { self.doc.as_ref().map(|d| d.ground(end)).unwrap_or(c.z) };
+            let z1 = if self.drawing_paths() || self.keep_height {
+                z0 + self.typed_rise()
+            } else if !self.auto_terrain {
+                z0
+            } else {
+                self.doc.as_ref().map(|d| d.ground(end)).unwrap_or(c.z)
+            };
             self.road_plan = Some((segs, z0, z1, None));
             return;
         }

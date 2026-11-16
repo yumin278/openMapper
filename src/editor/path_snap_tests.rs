@@ -207,3 +207,86 @@ fn a_path_started_on_a_crossing_objects_lane_keeps_the_lane_height() {
     assert!((at_start - 0.1).abs() < 0.001, "start path height {at_start}");
     assert!((at_end - 0.1).abs() < 0.001, "end path height {at_end}");
 }
+
+#[test]
+fn a_straight_lock_draws_an_ai_path_straight_from_a_lane_end() {
+    let mut f = Paths::new("straight");
+    let street = f.street.clone();
+    f.lane(1, &street, 100.0, 100.0, 0.0, 50.0);
+    f.type_of(&street);
+    f.click(100.0, 150.0);
+    let (start, _) = f.editor.road_start.expect("started on the lane's end");
+    // Shift held while drawing a path: a straight on from the lane, at its height
+    f.editor.straight_lock = true;
+    let (z0, z1) = f.plan(100.0, 165.0);
+    assert!((z0 - 0.0).abs() < 1e-9, "z0 {z0}");
+    assert!((z1 - z0).abs() < 1e-9, "z1 {z1} follows z0 {z0}");
+    let (segs, _, _, _) = f.editor.road_plan.as_ref().expect("a plan");
+    let last = segs.last().expect("a piece");
+    assert!(last.radius.abs() < 1e-9, "radius {}", last.radius);
+    assert!((roads::norm_deg(last.end_heading()) - roads::norm_deg(start.heading)).abs() < 1e-9, "heading {} from {}", last.end_heading(), start.heading);
+    f.click(100.0, 165.0);
+    let (k, s) = f.made(&street, 100.0, 150.0).expect("the path is made");
+    assert!(s.radius.abs() < 1e-9, "built radius {}", s.radius);
+    assert!((s.heading - start.heading).abs() < 1e-9, "built heading {} from {}", s.heading, start.heading);
+    let (at_start, at_end) = world_heights(k, &s, &street, &mut f.assets);
+    assert!((at_start - 0.1).abs() < 0.001, "start path height {at_start}");
+    assert!((at_end - 0.1).abs() < 0.001, "end path height {at_end}");
+}
+
+#[test]
+fn a_typed_length_and_radius_draw_an_ai_path_straight() {
+    let mut f = Paths::new("typed");
+    let street = f.street.clone();
+    f.lane(1, &street, 100.0, 100.0, 0.0, 50.0);
+    f.type_of(&street);
+    f.click(100.0, 150.0);
+    f.editor.typed_text[0] = "5".to_string();
+    f.editor.typed_text[1] = "0".to_string();
+    let (z0, z1) = f.plan(100.0, 180.0);
+    assert!((z0 - 0.0).abs() < 1e-9, "z0 {z0}");
+    assert!((z1 - z0).abs() < 1e-9, "z1 {z1} follows z0 {z0}");
+    let facts = f.editor.road_plan_facts().expect("a plan");
+    assert!((facts.0 - 5.0).abs() < 0.001, "length {}", facts.0);
+    assert!(facts.1.abs() < 1e-9, "radius {}", facts.1);
+    f.click(100.0, 180.0);
+    let (k, s) = f.made(&street, 100.0, 150.0).expect("the path is made");
+    assert!((s.length - 5.0).abs() < 0.001, "built length {}", s.length);
+    assert!(s.radius.abs() < 1e-9, "built radius {}", s.radius);
+    let (at_start, at_end) = world_heights(k, &s, &street, &mut f.assets);
+    assert!((at_start - 0.1).abs() < 0.001, "start path height {at_start}");
+    assert!((at_end - 0.1).abs() < 0.001, "end path height {at_end}");
+}
+
+#[test]
+fn a_typed_rise_lifts_an_ai_path() {
+    let mut f = Paths::new("rise");
+    let street = f.street.clone();
+    f.lane(1, &street, 100.0, 100.0, 0.0, 50.0);
+    f.type_of(&street);
+    f.click(100.0, 150.0);
+    f.editor.typed_text[0] = "5".to_string();
+    f.editor.typed_text[3] = "2".to_string();
+    let (z0, z1) = f.plan(100.0, 180.0);
+    assert!((z0 - 0.0).abs() < 1e-9, "z0 {z0}");
+    assert!((z1 - z0 - 2.0).abs() < 1e-9, "z1 {z1} from z0 {z0}");
+    f.click(100.0, 180.0);
+    let (k, s) = f.made(&street, 100.0, 150.0).expect("the path is made");
+    let (_, at_end) = world_heights(k, &s, &street, &mut f.assets);
+    assert!((at_end - 2.1).abs() < 0.001, "end path height {at_end}");
+}
+
+#[test]
+fn a_typed_road_still_follows_the_ground() {
+    let mut f = Paths::new("road-typed");
+    let street = f.street.clone();
+    f.type_of(&street);
+    f.editor.tool = Tool::Roads;
+    f.click(200.0, 200.0);
+    f.editor.typed_text[0] = "5".to_string();
+    f.editor.typed_text[3] = "2".to_string();
+    let (z0, z1) = f.plan(200.0, 215.0);
+    assert!((z0 - 0.0).abs() < 1e-9, "z0 {z0}");
+    // (a road takes the ground at its end, not the rise typed for a path)
+    assert!((z1 - 0.0).abs() < 1e-9, "z1 {z1}");
+}

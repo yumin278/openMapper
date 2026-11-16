@@ -1068,7 +1068,7 @@ pub fn pocket_options(ui: &mut egui::Ui, ed: &mut Editor) {
 /// Numbers for the road being drawn, in the view's corner: what is typed is kept to, what is
 /// left empty follows the cursor (its value shown greyed).
 pub fn road_entry(ctx: &egui::Context, ed: &mut Editor, view: egui::Rect, actions: &mut Vec<crate::ui::Action>) {
-    if !ed.road_start_active() || ed.drawing_paths() || !view.is_positive() {
+    if !ed.road_start_active() || !view.is_positive() {
         return;
     }
     let facts = ed.road_plan_facts();
