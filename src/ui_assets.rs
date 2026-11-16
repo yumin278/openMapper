@@ -565,3 +565,7 @@ pub fn use_asset(ed: &mut Editor, a: &Asset) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "ui_assets_tests.rs"]
+mod tests;
