@@ -208,16 +208,41 @@ impl Side {
     }
 }
 
-/// The kerb the road's own traffic keeps to, in the road type's frame: the side its lanes along
-/// the road's way lie on (a mirrored spline runs them the other way, so its against lanes).
-/// Where there are none to tell, `left_hand` says.
+/// The kerb the road's own traffic keeps to, in the road type's frame (the `.sli` text's x:
+/// `Side::Right` is +x), not the map's world frame.
+///
+/// Two-way roads put the kerb where their lanes running the road's way (in the map's frame:
+/// `direction` 0, or 1 on a mirrored spline) lie across the road. A one-way road has only one
+/// direction to go on: in the text's frame a lane going along it (`direction` 0) has its right
+/// at +x, and one going against it (`direction` 1) has its right at -x. Right-hand traffic
+/// keeps that right-hand kerb and left-hand traffic the other one, so the answer follows the
+/// lane's direction whether or not the spline is mirrored (mirroring turns the cross-section
+/// round and reverses the flow, leaving the traffic's own left and right where they were).
+/// Where there are no lanes (or only both-way lanes) to tell, the map's traffic side says,
+/// turned round in the text when the spline is mirrored.
 pub fn bay_side(model: &crate::assets::SplineModel, mirrored: bool, left_hand: bool) -> Side {
     let along = if mirrored { 1 } else { 0 };
-    let xs: Vec<f32> = model.def.paths.iter().filter(|p| p.kind == 0 && p.direction == along).map(|p| p.start[0]).collect();
-    if xs.is_empty() {
-        return if left_hand != mirrored { Side::Left } else { Side::Right };
-    }
-    if xs.iter().sum::<f32>() >= 0.0 { Side::Right } else { Side::Left }
+    let lanes: Vec<(f32, i32)> = model.def.paths.iter().filter(|p| p.kind == 0).map(|p| (p.start[0], p.direction)).collect();
+    let forward: Vec<f32> = lanes.iter().filter(|(_, d)| *d == along).map(|(x, _)| *x).collect();
+    let against: Vec<f32> = lanes.iter().filter(|(_, d)| *d == 1 - along).map(|(x, _)| *x).collect();
+    let mean = |xs: &[f32]| xs.iter().sum::<f32>() / xs.len() as f32;
+    let one_way = !lanes.is_empty() && lanes.iter().all(|(_, d)| *d == lanes[0].1) && lanes[0].1 != 2;
+    let (side, basis) = if !forward.is_empty() && !against.is_empty() {
+        let (f, a) = (mean(&forward), mean(&against));
+        (if f >= a { Side::Right } else { Side::Left }, format!("two-way: forward mean x {f:+.3}, against mean x {a:+.3}"))
+    } else if one_way {
+        let direction = lanes[0].1;
+        (if (direction == 0) != left_hand { Side::Right } else { Side::Left }, format!("one-way: lane direction {direction}, left_hand {left_hand}"))
+    } else {
+        (if left_hand != mirrored { Side::Left } else { Side::Right }, "no one-way lanes to tell: the map's traffic side in the text's frame".to_string())
+    };
+    let lanes: Vec<String> = lanes.iter().map(|(x, d)| format!("(x {x:+.3}, direction {d})")).collect();
+    log::info!(
+        "bus bay side: left_hand={left_hand} mirrored={mirrored} along={along} lanes=[{}] basis={basis} -> {}",
+        lanes.join(", "),
+        side.name()
+    );
+    side
 }
 
 /// One `[tag]` of a road type's text and the lines that follow it.
@@ -795,5 +820,136 @@ mod tests {
         add_spline(&mut doc, (0, 0), 1, 100.0, 50.0, 0.0, 20.0, 0, 0);
         assert!(cut_out(&mut doc, (0, 0), 1, -5.0, 25.0).is_err());
         assert_eq!(doc.tiles[&(0, 0)].tile.splines.len(), 1);
+    }
+
+    fn road_lanes(model: &crate::assets::SplineModel) -> Vec<(f32, i32)> {
+        model.def.paths.iter().filter(|p| p.kind == 0).map(|p| (p.start[0], p.direction)).collect()
+    }
+
+    /// Make a road with the maker, as a map's author would: both traffic sides and all the
+    /// lane layouts the bay is asked about.
+    fn maker_road(dir: &std::path::Path, tex: &std::path::Path, name: &str, lanes_fwd: u8, lanes_back: u8, left_hand: bool) -> (String, crate::assets::SplineModel) {
+        let spec = crate::road_maker::RoadSpec {
+            name: name.to_string(),
+            roadway_tex: tex.to_path_buf(),
+            footway_tex: tex.to_path_buf(),
+            lanes_fwd,
+            lanes_back,
+            lane_width: 3.25,
+            footway: 2.5,
+            ..Default::default()
+        };
+        let rel = spec.write_with_traffic(dir, left_hand).unwrap();
+        let path = crate::doc::safe::own_path(dir, &rel);
+        let def = omsi_scenery::Spline::load(&path).unwrap();
+        (rel, crate::assets::SplineModel { def, materials: Vec::new(), half_width: 0.0 })
+    }
+
+    fn expected_bay_side(model: &crate::assets::SplineModel, mirrored: bool, left_hand: bool) -> Side {
+        let lanes = road_lanes(model);
+        let one_way = lanes.iter().all(|(_, d)| *d == lanes[0].1) && lanes[0].1 != 2;
+        if one_way {
+            // In the `.sli` text a lane going along it has its right at +x, one going against
+            // at -x. Right-hand traffic keeps that right-hand kerb, left-hand traffic the other.
+            let right = if lanes[0].1 == 0 { 1.0 } else { -1.0 };
+            let kerb = if left_hand { -right } else { right };
+            return if kerb > 0.0 { Side::Right } else { Side::Left };
+        }
+        // Two-way: the kerb is where the lanes running the road's way lie (in the map's frame:
+        // direction 0, or 1 on a mirrored spline).
+        let along = if mirrored { 1 } else { 0 };
+        let mean = |direction: i32| {
+            let xs: Vec<f32> = lanes.iter().filter(|(_, d)| *d == direction).map(|(x, _)| *x).collect();
+            xs.iter().sum::<f32>() / xs.len() as f32
+        };
+        if mean(along) >= mean(1 - along) { Side::Right } else { Side::Left }
+    }
+
+    fn kerb_lane(model: &crate::assets::SplineModel, side: Side) -> (f32, i32) {
+        let lanes = road_lanes(model);
+        match side {
+            Side::Right => *lanes.iter().max_by(|a, b| a.0.total_cmp(&b.0)).unwrap(),
+            Side::Left => *lanes.iter().min_by(|a, b| a.0.total_cmp(&b.0)).unwrap(),
+        }
+    }
+
+    /// One road of every layout, made for each traffic side: a one-way road of one, two and
+    /// three lanes, and two-way roads of 2+2, 1+2 and 2+1 lanes.
+    const POCKET_SIDE_CASES: [(&str, u8, u8); 6] = [
+        ("one_1", 1, 0),
+        ("one_2", 2, 0),
+        ("one_3", 3, 0),
+        ("two_2_2", 2, 2),
+        ("two_1_2", 1, 2),
+        ("two_2_1", 2, 1),
+    ];
+
+    #[test]
+    fn bay_side_follows_the_traffic_of_generated_one_way_and_two_way_roads() {
+        let dir = std::env::temp_dir().join(format!("om-bay-side-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let tex = dir.join("road.png");
+        image::RgbaImage::from_pixel(8, 8, image::Rgba([80, 80, 80, 255])).save(&tex).unwrap();
+        for built_left_hand in [false, true] {
+            for (tag, lanes_fwd, lanes_back) in POCKET_SIDE_CASES {
+                let name = format!("{tag}_{}", if built_left_hand { "lht" } else { "rht" });
+                let (_, model) = maker_road(&dir, &tex, &name, lanes_fwd, lanes_back, built_left_hand);
+                let lanes = road_lanes(&model);
+                for mirrored in [false, true] {
+                    for left_hand in [false, true] {
+                        let side = bay_side(&model, mirrored, left_hand);
+                        let expected = expected_bay_side(&model, mirrored, left_hand);
+                        println!("{name}: lanes {lanes:?}, mirrored {mirrored}, left_hand {left_hand}: {} (expected {})", side.name(), expected.name());
+                        assert_eq!(side, expected, "{name}: lanes={lanes:?}, mirrored={mirrored}, left_hand={left_hand}");
+                        if lanes.iter().any(|(_, d)| *d != lanes[0].1) {
+                            // Two-way: the bay is on the kerb of the lanes running the road's way.
+                            // In the text that side is the traffic side's own, turned round when
+                            // the spline is mirrored.
+                            let kerb = if built_left_hand == mirrored { Side::Right } else { Side::Left };
+                            assert_eq!(side, kerb, "{name}: two-way bay should be on the {} kerb, mirrored={mirrored}, left_hand={left_hand}", kerb.name());
+                        }
+                    }
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn bay_type_opens_on_the_kerb_the_traffic_keeps_to() {
+        let dir = std::env::temp_dir().join(format!("om-bay-type-side-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let tex = dir.join("road.png");
+        image::RgbaImage::from_pixel(8, 8, image::Rgba([80, 80, 80, 255])).save(&tex).unwrap();
+        let mut assets = crate::assets::Assets::new(dir.clone(), dir.clone());
+        for built_left_hand in [false, true] {
+            for (tag, lanes_fwd, lanes_back) in POCKET_SIDE_CASES {
+                let name = format!("{tag}_{}", if built_left_hand { "lht" } else { "rht" });
+                let (rel, model) = maker_road(&dir, &tex, &name, lanes_fwd, lanes_back, built_left_hand);
+                let original = omsi_cfg::vfs::read_text(&crate::doc::safe::own_path(&dir, &rel)).unwrap();
+                let original_paths = items_of(&original).iter().filter(|i| i.tag == "[path]").count();
+                for mirrored in [false, true] {
+                    for left_hand in [false, true] {
+                        let expected = expected_bay_side(&model, mirrored, left_hand);
+                        let bay = bay_type(&mut assets, &dir, &rel, mirrored, left_hand, 3.0, false).unwrap();
+                        assert!(bay.to_lowercase().contains(&format!("_bay_{}_", expected.name())), "{name}: mirrored={mirrored}, left_hand={left_hand}: {bay} is not on the {} side", expected.name());
+                        let text = omsi_cfg::vfs::read_text(&crate::doc::safe::own_path(&dir, &bay)).unwrap();
+                        let items = items_of(&text);
+                        let paths: Vec<&Item> = items.iter().filter(|i| i.tag == "[path]").collect();
+                        assert_eq!(paths.len(), original_paths + 1, "{name}: the bay should add one lane");
+                        let v = paths.last().unwrap().values();
+                        assert_eq!(v[0].1 as i32, 0, "{name}: the bay lane should be a street lane");
+                        let (adjacent_x, adjacent_direction) = kerb_lane(&model, expected);
+                        assert_eq!(v[4].1 as i32, adjacent_direction, "{name}: mirrored={mirrored}, left_hand={left_hand}: the bay lane should go the way of the lane beside it at x {adjacent_x:+.3}");
+                        let bay_x = v[1].1;
+                        assert!(if expected == Side::Right { bay_x > adjacent_x } else { bay_x < adjacent_x }, "{name}: mirrored={mirrored}, left_hand={left_hand}: bay x {bay_x:+.3} is not beyond the {} lane at x {adjacent_x:+.3}", if expected == Side::Right { "right" } else { "left" });
+                        println!("{name}: mirrored {mirrored}, left_hand {left_hand}: {bay}, bay x {bay_x:+.3}, direction {}, beside lane at x {adjacent_x:+.3}, direction {adjacent_direction}", v[4].1 as i32);
+                    }
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
