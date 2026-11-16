@@ -2969,3 +2969,15 @@ Turn round and reverse	Omkeren en richting omdraaien
 Turn the road round and reverse it	De weg omkeren en de richting omdraaien
 Select one road to turn round	Kies één weg om om te keren
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Een weg wordt een halve slag om zijn begin gedraaid en omgekeerd: hij ligt aan de andere kant van het begin, zijn einde op het begin, het verkeer komt er terug naartoe
+In multiplayer the host saves the map. Leave the session to rename this.	Bij samen bewerken slaat de host de kaart op. Verlaat de sessie om dit een andere naam te geven.
+Name saved	Naam opgeslagen
+The name has not changed	De naam is niet veranderd
+A name cannot have a line break	Een naam mag geen regelafbreking hebben
+A name cannot be empty	Een naam mag niet leeg zijn
+A name cannot begin with "["	Een naam mag niet met „[“ beginnen
+the object cannot be read, so it is left as it is	het object is niet leesbaar en blijft daarom zoals het is
+its openMapper source cannot be read, so the name would come back on its next save	de openMapper-bron is niet leesbaar, anders komt de naam bij het volgende opslaan terug
+its openMapper source cannot be written	de openMapper-bron kan niet worden geschreven
+and its openMapper source could not be put back	en de openMapper-bron kon niet worden teruggezet
+the name could not be saved	de naam kon niet worden opgeslagen
+Save the name	Naam opslaan

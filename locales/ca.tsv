@@ -2968,3 +2968,15 @@ Turn round and reverse	Girar i invertir el sentit
 Turn the road round and reverse it	Girar la carretera i invertir-ne el sentit
 Select one road to turn round	Seleccioneu una carretera per girar
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Una carretera gira mitja volta al voltant del seu inici i s'inverteix: queda a l'altre costat de l'inici, el seu final sobre l'inici i el trànsit torna cap a ell
+In multiplayer the host saves the map. Leave the session to rename this.	En edició compartida, l'amfitrió desa el mapa. Surt de la sessió per canviar aquest nom.
+Name saved	Nom desat
+The name has not changed	El nom no ha canviat
+A name cannot have a line break	Un nom no pot contenir un salt de línia
+A name cannot be empty	Un nom no pot estar buit
+A name cannot begin with "["	Un nom no pot començar per «[»
+the object cannot be read, so it is left as it is	l'objecte no es pot llegir, així que es deixa com està
+its openMapper source cannot be read, so the name would come back on its next save	la seva font d'openMapper no es pot llegir, o el nom tornaria al proper desat
+its openMapper source cannot be written	la seva font d'openMapper no es pot escriure
+and its openMapper source could not be put back	i la seva font d'openMapper no s'ha pogut tornar a posar
+the name could not be saved	no s'ha pogut desar el nom
+Save the name	Desa el nom

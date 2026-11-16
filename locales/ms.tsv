@@ -2968,3 +2968,15 @@ Turn round and reverse	Putar balik dan songsang arah
 Turn the road round and reverse it	Putar balik jalan dan songsang arahnya
 Select one road to turn round	Pilih satu jalan untuk diputar balik
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Satu jalan diputar separuh pusingan mengelilingi permulaannya lalu disongsangkan: jalan terletak di sisi lain permulaan, hujungnya di permulaan, trafik kembali ke arahnya
+In multiplayer the host saves the map. Leave the session to rename this.	Dalam suntingan bersama, hos menyimpan peta. Keluar daripada sesi untuk menamakan semula ini.
+Name saved	Nama disimpan
+The name has not changed	Nama tidak berubah
+A name cannot have a line break	Nama tidak boleh mengandungi baris baharu
+A name cannot be empty	Nama tidak boleh kosong
+A name cannot begin with "["	Nama tidak boleh bermula dengan „[”
+the object cannot be read, so it is left as it is	objek tidak dapat dibaca, jadi dibiarkan seperti adanya
+its openMapper source cannot be read, so the name would come back on its next save	sumber openMapper-nya tidak dapat dibaca, jika tidak nama akan kembali pada simpanan seterusnya
+its openMapper source cannot be written	sumber openMapper-nya tidak dapat ditulis
+and its openMapper source could not be put back	dan sumber openMapper-nya tidak dapat dikembalikan
+the name could not be saved	nama tidak dapat disimpan
+Save the name	Simpan nama

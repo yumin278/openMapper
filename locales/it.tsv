@@ -2968,3 +2968,15 @@ Turn round and reverse	Gira e inverti il senso
 Turn the road round and reverse it	Gira la strada e inverti il senso
 Select one road to turn round	Seleziona una strada da girare
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Una strada viene ruotata di mezzo giro attorno al suo inizio e invertita: si trova dall'altra parte dell'inizio, la sua fine sull'inizio, il traffico torna verso di esso
+In multiplayer the host saves the map. Leave the session to rename this.	In modifica condivisa la mappa la salva l'host. Esci dalla sessione per rinominarlo.
+Name saved	Nome salvato
+The name has not changed	Il nome non è cambiato
+A name cannot have a line break	Un nome non può contenere un'interruzione di riga
+A name cannot be empty	Un nome non può essere vuoto
+A name cannot begin with "["	Un nome non può iniziare con «[»
+the object cannot be read, so it is left as it is	l'oggetto non è leggibile, quindi resta com'è
+its openMapper source cannot be read, so the name would come back on its next save	la sua sorgente openMapper non è leggibile, altrimenti il nome tornerebbe al prossimo salvataggio
+its openMapper source cannot be written	la sua sorgente openMapper non si può scrivere
+and its openMapper source could not be put back	e la sua sorgente openMapper non è stata rimessa a posto
+the name could not be saved	non è stato possibile salvare il nome
+Save the name	Salva il nome

@@ -2968,3 +2968,15 @@ Turn round and reverse	पलटें और दिशा उलटें
 Turn the road round and reverse it	सड़क को पलटें और उसकी दिशा उलटें
 Select one road to turn round	पलटने के लिए एक सड़क चुनें
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	एक सड़क अपने आरंभ के चारों ओर आधा घूमकर उलट दी जाती है: वह आरंभ के दूसरी ओर होती है, उसका अंत आरंभ पर, यातायात उसकी ओर वापस आता है
+In multiplayer the host saves the map. Leave the session to rename this.	साझा संपादन में नक्शा होस्ट सहेजता है। इसका नाम बदलने के लिए सत्र छोड़ें।
+Name saved	नाम सहेजा गया
+The name has not changed	नाम नहीं बदला
+A name cannot have a line break	नाम में पंक्ति विराम नहीं हो सकता
+A name cannot be empty	नाम खाली नहीं हो सकता
+A name cannot begin with "["	नाम „[” से शुरू नहीं हो सकता
+the object cannot be read, so it is left as it is	ऑब्जेक्ट पढ़ा नहीं जा सकता, इसलिए जैसा है वैसा ही छोड़ा गया
+its openMapper source cannot be read, so the name would come back on its next save	इसका openMapper स्रोत पढ़ा नहीं जा सकता, वरना अगली बार सहेजने पर नाम लौट आएगा
+its openMapper source cannot be written	इसका openMapper स्रोत लिखा नहीं जा सकता
+and its openMapper source could not be put back	और इसका openMapper स्रोत वापस नहीं रखा जा सका
+the name could not be saved	नाम सहेजा नहीं जा सका
+Save the name	नाम सहेजें

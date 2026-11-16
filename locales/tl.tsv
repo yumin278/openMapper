@@ -2968,3 +2968,15 @@ Turn round and reverse	Ikot at baliktarin
 Turn the road round and reverse it	Ikutin ang kalsada at baliktarin ang direksyon
 Select one road to turn round	Pumili ng isang kalsada na ikukot
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Ang isang kalsada ay iikot nang kalahating ikot sa paligid ng simula nito at babaliktarin: ito ay nasa kabilang panig ng simula, ang dulo nito ay nasa simula, bumabalik ang trapiko patungo rito
+In multiplayer the host saves the map. Leave the session to rename this.	Sa pinagsamang pag-edit, ang host ang nagse-save ng mapa. Lumabas sa session para palitan ang pangalang ito.
+Name saved	Na-save ang pangalan
+The name has not changed	Hindi nagbago ang pangalan
+A name cannot have a line break	Hindi puwedeng may line break ang pangalan
+A name cannot be empty	Hindi puwedeng walang laman ang pangalan
+A name cannot begin with "["	Hindi puwedeng magsimula sa „[” ang pangalan
+the object cannot be read, so it is left as it is	hindi mabasa ang object, kaya iniiwan itong ganito
+its openMapper source cannot be read, so the name would come back on its next save	hindi mabasa ang openMapper source nito, kung hindi babalik ang pangalan sa susunod na save
+its openMapper source cannot be written	hindi maisulat ang openMapper source nito
+and its openMapper source could not be put back	at hindi naibalik ang openMapper source nito
+the name could not be saved	hindi na-save ang pangalan
+Save the name	I-save ang pangalan

@@ -2966,3 +2966,15 @@ Turn round and reverse	Розвернути кругом і змінити на�
 Turn the road round and reverse it	Розвернути дорогу кругом і змінити її напрям
 Select one road to turn round	Виберіть одну дорогу для розвороту
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Дорога повертається на півоберта навколо свого початку й розвертається: вона лежить з іншого боку початку, її кінець — на початку, рух іде назад до нього
+In multiplayer the host saves the map. Leave the session to rename this.	У спільному редагуванні карту зберігає хост. Вийдіть із сесії, щоб перейменувати це.
+Name saved	Назву збережено
+The name has not changed	Назва не змінилася
+A name cannot have a line break	Назва не може містити переведення рядка
+A name cannot be empty	Назва не може бути порожньою
+A name cannot begin with "["	Назва не може починатися з «[»
+the object cannot be read, so it is left as it is	об'єкт не читається, тому лишається як є
+its openMapper source cannot be read, so the name would come back on its next save	його джерело openMapper не читається, інакше назва повернулася б під час наступного збереження
+its openMapper source cannot be written	його джерело openMapper не записується
+and its openMapper source could not be put back	а його джерело openMapper не вдалося повернути
+the name could not be saved	не вдалося зберегти назву
+Save the name	Зберегти назву

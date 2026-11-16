@@ -2968,3 +2968,15 @@ Turn round and reverse	Fordítsd meg és fordítsd vissza az irányt
 Turn the road round and reverse it	Fordítsd meg az utat és az irányát
 Select one road to turn round	Válassz egy utat a megfordításhoz
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Az út fél fordulattal elfordul a kezdete körül, majd megfordul: a kezdet másik oldalán fekszik, a vége a kezdeten, a forgalom visszafelé halad rajta
+In multiplayer the host saves the map. Leave the session to rename this.	Közös szerkesztésben a házigazda menti a térképet. Lépj ki a munkamenetből az átnevezéshez.
+Name saved	Név mentve
+The name has not changed	A név nem változott
+A name cannot have a line break	A név nem tartalmazhat sortörést
+A name cannot be empty	A név nem lehet üres
+A name cannot begin with "["	A név nem kezdődhet „[” jellel
+the object cannot be read, so it is left as it is	az objektum nem olvasható, ezért úgy marad, ahogy van
+its openMapper source cannot be read, so the name would come back on its next save	az openMapper-forrása nem olvasható, különben a név visszatérne a következő mentéskor
+its openMapper source cannot be written	az openMapper-forrása nem írható
+and its openMapper source could not be put back	és az openMapper-forrását nem sikerült visszatenni
+the name could not be saved	a nevet nem sikerült menteni
+Save the name	Név mentése

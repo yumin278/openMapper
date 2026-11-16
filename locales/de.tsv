@@ -2966,3 +2966,15 @@ Turn round and reverse	Umdrehen und Richtung wechseln
 Turn the road round and reverse it	Die Straße umdrehen und ihre Richtung wechseln
 Select one road to turn round	Wählen Sie eine Straße zum Umdrehen
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Eine Straße wird um ihren Anfang halb herumgedreht und umgekehrt: Sie liegt auf der anderen Seite des Anfangs, ihr Ende am Anfang, der Verkehr kommt zu ihm zurück
+In multiplayer the host saves the map. Leave the session to rename this.	In der gemeinsamen Bearbeitung speichert der Host die Karte. Verlasse die Sitzung, um dies umzubenennen.
+Name saved	Name gespeichert
+The name has not changed	Der Name hat sich nicht geändert
+A name cannot have a line break	Ein Name darf keinen Zeilenumbruch enthalten
+A name cannot be empty	Ein Name darf nicht leer sein
+A name cannot begin with "["	Ein Name darf nicht mit „[“ beginnen
+the object cannot be read, so it is left as it is	das Objekt ist nicht lesbar und bleibt daher, wie es ist
+its openMapper source cannot be read, so the name would come back on its next save	seine openMapper-Quelle ist nicht lesbar, sonst käme der Name beim nächsten Speichern zurück
+its openMapper source cannot be written	seine openMapper-Quelle lässt sich nicht schreiben
+and its openMapper source could not be put back	und seine openMapper-Quelle ließ sich nicht zurücklegen
+the name could not be saved	der Name ließ sich nicht speichern
+Save the name	Namen speichern

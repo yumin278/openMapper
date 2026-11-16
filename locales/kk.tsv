@@ -2968,3 +2968,15 @@ Turn round and reverse	Айналдырып, бағытын өзгерту
 Turn the road round and reverse it	Жолды айналдырып, бағытын өзгерту
 Select one road to turn round	Айналдыратын бір жолды таңдаңыз
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Жол өзінің басынан жарты айналым бұрылып, кейін кері айналады: ол бастың екінші жағында жатыр, соңы баста, қозғалыс оған қарай жүреді
+In multiplayer the host saves the map. Leave the session to rename this.	Бірлескен өңдеуде картаны хост сақтайды. Бұны қайта атау үшін сессиядан шығыңыз.
+Name saved	Атау сақталды
+The name has not changed	Атау өзгерген жоқ
+A name cannot have a line break	Атауда жол үзілімі болмауы керек
+A name cannot be empty	Атау бос болмауы керек
+A name cannot begin with "["	Атау «[» таңбасынан басталмауы керек
+the object cannot be read, so it is left as it is	нысан оқылмайды, сондықтан сол күйінде қалдырылды
+its openMapper source cannot be read, so the name would come back on its next save	оның openMapper көзі оқылмайды, әйтпесе келесі сақтауда атау қайтады
+its openMapper source cannot be written	оның openMapper көзі жазылмайды
+and its openMapper source could not be put back	ал оның openMapper көзін қайтару мүмкін болмады
+the name could not be saved	атауды сақтау мүмкін болмады
+Save the name	Атауды сақтау
