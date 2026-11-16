@@ -2968,3 +2968,15 @@ Turn round and reverse	돌려서 방향 바꾸기
 Turn the road round and reverse it	도로를 돌려서 방향 바꾸기
 Select one road to turn round	돌릴 도로 하나를 선택하세요
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	도로를 시작점을 중심으로 반 바퀴 돌린 뒤 방향을 바꿉니다. 도로는 시작점 반대편에 놓이고 끝점은 시작점 위에 있으며 진행 방향은 시작점을 향합니다
+In multiplayer the host saves the map. Leave the session to rename this.	공동 편집에서는 호스트가 지도를 저장합니다. 이름을 바꾸려면 세션에서 나가세요.
+Name saved	이름을 저장했습니다
+The name has not changed	이름이 바뀌지 않았습니다
+A name cannot have a line break	이름에는 줄바꿈을 넣을 수 없습니다
+A name cannot be empty	이름은 비워 둘 수 없습니다
+A name cannot begin with "["	이름은 „[”로 시작할 수 없습니다
+the object cannot be read, so it is left as it is	개체를 읽을 수 없어 그대로 두었습니다
+its openMapper source cannot be read, so the name would come back on its next save	openMapper 원본을 읽을 수 없어 다음 저장 때 이름이 되돌아갑니다
+its openMapper source cannot be written	openMapper 원본을 쓸 수 없습니다
+and its openMapper source could not be put back	openMapper 원본을 되돌려 놓지 못했습니다
+the name could not be saved	이름을 저장하지 못했습니다
+Save the name	이름 저장

@@ -2968,3 +2968,15 @@ Turn round and reverse	Vänd och byt riktning
 Turn the road round and reverse it	Vänd vägen och byt riktning
 Select one road to turn round	Välj en väg att vända
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	En väg vrids ett halvt varv kring sin början och vänds: den ligger på andra sidan början, dess slut på början, trafiken kommer tillbaka till den
+In multiplayer the host saves the map. Leave the session to rename this.	Vid gemensam redigering sparar värden kartan. Lämna sessionen för att byta namn på detta.
+Name saved	Namnet sparat
+The name has not changed	Namnet har inte ändrats
+A name cannot have a line break	Ett namn kan inte innehålla en radbrytning
+A name cannot be empty	Ett namn kan inte vara tomt
+A name cannot begin with "["	Ett namn kan inte börja med ”[”
+the object cannot be read, so it is left as it is	objektet kan inte läsas, så det lämnas som det är
+its openMapper source cannot be read, so the name would come back on its next save	dess openMapper-källa kan inte läsas, annars skulle namnet komma tillbaka vid nästa sparning
+its openMapper source cannot be written	dess openMapper-källa kan inte skrivas
+and its openMapper source could not be put back	och dess openMapper-källa kunde inte läggas tillbaka
+the name could not be saved	namnet kunde inte sparas
+Save the name	Spara namnet

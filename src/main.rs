@@ -70,6 +70,7 @@ mod place;
 mod plan;
 mod plants;
 mod render;
+mod rename;
 mod reshape;
 mod road_maker;
 mod roadpaint;

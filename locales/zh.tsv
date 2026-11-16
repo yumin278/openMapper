@@ -2964,3 +2964,15 @@ Turn round and reverse	转向并反转
 Turn the road round and reverse it	将道路转向并反转
 Select one road to turn round	请选择一条要转向的道路
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	一条道路以其起点为中心转半圈再反转：道路位于起点另一侧，终点落在起点上，行进方向朝向起点
+In multiplayer the host saves the map. Leave the session to rename this.	多人编辑时由主机保存地图。请离开会话才能重命名。
+Name saved	名称已保存
+The name has not changed	名称没有变化
+A name cannot have a line break	名称不能包含换行
+A name cannot be empty	名称不能为空
+A name cannot begin with "["	名称不能以“[”开头
+the object cannot be read, so it is left as it is	无法读取对象，因此保持原样
+its openMapper source cannot be read, so the name would come back on its next save	无法读取其 openMapper 源文件，否则下次保存时名称会变回原来的
+its openMapper source cannot be written	无法写入其 openMapper 源文件
+and its openMapper source could not be put back	而且无法恢复其 openMapper 源文件
+the name could not be saved	名称无法保存
+Save the name	保存名称

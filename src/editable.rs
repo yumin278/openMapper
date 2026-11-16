@@ -169,6 +169,11 @@ fn json_of(roots: &Roots, rel: &str) -> PathBuf {
     dir.join(format!("{stem}{SUFFIX}"))
 }
 
+/// The file the object's source is kept in (`<name>.openmapper.json`, beside its `.sco`).
+pub fn source_path(roots: &Roots, rel: &str) -> PathBuf {
+    json_of(roots, rel)
+}
+
 /// Whether `rel` is an openMapper object (its source is beside it).
 pub fn is_editable(roots: &Roots, rel: &str) -> bool {
     json_of(roots, rel).is_file()

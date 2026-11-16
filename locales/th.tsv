@@ -2968,3 +2968,15 @@ Turn round and reverse	หมุนกลับและกลับทิศท
 Turn the road round and reverse it	หมุนถนนกลับและกลับทิศทาง
 Select one road to turn round	เลือกถนนหนึ่งเส้นเพื่อหมุนกลับ
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	ถนนจะหมุนครึ่งรอบรอบจุดเริ่มต้นแล้วกลับทิศทาง: ถนนอยู่คนละด้านของจุดเริ่มต้น ปลายอยู่ที่จุดเริ่มต้น การจราจรวิ่งกลับมาที่จุดเริ่มต้น
+In multiplayer the host saves the map. Leave the session to rename this.	ในการแก้ไขร่วมกัน โฮสต์เป็นผู้บันทึกแผนที่ ออกจากเซสชันเพื่อเปลี่ยนชื่อนี้
+Name saved	บันทึกชื่อแล้ว
+The name has not changed	ชื่อไม่เปลี่ยนแปลง
+A name cannot have a line break	ชื่อต้องไม่มีตัวขึ้นบรรทัดใหม่
+A name cannot be empty	ชื่อต้องไม่ว่าง
+A name cannot begin with "["	ชื่อต้องไม่ขึ้นต้นด้วย „[”
+the object cannot be read, so it is left as it is	อ่านออบเจกต์ไม่ได้ จึงปล่อยไว้ตามเดิม
+its openMapper source cannot be read, so the name would come back on its next save	อ่านซอร์ส openMapper ของมันไม่ได้ ไม่อย่างนั้นชื่อจะกลับมาเมื่อบันทึกครั้งถัดไป
+its openMapper source cannot be written	เขียนซอร์ส openMapper ของมันไม่ได้
+and its openMapper source could not be put back	และเอาซอร์ส openMapper ของมันกลับคืนไม่ได้
+the name could not be saved	บันทึกชื่อไม่ได้
+Save the name	บันทึกชื่อ

@@ -1848,6 +1848,23 @@ impl App {
                     }
                 }
             }
+            Action::RenameAsset(rel, name) => {
+                // (the map's objects are named on the host's disk, which a guest cannot write)
+                if self.collab.is_guest() {
+                    self.ed.error(tr("In multiplayer the host saves the map. Leave the session to rename this.", "В совместной правке карту сохраняет хост. Выйдите из сессии, чтобы переименовать это."));
+                } else if let Some(roots) = self.roots.clone() {
+                    match crate::rename::set_friendly_name(&roots, &rel, &name) {
+                        Ok(true) => {
+                            self.lib.rename(&rel, name.trim());
+                            self.ed.toast(tr("Name saved", "Название сохранено"));
+                        }
+                        Ok(false) => self.ed.toast(tr("The name has not changed", "Название не изменилось")),
+                        Err(e) => self.ed.error(e.to_string()),
+                    }
+                } else {
+                    self.ed.error(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
+                }
+            }
             Action::FlattenTerrain => {
                 let n = self.ed.flatten_terrain();
                 self.ed.toast(format!("{} {n}", tr("Terrain flattened; splines laid on it:", "Рельеф убран; сплайнов уложено:")));

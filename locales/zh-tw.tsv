@@ -2967,3 +2967,15 @@ Turn round and reverse	轉向並反轉
 Turn the road round and reverse it	將道路轉向並反轉
 Select one road to turn round	請選取一條要轉向的道路
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	一條道路以其起點為中心轉半圈再反轉：道路位於起點另一側，終點落在起點上，行進方向朝向起點
+In multiplayer the host saves the map. Leave the session to rename this.	多人編輯時由主機儲存地圖。請離開工作階段才能重新命名。
+Name saved	名稱已儲存
+The name has not changed	名稱沒有變更
+A name cannot have a line break	名稱不可包含換行
+A name cannot be empty	名稱不可為空
+A name cannot begin with "["	名稱不可用「[」開頭
+the object cannot be read, so it is left as it is	無法讀取物件，因此保持原狀
+its openMapper source cannot be read, so the name would come back on its next save	無法讀取其 openMapper 來源，否則下次儲存時名稱會變回舊的
+its openMapper source cannot be written	無法寫入其 openMapper 來源
+and its openMapper source could not be put back	而且無法還原其 openMapper 來源
+the name could not be saved	名稱無法儲存
+Save the name	儲存名稱

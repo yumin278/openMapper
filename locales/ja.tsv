@@ -2968,3 +2968,15 @@ Turn round and reverse	反転して向きを変える
 Turn the road round and reverse it	道路を反転して向きを変える
 Select one road to turn round	向きを変える道路を1本選んでください
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	道路を始点を中心に半回転させてから反転します。道路は始点の反対側にあり、終点は始点の上、進行方向は始点へ向きます
+In multiplayer the host saves the map. Leave the session to rename this.	共同編集ではホストがマップを保存します。名前を変えるにはセッションを退出してください。
+Name saved	名前を保存しました
+The name has not changed	名前は変わっていません
+A name cannot have a line break	名前に改行は使えません
+A name cannot be empty	名前は空にできません
+A name cannot begin with "["	名前は「[」で始められません
+the object cannot be read, so it is left as it is	オブジェクトを読み取れないため、そのままにしました
+its openMapper source cannot be read, so the name would come back on its next save	openMapper のソースを読み取れないため、次回保存で名前が戻ります
+its openMapper source cannot be written	openMapper のソースを書き込めません
+and its openMapper source could not be put back	openMapper のソースを元に戻せませんでした
+the name could not be saved	名前を保存できませんでした
+Save the name	名前を保存

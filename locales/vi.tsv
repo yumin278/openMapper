@@ -2968,3 +2968,15 @@ Turn round and reverse	Xoay vòng và đảo chiều
 Turn the road round and reverse it	Xoay đường và đảo chiều
 Select one road to turn round	Chọn một con đường để xoay vòng
 One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Một con đường được xoay nửa vòng quanh điểm đầu rồi đảo chiều: nó nằm ở phía bên kia điểm đầu, điểm cuối nằm trên điểm đầu, giao thông quay lại về phía đó
+In multiplayer the host saves the map. Leave the session to rename this.	Khi chỉnh sửa chung, máy chủ lưu bản đồ. Hãy rời phiên để đổi tên mục này.
+Name saved	Đã lưu tên
+The name has not changed	Tên không thay đổi
+A name cannot have a line break	Tên không được có dấu xuống dòng
+A name cannot be empty	Tên không được để trống
+A name cannot begin with "["	Tên không được bắt đầu bằng „[”
+the object cannot be read, so it is left as it is	không đọc được đối tượng nên giữ nguyên như cũ
+its openMapper source cannot be read, so the name would come back on its next save	không đọc được nguồn openMapper của nó, nếu không tên sẽ quay lại ở lần lưu sau
+its openMapper source cannot be written	không ghi được nguồn openMapper của nó
+and its openMapper source could not be put back	và không khôi phục được nguồn openMapper của nó
+the name could not be saved	không lưu được tên
+Save the name	Lưu tên
