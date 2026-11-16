@@ -662,21 +662,77 @@ impl RoadSpec {
     }
 
     pub fn write_in_maker(&self, content: &Path, left_hand: bool, edit: Option<&MakerTarget>) -> anyhow::Result<String> {
+        self.write_in_maker_as(content, left_hand, edit, false)
+    }
+
+    /// Write an edited road under the name currently entered instead of replacing its source.
+    pub fn write_in_maker_as_new(&self, content: &Path, left_hand: bool, edit: &MakerTarget) -> anyhow::Result<String> {
+        self.write_in_maker_as(content, left_hand, Some(edit), true)
+    }
+
+    fn write_in_maker_as(&self, content: &Path, left_hand: bool, edit: Option<&MakerTarget>, save_as: bool) -> anyhow::Result<String> {
         let mut spec = self.normalised(left_hand);
         spec.bus_paths = spec.bus_path_indices();
         spec.bay_paths = spec.bay_path_indices();
         spec.validate().map_err(anyhow::Error::msg)?;
-        let rel = spec.maker_filename(edit);
+        let destination_edit = if save_as { None } else { edit };
+        let rel = spec.maker_filename(destination_edit);
         static WRITE: std::sync::Mutex<()> = std::sync::Mutex::new(());
         let _guard = WRITE.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        spec.check_maker_target(content, edit)?;
+        spec.check_maker_target(content, destination_edit)?;
         let path = crate::doc::safe::own_path(content, &rel);
         if let Some(edit) = edit {
-            log::info!("road maker: original filename {:?}, normalized filename {:?}, saved as {:?}",
-                edit.rel(), spec.maker_filename(None), rel);
+            log::info!("road maker: original filename {:?}, new filename {:?}, action {}, destination {:?}",
+                edit.rel(), spec.maker_filename(None), if save_as { "save as" } else { "overwrite" }, rel);
+        }
+        if save_as {
+            spec.copy_edited_assets(edit.unwrap(), &path)?;
         }
         spec.write_normalised(&path)?;
+        if save_as {
+            spec.copy_edited_marks(edit.unwrap(), &path)?;
+        }
         Ok(rel)
+    }
+
+    fn copy_edited_assets(&self, edit: &MakerTarget, destination: &Path) -> anyhow::Result<()> {
+        if !self.effective_strips().iter().any(|s| matches!(s, Strip::BusBay { .. })) { return Ok(()); }
+        let Some(old_stem) = edit.source().file_stem().and_then(|s| s.to_str()) else { return Ok(()) };
+        let source_dir = edit.source().parent().unwrap().join("texture");
+        let destination_dir = destination.parent().unwrap().join("texture");
+        std::fs::create_dir_all(&destination_dir)?;
+        let wanted = format!("{old_stem}_bay");
+        let source = std::fs::read_dir(&source_dir).ok().and_then(|entries| entries.flatten().map(|entry| entry.path()).find(|path| {
+            path.file_stem().is_some_and(|stem| stem.to_string_lossy().eq_ignore_ascii_case(&wanted))
+                && path.extension().is_some_and(|ext| ["bmp", "dds", "tga", "png", "jpg"].contains(&ext.to_string_lossy().to_ascii_lowercase().as_str()))
+        }));
+        let Some(source) = source else { return Ok(()) };
+        let extension = source.extension().unwrap().to_string_lossy();
+        let target = destination_dir.join(format!("{}_bay.{extension}", self.file_stem()));
+        Self::copy_maker_file(&source, &target)?;
+        for ext in ["cfg", "surf"] {
+            let alongside_source = PathBuf::from(format!("{}.{ext}", source.display()));
+            if alongside_source.is_file() {
+                Self::copy_maker_file(&alongside_source, &PathBuf::from(format!("{}.{ext}", target.display())))?;
+            }
+            let source = source.with_extension(ext);
+            if source.is_file() {
+                Self::copy_maker_file(&source, &target.with_extension(ext))?;
+            }
+        }
+        Ok(())
+    }
+
+    fn copy_edited_marks(&self, edit: &MakerTarget, destination: &Path) -> anyhow::Result<()> {
+        let source = edit.source().with_extension("marks.png");
+        if source.is_file() { Self::copy_maker_file(&source, &destination.with_extension("marks.png"))?; }
+        Ok(())
+    }
+
+    fn copy_maker_file(source: &Path, target: &Path) -> anyhow::Result<()> {
+        std::fs::copy(source, target)?;
+        log::info!("road maker: copied {} -> {}", source.display(), target.display());
+        Ok(())
     }
 
     #[cfg(test)]
@@ -713,11 +769,17 @@ impl RoadSpec {
             if target.exists() && !reset {
                 log::info!("保留既有灣貼圖: {}", target.display());
             } else if source.is_file() && source != target {
-                if reset { std::fs::copy(source, target)?; }
+                if reset {
+                    std::fs::copy(source, target)?;
+                    log::info!("road maker: copied {} -> {}", source.display(), target.display());
+                }
                 else {
                     use std::io::Write;
                     match std::fs::OpenOptions::new().write(true).create_new(true).open(target) {
-                        Ok(mut file) => file.write_all(&std::fs::read(source)?)?,
+                        Ok(mut file) => {
+                            file.write_all(&std::fs::read(source)?)?;
+                            log::info!("road maker: copied {} -> {}", source.display(), target.display());
+                        }
                         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => log::info!("保留既有灣貼圖: {}", target.display()),
                         Err(e) => return Err(e.into()),
                     }
@@ -750,12 +812,16 @@ impl RoadSpec {
                 continue;
             }
             if t.parent() != Some(tex_dir.as_path()) {
-                std::fs::copy(t, tex_dir.join(name))?;
+                let target = tex_dir.join(name);
+                std::fs::copy(t, &target)?;
+                log::info!("road maker: copied {} -> {}", t.display(), target.display());
                 // (its settings and surface sound go with it)
                 for ext in ["cfg", "surf"] {
                     let side = PathBuf::from(format!("{}.{ext}", t.display()));
                     if side.is_file() {
-                        std::fs::copy(&side, tex_dir.join(format!("{}.{ext}", name.to_string_lossy())))?;
+                        let target = tex_dir.join(format!("{}.{ext}", name.to_string_lossy()));
+                        std::fs::copy(&side, &target)?;
+                        log::info!("road maker: copied {} -> {}", side.display(), target.display());
                     }
                 }
             }
@@ -763,9 +829,12 @@ impl RoadSpec {
         self.copy_bay_texture(dir, false)?;
         if self.marked {
             let img = self.painted_roadway().ok_or_else(|| anyhow::anyhow!(crate::i18n::tr("The roadway texture could not be read", "Не удалось прочитать текстуру проезжей части")))?;
-            image::DynamicImage::ImageRgba8(img).to_rgb8().save(tex_dir.join(self.roadway_tex_name()))?;
+            let target = tex_dir.join(self.roadway_tex_name());
+            image::DynamicImage::ImageRgba8(img).to_rgb8().save(&target)?;
+            log::info!("road maker: wrote {}", target.display());
         }
         crate::doc::safe::write_atomic(path, &omsi_cfg::encode_text(&self.sli(left_hand).replace('\n', "\r\n")))?;
+        log::info!("road maker: wrote {}", path.display());
         // (the spec beside it, so the road can be opened in the maker again)
         let mut saved = serde_json::to_value(self)?;
         if self.simple_mode_issues().is_empty() {
@@ -776,9 +845,10 @@ impl RoadSpec {
             for field in Self::LEGACY_FIELDS { saved.as_object_mut().unwrap().remove(field); }
         }
         crate::doc::safe::write_atomic(&path.with_extension("road.json"), serde_json::to_string_pretty(&saved)?.as_bytes())?;
+        log::info!("road maker: wrote {}", path.with_extension("road.json").display());
         let marks = path.with_extension("marks.png");
         match self.hand.as_ref().filter(|h| self.marked && !h.is_empty()) {
-            Some(h) => h.img.save(&marks)?,
+            Some(h) => { h.img.save(&marks)?; log::info!("road maker: wrote {}", marks.display()); },
             None => {
                 let _ = std::fs::remove_file(&marks);
             }

@@ -188,13 +188,27 @@ impl RoadTypes {
                     if let Some(spec) = &mut self.maker {
                         // Reserve the footer before the scrolling body, including wrapped warnings.
                         egui::Panel::bottom("road maker footer").frame(egui::Frame::NONE).show(ui, |ui| {
-                            if let Some(warning) = spec.maker_filename_warning(self.maker_target.as_ref()) {
+                            let renamed = spec.maker_name_changed(self.maker_target.as_ref());
+                            if let Some(warning) = spec.maker_filename_warning(if renamed { None } else { self.maker_target.as_ref() }) {
                                 ui.colored_label(Color32::YELLOW, warning);
                             }
                             ui.add_space(6.0);
                             ui.horizontal(|ui| {
-                                if ui.button(icons::labelled(Icon::CheckCircle, tr("Create the road type", "Создать тип дороги"))).clicked() {
-                                    match spec.write_in_maker(&roots.content, left_hand, self.maker_target.as_ref()) {
+                                let new_rel = spec.maker_filename(None);
+                                let original_rel = self.maker_target.as_ref().map(|target| target.rel().to_string());
+                                let save_as_label = tr("Save as a new road type: {file}", "Сохранить как новый тип дороги: {file}").replace("{file}", &new_rel);
+                                let overwrite_label = tr("Overwrite: {file}", "Перезаписать: {file}").replace("{file}", original_rel.as_deref().unwrap_or_default());
+                                let save_as = renamed && ui.button(icons::labelled(Icon::CheckCircle, &save_as_label)).clicked();
+                                let overwrite = renamed && ui.button(icons::labelled(Icon::CheckCircle, &overwrite_label)).clicked();
+                                let create = !renamed && ui.button(icons::labelled(Icon::CheckCircle, tr("Create the road type", "Создать тип дороги"))).clicked();
+                                if save_as || overwrite || create {
+                                    let wrote_new = save_as || original_rel.is_none();
+                                    let result = if save_as {
+                                        spec.write_in_maker_as_new(&roots.content, left_hand, self.maker_target.as_ref().unwrap())
+                                    } else {
+                                        spec.write_in_maker(&roots.content, left_hand, self.maker_target.as_ref())
+                                    };
+                                    match result {
                                         Ok(rel) => {
                                             if spec.pocket > 0.0 {
                                                 ed.pocket_type = Some(rel.clone());
@@ -205,7 +219,9 @@ impl RoadTypes {
                                             self.maker_target = MakerTarget::open(rel.clone(), path);
                                             self.picked = Some(rel);
                                             self.error = None;
-                                            actions.push(Action::ReloadContent(tr("Road type made: the Roads tool builds with it", "Тип дороги создан: инструмент «Дороги» строит им").to_string()));
+                                            let message = if wrote_new { tr("Saved as a new road type: {file}", "Сохранено как новый тип дороги: {file}") }
+                                                else { tr("Overwritten: {file}", "Перезаписано: {file}") };
+                                            actions.push(Action::ReloadContent(message.replace("{file}", self.maker_target.as_ref().unwrap().rel())));
                                         }
                                         Err(e) => self.error = Some(e.to_string()),
                                     }
