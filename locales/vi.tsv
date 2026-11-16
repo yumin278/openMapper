@@ -2964,3 +2964,7 @@ Choose file…	Chọn tập tin…
 BUS	BUS
 Hand-picked routes kept: {count}	Các tuyến đường được lựa chọn bằng tay: {count}
 Overwrite hand-picked routes	Viết lại các tuyến đường được chọn bằng tay
+Turn round and reverse	Xoay vòng và đảo chiều
+Turn the road round and reverse it	Xoay đường và đảo chiều
+Select one road to turn round	Chọn một con đường để xoay vòng
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Một con đường được xoay nửa vòng quanh điểm đầu rồi đảo chiều: nó nằm ở phía bên kia điểm đầu, điểm cuối nằm trên điểm đầu, giao thông quay lại về phía đó

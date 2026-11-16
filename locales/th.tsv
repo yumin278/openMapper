@@ -2964,3 +2964,7 @@ Choose file…	เลือกไฟล์…
 BUS	รถโดยสาร
 Hand-picked routes kept: {count}	เส้นทางที่ได้รับการเลือกด้วยมือ: {count}
 Overwrite hand-picked routes	กรอกเส้นทางที่เลือกด้วยมือ
+Turn round and reverse	หมุนกลับและกลับทิศทาง
+Turn the road round and reverse it	หมุนถนนกลับและกลับทิศทาง
+Select one road to turn round	เลือกถนนหนึ่งเส้นเพื่อหมุนกลับ
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	ถนนจะหมุนครึ่งรอบรอบจุดเริ่มต้นแล้วกลับทิศทาง: ถนนอยู่คนละด้านของจุดเริ่มต้น ปลายอยู่ที่จุดเริ่มต้น การจราจรวิ่งกลับมาที่จุดเริ่มต้น

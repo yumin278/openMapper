@@ -2964,3 +2964,7 @@ Choose file…	फ़ाइल चुनें…
 BUS	बस
 Hand-picked routes kept: {count}	मैन्युअल रूप से चुने गए मार्ग बनाए रखे जाते हैंः: {count}
 Overwrite hand-picked routes	मैन्युअल रूप से चयनित मार्गों को ओवरराइट करें
+Turn round and reverse	पलटें और दिशा उलटें
+Turn the road round and reverse it	सड़क को पलटें और उसकी दिशा उलटें
+Select one road to turn round	पलटने के लिए एक सड़क चुनें
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	एक सड़क अपने आरंभ के चारों ओर आधा घूमकर उलट दी जाती है: वह आरंभ के दूसरी ओर होती है, उसका अंत आरंभ पर, यातायात उसकी ओर वापस आता है

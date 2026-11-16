@@ -2964,3 +2964,7 @@ Choose file…	Wybierz plik…
 BUS	BUS
 Hand-picked routes kept: {count}	Wykrywane ręcznie trasy: {count}
 Overwrite hand-picked routes	Przepisanie ręcznie wybranych tras
+Turn round and reverse	Obróć i odwróć kierunek
+Turn the road round and reverse it	Obróć drogę i odwróć jej kierunek
+Select one road to turn round	Wybierz jedną drogę do obrócenia
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Droga zostaje obrócona o pół obrotu wokół swojego początku i odwrócona: leży po drugiej stronie początku, jej koniec na początku, ruch wraca do niego

@@ -2964,3 +2964,7 @@ Choose file…	파일 선택…
 BUS	버스
 Hand-picked routes kept: {count}	수동으로 선택된 경로: {count}
 Overwrite hand-picked routes	수동으로 선택된 경로를 덮어쓰기
+Turn round and reverse	돌려서 방향 바꾸기
+Turn the road round and reverse it	도로를 돌려서 방향 바꾸기
+Select one road to turn round	돌릴 도로 하나를 선택하세요
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	도로를 시작점을 중심으로 반 바퀴 돌린 뒤 방향을 바꿉니다. 도로는 시작점 반대편에 놓이고 끝점은 시작점 위에 있으며 진행 방향은 시작점을 향합니다

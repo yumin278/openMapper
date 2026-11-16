@@ -2964,3 +2964,7 @@ Choose file…	Elegir el fitxer…
 BUS	BUS
 Hand-picked routes kept: {count}	Rutes seleccionades manualment conservades: {count}
 Overwrite hand-picked routes	Reescriure les rutes seleccionades manualment
+Turn round and reverse	Girar i invertir el sentit
+Turn the road round and reverse it	Girar la carretera i invertir-ne el sentit
+Select one road to turn round	Seleccioneu una carretera per girar
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Una carretera gira mitja volta al voltant del seu inici i s'inverteix: queda a l'altre costat de l'inici, el seu final sobre l'inici i el trànsit torna cap a ell

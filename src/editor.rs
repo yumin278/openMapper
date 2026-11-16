@@ -8380,13 +8380,7 @@ impl Editor {
         if splines.is_empty() {
             return;
         }
-        // (a row of objects is measured along its spline from the start: it would move)
-        let with_rows = splines.iter().any(|(k, id)| {
-            let Some(t) = doc.tiles.get(k) else { return false };
-            let idx = t.tile.splines.iter().position(|s| s.id == *id && !s.deleted);
-            idx.map(|i| t.tile.spline_attachments.iter().any(|a| a.spline_index == i as i32)).unwrap_or(false)
-        });
-        if with_rows {
+        if splines_with_rows(doc, &splines) {
             self.error(tr("Remove the rows of objects along it first (they are measured from its start)", "Сначала уберите ряды объектов вдоль неё (они отмеряются от её начала)"));
             return;
         }
@@ -8411,6 +8405,60 @@ impl Editor {
             }
         }
         self.history.commit();
+    }
+
+    /// The one selected road turned half round about its start and then reversed: it lies
+    /// on the other side of the start, its end on the start, its traffic coming back to it.
+    /// One step: Ctrl+Z puts it back as it was. Not with a row of objects along it.
+    pub fn flip_selected(&mut self) {
+        let sels = self.selection();
+        let (k, id) = match sels.as_slice() {
+            [Sel::Spline(k, id)] => (*k, *id),
+            _ => {
+                self.toast(tr("Select one road to turn round", "Выберите одну дорогу для разворота"));
+                return;
+            }
+        };
+        let Some(doc) = self.doc.as_mut() else { return };
+        if splines_with_rows(doc, &[(k, id)]) {
+            self.error(tr("Remove the rows of objects along it first (they are measured from its start)", "Сначала уберите ряды объектов вдоль неё (они отмеряются от её начала)"));
+            return;
+        }
+        let Some(sp) = doc.spline(k, id).cloned() else { return };
+        let org = tile_origin(k);
+        let before = omsi_geometry::SplineCurve::from_map(&sp, org);
+        let (b0, b1) = (before.point_at(0.0), before.end_point());
+        let bh = before.heading_at(sp.length);
+        let Some(pivot) = road_start(doc, &sels).map(|p| p.truncate()) else { return };
+        let from: Vec<Origin> = sels.iter().filter_map(|s| selection::origin_of(doc, *s)).collect();
+        if from.is_empty() {
+            return;
+        }
+        self.history.begin(tr("Turn round and reverse", "Развернуть кругом и обратить"));
+        let now = selection::transform(doc, &mut self.history, &from, pivot, 180.0, DVec2::ZERO);
+        selection::unlink_outside(doc, &mut self.history, &now);
+        self.history.touch_tile(doc, k);
+        {
+            let org = tile_origin(k);
+            let t = doc.tiles.get_mut(&k).unwrap();
+            if let Some(s) = t.tile.splines.iter_mut().find(|s| s.id == id && !s.deleted) {
+                // (its textures start again where it now starts, as a reversal keeps them)
+                *s = reshape::reversed(s, org, 0.0);
+                t.touch_content();
+            }
+        }
+        self.set_selection_unique(now);
+        self.finish_step();
+        if let Some(s) = self.doc.as_ref().and_then(|d| d.spline(k, id)) {
+            let after = omsi_geometry::SplineCurve::from_map(s, org);
+            let (a0, a1) = (after.point_at(0.0), after.end_point());
+            let ah = after.heading_at(s.length);
+            log::info!(
+                "road {id} turned round: start ({:.3}, {:.3}, {:.3}) end ({:.3}, {:.3}, {:.3}) heading {:.3} -> start ({:.3}, {:.3}, {:.3}) end ({:.3}, {:.3}, {:.3}) heading {:.3}",
+                b0.x, b0.y, b0.z, b1.x, b1.y, b1.z, bh,
+                a0.x, a0.y, a0.z, a1.x, a1.y, a1.z, ah
+            );
+        }
     }
 
     /// The knife on or off (K); on, the Select tool takes over and the ruler goes.
@@ -11176,6 +11224,16 @@ fn cover_z(doc: &Document, assets: &mut Assets, hide_roads: bool, p: DVec2) -> f
         }
     }
     best
+}
+
+/// Whether a row of objects is measured along any of these splines from its start (a
+/// reversal or a turn would move it).
+fn splines_with_rows(doc: &Document, splines: &[(TileKey, i64)]) -> bool {
+    splines.iter().any(|(k, id)| {
+        let Some(t) = doc.tiles.get(k) else { return false };
+        let idx = t.tile.splines.iter().position(|s| s.id == *id && !s.deleted);
+        idx.map(|i| t.tile.spline_attachments.iter().any(|a| a.spline_index == i as i32)).unwrap_or(false)
+    })
 }
 
 fn road_profile(pieces: &[Seg], z0: f64, z1: f64, at: &mut dyn FnMut(DVec2) -> f64, limit_slope: bool) -> Vec<(f64, f64)> {
@@ -17164,5 +17222,7 @@ mod bus_lane_tests;
 
 #[cfg(test)]
 mod path_snap_tests;
+#[cfg(test)]
+mod flip_tests;
 
 mod bus_rule_batch;

@@ -2964,3 +2964,7 @@ Choose file…	Dosyayı seç…
 BUS	BUS
 Hand-picked routes kept: {count}	Elle seçilen yollar: {count}
 Overwrite hand-picked routes	Elle seçilen yolları yazma
+Turn round and reverse	Yana döndür ve yönünü tersine çevir
+Turn the road round and reverse it	Yolu yana döndür ve yönünü tersine çevir
+Select one road to turn round	Döndürülecek bir yol seçin
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Bir yol başlangıcı etrafında yarım tur döndürülüp ters çevrilir: başlangıcın diğer tarafında durur, sonu başlangıçta, trafik ona geri gelir

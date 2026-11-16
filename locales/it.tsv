@@ -2964,3 +2964,7 @@ Choose file…	Scegliete il file…
 BUS	Autobus
 Hand-picked routes kept: {count}	rotte selezionate manualmente conservate: {count}
 Overwrite hand-picked routes	Soprascrivere le rotte selezionate manualmente
+Turn round and reverse	Gira e inverti il senso
+Turn the road round and reverse it	Gira la strada e inverti il senso
+Select one road to turn round	Seleziona una strada da girare
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Una strada viene ruotata di mezzo giro attorno al suo inizio e invertita: si trova dall'altra parte dell'inizio, la sua fine sull'inizio, il traffico torna verso di esso

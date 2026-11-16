@@ -2963,3 +2963,7 @@ Some characters in the road name cannot be used. File: {file}	道路名稱含有
 Another road already uses this file: {file}	這個檔案已由另一條道路使用：{file}
 Hand-picked routes kept: {count}	已保留手動選取的路徑：{count} 條
 Overwrite hand-picked routes	覆蓋手動選取的路徑
+Turn round and reverse	轉向並反轉
+Turn the road round and reverse it	將道路轉向並反轉
+Select one road to turn round	請選取一條要轉向的道路
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	一條道路以其起點為中心轉半圈再反轉：道路位於起點另一側，終點落在起點上，行進方向朝向起點

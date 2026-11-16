@@ -2964,3 +2964,7 @@ Choose file…	Pilih fail…
 BUS	BUS
 Hand-picked routes kept: {count}	Laluan yang dipilih secara manual disimpan: {count}
 Overwrite hand-picked routes	Menulis ulang laluan yang dipilih secara manual
+Turn round and reverse	Putar balik dan songsang arah
+Turn the road round and reverse it	Putar balik jalan dan songsang arahnya
+Select one road to turn round	Pilih satu jalan untuk diputar balik
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Satu jalan diputar separuh pusingan mengelilingi permulaannya lalu disongsangkan: jalan terletak di sisi lain permulaan, hujungnya di permulaan, trafik kembali ke arahnya

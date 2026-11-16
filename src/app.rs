@@ -2393,6 +2393,7 @@ impl App {
                     self.ed.rot_begin(self.mouse.pos);
                 }
             }
+            Cmd::FlipPath => self.ed.flip_selected(),
             Cmd::Ruler => self.ed.toggle_ruler(),
             Cmd::Knife => self.ed.toggle_cutting(),
             Cmd::CompleteTo => self.ed.complete_to(),

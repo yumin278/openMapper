@@ -2964,3 +2964,7 @@ Choose file…	Válassza ki a fájlt…
 BUS	BUS
 Hand-picked routes kept: {count}	Kézilag kiválasztott útvonalak: {count}
 Overwrite hand-picked routes	Kézilag kiválasztott útvonalak átírása
+Turn round and reverse	Fordítsd meg és fordítsd vissza az irányt
+Turn the road round and reverse it	Fordítsd meg az utat és az irányát
+Select one road to turn round	Válassz egy utat a megfordításhoz
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Az út fél fordulattal elfordul a kezdete körül, majd megfordul: a kezdet másik oldalán fekszik, a vége a kezdeten, a forgalom visszafelé halad rajta

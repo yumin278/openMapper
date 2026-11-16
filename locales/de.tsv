@@ -2962,3 +2962,7 @@ Choose file…	Datei auswählen…
 BUS	BUS
 Hand-picked routes kept: {count}	Beibehaltene manuell gewählte Routen: {count}
 Overwrite hand-picked routes	Manuell gewählte Routen überschreiben
+Turn round and reverse	Umdrehen und Richtung wechseln
+Turn the road round and reverse it	Die Straße umdrehen und ihre Richtung wechseln
+Select one road to turn round	Wählen Sie eine Straße zum Umdrehen
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Eine Straße wird um ihren Anfang halb herumgedreht und umgekehrt: Sie liegt auf der anderen Seite des Anfangs, ihr Ende am Anfang, der Verkehr kommt zu ihm zurück

@@ -2964,3 +2964,7 @@ Choose file…	Välj filen…
 BUS	BUS
 Hand-picked routes kept: {count}	Manuellt utvalda vägar som hålls: {count}
 Overwrite hand-picked routes	Överskriva manuellt utvalda rutter
+Turn round and reverse	Vänd och byt riktning
+Turn the road round and reverse it	Vänd vägen och byt riktning
+Select one road to turn round	Välj en väg att vända
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	En väg vrids ett halvt varv kring sin början och vänds: den ligger på andra sidan början, dess slut på början, trafiken kommer tillbaka till den

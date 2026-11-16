@@ -2965,3 +2965,7 @@ Choose file…	Kies het bestand…
 BUS	BUS
 Hand-picked routes kept: {count}	Handmatig geselecteerde routes: {count}
 Overwrite hand-picked routes	Handmatig geselecteerde routes overschrijven
+Turn round and reverse	Omkeren en richting omdraaien
+Turn the road round and reverse it	De weg omkeren en de richting omdraaien
+Select one road to turn round	Kies één weg om om te keren
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Een weg wordt een halve slag om zijn begin gedraaid en omgekeerd: hij ligt aan de andere kant van het begin, zijn einde op het begin, het verkeer komt er terug naartoe

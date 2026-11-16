@@ -468,6 +468,9 @@ pub fn group_properties(ui: &mut egui::Ui, ed: &mut Editor, lib: &Library, paren
             if ui.button(tr("Reverse their direction", "Развернуть их направление")).on_hover_text(reverse_help()).clicked() {
                 ed.reverse_selected();
             }
+            if ui.button(tr("Turn round and reverse", "Развернуть кругом и обратить")).on_hover_text(flip_help()).clicked() {
+                ed.flip_selected();
+            }
             if ui.button(icons::labelled(Icon::Route, tr("Complete to", "Достроить до"))).on_hover_text(crate::complete::help()).clicked() {
                 ed.complete_to();
             }
@@ -775,6 +778,11 @@ pub(crate) fn lay_help() -> &'static str {
 
 pub(crate) fn reverse_help() -> &'static str {
     tr("Each starts where it ended: the traffic on it goes the other way (a one-way street, a track's direction), the road itself stays where it is", "Каждый начинается там, где кончался: движение по нему идёт в обратную сторону (улица с односторонним движением, направление пути), сама дорога остаётся на месте")
+}
+
+/// What "Turn round and reverse" does to one road.
+pub(crate) fn flip_help() -> &'static str {
+    tr("One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it", "Одна дорога повёрнута на пол-оборота вокруг своего начала и развёрнута: она лежит по другую сторону начала, её конец — на начале, движение идёт обратно к нему")
 }
 
 /// A copy of the selected road(s) or track(s) alongside, at a distance.

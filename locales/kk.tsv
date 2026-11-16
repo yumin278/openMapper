@@ -2964,3 +2964,7 @@ Choose file…	Файлды таңдаңыз…
 BUS	Автобус
 Hand-picked routes kept: {count}	Қолмен таңдалған бағыттар: {count}
 Overwrite hand-picked routes	Қолмен таңдалған бағыттарды қайта жазу
+Turn round and reverse	Айналдырып, бағытын өзгерту
+Turn the road round and reverse it	Жолды айналдырып, бағытын өзгерту
+Select one road to turn round	Айналдыратын бір жолды таңдаңыз
+One road turned half round about its start and reversed: it lies on the other side of the start, its end on the start, its traffic coming back to it	Жол өзінің басынан жарты айналым бұрылып, кейін кері айналады: ол бастың екінші жағында жатыр, соңы баста, қозғалыс оған қарай жүреді
