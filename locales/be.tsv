@@ -2847,6 +2847,10 @@ Click a 2nd reference point on the object, or Esc to finish	Клікніце 2-�
 Aligned angle! (Ctrl+Z to undo)	Кут выраўнаваны! (Ctrl+Z для адмены)
 Vertex snap complete	Прывязка вяршыні завершана
 Align vertex angle	Выраўнаваць кут вяршыні
+Float	Аддзяліць
+Show Assets in a floating window	Паказаць асеты ў плаваючым акне
+Dock	Закрэпіць
+Dock Assets at the bottom	Закрэпіць асеты ўнізе
 Complete to	Дабудаваць да
 Complete to: a new piece between the free ends of the selected splines	Дабудаваць да: новы кавалак паміж свабоднымі канцамі выбраных сплайнаў
 A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Новы кавалак тыпу першага выбранага сплайна паміж двума свабоднымі канцамі выбраных сплайнаў, што супадае з абодвума па месцы, кірунку і вышыні; самі яны не мяняюцца. Яшчэ раз: злучаюцца два канцы, што засталіся, кальцо замыкаецца.

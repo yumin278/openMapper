@@ -1959,6 +1959,12 @@ impl App {
                 self.prefs.cam_tune = t;
                 self.prefs.save();
             }
+            Action::SetAssetsLayout(layout) => {
+                if self.prefs.assets_layout != layout {
+                    self.prefs.assets_layout = layout;
+                    self.prefs.save();
+                }
+            }
             Action::SetGraphicsApi(a) => {
                 self.prefs.graphics_api = a.code().to_string();
                 self.prefs.save();

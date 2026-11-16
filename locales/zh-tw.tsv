@@ -2843,6 +2843,10 @@ Click a 2nd reference point on the object, or Esc to finish	點擊物件上的�
 Aligned angle! (Ctrl+Z to undo)	已對齊角度！（Ctrl+Z 復原）
 Vertex snap complete	頂點吸附完成
 Align vertex angle	對齊頂點角度
+Float	浮動
+Show Assets in a floating window	在浮動視窗中顯示資源
+Dock	停駐
+Dock Assets at the bottom	將資源停駐在底部
 Kerb height	路緣高度
 Strips run from left to right	積木依道路左至右排列
 Lane	行車線

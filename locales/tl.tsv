@@ -2847,6 +2847,10 @@ Click a 2nd reference point on the object, or Esc to finish	Mag-click ng ika-2 s
 Aligned angle! (Ctrl+Z to undo)	Naitugma ang anggulo! (Ctrl+Z upang i-undo)
 Vertex snap complete	Nakumpleto ang snap ng vertex
 Align vertex angle	Itugma ang anggulo ng vertex
+Float	Ilutang
+Show Assets in a floating window	Ipakita ang mga asset sa lumulutang na window
+Dock	I-dock
+Dock Assets at the bottom	I-dock ang mga asset sa ibaba
 Complete to	Kumpletuhin hanggang
 Complete to: a new piece between the free ends of the selected splines	Kumpletuhin hanggang: bagong piraso sa pagitan ng malayang dulo ng mga napiling spline
 A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Bagong piraso na kauri ng unang napiling spline sa pagitan ng dalawang malayang dulo ng mga napiling spline, tugma sa pareho sa puwesto, direksyon at taas; hindi binabago ang dalawa. Muli: pinagdudugtong ang dalawang natitirang dulo at nasasara ang singsing.

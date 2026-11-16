@@ -2847,6 +2847,10 @@ Click a 2nd reference point on the object, or Esc to finish	Klikněte na 2. refe
 Aligned angle! (Ctrl+Z to undo)	Úhel zarovnán! (Ctrl+Z pro vrácení zpět)
 Vertex snap complete	Přichycení vrcholu dokončeno
 Align vertex angle	Zarovnat úhel vrcholu
+Float	Odpojit
+Show Assets in a floating window	Zobrazit assety v plovoucím okně
+Dock	Připojit
+Dock Assets at the bottom	Připojit assety ke spodní části
 Complete to	Dokončit k
 Complete to: a new piece between the free ends of the selected splines	Dokončit k: nový kus mezi volnými konci vybraných splinů
 A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Nový kus typu prvního vybraného splinu mezi dvěma volnými konci vybraných splinů, navazující na oba polohou, směrem i výškou; ty samy se nemění. Znovu: spojí se dva zbylé konce a kruh se uzavře.

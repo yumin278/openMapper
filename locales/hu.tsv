@@ -2847,6 +2847,10 @@ Click a 2nd reference point on the object, or Esc to finish	Kattintson egy 2. re
 Aligned angle! (Ctrl+Z to undo)	Szög igazítva! (Ctrl+Z a visszavonáshoz)
 Vertex snap complete	Csúcspont illesztése kész
 Align vertex angle	Csúcspontszög igazítása
+Float	Lebegtetés
+Show Assets in a floating window	Eszközök megjelenítése lebegő ablakban
+Dock	Dokkolás
+Dock Assets at the bottom	Eszközök dokkolása alul
 Complete to	Kiegészítés eddig
 Complete to: a new piece between the free ends of the selected splines	Kiegészítés eddig: új darab a kijelölt spline-ok szabad végei között
 A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	Új darab az elsőként kijelölt spline típusából a kijelölt spline-ok két szabad vége között, amely helyben, irányban és magasságban mindkettőhöz illeszkedik; azok nem változnak. Újra: a megmaradt két vég kapcsolódik össze, a gyűrű bezárul.

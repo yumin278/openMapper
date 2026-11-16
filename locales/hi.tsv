@@ -2847,6 +2847,10 @@ Click a 2nd reference point on the object, or Esc to finish	वस्तु प�
 Aligned angle! (Ctrl+Z to undo)	कोण संरेखित! (पूर्ववत करने के लिए Ctrl+Z)
 Vertex snap complete	शीर्ष स्नैप पूर्ण
 Align vertex angle	शीर्ष कोण संरेखित करें
+Float	फ़्लोट करें
+Show Assets in a floating window	एसेट को तैरती विंडो में दिखाएँ
+Dock	डॉक करें
+Dock Assets at the bottom	एसेट को नीचे डॉक करें
 Complete to	तक पूरा करें
 Complete to: a new piece between the free ends of the selected splines	तक पूरा करें: चुनी हुई स्प्लाइनों के खुले सिरों के बीच नया टुकड़ा
 A new piece of the first selected spline's type between two free ends of the selected splines, meeting both in place, direction and height; the two are not changed. Again: the two ends left are joined, closing the ring.	पहली चुनी हुई स्प्लाइन के प्रकार का नया टुकड़ा, चुनी हुई स्प्लाइनों के दो खुले सिरों के बीच, जो दोनों से जगह, दिशा और ऊँचाई में मिलता है; वे दोनों नहीं बदलतीं। फिर से: बचे हुए दो सिरे जुड़ते हैं और घेरा बंद होता है।
