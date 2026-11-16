@@ -1901,6 +1901,10 @@ My road	私の道路
  · own	 · 自作
 Create the road type	道路タイプを作成
 Road type made: the Roads tool builds with it	道路タイプを作成しました：道路ツールで使用できます
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	道路メーカーで変更
 Its junctions	その交差点
 Make a junction where it meets another road (else they only cross)	他の道路と出会う所に交差点を作成（オフなら単に交差）

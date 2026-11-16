@@ -1901,6 +1901,10 @@ My road	Моя дорога
  · own	 · своя
 Create the road type	Створити тип дороги
 Road type made: the Roads tool builds with it	Тип дороги створено: інструмент «Дороги» будує ним
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Змінити в конструкторі
 Its junctions	Його перехрестя
 Make a junction where it meets another road (else they only cross)	Робити перехрестя, де вона зустрічає іншу дорогу (інакше просто перетинаються)

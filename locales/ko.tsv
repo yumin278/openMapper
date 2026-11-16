@@ -1901,6 +1901,10 @@ My road	내 도로
  · own	 · 직접 만듦
 Create the road type	도로 유형 만들기
 Road type made: the Roads tool builds with it	도로 유형을 만들었습니다. 도로 도구가 이것으로 건설합니다
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	도로 메이커에서 변경
 Its junctions	교차로
 Make a junction where it meets another road (else they only cross)	다른 도로와 만나는 곳에 교차로 만들기(아니면 교차만 함)

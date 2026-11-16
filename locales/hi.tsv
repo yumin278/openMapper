@@ -1901,6 +1901,10 @@ My road	मेरी सड़क
  · own	 · अपना
 Create the road type	सड़क प्रकार बनाएँ
 Road type made: the Roads tool builds with it	सड़क प्रकार बना: "सड़कें" टूल इसी से बनाता है
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	रोड मेकर में बदलें
 Its junctions	इसके जंक्शन
 Make a junction where it meets another road (else they only cross)	जहाँ यह दूसरी सड़क से मिले वहाँ जंक्शन बनाएँ (वरना सिर्फ़ पार करती हैं)

@@ -1901,6 +1901,10 @@ My road	Mijn weg
  · own	 · eigen
 Create the road type	Het wegtype maken
 Road type made: the Roads tool builds with it	Wegtype gemaakt: het gereedschap Wegen bouwt ermee
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Wijzigen in de wegbouwer
 Its junctions	Zijn kruispunten
 Make a junction where it meets another road (else they only cross)	Een kruispunt maken waar hij een andere weg ontmoet (anders kruisen ze alleen)

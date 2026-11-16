@@ -1901,6 +1901,10 @@ My road	Meine Straße
  · own	 · eigen
 Create the road type	Straßentyp erstellen
 Road type made: the Roads tool builds with it	Straßentyp erstellt: Das Straßen-Werkzeug baut damit
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Im Straßen-Editor ändern
 Its junctions	Seine Kreuzungen
 Make a junction where it meets another road (else they only cross)	Eine Kreuzung erstellen, wo sie eine andere Straße trifft (sonst kreuzen sie sich nur)

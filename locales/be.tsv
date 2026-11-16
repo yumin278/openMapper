@@ -1901,6 +1901,10 @@ My road	Мая дарога
  · own	 · уласная
 Create the road type	Стварыць тып дарогі
 Road type made: the Roads tool builds with it	Тып дарогі створаны: інструмент «Дарогі» будуе ім
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Змяніць у канструктары
 Its junctions	Яго скрыжаванні
 Make a junction where it meets another road (else they only cross)	Рабіць скрыжаванне, дзе яна сустракае іншую дарогу (інакш проста перасякаюцца)

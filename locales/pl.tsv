@@ -1901,6 +1901,10 @@ My road	Moja droga
  · own	 · własna
 Create the road type	Utwórz typ drogi
 Road type made: the Roads tool builds with it	Typ drogi utworzony: buduje nim narzędzie „Drogi"
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Zmień w kreatorze drogi
 Its junctions	Jego skrzyżowania
 Make a junction where it meets another road (else they only cross)	Twórz skrzyżowanie, gdzie spotyka inną drogę (inaczej tylko się krzyżują)

@@ -1901,6 +1901,10 @@ My road	Ma route
  · own	 · perso
 Create the road type	Créer le type de route
 Road type made: the Roads tool builds with it	Type de route créé : l'outil Routes construit avec
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Le modifier dans le créateur de route
 Its junctions	Ses carrefours
 Make a junction where it meets another road (else they only cross)	Faire un carrefour là où elle rencontre une autre route (sinon elles ne font que se croiser)

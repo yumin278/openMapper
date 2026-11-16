@@ -1901,6 +1901,10 @@ My road	Đường của tôi
  · own	 · của riêng
 Create the road type	Tạo loại đường
 Road type made: the Roads tool builds with it	Đã tạo loại đường: công cụ Đường xây bằng nó
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Đổi trong trình tạo đường
 Its junctions	Nút giao của nó
 Make a junction where it meets another road (else they only cross)	Tạo nút giao nơi nó gặp đường khác (nếu không chúng chỉ cắt nhau)

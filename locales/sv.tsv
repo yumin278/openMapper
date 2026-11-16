@@ -1901,6 +1901,10 @@ My road	Min väg
  · own	 · egen
 Create the road type	Skapa vägtypen
 Road type made: the Roads tool builds with it	Vägtyp skapad: Väg-verktyget bygger med den
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	Ändra den i väggeneratorn
 Its junctions	Dess korsningar
 Make a junction where it meets another road (else they only cross)	Gör en korsning där den möter en annan väg (annars korsar de bara)

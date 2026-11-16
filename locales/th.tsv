@@ -1901,6 +1901,10 @@ My road	ถนนของฉัน
  · own	 · ของตัวเอง
 Create the road type	สร้างชนิดถนน
 Road type made: the Roads tool builds with it	สร้างชนิดถนนแล้ว: เครื่องมือถนนสร้างด้วยชนิดนี้
+Save as a new road type: {file}	Save as a new road type: {file}
+Overwrite: {file}	Overwrite: {file}
+Saved as a new road type: {file}	Saved as a new road type: {file}
+Overwritten: {file}	Overwritten: {file}
 Change it in the road maker	เปลี่ยนในตัวสร้างถนน
 Its junctions	ทางแยกของมัน
 Make a junction where it meets another road (else they only cross)	สร้างทางแยกตรงที่มันพบถนนอื่น (ไม่เช่นนั้นแค่ตัดกัน)
