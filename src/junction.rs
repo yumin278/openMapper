@@ -2153,6 +2153,35 @@ mod tests {
     }
 
     #[test]
+    fn outer_bus_lane_straight_and_right_turn_use_the_correct_lanes_and_lead() {
+        let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
+        let mut lanes = Vec::new();
+        for out in [0.0, 90.0, 180.0, 270.0] {
+            let (_, mut arm) = lane_connectivity_arm(lanes.len() / 4, out, true, &profile);
+            for lane in &mut arm { lane.bus = lane.side.abs() > 4.0; }
+            lanes.extend(arm);
+        }
+        let leads: Vec<_> = (0..4).flat_map(|i| (0..4).filter(move |j| *j != i).map(move |j| (i, j, 3.0, 3.0))).collect();
+        let recs = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &leads, &[], &[], false);
+        let links = lane_connectivity_report("outer bus", &lanes, &recs);
+        let bus_in = lanes.iter().position(|l| l.arm == 0 && l.incoming && l.bus).unwrap();
+        let normal_in = lanes.iter().position(|l| l.arm == 0 && l.incoming && !l.bus).unwrap();
+        let right_out = |source: usize| links[source].iter().copied().find(|&j| turn_blinker(signed_turn(lanes[source].flow, lanes[j].flow)) == 3).unwrap();
+        let normal_target = right_out(normal_in);
+        assert!(!lanes[normal_target].bus);
+        let normal_route = trace_turn(&recs, lanes[normal_in].pos.truncate(), lanes[normal_target].pos.truncate(), 3);
+        assert!(!normal_route[0].bus);
+        let straight_target = links[bus_in].iter().copied().find(|&j| lanes[j].arm == 2).unwrap();
+        assert!(lanes[straight_target].bus);
+        assert_eq!(turn_blinker(signed_turn(lanes[bus_in].flow, lanes[straight_target].flow)), 0);
+        let right_target = right_out(bus_in);
+        let bus_route = trace_turn(&recs, lanes[bus_in].pos.truncate(), lanes[right_target].pos.truncate(), 3);
+        assert!(bus_route.iter().all(|p| p.bus));
+        assert_eq!(bus_route[0].seg.radius, 0.0);
+        assert!((bus_route[0].seg.length - 3.0).abs() < 1e-6, "outer bus uses its kerb lead");
+    }
+
+    #[test]
     fn centre_bus_turns_do_not_use_kerb_leads() {
         let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
         let mut lanes = Vec::new();
