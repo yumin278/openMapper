@@ -415,7 +415,7 @@ fn junctions_build_with_raised_strips_and_only_from_footways_that_have_paths() {
         1
     );
 
-    let build = |file: &str| -> Vec<Vec<f32>> {
+    let mut build = |file: &str| -> Vec<Vec<f32>> {
         let mut doc = crate::selection::tests::flat_map(1);
         doc.dir = content.join("maps").join("Advanced");
         let centre = glam::DVec3::new(150.0, 150.0, 0.0);
