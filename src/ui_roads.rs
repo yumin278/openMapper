@@ -127,7 +127,7 @@ impl RoadTypes {
         let Some(roots) = roots else { return };
         let left_hand = ed.doc.as_ref().is_some_and(|doc| doc.global.left_hand_traffic);
         let mut open = self.open;
-        egui::Window::new(icons::labelled(Icon::Road, tr("Road types", "Типы дорог"))).open(&mut open).default_size(Vec2::new(760.0, 520.0)).show(ctx, |ui| {
+        egui::Window::new(icons::labelled(Icon::Road, tr("Road types", "Типы дорог"))).open(&mut open).default_size(Vec2::new(760.0, 520.0)).constrain(true).max_height((ctx.content_rect().height() - 48.0).max(0.0)).show(ctx, |ui| {
             if ui.add_enabled(ed.doc.is_some(), egui::Button::new(tr("Apply bus lane rules to all existing roads", "Применить правила автобусных полос ко всем существующим дорогам"))).clicked() {
                 self.pending_bus_rules = Some(ed.preview_all_bus_rules()); self.bus_rule_result = None;
             }
@@ -151,6 +151,10 @@ impl RoadTypes {
                 if confirm || cancel { self.pending_bus_rules = None; }
             }
             if let Some(count) = self.bus_rule_result { ui.label(format!("{}: {count}", tr("Rules added", "Добавлено правил"))); }
+            if let Some(e) = &self.error {
+                ui.colored_label(Color32::from_rgb(240, 120, 100), e);
+            }
+            let columns_height = ui.available_height();
             ui.horizontal_top(|ui| {
                 // the list
                 ui.vertical(|ui| {
@@ -160,7 +164,7 @@ impl RoadTypes {
                         self.maker = Some(RoadSpec { name: tr("My road", "Моя дорога").into(), ..Default::default() });
                     }
                     ui.add(egui::TextEdit::singleline(&mut self.search).hint_text(tr("Search", "Поиск")));
-                    egui::ScrollArea::vertical().id_salt("road types").max_height(440.0).show(ui, |ui| {
+                    egui::ScrollArea::vertical().id_salt("road types").max_height(ui.available_height()).auto_shrink([false, false]).show(ui, |ui| {
                         for cat in [Category::Roads, Category::Tracks] {
                             for a in lib.filter(Kind::Spline, Some(cat), &self.search) {
                                 let on = self.picked.as_deref().map(|p| p.eq_ignore_ascii_case(&a.rel)).unwrap_or(false);
@@ -179,112 +183,119 @@ impl RoadTypes {
                 });
                 ui.separator();
                 ui.vertical(|ui| {
+                    ui.set_height(columns_height);
                     let mut cancel = false;
                     if let Some(spec) = &mut self.maker {
-                        Self::maker_ui(ui, spec, &mut self.textures, &mut self.tex_search, roots, &mut self.pics, &mut self.canvas.open, left_hand, self.maker_target.as_ref());
-                        if let Some(warning) = spec.maker_filename_warning(self.maker_target.as_ref()) {
-                            ui.colored_label(Color32::YELLOW, warning);
-                        }
-                        ui.add_space(6.0);
-                        ui.horizontal(|ui| {
-                            if ui.button(icons::labelled(Icon::CheckCircle, tr("Create the road type", "Создать тип дороги"))).clicked() {
-                                match spec.write_in_maker(&roots.content, left_hand, self.maker_target.as_ref()) {
-                                    Ok(rel) => {
-                                        if spec.pocket > 0.0 {
-                                            ed.pocket_type = Some(rel.clone());
+                        // Reserve the footer before the scrolling body, including wrapped warnings.
+                        egui::Panel::bottom("road maker footer").frame(egui::Frame::NONE).show(ui, |ui| {
+                            if let Some(warning) = spec.maker_filename_warning(self.maker_target.as_ref()) {
+                                ui.colored_label(Color32::YELLOW, warning);
+                            }
+                            ui.add_space(6.0);
+                            ui.horizontal(|ui| {
+                                if ui.button(icons::labelled(Icon::CheckCircle, tr("Create the road type", "Создать тип дороги"))).clicked() {
+                                    match spec.write_in_maker(&roots.content, left_hand, self.maker_target.as_ref()) {
+                                        Ok(rel) => {
+                                            if spec.pocket > 0.0 {
+                                                ed.pocket_type = Some(rel.clone());
+                                            }
+                                            ed.road_type = Some(rel.clone());
+                                            ed.set_tool(crate::editor::Tool::Roads);
+                                            let path = crate::doc::safe::own_path(&roots.content, &rel);
+                                            self.maker_target = MakerTarget::open(rel.clone(), path);
+                                            self.picked = Some(rel);
+                                            self.error = None;
+                                            actions.push(Action::ReloadContent(tr("Road type made: the Roads tool builds with it", "Тип дороги создан: инструмент «Дороги» строит им").to_string()));
                                         }
-                                        ed.road_type = Some(rel.clone());
-                                        ed.set_tool(crate::editor::Tool::Roads);
-                                        let path = crate::doc::safe::own_path(&roots.content, &rel);
-                                        self.maker_target = MakerTarget::open(rel.clone(), path);
-                                        self.picked = Some(rel);
-                                        self.error = None;
-                                        actions.push(Action::ReloadContent(tr("Road type made: the Roads tool builds with it", "Тип дороги создан: инструмент «Дороги» строит им").to_string()));
+                                        Err(e) => self.error = Some(e.to_string()),
                                     }
-                                    Err(e) => self.error = Some(e.to_string()),
                                 }
-                            }
-                            if ui.button(tr("Cancel", "Отмена")).clicked() {
-                                cancel = true;
-                            }
-                        });
-                    } else if let Some(rel) = self.picked.clone() {
-                        let name = lib.find(&rel).map(|a| a.name.clone()).unwrap_or_else(|| rel.clone());
-                        ui.label(RichText::new(name).strong().color(Color32::WHITE));
-                        crate::ui::long_label(ui, &rel, egui::TextStyle::Small, Color32::from_gray(140));
-                        ui.add_space(6.0);
-                        if ui.button(icons::labelled(Icon::Road, tr("Build with it", "Строить им"))).clicked() {
-                            ed.road_type = Some(rel.clone());
-                            ed.set_tool(crate::editor::Tool::Roads);
-                        }
-                        let path = roots.resolve(&rel);
-                        if let (Some(spec), Some(target)) = (RoadSpec::of_with_traffic(&path, left_hand), MakerTarget::open(rel.clone(), path)) {
-                            if ui.button(icons::labelled(Icon::Settings, tr("Change it in the road maker", "Изменить в конструкторе"))).clicked() {
-                                self.maker = Some(spec);
-                                self.maker_target = Some(target);
-                            }
-                        }
-                        ui.add_space(8.0);
-                        ui.label(RichText::new(tr("Junction pieces for it", "Перекрёстки для неё")).strong());
-                        let (pieces, fits) = lib.junction_pieces(&rel);
-                        let preferred = ed.road_styles.piece(&rel).map(str::to_string);
-                        let mut pick = preferred.clone();
-                        ui.horizontal(|ui| {
-                            let shown = preferred.as_deref().and_then(|p| lib.find(p)).map(|a| a.name.clone()).unwrap_or_else(|| tr("made by openMapper", "делает openMapper").to_string());
-                            egui::ComboBox::from_id_salt("preferred piece").width(260.0).height(300.0).selected_text(shown).show_ui(ui, |ui| {
-                                if ui.selectable_label(preferred.is_none(), tr("made by openMapper", "делает openMapper")).clicked() {
-                                    pick = None;
-                                }
-                                for a in pieces.iter().take(300) {
-                                    if ui.selectable_label(preferred.as_deref().map(|p| p.eq_ignore_ascii_case(&a.rel)).unwrap_or(false), format!("{}  ·  {}", a.name, a.dir)).clicked() {
-                                        pick = Some(a.rel.clone());
-                                    }
+                                if ui.button(tr("Cancel", "Отмена")).clicked() {
+                                    cancel = true;
                                 }
                             });
-                            if let Some(p) = preferred.as_deref() {
-                                if ui.button(icons::labelled(Icon::Junction, tr("Place it", "Поставить"))).on_hover_text(tr("Choose it in the catalogue to place on the map", "Выбрать в каталоге для установки на карту")).clicked() {
-                                    actions.push(Action::PlaceAsset(p.to_string()));
-                                }
-                            }
                         });
-                        ui.label(RichText::new(if pieces.is_empty() {
-                            tr("The installation has no junction pieces with places for roads.", "В установке нет перекрёстков с местами для дорог.")
-                        } else if fits {
-                            tr("Pieces with a place made for this road type. The one picked is offered first when a junction is put on this road's end (select the road: Junction on an end).", "Перекрёстки с местом под этот тип дороги. Выбранный предлагается первым, когда перекрёсток ставят на конец такой дороги (выделите дорогу: «Перекрёсток на конце дороги»).")
-                        } else {
-                            tr("No piece is made for this road type; the list holds every piece with places for roads.", "Под этот тип дороги перекрёстков нет; в списке все перекрёстки с местами для дорог.")
-                        }).small().color(Color32::from_gray(140)));
-                        if pick != preferred {
-                            ed.road_styles.set_piece(&rel, pick);
-                            if let Err(e) = ed.road_styles.save(&roots.content) {
-                                self.error = Some(e.to_string());
-                            }
-                        }
-                        ui.add_space(8.0);
-                        ui.label(RichText::new(tr("Its junctions", "Его перекрёстки")).strong());
-                        let mut st = ed.road_styles.get(&rel);
-                        let before = st;
-                        crate::ui::check(ui, &mut st.junctions, tr("Make a junction where it meets another road (else they only cross)", "Делать перекрёсток, где она встречает другую дорогу (иначе просто пересекаются)"));
-                        ui.horizontal(|ui| {
-                            ui.label(tr("Corners", "Углы"));
-                            ui.add(egui::Slider::new(&mut st.corner, 0.5..=3.0).text(tr("× rounder", "× круглее")));
+                        egui::ScrollArea::vertical().id_salt("road maker").auto_shrink([false, false]).max_height(ui.available_height()).show(ui, |ui| {
+                            Self::maker_ui(ui, spec, &mut self.textures, &mut self.tex_search, roots, &mut self.pics, &mut self.canvas.open, left_hand, self.maker_target.as_ref());
                         });
-                        crate::ui::check(ui, &mut st.lights, tr("Traffic lights by themselves", "Светофоры сами"));
-                        crate::ui::check(ui, &mut st.crossings, tr("Zebra crossings on every arm", "Пешеходные переходы на всех въездах"));
-                        crate::ui::check(ui, &mut st.corner_walks, tr("Footway paths round the corners (AI)", "Пешеходные пути вокруг углов (ИИ)"));
-                        ui.label(RichText::new(tr("Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).", "Выкл.: без путей ИИ на углах; переходы по-прежнему соединены с тротуарами дорог. Соедините углы сами (например, невидимым сплайном пути).")).small().color(Color32::from_gray(140)));
-                        ui.label(RichText::new(tr("Used for the junctions made from now on (where several road types meet, the one asking more wins). A junction already made keeps its own settings: select it to change them.", "Применяется к новым перекрёсткам (где встречаются разные дороги, берётся большее). Готовый перекрёсток хранит свои настройки: выделите его, чтобы изменить.")).small().color(Color32::from_gray(140)));
-                        if st != before {
-                            ed.road_styles.set(&rel, st);
-                            if let Err(e) = ed.road_styles.save(&roots.content) {
-                                self.error = Some(e.to_string());
-                            }
-                        }
                     } else {
-                        ui.label(tr("Pick a road type on the left, or make a new one.", "Выберите тип дороги слева или создайте новый."));
-                    }
-                    if let Some(e) = &self.error {
-                        ui.colored_label(Color32::from_rgb(240, 120, 100), e);
+                        egui::ScrollArea::vertical().id_salt("road maker").auto_shrink([false, false]).max_height(ui.available_height()).show(ui, |ui| {
+                            if let Some(rel) = self.picked.clone() {
+                                let name = lib.find(&rel).map(|a| a.name.clone()).unwrap_or_else(|| rel.clone());
+                                ui.label(RichText::new(name).strong().color(Color32::WHITE));
+                                crate::ui::long_label(ui, &rel, egui::TextStyle::Small, Color32::from_gray(140));
+                                ui.add_space(6.0);
+                                if ui.button(icons::labelled(Icon::Road, tr("Build with it", "Строить им"))).clicked() {
+                                    ed.road_type = Some(rel.clone());
+                                    ed.set_tool(crate::editor::Tool::Roads);
+                                }
+                                let path = roots.resolve(&rel);
+                                if let (Some(spec), Some(target)) = (RoadSpec::of_with_traffic(&path, left_hand), MakerTarget::open(rel.clone(), path)) {
+                                    if ui.button(icons::labelled(Icon::Settings, tr("Change it in the road maker", "Изменить в конструкторе"))).clicked() {
+                                        self.maker = Some(spec);
+                                        self.maker_target = Some(target);
+                                    }
+                                }
+                                ui.add_space(8.0);
+                                ui.label(RichText::new(tr("Junction pieces for it", "Перекрёстки для неё")).strong());
+                                let (pieces, fits) = lib.junction_pieces(&rel);
+                                let preferred = ed.road_styles.piece(&rel).map(str::to_string);
+                                let mut pick = preferred.clone();
+                                ui.horizontal(|ui| {
+                                    let shown = preferred.as_deref().and_then(|p| lib.find(p)).map(|a| a.name.clone()).unwrap_or_else(|| tr("made by openMapper", "делает openMapper").to_string());
+                                    egui::ComboBox::from_id_salt("preferred piece").width(260.0).height(300.0).selected_text(shown).show_ui(ui, |ui| {
+                                        if ui.selectable_label(preferred.is_none(), tr("made by openMapper", "делает openMapper")).clicked() {
+                                            pick = None;
+                                        }
+                                        for a in pieces.iter().take(300) {
+                                            if ui.selectable_label(preferred.as_deref().map(|p| p.eq_ignore_ascii_case(&a.rel)).unwrap_or(false), format!("{}  ·  {}", a.name, a.dir)).clicked() {
+                                                pick = Some(a.rel.clone());
+                                            }
+                                        }
+                                    });
+                                    if let Some(p) = preferred.as_deref() {
+                                        if ui.button(icons::labelled(Icon::Junction, tr("Place it", "Поставить"))).on_hover_text(tr("Choose it in the catalogue to place on the map", "Выбрать в каталоге для установки на карту")).clicked() {
+                                            actions.push(Action::PlaceAsset(p.to_string()));
+                                        }
+                                    }
+                                });
+                                ui.label(RichText::new(if pieces.is_empty() {
+                                    tr("The installation has no junction pieces with places for roads.", "В установке нет перекрёстков с местами для дорог.")
+                                } else if fits {
+                                    tr("Pieces with a place made for this road type. The one picked is offered first when a junction is put on this road's end (select the road: Junction on an end).", "Перекрёстки с местом под этот тип дороги. Выбранный предлагается первым, когда перекрёсток ставят на конец такой дороги (выделите дорогу: «Перекрёсток на конце дороги»).")
+                                } else {
+                                    tr("No piece is made for this road type; the list holds every piece with places for roads.", "Под этот тип дороги перекрёстков нет; в списке все перекрёстки с местами для дорог.")
+                                }).small().color(Color32::from_gray(140)));
+                                if pick != preferred {
+                                    ed.road_styles.set_piece(&rel, pick);
+                                    if let Err(e) = ed.road_styles.save(&roots.content) {
+                                        self.error = Some(e.to_string());
+                                    }
+                                }
+                                ui.add_space(8.0);
+                                ui.label(RichText::new(tr("Its junctions", "Его перекрёстки")).strong());
+                                let mut st = ed.road_styles.get(&rel);
+                                let before = st;
+                                crate::ui::check(ui, &mut st.junctions, tr("Make a junction where it meets another road (else they only cross)", "Делать перекрёсток, где она встречает другую дорогу (иначе просто пересекаются)"));
+                                ui.horizontal(|ui| {
+                                    ui.label(tr("Corners", "Углы"));
+                                    ui.add(egui::Slider::new(&mut st.corner, 0.5..=3.0).text(tr("× rounder", "× круглее")));
+                                });
+                                crate::ui::check(ui, &mut st.lights, tr("Traffic lights by themselves", "Светофоры сами"));
+                                crate::ui::check(ui, &mut st.crossings, tr("Zebra crossings on every arm", "Пешеходные переходы на всех въездах"));
+                                crate::ui::check(ui, &mut st.corner_walks, tr("Footway paths round the corners (AI)", "Пешеходные пути вокруг углов (ИИ)"));
+                                ui.label(RichText::new(tr("Off: no AI paths at the corners; the crossings still join the roads' footways. Join the corners yourself (e.g. with an invisible path spline).", "Выкл.: без путей ИИ на углах; переходы по-прежнему соединены с тротуарами дорог. Соедините углы сами (например, невидимым сплайном пути).")).small().color(Color32::from_gray(140)));
+                                ui.label(RichText::new(tr("Used for the junctions made from now on (where several road types meet, the one asking more wins). A junction already made keeps its own settings: select it to change them.", "Применяется к новым перекрёсткам (где встречаются разные дороги, берётся большее). Готовый перекрёсток хранит свои настройки: выделите его, чтобы изменить.")).small().color(Color32::from_gray(140)));
+                                if st != before {
+                                    ed.road_styles.set(&rel, st);
+                                    if let Err(e) = ed.road_styles.save(&roots.content) {
+                                        self.error = Some(e.to_string());
+                                    }
+                                }
+                            } else {
+                                ui.label(tr("Pick a road type on the left, or make a new one.", "Выберите тип дороги слева или создайте новый."));
+                            }
+                        });
                     }
                     if cancel {
                         self.maker = None;
@@ -486,3 +497,6 @@ impl RoadTypes {
         ui.label(RichText::new(tr("The roadway texture is laid once across all its lanes (as OMSI 2's lane textures are painted: pick one with as many lanes); the footway texture's right end is the kerb.", "Текстура проезжей части ложится один раз поперёк всех полос (как нарисованы полосные текстуры OMSI 2: берите с тем же числом полос); правый край текстуры тротуара: бордюр.")).small().color(Color32::from_gray(140)));
     }
 }
+
+#[cfg(test)]
+mod scroll_tests;
