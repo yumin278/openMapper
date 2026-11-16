@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	वस्तु प�
 Aligned angle! (Ctrl+Z to undo)	कोण संरेखित! (पूर्ववत करने के लिए Ctrl+Z)
 Vertex snap complete	शीर्ष स्नैप पूर्ण
 Align vertex angle	शीर्ष कोण संरेखित करें
+Float	फ़्लोट करें
+Show Assets in a floating window	एसेट को तैरती विंडो में दिखाएँ
+Dock	डॉक करें
+Dock Assets at the bottom	एसेट को नीचे डॉक करें

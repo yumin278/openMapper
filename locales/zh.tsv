@@ -2814,3 +2814,7 @@ Click a 2nd reference point on the object, or Esc to finish	点击物体上的�
 Aligned angle! (Ctrl+Z to undo)	已对齐角度！（Ctrl+Z 撤销）
 Vertex snap complete	顶点吸附完成
 Align vertex angle	对齐顶点角度
+Float	浮动
+Show Assets in a floating window	在浮动窗口中显示资源
+Dock	停靠
+Dock Assets at the bottom	将资源停靠在底部

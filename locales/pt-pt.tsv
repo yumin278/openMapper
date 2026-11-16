@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	Clique num 2º ponto
 Aligned angle! (Ctrl+Z to undo)	Ângulo alinhado! (Ctrl+Z para anular)
 Vertex snap complete	Encaixe de vértice concluído
 Align vertex angle	Alinhar ângulo de vértice
+Float	Desacoplar
+Show Assets in a floating window	Mostrar os recursos numa janela flutuante
+Dock	Acoplar
+Dock Assets at the bottom	Acoplar os recursos em baixo

@@ -117,6 +117,27 @@ pub struct Prefs {
     /// The status bar's snapping switches, as they were left.
     #[serde(default)]
     pub snap: SnapBar,
+    /// The asset browser's presentation and last expanded floating window bounds.
+    #[serde(default)]
+    pub assets_layout: AssetsLayout,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct AssetsLayout {
+    /// False by default, so older settings open the browser floating.
+    #[serde(default)]
+    pub docked: bool,
+    /// Outer bounds in egui points: x, y, width, height.
+    #[serde(default)]
+    pub rect: Option<[f32; 4]>,
+}
+
+impl AssetsLayout {
+    pub fn window_rect(self) -> Option<egui::Rect> {
+        let [x, y, w, h] = self.rect?;
+        (x.is_finite() && y.is_finite() && w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0)
+            .then(|| egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(w, h)))
+    }
 }
 
 /// The status bar's switches (Auto-Align, Surface, the knife, the ruler, and the rest).

@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	オブジェクト�
 Aligned angle! (Ctrl+Z to undo)	角度を合わせました！（Ctrl+Z で元に戻す）
 Vertex snap complete	頂点吸着完了
 Align vertex angle	頂点の角度を合わせる
+Float	フローティング
+Show Assets in a floating window	アセットをフローティングウィンドウで表示
+Dock	ドッキング
+Dock Assets at the bottom	アセットを下部にドッキング

@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	คลิกจุ�
 Aligned angle! (Ctrl+Z to undo)	จัดแนวมุมแล้ว! (Ctrl+Z เพื่อเลิกทำ)
 Vertex snap complete	ตรึงจุดยอดเสร็จสมบูรณ์
 Align vertex angle	จัดแนวมุมของจุดยอด
+Float	ลอย
+Show Assets in a floating window	แสดงแอสเซ็ตในหน้าต่างลอย
+Dock	ตรึง
+Dock Assets at the bottom	ตรึงแอสเซ็ตไว้ด้านล่าง

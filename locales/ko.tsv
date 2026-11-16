@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	개체에서 2번째
 Aligned angle! (Ctrl+Z to undo)	각도 정렬 완료! (Ctrl+Z: 실행 취소)
 Vertex snap complete	꼭짓점 스냅 완료
 Align vertex angle	꼭짓점 각도 정렬
+Float	분리
+Show Assets in a floating window	에셋을 플로팅 창에 표시
+Dock	도킹
+Dock Assets at the bottom	에셋을 아래에 도킹

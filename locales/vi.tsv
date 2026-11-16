@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	Bấm điểm tham c
 Aligned angle! (Ctrl+Z to undo)	Đã căn chỉnh góc! (Ctrl+Z để hoàn tác)
 Vertex snap complete	Bắt dính đỉnh hoàn tất
 Align vertex angle	Căn chỉnh góc đỉnh
+Float	Tách
+Show Assets in a floating window	Hiện tài nguyên trong cửa sổ nổi
+Dock	Gắn
+Dock Assets at the bottom	Gắn tài nguyên ở dưới cùng

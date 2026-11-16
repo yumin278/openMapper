@@ -2816,3 +2816,7 @@ Click a 2nd reference point on the object, or Esc to finish	Cliquez sur un 2e po
 Aligned angle! (Ctrl+Z to undo)	Angle aligné ! (Ctrl+Z pour annuler)
 Vertex snap complete	Accrochage de sommet terminé
 Align vertex angle	Aligner l'angle du sommet
+Float	Détacher
+Show Assets in a floating window	Afficher les ressources dans une fenêtre flottante
+Dock	Ancrer
+Dock Assets at the bottom	Ancrer les ressources en bas

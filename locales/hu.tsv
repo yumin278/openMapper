@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	Kattintson egy 2. re
 Aligned angle! (Ctrl+Z to undo)	Szög igazítva! (Ctrl+Z a visszavonáshoz)
 Vertex snap complete	Csúcspont illesztése kész
 Align vertex angle	Csúcspontszög igazítása
+Float	Lebegtetés
+Show Assets in a floating window	Eszközök megjelenítése lebegő ablakban
+Dock	Dokkolás
+Dock Assets at the bottom	Eszközök dokkolása alul

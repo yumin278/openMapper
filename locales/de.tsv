@@ -2816,3 +2816,7 @@ Click a 2nd reference point on the object, or Esc to finish	Klicken Sie auf eine
 Aligned angle! (Ctrl+Z to undo)	Winkel ausgerichtet! (Strg+Z zum Rückgängigmachen)
 Vertex snap complete	Scheitelpunkt-Ausrichtung abgeschlossen
 Align vertex angle	Scheitelpunktwinkel ausrichten
+Float	Abdocken
+Show Assets in a floating window	Assets in einem schwebenden Fenster anzeigen
+Dock	Andocken
+Dock Assets at the bottom	Assets unten andocken

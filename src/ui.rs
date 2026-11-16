@@ -129,6 +129,7 @@ pub enum Action {
     /// How the mouse moves the camera ("map" or "fly").
     SetCamera(String),
     SetCamTune(crate::camera::Tuning),
+    SetAssetsLayout(crate::install::AssetsLayout),
     SetGraphicsApi(crate::gpu::Api),
     SetOmsiControls(bool),
     /// The set of keys to start from (openMapper's, OMSI 2's editor's or Blender's).
@@ -824,7 +825,7 @@ pub fn editor(root: &mut egui::Ui, st: &mut UiState, u: EditorUi, actions: &mut 
         });
     });
     let favourites = st.favourites.clone();
-    st.assets.panel(root, ed, lib, thumbs, wanted, &favourites, texture_files, swatches, wanted_swatches, actions);
+    st.assets.panel(root, ed, lib, thumbs, wanted, &favourites, texture_files, swatches, wanted_swatches, prefs, actions);
     let mut view = (egui::Rect::NOTHING, false);
     egui::CentralPanel::default().frame(Frame::NONE).show(root, |ui| {
         let rect = ui.max_rect();

@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	Feu clic a un 2n pun
 Aligned angle! (Ctrl+Z to undo)	Angle alineat! (Ctrl+Z per desfer)
 Vertex snap complete	Ajust de vèrtex completat
 Align vertex angle	Alinea l'angle del vèrtex
+Float	Desacobla
+Show Assets in a floating window	Mostra els recursos en una finestra flotant
+Dock	Acobla
+Dock Assets at the bottom	Acobla els recursos a la part inferior

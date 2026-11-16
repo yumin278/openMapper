@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	Nesne üzerinde 2. r
 Aligned angle! (Ctrl+Z to undo)	Açı hizalandı! (Geri almak için Ctrl+Z)
 Vertex snap complete	Köşe yakalama tamamlandı
 Align vertex angle	Köşe açısını hizala
+Float	Ayır
+Show Assets in a floating window	Varlıkları yüzen bir pencerede göster
+Dock	Sabitle
+Dock Assets at the bottom	Varlıkları alta sabitle

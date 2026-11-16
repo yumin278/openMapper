@@ -2818,3 +2818,7 @@ Click a 2nd reference point on the object, or Esc to finish	Нысанда 2-ш�
 Aligned angle! (Ctrl+Z to undo)	Бұрыш тураланды! (Болдырмау үшін Ctrl+Z)
 Vertex snap complete	Төбені бекіту аяқталды
 Align vertex angle	Төбе бұрышын туралау
+Float	Бөлектеу
+Show Assets in a floating window	Ассеттерді жылжымалы терезеде көрсету
+Dock	Бекіту
+Dock Assets at the bottom	Ассеттерді төменгі жаққа бекіту
