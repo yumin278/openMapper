@@ -411,16 +411,18 @@ impl AssetBrowser {
             }
             if let Some((_, text)) = self.rename.as_mut() {
                 ui.add_space(4.0);
+                let mut entered = false;
                 ui.horizontal(|ui| {
                     ui.label(RichText::new(tr("Name", "Название")).small());
-                    let edit = ui.add(egui::TextEdit::singleline(text).desired_width(170.0));
+                    let edit = ui.add(egui::TextEdit::singleline(text).desired_width(f32::INFINITY));
                     // (written on the button or Enter only: a file is not written per keystroke)
-                    let entered = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-                    let clicked = ui.button(icons::labelled(Icon::Save, tr("Save the name", "Сохранить название"))).clicked();
-                    if entered || clicked {
-                        actions.push(Action::RenameAsset(a.rel.clone(), text.clone()));
-                    }
+                    entered = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
                 });
+                // (the pane puts its actions under the text, one button a row, so this one too)
+                let clicked = ui.button(icons::labelled(Icon::Save, tr("Save the name", "Сохранить название"))).clicked();
+                if entered || clicked {
+                    actions.push(Action::RenameAsset(a.rel.clone(), text.clone()));
+                }
             }
         }
         if a.kind == Kind::Spline && a.half_width > 0.0 {
