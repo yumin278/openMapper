@@ -3012,11 +3012,10 @@ Paste traffic rules	Қозғалыс ережелерін қою
 Only the traffic rules are copied, not the shape	Тек қозғалыс ережелері көшіріледі, пішін емес
 Select exactly one object or road to copy its traffic rules	Қозғалыс ережелерін көшіру үшін тек бір нысанды немесе жолды таңдаңыз
 Traffic rules copied:	Қозғалыс ережелері көшірілді:
-Copy traffic rules first	Алдымен қозғалыс ережелерін көшіріңіз
 Traffic rules pasted to:	Қозғалыс ережелері қойылған мақсаттар:
 Rules written:	Жазылған ережелер:
 Dropped, path number beyond the target:	Тасталды, жол нөмірі мақсаттан тыс:
 Not pasted, the number of paths is unknown:	Қойылмады, жолдар саны белгісіз:
-The copied set had no rules: the rules of the targets were cleared	Көшірілген жинақта ереже жоқ: мақсаттардың ережелері тазаланды
-The files differ, rules matched by path number	Файлдар әртүрлі, ережелер жол нөмірі бойынша сәйкестендірілді
 Rebuilding the junction replaces its rules with newly generated ones	Қиылысты қайта құрғанда оның ережелері жаңадан жасалғандарға ауысады
+It has no traffic rules to copy	Көшіретін қозғалыс ережесі жоқ
+The clipboard has no traffic rules	Буферде қозғалыс ережелері жоқ

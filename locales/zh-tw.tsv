@@ -3011,11 +3011,10 @@ Paste traffic rules	貼上交通規則
 Only the traffic rules are copied, not the shape	只複製交通規則，不複製形狀
 Select exactly one object or road to copy its traffic rules	請只選取一個物件或一段道路，才能複製其交通規則
 Traffic rules copied:	已複製交通規則：
-Copy traffic rules first	請先複製交通規則
 Traffic rules pasted to:	已貼上交通規則的目標數：
 Rules written:	已寫入的規則數：
 Dropped, path number beyond the target:	已略去，路徑編號超出目標：
 Not pasted, the number of paths is unknown:	未貼上，路徑數目不明：
-The copied set had no rules: the rules of the targets were cleared	所複製的內容沒有規則：目標的規則已清除
-The files differ, rules matched by path number	檔案不同，規則依路徑編號對應
 Rebuilding the junction replaces its rules with newly generated ones	重建路口後，其規則會被重新產生的規則取代
+It has no traffic rules to copy	它沒有可複製的交通規則
+The clipboard has no traffic rules	剪貼簿中沒有交通規則

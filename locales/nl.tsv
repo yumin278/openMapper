@@ -3013,11 +3013,10 @@ Paste traffic rules	Verkeersregels plakken
 Only the traffic rules are copied, not the shape	Alleen de verkeersregels worden gekopieerd, niet de vorm
 Select exactly one object or road to copy its traffic rules	Selecteer precies één object of weg om de verkeersregels te kopiëren
 Traffic rules copied:	Verkeersregels gekopieerd:
-Copy traffic rules first	Kopieer eerst verkeersregels
 Traffic rules pasted to:	Verkeersregels geplakt in:
 Rules written:	Regels geschreven:
 Dropped, path number beyond the target:	Weggelaten, padnummer voorbij het doel:
 Not pasted, the number of paths is unknown:	Niet geplakt, aantal paden onbekend:
-The copied set had no rules: the rules of the targets were cleared	De gekopieerde set had geen regels: de regels van de doelen zijn gewist
-The files differ, rules matched by path number	De bestanden verschillen, regels gekoppeld op padnummer
 Rebuilding the junction replaces its rules with newly generated ones	Bij het opnieuw opbouwen van het kruispunt worden de regels vervangen door nieuw gegenereerde
+It has no traffic rules to copy	Het heeft geen verkeersregels om te kopiëren
+The clipboard has no traffic rules	Het klembord bevat geen verkeersregels

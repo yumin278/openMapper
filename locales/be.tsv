@@ -3012,11 +3012,10 @@ Paste traffic rules	Уставіць правілы руху
 Only the traffic rules are copied, not the shape	Капіруюцца толькі правілы руху, а не форма
 Select exactly one object or road to copy its traffic rules	Вылучыце роўна адзін аб'ект або дарогу, каб скапіраваць іх правілы руху
 Traffic rules copied:	Правілы руху скапіраваны:
-Copy traffic rules first	Спачатку скапіруйце правілы руху
 Traffic rules pasted to:	Правілы руху ўстаўлены ў:
 Rules written:	Запісана правілаў:
 Dropped, path number beyond the target:	Адкінута, нумар шляху за межамі мэты:
 Not pasted, the number of paths is unknown:	Не ўстаўлена, колькасць шляхоў невядомая:
-The copied set had no rules: the rules of the targets were cleared	У скапіраваным наборы няма правілаў: правілы мэт ачышчаны
-The files differ, rules matched by path number	Файлы розныя, правілы супастаўлены па нумары шляху
 Rebuilding the junction replaces its rules with newly generated ones	Пры перабудове скрыжавання яго правілы заменяцца нованастворанымі
+It has no traffic rules to copy	У яго няма правілаў руху для капіравання
+The clipboard has no traffic rules	У буферы абмену няма правілаў руху

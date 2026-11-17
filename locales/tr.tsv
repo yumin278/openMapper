@@ -3012,11 +3012,10 @@ Paste traffic rules	Trafik kurallarını yapıştır
 Only the traffic rules are copied, not the shape	Şekil değil, yalnızca trafik kuralları kopyalanır
 Select exactly one object or road to copy its traffic rules	Trafik kurallarını kopyalamak için tam bir nesne veya yol seçin
 Traffic rules copied:	Trafik kuralları kopyalandı:
-Copy traffic rules first	Önce trafik kurallarını kopyalayın
 Traffic rules pasted to:	Trafik kuralları yapıştırılan hedef:
 Rules written:	Yazılan kural:
 Dropped, path number beyond the target:	Atlanan, yol numarası hedefin ötesinde:
 Not pasted, the number of paths is unknown:	Yapıştırılmadı, yol sayısı bilinmiyor:
-The copied set had no rules: the rules of the targets were cleared	Kopyalanan kümede kural yoktu: hedeflerin kuralları temizlendi
-The files differ, rules matched by path number	Dosyalar farklı, kurallar yol numarasına göre eşleştirildi
 Rebuilding the junction replaces its rules with newly generated ones	Kavşak yeniden kurulunca kuralları yeni üretilenlerle değişir
+It has no traffic rules to copy	Kopyalanacak trafik kuralı yok
+The clipboard has no traffic rules	Panoda trafik kuralı yok

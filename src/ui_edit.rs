@@ -629,14 +629,15 @@ pub fn rules_section(ui: &mut egui::Ui, ed: &mut Editor, sel: Sel, actions: &mut
         egui::CollapsingHeader::new(RichText::new(format!("{} ({})", tr("Path rules", "Правила путей"), rules.iter().filter(|r| !r.kill).count())).strong()).id_salt("rules").default_open((1..=6).contains(&rules.iter().filter(|r| !r.kill).count())).show(ui, |ui| {
             ui.label(RichText::new(tr("For the AI and the player on one path (lane) of it, counted from 0: the view shows their numbers", "Для ИИ и игрока на одном пути (полосе), считая от 0: их номера видны в окне вида")).small().color(TEXT_DIM));
             numbered = true;
-            ui.horizontal_wrapped(|ui| {
-                if ui.add_enabled(ed.can_copy_rules(), egui::Button::new(tr("Copy traffic rules", "Копировать правила"))).on_hover_text(tr("Only the traffic rules are copied, not the shape", "Копируются только правила, не форма")).clicked() {
-                    actions.push(crate::ui::Action::CopyRules);
-                }
-                if ui.add_enabled(ed.can_paste_rules(), egui::Button::new(tr("Paste traffic rules", "Вставить правила"))).on_hover_text(tr("Only the traffic rules are copied, not the shape", "Копируются только правила, не форма")).clicked() {
-                    actions.push(crate::ui::Action::PasteRules);
-                }
-            });
+            // (one button to a row: they are as wide as the panel)
+            let hint = tr("Only the traffic rules are copied, not the shape", "Копируются только правила, не форма");
+            let wide = egui::vec2(ui.available_width(), 0.0);
+            if ui.add_enabled(ed.can_copy_rules(), egui::Button::new(tr("Copy traffic rules", "Копировать правила")).min_size(wide)).on_hover_text(hint).clicked() {
+                actions.push(crate::ui::Action::CopyRules);
+            }
+            if ui.add_enabled(ed.can_paste_rules(), egui::Button::new(tr("Paste traffic rules", "Вставить правила")).min_size(wide)).on_hover_text(hint).clicked() {
+                actions.push(crate::ui::Action::PasteRules);
+            }
             let mut remove = None;
             let mut close_to_cars = None;
             for (i, r) in rules.iter_mut().enumerate().filter(|(_, r)| !r.kill) {

@@ -3012,11 +3012,10 @@ Paste traffic rules	Enganxa les regles de trànsit
 Only the traffic rules are copied, not the shape	Només es copien les regles de trànsit, no la forma
 Select exactly one object or road to copy its traffic rules	Seleccioneu un sol objecte o carretera per copiar-ne les regles de trànsit
 Traffic rules copied:	Regles de trànsit copiades:
-Copy traffic rules first	Primer copieu regles de trànsit
 Traffic rules pasted to:	Regles de trànsit enganxades a:
 Rules written:	Regles escrites:
 Dropped, path number beyond the target:	Descartades, número de camí fora de la destinació:
 Not pasted, the number of paths is unknown:	No enganxades, nombre de camins desconegut:
-The copied set had no rules: the rules of the targets were cleared	El que s'ha copiat no tenia regles: s'han esborrat les regles de les destinacions
-The files differ, rules matched by path number	Els fitxers difereixen, regles assignades per número de camí
 Rebuilding the junction replaces its rules with newly generated ones	En reconstruir el creuament, les seves regles se substitueixen per les regenerades
+It has no traffic rules to copy	No té regles de trànsit per copiar
+The clipboard has no traffic rules	El porta-retalls no conté regles de trànsit

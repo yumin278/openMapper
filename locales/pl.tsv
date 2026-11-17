@@ -3012,11 +3012,10 @@ Paste traffic rules	Wklej zasady ruchu
 Only the traffic rules are copied, not the shape	Kopiowane są tylko zasady ruchu, nie kształt
 Select exactly one object or road to copy its traffic rules	Zaznacz dokładnie jeden obiekt lub drogę, aby skopiować jej zasady ruchu
 Traffic rules copied:	Skopiowano zasady ruchu:
-Copy traffic rules first	Najpierw skopiuj zasady ruchu
 Traffic rules pasted to:	Zasady ruchu wklejono do:
 Rules written:	Zapisane zasady:
 Dropped, path number beyond the target:	Pominięte, numer ścieżki poza celem:
 Not pasted, the number of paths is unknown:	Nie wklejono, liczba ścieżek nieznana:
-The copied set had no rules: the rules of the targets were cleared	Skopiowany zestaw nie miał zasad: zasady celów wyczyszczono
-The files differ, rules matched by path number	Pliki się różnią, zasady dopasowano według numeru ścieżki
 Rebuilding the junction replaces its rules with newly generated ones	Przebudowa skrzyżowania zastąpi jego zasady nowo wygenerowanymi
+It has no traffic rules to copy	Nie ma zasad ruchu do skopiowania
+The clipboard has no traffic rules	Schowek nie zawiera zasad ruchu

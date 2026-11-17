@@ -3010,11 +3010,10 @@ Paste traffic rules	Verkehrsregeln einfügen
 Only the traffic rules are copied, not the shape	Es werden nur die Verkehrsregeln kopiert, nicht die Form
 Select exactly one object or road to copy its traffic rules	Genau ein Objekt oder eine Straße wählen, um deren Verkehrsregeln zu kopieren
 Traffic rules copied:	Verkehrsregeln kopiert:
-Copy traffic rules first	Zuerst Verkehrsregeln kopieren
 Traffic rules pasted to:	Verkehrsregeln eingefügt in:
 Rules written:	Regeln geschrieben:
 Dropped, path number beyond the target:	Verworfen, Pfadnummer jenseits des Ziels:
 Not pasted, the number of paths is unknown:	Nicht eingefügt, Pfadanzahl unbekannt:
-The copied set had no rules: the rules of the targets were cleared	Die kopierte Auswahl hatte keine Regeln: die Regeln der Ziele wurden gelöscht
-The files differ, rules matched by path number	Die Dateien unterscheiden sich, Regeln nach Pfadnummer zugeordnet
 Rebuilding the junction replaces its rules with newly generated ones	Beim Neuaufbau der Kreuzung werden ihre Regeln durch neu erzeugte ersetzt
+It has no traffic rules to copy	Es hat keine Verkehrsregeln zum Kopieren
+The clipboard has no traffic rules	Die Zwischenablage enthält keine Verkehrsregeln

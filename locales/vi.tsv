@@ -3012,11 +3012,10 @@ Paste traffic rules	Dán quy tắc giao thông
 Only the traffic rules are copied, not the shape	Chỉ sao chép quy tắc giao thông, không sao chép hình dạng
 Select exactly one object or road to copy its traffic rules	Chọn đúng một đối tượng hoặc một con đường để sao chép quy tắc giao thông
 Traffic rules copied:	Đã sao chép quy tắc giao thông:
-Copy traffic rules first	Hãy sao chép quy tắc giao thông trước
 Traffic rules pasted to:	Đã dán quy tắc giao thông vào:
 Rules written:	Số quy tắc đã ghi:
 Dropped, path number beyond the target:	Đã bỏ, số đường đi vượt quá đích:
 Not pasted, the number of paths is unknown:	Không dán, chưa biết số đường đi:
-The copied set had no rules: the rules of the targets were cleared	Bộ đã sao chép không có quy tắc: quy tắc của các đích đã bị xóa
-The files differ, rules matched by path number	Tệp khác nhau, quy tắc được khớp theo số đường đi
 Rebuilding the junction replaces its rules with newly generated ones	Khi dựng lại giao lộ, quy tắc của nó sẽ bị thay bằng quy tắc mới tạo
+It has no traffic rules to copy	Không có quy tắc giao thông nào để sao chép
+The clipboard has no traffic rules	Bảng nhớ tạm không có quy tắc giao thông

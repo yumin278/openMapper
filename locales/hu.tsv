@@ -3012,11 +3012,10 @@ Paste traffic rules	Közlekedési szabályok beillesztése
 Only the traffic rules are copied, not the shape	Csak a közlekedési szabályok másolódnak, az alak nem
 Select exactly one object or road to copy its traffic rules	Pontosan egy objektumot vagy utat jelöljön ki a közlekedési szabályok másolásához
 Traffic rules copied:	Közlekedési szabályok átmásolva:
-Copy traffic rules first	Előbb másolja a közlekedési szabályokat
 Traffic rules pasted to:	Közlekedési szabályok beillesztve ide:
 Rules written:	Beírt szabályok:
 Dropped, path number beyond the target:	Elvetve, az útvonal száma a célon túl van:
 Not pasted, the number of paths is unknown:	Nem illesztve, az útvonalak száma ismeretlen:
-The copied set had no rules: the rules of the targets were cleared	A másolt készletben nem volt szabály: a célok szabályai törölve
-The files differ, rules matched by path number	A fájlok eltérnek, a szabályok útvonalszám szerint egyeztetve
 Rebuilding the junction replaces its rules with newly generated ones	A csomópont újjáépítése a szabályait újonnan létrehozottakra cseréli
+It has no traffic rules to copy	Nincs másolható közlekedési szabálya
+The clipboard has no traffic rules	A vágólapon nincsenek közlekedési szabályok

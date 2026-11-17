@@ -3012,11 +3012,10 @@ Paste traffic rules	Colar regras de trânsito
 Only the traffic rules are copied, not the shape	Só as regras de trânsito são copiadas, não a forma
 Select exactly one object or road to copy its traffic rules	Selecione um único objeto ou via para copiar suas regras de trânsito
 Traffic rules copied:	Regras de trânsito copiadas:
-Copy traffic rules first	Copie primeiro as regras de trânsito
 Traffic rules pasted to:	Regras de trânsito coladas em:
 Rules written:	Regras gravadas:
 Dropped, path number beyond the target:	Descartadas, número de caminho além do destino:
 Not pasted, the number of paths is unknown:	Não coladas, número de caminhos desconhecido:
-The copied set had no rules: the rules of the targets were cleared	O conjunto copiado não tinha regras: as regras dos destinos foram apagadas
-The files differ, rules matched by path number	Os arquivos são diferentes, regras associadas pelo número do caminho
 Rebuilding the junction replaces its rules with newly generated ones	Ao reconstruir o cruzamento, suas regras são substituídas pelas recém-geradas
+It has no traffic rules to copy	Não tem regras de trânsito para copiar
+The clipboard has no traffic rules	A área de transferência não tem regras de trânsito

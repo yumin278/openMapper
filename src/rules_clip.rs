@@ -1,24 +1,21 @@
 //! Copy and paste of path rules (the traffic rules of an object's or road's paths) and
-//! nothing else: the shape stays as it is. The rules have a clipboard of their own, apart
-//! from the clipboard of objects and roads (`clipboard.rs`).
+//! nothing else: the shape stays as it is. The rules travel through the system clipboard as
+//! text, in the lines a map file holds them in:
 //!
-//! The rules go over as they are, `extra` (the vehicle class) included. A rule is dropped
-//! only when it names a path the target does not have.
+//! ```text
+//! [rule]
+//! 48
+//! trafficdensity
+//! 0.500
+//! 0
+//! ```
+//!
+//! They go over as they are, `extra` (the vehicle class) included. A rule is dropped only
+//! when it names a path the target does not have.
 
 use omsi_map::MapRule;
 
 use crate::doc::{Document, Sel};
-
-/// The rules of one object or road, as copied.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct RulesClip {
-    /// Every rule that is not a `[kill_rule]`, in the order they stand.
-    pub rules: Vec<MapRule>,
-    /// The file (`.sco` or `.sli`) of the thing they were copied from.
-    pub file: String,
-    /// How many paths it has, when its model could be read (for the message and the log).
-    pub paths: Option<usize>,
-}
 
 /// What a paste into one target did.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -60,6 +57,39 @@ pub fn paste(target: &[MapRule], clip: &[MapRule], paths: usize) -> Pasted {
         }
     }
     Pasted { after, written, dropped }
+}
+
+/// The rules as the clipboard's text: the lines of the map file (`[rule]`, path, kind,
+/// value, extra), one block each.
+pub fn to_text(rules: &[MapRule]) -> String {
+    let mut s = String::new();
+    crate::doc::save::rules(&mut s, rules);
+    s
+}
+
+/// The rules in a clipboard text, if it is nothing but `[rule]` / `[kill_rule]` blocks (a
+/// `[kill_rule]` is read past and left out). None: it is some other text, or holds no rule.
+pub fn from_text(text: &str) -> Option<Vec<MapRule>> {
+    let mut lines = text.lines().map(str::trim).filter(|l| !l.is_empty());
+    let mut rules = Vec::new();
+    while let Some(head) = lines.next() {
+        let kill = match head.to_ascii_lowercase().as_str() {
+            "[rule]" => false,
+            "[kill_rule]" => true,
+            _ => return None,
+        };
+        let path_index = lines.next()?.parse::<i32>().ok()?;
+        let kind = lines.next()?;
+        if kind.starts_with('[') || kind.contains(char::is_whitespace) {
+            return None;
+        }
+        let value = lines.next()?.parse::<f64>().ok().filter(|v| v.is_finite())?;
+        let extra = lines.next()?.parse::<f64>().ok().filter(|v| v.is_finite())?;
+        if !kill {
+            rules.push(MapRule { path_index, kind: kind.to_string(), value, extra, kill });
+        }
+    }
+    (!rules.is_empty()).then_some(rules)
 }
 
 /// A rule in one line, for the log.
@@ -121,5 +151,27 @@ mod tests {
         let p = paste(&target, &[], 4);
         assert_eq!(p.after, vec![target[1].clone()]);
         assert_eq!(p.written, 0);
+    }
+
+    #[test]
+    fn the_text_is_a_map_files_rule_lines_and_reads_back() {
+        let rules = vec![rule(48, "trafficdensity", 0.5, 0.0, false), rule(61, "trafficdensity", 0.0, 6.0, false), rule(18, "priority", 192.0, 0.0, false)];
+        let text = to_text(&rules);
+        assert!(text.starts_with("[rule]\n48\ntrafficdensity\n0.5\n0\n\n[rule]\n61\n"), "{text}");
+        assert_eq!(from_text(&text), Some(rules));
+    }
+
+    #[test]
+    fn a_map_files_own_lines_are_read() {
+        let text = "[rule]\n18\npriority\n192\n0\n\n[rule]\n73\ntrafficdensity\n3.000\n3\n\n[kill_rule]\n5\nspeedlimit\n30\n0\n";
+        let r = from_text(text).unwrap();
+        assert_eq!(r, vec![rule(18, "priority", 192.0, 0.0, false), rule(73, "trafficdensity", 3.0, 3.0, false)], "the kill_rule is left out");
+    }
+
+    #[test]
+    fn other_text_is_not_rules() {
+        for t in ["", "hello", "[rule]\n1\nbus\n0", "[rule]\nx\nbus\n0\n0", "[object]\n0\nfoo.sco", "[rule]\n1\nbus\n0\n0\nstray", "[kill_rule]\n1\nbus\n0\n0\n"] {
+            assert_eq!(from_text(t), None, "{t:?}");
+        }
     }
 }
