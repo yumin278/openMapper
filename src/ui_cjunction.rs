@@ -625,7 +625,7 @@ impl ComplexJunctions {
                 ui.add(egui::DragValue::new(&mut t.offset).speed(0.05).range(-TAPER_MAX_OFFSET..=TAPER_MAX_OFFSET).suffix(" m")).on_hover_text(tr("Sideways shift of the far end: positive to the right of the way of travel, negative to the left", "Боковое смещение дальнего конца: плюс — вправо по ходу движения, минус — влево"));
             });
             if ui.button(tr("Road: the type chosen", "Дорога: выбранный тип")).clicked() {
-                if let Some(f) = chosen.clone().filter(|f| is_road(lib, f)) {
+                if let Some(f) = self.file.clone().filter(|f| is_road(lib, f)) {
                     t.to_file = f;
                 }
             }
