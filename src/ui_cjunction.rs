@@ -10,7 +10,7 @@ use egui::{Color32, Pos2, RichText, Sense, Stroke, Vec2};
 use glam::DVec2;
 
 use crate::assets::{Assets, SplineModel};
-use crate::cjunction::{self, Arm, LObject, LSeg, Layout, Piece};
+use crate::cjunction::{self, Arm, LObject, LSeg, Layout, Piece, Taper, TAPER_MAX_OFFSET, TAPER_MIN_LENGTH};
 use crate::editor::Editor;
 use crate::i18n::tr;
 use crate::icons::{self, Icon};
@@ -30,6 +30,8 @@ enum Tool {
     Arm,
     /// Stand a scenery object on the drawing.
     Object,
+    /// A taper plate from a road's end to the chosen road type.
+    Taper,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -37,6 +39,7 @@ enum Pick {
     Piece(usize),
     Arm(usize),
     Object(usize),
+    Taper(usize),
 }
 
 /// What a drawing gesture comes to: a piece, and the connecting piece Auto-Adapt lays before it.
@@ -94,7 +97,10 @@ pub struct ComplexJunctions {
     /// The drawing's junctions as drawn: the pieces and build they were made for, the pieces cut back, the plates' triangles.
     /// Junctions the drawing has room for none of (see `Resolved::skipped`).
     skipped: usize,
-    plate: Option<(Vec<Piece>, crate::cjunction::AutoBuild, Vec<Piece>, Vec<([DVec2; 3], Option<std::path::PathBuf>, [[f32; 2]; 3])>, Vec<(Seg, i32, i32)>)>,
+    plate: Option<(Vec<Piece>, crate::cjunction::AutoBuild, Vec<Piece>, Vec<([DVec2; 3], Option<std::path::PathBuf>, [[f32; 2]; 3])>, Vec<(Seg, i32, i32)>, Vec<Taper>)>,
+    /// The taper's length and sideways shift (m, right of the way of travel positive) the tool makes.
+    taper_len: f64,
+    taper_off: f64,
     /// Steps back and forward; the drawing as it was last frame, and whether it is being
     /// changed (a drag changes it every frame: one step).
     undo: Vec<Layout>,
@@ -115,7 +121,7 @@ pub struct ComplexJunctions {
 impl Default for ComplexJunctions {
     fn default() -> Self {
         let layout = fresh();
-        ComplexJunctions { open: false, seen: layout.clone(), layout, tool: Tool::Line, file: None, cat: Some(Category::Roads), search: String::new(), pending: Vec::new(), pick: None, centre: DVec2::ZERO, scale: 12.0, snap: true, auto_align: true, auto_adapt: true, auto_arms: true, obj_file: None, obj_search: String::new(), obj_turn: 0.0, obj_step: 20.0, obj_offset: 4.0, preview: false, lanes: false, turn: 0.0, saved: None, moving: None, handle: None, message: None, pics: TexCache::default(), skipped: 0, plate: None, undo: Vec::new(), redo: Vec::new(), changing: false, fit: true, canvas: Vec2::new(800.0, 500.0), paint: crate::mark_spline::Paint::default(), content: None, reload: None }
+        ComplexJunctions { open: false, seen: layout.clone(), layout, tool: Tool::Line, file: None, cat: Some(Category::Roads), search: String::new(), pending: Vec::new(), pick: None, centre: DVec2::ZERO, scale: 12.0, snap: true, auto_align: true, auto_adapt: true, auto_arms: true, obj_file: None, obj_search: String::new(), obj_turn: 0.0, obj_step: 20.0, obj_offset: 4.0, preview: false, lanes: false, turn: 0.0, saved: None, moving: None, handle: None, message: None, pics: TexCache::default(), skipped: 0, plate: None, taper_len: 20.0, taper_off: 0.0, undo: Vec::new(), redo: Vec::new(), changing: false, fit: true, canvas: Vec2::new(800.0, 500.0), paint: crate::mark_spline::Paint::default(), content: None, reload: None }
     }
 }
 
@@ -276,6 +282,7 @@ impl ComplexJunctions {
         self.pick = match self.pick {
             Some(Pick::Piece(i)) if i < self.layout.pieces.len() => self.pick,
             Some(Pick::Arm(i)) if i < self.layout.arms.len() => self.pick,
+            Some(Pick::Taper(i)) if i < self.layout.tapers.len() => self.pick,
             _ => None,
         };
     }
@@ -291,20 +298,64 @@ impl ComplexJunctions {
         self.fit = true;
     }
 
-    /// The road piece end at `p` (within 0.3 m): the point, the heading out of the piece
-    /// there and the road's half width.
-    fn end_at(&self, p: DVec2, lib: &Library) -> Option<(DVec2, f64, f64)> {
-        let mut best: Option<(f64, (DVec2, f64, f64))> = None;
-        for piece in self.layout.pieces.iter().filter(|q| is_road(lib, &q.file) && !q.auto) {
+    /// The road piece end at `p` (within 0.3 m), the nearest: which piece, whether it is its end
+    /// (else its start), the point, the heading out of the piece there and the road's half width.
+    fn piece_end_at(&self, p: DVec2, lib: &Library) -> Option<(usize, bool, DVec2, f64, f64)> {
+        let mut best: Option<(f64, (usize, bool, DVec2, f64, f64))> = None;
+        for (i, piece) in self.layout.pieces.iter().enumerate().filter(|(_, q)| is_road(lib, &q.file) && !q.auto) {
             let Some((a, ha, b, hb)) = piece.ends() else { continue };
-            for (pt, h) in [(a, roads::norm_deg(ha + 180.0)), (b, hb)] {
+            for (at_end, pt, h) in [(false, a, roads::norm_deg(ha + 180.0)), (true, b, hb)] {
                 let d = (pt - p).length();
                 if d < 0.3 && best.map(|x| d < x.0).unwrap_or(true) {
-                    best = Some((d, (pt, h, half_of(lib, &piece.file))));
+                    best = Some((d, (i, at_end, pt, h, half_of(lib, &piece.file))));
                 }
             }
         }
         best.map(|b| b.1)
+    }
+
+    /// The road end at `p` (within 0.3 m): the point, the heading out of the piece there and
+    /// the road's half width. The far end of a taper counts: a road is drawn on from it.
+    fn end_at(&self, p: DVec2, lib: &Library) -> Option<(DVec2, f64, f64)> {
+        let mut best: Option<(f64, (DVec2, f64, f64))> = self.piece_end_at(p, lib).map(|(_, _, pt, h, hw)| ((pt - p).length(), (pt, h, hw)));
+        for t in &self.layout.tapers {
+            let (q, h) = t.end();
+            let d = (q - p).length();
+            if d < 0.3 && best.map(|x| d < x.0).unwrap_or(true) {
+                best = Some((d, (q, h, half_of(lib, &t.to_file))));
+            }
+        }
+        best.map(|b| b.1)
+    }
+
+    /// The Taper tool clicked at `at`: from the road end there, forward to the chosen road type.
+    fn click_taper(&mut self, at: DVec2, lib: &Library, assets: &mut Option<&mut Assets>) {
+        let bad = |s: &mut Self, m: &str| s.message = Some((m.to_string(), true));
+        let Some(to_file) = self.file.clone().filter(|f| is_road(lib, f)) else {
+            bad(self, tr("Pick a road type in the catalogue on the left first", "Сначала выберите тип дороги в каталоге слева"));
+            return;
+        };
+        let Some((i, at_end, pt, out, _)) = self.piece_end_at(at, lib) else {
+            bad(self, tr("Click the end of a road piece", "Кликните конец детали дороги"));
+            return;
+        };
+        let taper = Taper { x: pt.x, y: pt.y, out, from_file: self.layout.pieces[i].file.clone(), from_at_end: at_end, to_file, length: self.taper_len.max(TAPER_MIN_LENGTH), offset: self.taper_off.clamp(-TAPER_MAX_OFFSET, TAPER_MAX_OFFSET) };
+        let arms = taper.plate_arms();
+        // (both road types loaded first: a type not read yet is not a failure)
+        let made = assets.as_deref_mut().and_then(|a| {
+            for arm in &arms {
+                let _ = a.spline_wait(&arm.file, 2000);
+            }
+            crate::junction::layout_plate(a, &arms, None)
+        });
+        if made.is_none() {
+            log::warn!("taper plate could not be made from {:?} and {:?}", arms[0], arms[1]);
+            bad(self, tr("The taper could not be made between these road types", "Не удалось построить переход между этими типами дорог"));
+            return;
+        }
+        log::info!("taper added: {taper:?}");
+        self.layout.tapers.push(taper);
+        self.pick = Some(Pick::Taper(self.layout.tapers.len() - 1));
     }
 
     /// What drawing through `pts` with the tool makes: a piece (and, with Auto-Adapt, the
@@ -410,6 +461,7 @@ impl ComplexJunctions {
                 (Tool::Arc, Icon::Arc, tr("Arc", "Дуга"), tr("Click the start, a point on the arc, then the end. Started at the end of a piece with Auto-Align on, two clicks make an arc tangent to it", "Клик в начало, в точку дуги, затем в конец. От конца детали при включённом Авто-выравнивании хватает двух кликов: дуга касается её")),
                 (Tool::Curve, Icon::Road, tr("Curve", "Кривая"), tr("A smooth path through every point clicked, for complex turns: Enter, a double click or the button below ends it", "Плавная линия через все точки, для сложных поворотов: Enter, двойной клик или кнопка ниже заканчивают")),
                 (Tool::Object, Icon::Building, tr("Object", "Объект"), tr("Stand a scenery object (a lamp, a shelter, a bin): on a piece it is turned along it, with Auto-Align on", "Поставить объект (фонарь, остановку, урну): на детали он поворачивается вдоль неё при включённом Авто-выравнивании")),
+                (Tool::Taper, Icon::Road, tr("Taper section", "Переходный участок"), tr("Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue", "Кликните конец дороги: от него вперёд делается переход к типу дороги, выбранному в каталоге")),
                 (Tool::Arm, Icon::Arm, tr("Arm", "Въезд"), tr("Where a road comes in: click the place, then a point out along the road", "Где входит дорога: клик в место, затем в точку вдоль дороги наружу")),
             ] {
                 if ui.selectable_label(self.tool == t, icons::labelled(icon, label)).on_hover_text(hint).clicked() {
@@ -418,6 +470,14 @@ impl ComplexJunctions {
                 }
             }
         });
+        if self.tool == Tool::Taper {
+            ui.horizontal(|ui| {
+                ui.label(tr("Length", "Длина"));
+                ui.add(egui::DragValue::new(&mut self.taper_len).speed(0.2).range(TAPER_MIN_LENGTH..=500.0).suffix(" m"));
+                ui.label(tr("Offset", "Смещение"));
+                ui.add(egui::DragValue::new(&mut self.taper_off).speed(0.05).range(-TAPER_MAX_OFFSET..=TAPER_MAX_OFFSET).suffix(" m")).on_hover_text(tr("Sideways shift of the far end: positive to the right of the way of travel, negative to the left", "Боковое смещение дальнего конца: плюс — вправо по ходу движения, минус — влево"));
+            });
+        }
         if self.tool == Tool::Curve && self.pending.len() >= 2 && ui.button(tr("Finish the curve", "Закончить кривую")).clicked() {
             self.commit(lib);
         }
@@ -553,6 +613,34 @@ impl ComplexJunctions {
             }
             _ => {}
         }
+        if let Some(Pick::Taper(i)) = self.pick.filter(|p| matches!(p, Pick::Taper(i) if *i < self.layout.tapers.len())) {
+            ui.label(RichText::new(tr("Taper section", "Переходный участок")).strong());
+            let before = self.layout.tapers[i].clone();
+            let t = &mut self.layout.tapers[i];
+            ui.label(RichText::new(format!("{} → {}", lib.find(&t.from_file).map(|a| a.name.clone()).unwrap_or_else(|| t.from_file.clone()), lib.find(&t.to_file).map(|a| a.name.clone()).unwrap_or_else(|| t.to_file.clone()))).small());
+            ui.horizontal(|ui| {
+                ui.label(tr("Length", "Длина"));
+                ui.add(egui::DragValue::new(&mut t.length).speed(0.2).range(TAPER_MIN_LENGTH..=500.0).suffix(" m"));
+                ui.label(tr("Offset", "Смещение"));
+                ui.add(egui::DragValue::new(&mut t.offset).speed(0.05).range(-TAPER_MAX_OFFSET..=TAPER_MAX_OFFSET).suffix(" m")).on_hover_text(tr("Sideways shift of the far end: positive to the right of the way of travel, negative to the left", "Боковое смещение дальнего конца: плюс — вправо по ходу движения, минус — влево"));
+            });
+            if ui.button(tr("Road: the type chosen", "Дорога: выбранный тип")).clicked() {
+                if let Some(f) = self.file.clone().filter(|f| is_road(lib, f)) {
+                    t.to_file = f;
+                }
+            }
+            let changed = *t != before;
+            let after = t.clone();
+            let delete = ui.small_button(icons::labelled(Icon::Delete, tr("Delete", "Удалить"))).clicked();
+            if changed {
+                log::info!("taper changed: {before:?} -> {after:?}");
+            }
+            if delete {
+                log::info!("taper deleted: {after:?}");
+                self.layout.tapers.remove(i);
+                self.pick = None;
+            }
+        }
         if let Some(Pick::Object(i)) = self.pick.filter(|p| matches!(p, Pick::Object(i) if *i < self.layout.objects.len())) {
             ui.label(RichText::new(tr("Object", "Объект")).strong());
             let o = &mut self.layout.objects[i];
@@ -594,6 +682,7 @@ impl ComplexJunctions {
             if ui.small_button(tr("Clear", "Очистить")).clicked() {
                 self.layout.pieces.clear();
                 self.layout.arms.clear();
+                self.layout.tapers.clear();
                 self.pick = None;
                 self.pending.clear();
             }
@@ -700,6 +789,12 @@ impl ComplexJunctions {
             for (i, a) in self.layout.arms.iter().enumerate() {
                 if ui.selectable_label(self.pick == Some(Pick::Arm(i)), format!("{} {} · {:.0}°", tr("Arm", "Въезд"), i + 1, a.out)).clicked() {
                     self.pick = Some(Pick::Arm(i));
+                }
+            }
+            for (i, t) in self.layout.tapers.iter().enumerate() {
+                let name = lib.find(&t.to_file).map(|a| a.name.clone()).unwrap_or_else(|| t.to_file.clone());
+                if ui.selectable_label(self.pick == Some(Pick::Taper(i)), format!("{} {} · {name} · {:.0} m", tr("Taper section", "Переходный участок"), i + 1, t.length)).clicked() {
+                    self.pick = Some(Pick::Taper(i));
                 }
             }
             for (i, o) in self.layout.objects.iter().enumerate() {
@@ -940,20 +1035,21 @@ impl ComplexJunctions {
             }
         }
         // the junctions as the Roads tool makes them (made again only when the drawing changes)
-        let stale = self.plate.as_ref().map(|p| p.0 != self.layout.pieces || p.1 != self.layout.build).unwrap_or(true);
+        let stale = self.plate.as_ref().map(|p| p.0 != self.layout.pieces || p.1 != self.layout.build || p.5 != self.layout.tapers).unwrap_or(true);
         if stale {
             let asphalt = crate::junction::junction_asphalt(map_dir, installed_asphalt);
             let resolved = self.layout.resolve(&|f| is_road(lib, f), &|f| half_of(lib, f));
             self.skipped = resolved.skipped;
-            let plates: Option<Vec<_>> = resolved.plates.iter().map(|arms| assets.as_deref_mut().and_then(|a| crate::junction::layout_plate(a, arms, asphalt.as_deref())).map(|p| (p.flat_textured(), p.lanes))).collect();
+            let all = self.layout.all_plates(&resolved);
+            let plates: Option<Vec<_>> = all.iter().map(|arms| assets.as_deref_mut().and_then(|a| crate::junction::layout_plate(a, arms, asphalt.as_deref())).map(|p| (p.flat_textured(), p.lanes))).collect();
             // (a road type not loaded yet: made again next frame)
             self.plate = plates.map(|pl| {
                 let lanes = pl.iter().flat_map(|p| p.1.iter().copied()).collect();
-                (self.layout.pieces.clone(), self.layout.build, resolved.pieces, pl.into_iter().flat_map(|p| p.0).collect(), lanes)
+                (self.layout.pieces.clone(), self.layout.build, resolved.pieces, pl.into_iter().flat_map(|p| p.0).collect(), lanes, self.layout.tapers.clone())
             });
         }
         let shown: Vec<Piece> = self.plate.as_ref().map(|p| p.2.clone()).unwrap_or_else(|| self.layout.pieces.clone());
-        if let Some((_, _, _, tris, _)) = &self.plate {
+        if let Some((_, _, _, tris, _, _)) = &self.plate {
             // (the roadway flat, the kerbs and footways with their pictures: one mesh each, with
             // no outline round the triangles, which made the fans at the corners bristle)
             let mut flat = egui::epaint::Mesh::default();
@@ -1017,6 +1113,12 @@ impl ComplexJunctions {
             }
         }
         if !preview {
+            for (i, t) in self.layout.tapers.iter().enumerate() {
+                let (a, b) = (t.start(), t.end().0);
+                let col = if self.pick == Some(Pick::Taper(i)) { Color32::from_rgb(255, 160, 60) } else { Color32::from_rgb(120, 200, 230) };
+                painter.line_segment([to_screen(a), to_screen(b)], Stroke::new(1.5, col));
+                painter.circle_filled(to_screen(b), 4.0, col);
+            }
             for (i, a) in self.layout.arms.iter().enumerate() {
                 draw_arm(&painter, &to_screen, a, self.pick == Some(Pick::Arm(i)), scale);
             }
@@ -1053,6 +1155,7 @@ impl ComplexJunctions {
                 Tool::Line => tr("Click the start of the piece, then its end", "Клик в начало детали, затем в её конец"),
                 Tool::Arc => tr("Click the start, a point the arc passes, then the end", "Клик в начало, в точку дуги, затем в конец"),
                 Tool::Curve => tr("Click the points the curve passes; Enter or a double click ends it", "Кликайте точки, через которые пройдёт кривая; Enter или двойной клик заканчивает"),
+                Tool::Taper => tr("Click the end of a road to lay a taper from it", "Клик по концу дороги: от него кладётся переход"),
                 Tool::Arm => tr("Click where a road comes in, then a point out along the road", "Клик, где входит дорога, затем точка вдоль дороги наружу"),
                 Tool::Object => tr("Click where the object stands; on a piece it faces along it", "Клик там, где встанет объект; на детали он смотрит вдоль неё"),
             }
@@ -1074,7 +1177,7 @@ impl ComplexJunctions {
             }
             let near = 9.0 / scale as f64;
             let mut best: Option<(f64, DVec2)> = None;
-            let ends = self.layout.pieces.iter().flat_map(|p| p.segs.iter()).flat_map(|s| [s.seg().point(0.0), s.seg().end()]).chain(self.layout.arms.iter().map(|a| DVec2::new(a.x, a.y)));
+            let ends = self.layout.pieces.iter().flat_map(|p| p.segs.iter()).flat_map(|s| [s.seg().point(0.0), s.seg().end()]).chain(self.layout.arms.iter().map(|a| DVec2::new(a.x, a.y))).chain(self.layout.tapers.iter().map(|t| t.end().0));
             for e in ends {
                 let d = (e - raw).length();
                 if d < near && best.map(|b| d < b.0).unwrap_or(true) {
@@ -1141,11 +1244,18 @@ impl ComplexJunctions {
                 Some(Pick::Object(i)) if i < self.layout.objects.len() => {
                     self.layout.objects.remove(i);
                 }
+                Some(Pick::Taper(i)) if i < self.layout.tapers.len() => {
+                    log::info!("taper deleted: {:?}", self.layout.tapers[i]);
+                    self.layout.tapers.remove(i);
+                }
                 _ => {}
             }
         }
         if resp.clicked_by(egui::PointerButton::Primary) {
-            if let Some(c) = cursor {
+            if let (Tool::Taper, Some(c)) = (self.tool, cursor) {
+                self.message = None;
+                self.click_taper(c, lib, assets);
+            } else if let Some(c) = cursor {
                 self.click(c, resp.hover_pos().map(from_screen).unwrap_or(c), 8.0 / scale as f64, lib);
             }
         }
@@ -1231,6 +1341,14 @@ impl ComplexJunctions {
                 return Some(Pick::Arm(i));
             }
         }
+        for (i, t) in self.layout.tapers.iter().enumerate() {
+            let (a, b) = (t.start(), t.end().0);
+            let ab = b - a;
+            let k = if ab.length_squared() > 1e-9 { ((p - a).dot(ab) / ab.length_squared()).clamp(0.0, 1.0) } else { 0.0 };
+            if (a + ab * k - p).length() < half_of(lib, &t.to_file).max(tol) {
+                return Some(Pick::Taper(i));
+            }
+        }
         // (the topmost piece under the point wins; of those, the nearest middle)
         let mut best: Option<(f64, usize)> = None;
         for (i, piece) in self.layout.pieces.iter().enumerate().filter(|(_, p)| !p.hidden && !p.auto) {
@@ -1273,6 +1391,8 @@ impl ComplexJunctions {
         self.message = None;
         match self.tool {
             Tool::Select => self.pick = self.hit(raw, tol, lib),
+            // (made by `click_taper`, which has the assets to check the plate)
+            Tool::Taper => {}
             Tool::Line | Tool::Arc | Tool::Curve => {
                 if self.file.is_none() {
                     self.message = Some((tr("Pick a spline type on the left first", "Сначала выберите тип сплайна слева").into(), true));

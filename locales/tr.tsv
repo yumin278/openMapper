@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	sinyal bu kavşakta olmayan b
 The object has no surface there: no signal was put down	Nesnenin orada yüzeyi yok: sinyal yerleştirilmedi
 Click to place a signal	Trafik ışığı yerleştirmek için tıklayın
 The signal is outside the object: its previous height was kept	Trafik ışığı nesnenin dışında: önceki yüksekliği korundu
+Taper section	Geçiş kesimi
+Pick a road type in the catalogue on the left first	Önce soldaki katalogdan bir yol türü seçin
+Click the end of a road piece	Bir yol parçasının ucuna tıklayın
+The taper could not be made between these road types	Bu yol türleri arasında geçiş yapılamadı
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Bir yol ucuna tıklayın: oradan ileriye, katalogda seçilen yol türüne bir geçiş yapılır
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Uzak ucun yana kayması: pozitif gidiş yönünün sağına, negatif soluna
+Click the end of a road to lay a taper from it	Bir yolun ucuna tıklayarak oradan bir geçiş döşeyin

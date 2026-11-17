@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	un semaforo mostra una luce c
 The object has no surface there: no signal was put down	L'oggetto non ha una superficie lì: non è stato posato alcun semaforo
 Click to place a signal	Fai clic per posizionare un semaforo
 The signal is outside the object: its previous height was kept	Il semaforo è fuori dall’oggetto: è stata mantenuta l’altezza precedente
+Taper section	Tratto di raccordo
+Pick a road type in the catalogue on the left first	Scegli prima un tipo di strada nel catalogo a sinistra
+Click the end of a road piece	Fai clic sull'estremità di un pezzo di strada
+The taper could not be made between these road types	Impossibile creare il raccordo tra questi tipi di strada
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Fai clic sull'estremità di una strada: da lì in avanti si crea un raccordo verso il tipo di strada scelto nel catalogo
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Spostamento laterale dell'estremità lontana: positivo a destra del senso di marcia, negativo a sinistra
+Click the end of a road to lay a taper from it	Fai clic sull'estremità di una strada per posare un raccordo

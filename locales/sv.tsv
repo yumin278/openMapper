@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	en signal visar ett ljus som 
 The object has no surface there: no signal was put down	Objektet har ingen yta där: ingen signal placerades
 Click to place a signal	Klicka för att placera en trafiksignal
 The signal is outside the object: its previous height was kept	Trafiksignalen är utanför objektet: den tidigare höjden behölls
+Taper section	Övergångssträcka
+Pick a road type in the catalogue on the left first	Välj först en vägtyp i katalogen till vänster
+Click the end of a road piece	Klicka på änden av en vägbit
+The taper could not be made between these road types	Ingen övergång kunde göras mellan dessa vägtyper
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Klicka på en vägände: därifrån görs framåt en övergång till vägtypen som valts i katalogen
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Sidoförskjutning av den bortre änden: positiv till höger i färdriktningen, negativ till vänster
+Click the end of a road to lay a taper from it	Klicka på en vägände för att lägga en övergång därifrån

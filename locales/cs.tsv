@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	návěstidlo ukazuje světlo,
 The object has no surface there: no signal was put down	Objekt zde nemá povrch: návěstidlo nebylo umístěno
 Click to place a signal	Kliknutím umístíte semafor
 The signal is outside the object: its previous height was kept	Semafor je mimo objekt: byla zachována původní výška
+Taper section	Přechodový úsek
+Pick a road type in the catalogue on the left first	Nejdříve vlevo v katalogu vyberte typ silnice
+Click the end of a road piece	Klikněte na konec dílu silnice
+The taper could not be made between these road types	Mezi těmito typy silnic se přechod nepodařilo vytvořit
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Klikněte na konec silnice: od něj se dopředu vytvoří přechod na typ silnice vybraný v katalogu
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Boční posun vzdáleného konce: kladný doprava ve směru jízdy, záporný doleva
+Click the end of a road to lay a taper from it	Klikněte na konec silnice a položte od něj přechod

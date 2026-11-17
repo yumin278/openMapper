@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	สัญญาณแสด�
 The object has no surface there: no signal was put down	วัตถุไม่มีพื้นผิวตรงนั้น: ไม่ได้วางสัญญาณ
 Click to place a signal	คลิกเพื่อวางสัญญาณไฟจราจร
 The signal is outside the object: its previous height was kept	สัญญาณไฟอยู่นอกวัตถุ: คงความสูงเดิมไว้
+Taper section	ช่วงเปลี่ยนผ่าน
+Pick a road type in the catalogue on the left first	เลือกประเภทถนนในแคตตาล็อกทางซ้ายก่อน
+Click the end of a road piece	คลิกที่ปลายของชิ้นถนน
+The taper could not be made between these road types	ไม่สามารถสร้างช่วงเปลี่ยนผ่านระหว่างประเภทถนนเหล่านี้ได้
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	คลิกที่ปลายถนน: จะสร้างช่วงเปลี่ยนผ่านไปข้างหน้าจากตรงนั้นไปยังประเภทถนนที่เลือกในแคตตาล็อก
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	การเลื่อนด้านข้างของปลายไกล: ค่าบวกไปทางขวาของทิศทางการเดินทาง ค่าลบไปทางซ้าย
+Click the end of a road to lay a taper from it	คลิกที่ปลายถนนเพื่อวางช่วงเปลี่ยนผ่านจากตรงนั้น

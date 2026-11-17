@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	a jelző olyan fényt mutat, 
 The object has no surface there: no signal was put down	Az objektumnak ott nincs felülete: nem került jelző elhelyezésre
 Click to place a signal	Kattintson egy jelzőlámpa elhelyezéséhez
 The signal is outside the object: its previous height was kept	A jelzőlámpa az objektumon kívül van: a korábbi magassága megmaradt
+Taper section	Átmeneti szakasz
+Pick a road type in the catalogue on the left first	Előbb válasszon úttípust a bal oldali katalógusban
+Click the end of a road piece	Kattintson egy útdarab végére
+The taper could not be made between these road types	Ezek között az úttípusok között nem sikerült átmenetet készíteni
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Kattintson egy út végére: onnan előre átmenet készül a katalógusban kiválasztott úttípushoz
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	A távoli vég oldalirányú eltolása: pozitív a haladási irány szerint jobbra, negatív balra
+Click the end of a road to lay a taper from it	Kattintson egy út végére, hogy onnan átmenetet fektessen

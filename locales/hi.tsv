@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	सिग्नल एक ऐ
 The object has no surface there: no signal was put down	वहाँ वस्तु की कोई सतह नहीं है: कोई सिग्नल नहीं रखा गया
 Click to place a signal	सिग्नल लगाने के लिए क्लिक करें
 The signal is outside the object: its previous height was kept	सिग्नल वस्तु के बाहर है: उसकी पिछली ऊँचाई रखी गई
+Taper section	संक्रमण खंड
+Pick a road type in the catalogue on the left first	पहले बाईं ओर की सूची में सड़क प्रकार चुनें
+Click the end of a road piece	किसी सड़क टुकड़े के सिरे पर क्लिक करें
+The taper could not be made between these road types	इन सड़क प्रकारों के बीच संक्रमण नहीं बन सका
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	किसी सड़क के सिरे पर क्लिक करें: वहाँ से आगे सूची में चुने गए सड़क प्रकार तक संक्रमण बनता है
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	दूर वाले सिरे का बगल की ओर खिसकाव: धनात्मक चलने की दिशा के दाईं ओर, ऋणात्मक बाईं ओर
+Click the end of a road to lay a taper from it	किसी सड़क के सिरे पर क्लिक करके वहाँ से संक्रमण बिछाएँ

@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	sygnalizator pokazuje świat�
 The object has no surface there: no signal was put down	Obiekt nie ma tam powierzchni: nie umieszczono sygnalizatora
 Click to place a signal	Kliknij, aby umieścić sygnalizator
 The signal is outside the object: its previous height was kept	Sygnalizator jest poza obiektem: zachowano poprzednią wysokość
+Taper section	Odcinek przejściowy
+Pick a road type in the catalogue on the left first	Najpierw wybierz typ drogi w katalogu po lewej
+Click the end of a road piece	Kliknij koniec fragmentu drogi
+The taper could not be made between these road types	Nie udało się utworzyć przejścia między tymi typami dróg
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Kliknij koniec drogi: od niego do przodu powstaje przejście do typu drogi wybranego w katalogu
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Przesunięcie boczne dalszego końca: dodatnie w prawo względem kierunku jazdy, ujemne w lewo
+Click the end of a road to lay a taper from it	Kliknij koniec drogi, aby położyć od niego przejście

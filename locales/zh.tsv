@@ -3003,3 +3003,10 @@ a signal shows a light this crossing does not have	信号显示了此路口没�
 The object has no surface there: no signal was put down	对象在该处没有表面：未放置信号
 Click to place a signal	点击放置信号灯
 The signal is outside the object: its previous height was kept	信号灯已移到物体外：保留原来的高度
+Taper section	渐变段
+Pick a road type in the catalogue on the left first	请先在左侧目录中选择道路类型
+Click the end of a road piece	请点击道路部件的端点
+The taper could not be made between these road types	无法在这两种道路类型之间建立渐变段
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	点击道路端点：由此沿道路向前建立渐变段，接到目录中所选的道路类型
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	远端的横向偏移：正值为行驶方向右侧，负值为左侧
+Click the end of a road to lay a taper from it	点击道路端点，由此铺设渐变段

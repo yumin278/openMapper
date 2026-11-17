@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	бағдаршам бұл қ�
 The object has no surface there: no signal was put down	Нысанның сол жерде беті жоқ: бағдаршам қойылмады
 Click to place a signal	Бағдаршамды орналастыру үшін басыңыз
 The signal is outside the object: its previous height was kept	Бағдаршам нысаннан тыс жерде: бұрынғы биіктігі сақталды
+Taper section	Өтпелі учаске
+Pick a road type in the catalogue on the left first	Алдымен сол жақтағы каталогтан жол түрін таңдаңыз
+Click the end of a road piece	Жол бөлігінің ұшын басыңыз
+The taper could not be made between these road types	Бұл жол түрлерінің арасында өтпе жасау мүмкін болмады
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Жолдың ұшын басыңыз: одан алға қарай каталогта таңдалған жол түріне өтпе жасалады
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Алыс ұштың бүйірлік ығысуы: оң мән қозғалыс бағытының оң жағына, теріс мән сол жағына
+Click the end of a road to lay a taper from it	Жолдың ұшын басып, одан өтпе салыңыз

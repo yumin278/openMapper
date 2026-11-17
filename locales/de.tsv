@@ -3005,3 +3005,10 @@ a signal shows a light this crossing does not have	ein Signal zeigt ein Licht, d
 The object has no surface there: no signal was put down	Das Objekt hat dort keine Oberfläche: Es wurde kein Signal gesetzt
 Click to place a signal	Klicken, um eine Ampel zu platzieren
 The signal is outside the object: its previous height was kept	Die Ampel liegt außerhalb des Objekts: Die bisherige Höhe wurde beibehalten
+Taper section	Übergangsstück
+Pick a road type in the catalogue on the left first	Zuerst links im Katalog einen Straßentyp wählen
+Click the end of a road piece	Auf das Ende eines Straßenstücks klicken
+The taper could not be made between these road types	Zwischen diesen Straßentypen ließ sich kein Übergang bauen
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Auf ein Straßenende klicken: von dort wird nach vorn ein Übergang zum im Katalog gewählten Straßentyp gebaut
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Seitliche Verschiebung des fernen Endes: positiv nach rechts in Fahrtrichtung, negativ nach links
+Click the end of a road to lay a taper from it	Auf ein Straßenende klicken, um von dort einen Übergang zu legen
