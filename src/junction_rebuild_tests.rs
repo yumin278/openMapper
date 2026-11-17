@@ -27,7 +27,7 @@ fn a_manual_junction_rebuild_keeps_the_bus_bay_taper_without_unresolved_rules() 
     assert!(!exit.rules.is_empty());
 
     let road = |name: &str, lanes_fwd, lanes_back, lane_width| crate::road_maker::RoadSpec {
-        name: name.into(), lanes_fwd, lanes_back, lane_width, left_hand: Some(false),
+        name: name.into(), lanes_fwd, lanes_back, lane_width,
         roadway_tex: dir.join("asph.png"), footway_tex: dir.join("side.png"),
         ..Default::default()
     }.write(&content).unwrap();
