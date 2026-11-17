@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Markera signalen och dess delar i v
 Delete the route	Ta bort vägen
 Lines and timetable	Linjer och tidtabell
 Convert all Type 1 trips to Type 2	Konvertera alla turer från typ 1 till typ 2
+Exclude from Type 2 conversion	Undanta från konvertering till typ 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Konvertera hållplatslistorna för {count} turer av typ 1 och spara sedan kartan. Räkna om rutterna separat.
 Converted: {converted}. Skipped: {skipped}.	Konverterade: {converted}. Överhoppade: {skipped}.
 Edit timetable	Redigera tidtabell

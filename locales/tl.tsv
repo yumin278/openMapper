@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Piliin ang signal at mga piraso nit
 Delete the route	Burahin ang ruta
 Lines and timetable	Mga linya at timetable
 Convert all Type 1 trips to Type 2	I-convert ang lahat ng biyaheng Type 1 sa Type 2
+Exclude from Type 2 conversion	Huwag isama sa pag-convert sa Type 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	I-convert ang mga listahan ng hintuan ng {count} biyaheng Type 1, pagkatapos ay i-save ang mapa. Hiwalay na kalkulahin muli ang mga ruta.
 Converted: {converted}. Skipped: {skipped}.	Na-convert: {converted}. Nilaktawan: {skipped}.
 Edit timetable	I-edit ang timetable

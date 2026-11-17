@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Chọn tín hiệu và các đoạn
 Delete the route	Xóa tuyến
 Lines and timetable	Tuyến và bảng giờ
 Convert all Type 1 trips to Type 2	Chuyển tất cả chuyến loại 1 sang loại 2
+Exclude from Type 2 conversion	Bỏ qua khi chuyển sang loại 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Chuyển danh sách điểm dừng của {count} chuyến loại 1, sau đó lưu bản đồ. Tính lại lộ trình bằng thao tác riêng.
 Converted: {converted}. Skipped: {skipped}.	Đã chuyển: {converted}. Đã bỏ qua: {skipped}.
 Edit timetable	Sửa bảng giờ

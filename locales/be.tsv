@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Вылучыць сігнал і я
 Delete the route	Выдаліць маршрут
 Lines and timetable	Лініі і расклад
 Convert all Type 1 trips to Type 2	Пераўтварыць усе рэйсы тыпу 1 у тып 2
+Exclude from Type 2 conversion	Выключыць з пераўтварэння ў тып 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Пераўтварыце спісы прыпынкаў для {count} рэйсаў тыпу 1, потым захавайце карту. Пераразлік маршрутаў запускаецца асобна.
 Converted: {converted}. Skipped: {skipped}.	Пераўтворана: {converted}. Прапушчана: {skipped}.
 Edit timetable	Праўка раскладу

@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	뷰에서 신호와 구간 선택
 Delete the route	경로 삭제
 Lines and timetable	노선 및 시간표
 Convert all Type 1 trips to Type 2	모든 유형 1 운행을 유형 2로 변환
+Exclude from Type 2 conversion	유형 2 변환에서 제외
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	유형 1 운행 {count}개의 정류장 목록을 변환한 뒤 지도를 저장하세요. 경로 재계산은 별도로 실행하세요.
 Converted: {converted}. Skipped: {skipped}.	변환: {converted}. 건너뜀: {skipped}.
 Edit timetable	시간표 편집

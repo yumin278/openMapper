@@ -114,6 +114,66 @@ fn global_type2_conversion_saves_only_the_converted_trips() {
 }
 
 #[test]
+fn type2_exclusions_keep_legacy_files_until_the_trip_is_selected() {
+    let out = scratch("type2-exclusions");
+    let dir = out.join("TTData");
+    let legacy = |id| format!("[station]\n{id}\n0\nStop {id}\n0\n0\n0\n0\n0\n\n");
+    let trip = |track, stops: &str| format!("[trip]\n{track}\nTerminus\n66\n\n{stops}[profile]\nstandard\n18.000\n");
+    let inputs = [
+        ("zero.ttp", trip("tram-track", "")),
+        ("one.ttp", trip("tram-track", &legacy(11))),
+        ("tram.ttp", trip("tram-track", &(legacy(11) + &legacy(12)))),
+        ("bus.ttp", trip("bus-track", &(legacy(21) + &legacy(22)))),
+        ("draft.ttp", trip("", "")),
+        ("tram-track.ttr", "[track_entry]\n1756623\n58\n0\n144\n3.4700000000\n0\n\n".into()),
+        ("StnLinks.cfg", "Time Table StnLinkList File\n".into()),
+    ];
+    for (file, text) in &inputs {
+        std::fs::write(dir.join(file), encode(text)).unwrap();
+    }
+    let mut tt = Timetable::load(&out, &[]);
+    let baseline = tt.clone();
+    for (name, expected) in [("zero", true), ("one", true), ("tram", false), ("bus", false)] {
+        let trip = tt.trip(name).unwrap();
+        assert!(is_type1(trip));
+        assert_eq!(tt.excludes_type2(trip), expected, "{name}");
+    }
+    assert!(!is_type1(tt.trip("draft").unwrap()));
+    tt.set_type2_exclusion(baseline.trip("tram").unwrap(), true);
+    assert!(!tt.dirty);
+    assert_eq!(tt.convert_all_to_type2(), (1, 3));
+    save_to(&mut tt, &out, &[]).unwrap();
+    for (file, original) in &inputs {
+        if *file != "bus.ttp" {
+            assert_eq!(std::fs::read(dir.join(file)).unwrap(), encode(original), "{file}");
+        }
+    }
+    for name in ["zero", "one"] {
+        tt.set_type2_exclusion(baseline.trip(name).unwrap(), false);
+    }
+    assert_eq!(tt.convert_all_to_type2(), (2, 1));
+    assert_eq!(tt.convert_all_to_type2(), (0, 1));
+    save_to(&mut tt, &out, &[]).unwrap();
+    let reloaded = Timetable::load(&out, &[]);
+    for (file, original) in &inputs {
+        let bytes = std::fs::read(dir.join(file)).unwrap();
+        let text = std::str::from_utf8(&bytes).unwrap();
+        println!("{file} before:\n{original}\n{file} after:\n{text}");
+        if !matches!(*file, "zero.ttp" | "one.ttp" | "bus.ttp") {
+            assert_eq!(bytes, encode(original), "{file}");
+        }
+    }
+    for (name, stations) in [("zero", vec![]), ("one", vec![11]), ("bus", vec![21, 22])] {
+        let trip = reloaded.trip(name).unwrap();
+        assert!(!is_type1(trip));
+        assert!(trip.display_name.is_empty() && trip.stations_legacy.is_empty());
+        assert_eq!(trip.stations, stations);
+        assert_eq!(trip.profiles, baseline.trip(name).unwrap().profiles);
+    }
+    let _ = std::fs::remove_dir_all(out);
+}
+
+#[test]
 fn timetable_writes_names_for_stops_attached_to_splines() {
     let _map = one_map();
     let out = scratch("attached-stop-name");

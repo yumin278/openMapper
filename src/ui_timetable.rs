@@ -448,6 +448,9 @@ impl TimetableUi {
             // An explicit stop edit is a new request to route this trip.
             self.bulk_blocked.remove(&lower(&name));
             let Some(trip) = doc.timetable.trip(&name).cloned() else { continue };
+            if timetable::is_type1(&trip) {
+                continue;
+            }
             if doc.timetable.by_hand(&name) {
                 // (paths picked by hand stay: the stops are found along them again)
                 if let Some(lanes) = way::saved_lanes(net, doc, &name) {
@@ -728,6 +731,15 @@ impl TimetableUi {
     /// Inserting queues the stop for the same profile remapping as edits in the stop list.
     fn pick_from_view(&mut self, ed: &mut Editor) {
         ed.pick_mode = self.picking || self.way_edit || self.insert_before.is_some();
+        if ed.pick_mode && self.trip.as_deref()
+            .and_then(|name| ed.doc.as_ref()?.timetable.trip(name))
+            .is_some_and(timetable::is_type1)
+        {
+            self.picking = false;
+            self.way_edit = false;
+            self.clear_stop_edits();
+            ed.pick_mode = false;
+        }
         if !ed.pick_mode {
             ed.picked = None;
             return;
@@ -801,13 +813,15 @@ impl TimetableUi {
     }
 
     fn type2_conversion(&mut self, ui: &mut egui::Ui, doc: &mut Document, toasts: &mut Vec<crate::editor::Toast>) {
-        let count = doc.timetable.trips.iter().filter(|t| !t.stations_legacy.is_empty()).count();
-        if count == 0 {
+        let legacy = || doc.timetable.trips.iter().filter(|t| timetable::is_type1(t));
+        let total = legacy().count();
+        if total == 0 {
             self.confirm_type2_conversion = false;
             return;
         }
+        let count = legacy().filter(|t| !doc.timetable.excludes_type2(t)).count();
         let label = type2_conversion_label();
-        if ui.button(label).clicked() {
+        if ui.add_enabled(count > 0, egui::Button::new(label)).clicked() {
             self.confirm_type2_conversion = true;
         }
         if self.confirm_type2_conversion {
@@ -827,7 +841,7 @@ impl TimetableUi {
                 self.shown = None;
                 let text = tr("Converted: {converted}. Skipped: {skipped}.", "Преобразовано: {converted}. Пропущено: {skipped}.")
                     .replace("{converted}", &converted.to_string()).replace("{skipped}", &skipped.to_string());
-                toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: skipped > 0 });
+                toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: skipped > total - count });
             } else if modal.should_close() {
                 self.confirm_type2_conversion = false;
             }
@@ -1187,8 +1201,12 @@ impl TimetableUi {
                 tt.touch_trip(&name);
             }
         });
-        if !t.stations_legacy.is_empty() {
+        if timetable::is_type1(&t) {
             self.clear_stop_edits();
+            let mut excluded = tt.excludes_type2(&t);
+            if ui.checkbox(&mut excluded, tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2")).changed() {
+                tt.set_type2_exclusion(&t, excluded);
+            }
             ui.label(RichText::new(tr("This trip runs on a track of its own (a train): its stops are kept as they are.", "Этот рейс идёт по своему пути (поезд): его остановки остаются как есть.")).color(TEXT_DIM));
             return;
         }
@@ -2023,6 +2041,68 @@ mod station_edit_tests {
         let ctx = egui::Context::default();
         ctx.set_fonts(icons::fonts());
         (ed, ui, ctx)
+    }
+
+    #[test]
+    fn type2_conversion_checkbox_unlocks_stop_picking_for_a_zero_stop_legacy_trip() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        let tt = &mut ed.doc.as_mut().unwrap().timetable;
+        let legacy = tt.trip_mut("current").unwrap();
+        legacy.display_name = "tram-track".into();
+        legacy.stations.clear();
+        println!("Before:\n{}", timetable::trip_text(legacy));
+        let text_center = |output: &egui::FullOutput, label: &str| {
+            output.shapes.iter().rev().find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.text().contains(label) => Some(text.pos + text.galley.size() * 0.5),
+                _ => None,
+            })
+        };
+        let click = |ui: &mut TimetableUi, ed: &mut Editor, pos| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default(),
+            };
+            frame(&ctx, ui, ed, vec![egui::Event::PointerMoved(pos), button(true)]);
+            frame(&ctx, ui, ed, vec![button(false)])
+        };
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let exclude = tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2");
+        let pick = tr("Pick stops on the map", "Выбрать на карте");
+        assert!(text_center(&output, pick).is_none());
+        let button = text_center(&output, type2_conversion_label()).unwrap();
+        let output = click(&mut ui, &mut ed, button);
+        assert!(!ui.confirm_type2_conversion);
+        let checkbox = text_center(&output, exclude).unwrap();
+        let output = click(&mut ui, &mut ed, checkbox);
+        let tt = &ed.doc.as_ref().unwrap().timetable;
+        assert!(!tt.excludes_type2(tt.trip("current").unwrap()));
+        let button = text_center(&output, type2_conversion_label()).unwrap();
+        click(&mut ui, &mut ed, button);
+        assert!(ui.confirm_type2_conversion);
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let modal_button = text_center(&output, type2_conversion_label()).unwrap();
+        assert_ne!(modal_button, button);
+        let output = click(&mut ui, &mut ed, modal_button);
+        assert!(!ui.confirm_type2_conversion);
+        assert!(text_center(&output, exclude).is_none());
+        let pick_button = text_center(&output, pick).unwrap();
+        click(&mut ui, &mut ed, pick_button);
+        assert!(ed.pick_mode);
+        ed.picked = Some((Some(Sel::Object((0, 0), 12)), None));
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let converted = ed.doc.as_ref().unwrap().timetable.trip("current").unwrap();
+        println!("After conversion and picking a stop:\n{}", timetable::trip_text(converted));
+        assert!(!timetable::is_type1(converted));
+        assert_eq!(converted.stations, [12]);
+        ed.undo();
+        ed.undo();
+        ed.picked = Some((Some(Sel::Object((0, 0), 11)), None));
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let restored = ed.doc.as_ref().unwrap().timetable.trip("current").unwrap();
+        println!("After undo:\n{}", timetable::trip_text(restored));
+        assert!(timetable::is_type1(restored));
+        assert!(restored.stations.is_empty() && !ed.pick_mode);
     }
 
     #[test]

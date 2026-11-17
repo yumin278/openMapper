@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Виділити сигнал і й
 Delete the route	Видалити маршрут
 Lines and timetable	Лінії та розклад
 Convert all Type 1 trips to Type 2	Перетворити всі рейси типу 1 на тип 2
+Exclude from Type 2 conversion	Виключити з перетворення на тип 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Перетворіть списки зупинок для рейсів типу 1 ({count}), а потім збережіть карту. Перерахунок маршрутів запускається окремо.
 Converted: {converted}. Skipped: {skipped}.	Перетворено: {converted}. Пропущено: {skipped}.
 Edit timetable	Правка розкладу

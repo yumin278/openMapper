@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Zaznacz sygnał i jego odcinki w wi
 Delete the route	Usuń trasę
 Lines and timetable	Linie i rozkład
 Convert all Type 1 trips to Type 2	Konwertuj wszystkie kursy z typu 1 na typ 2
+Exclude from Type 2 conversion	Pomiń przy konwersji na typ 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Przekonwertuj listy przystanków dla kursów typu 1 ({count}), a następnie zapisz mapę. Ponowne obliczanie tras uruchom osobno.
 Converted: {converted}. Skipped: {skipped}.	Przekonwertowano: {converted}. Pominięto: {skipped}.
 Edit timetable	Edytuj rozkład

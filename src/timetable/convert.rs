@@ -1,14 +1,38 @@
 //! Convert legacy trip stop records to the OMSI 2 station-link format.
 
+use omsi_timetable::Trip;
+
 use super::{key, Timetable};
 
+/// A legacy trip can specify only a track, with no `[station]` records.
+pub(crate) fn is_type1(trip: &Trip) -> bool {
+    !trip.stations_legacy.is_empty() || (trip.stations.is_empty() && !trip.display_name.trim().is_empty())
+}
+
 impl Timetable {
-    /// Convert every legacy trip with a valid stop sequence. Returns the numbers converted and skipped.
+    pub(crate) fn excludes_type2(&self, trip: &Trip) -> bool {
+        self.type2_exclusions.get(&key(&trip.name)).copied().unwrap_or(trip.stations_legacy.len() < 2)
+    }
+
+    pub(crate) fn set_type2_exclusion(&mut self, trip: &Trip, excluded: bool) {
+        self.type2_exclusions.insert(key(&trip.name), excluded);
+    }
+
+    /// Convert legacy trips selected for conversion. Returns the numbers converted and skipped.
     /// Like the OMSI editor, clear the track reference and leave the track files and station links alone.
     pub fn convert_all_to_type2(&mut self) -> (usize, usize) {
         let mut converted = Vec::new();
         let mut skipped = 0;
-        for trip in self.trips.iter_mut().filter(|t| !t.stations_legacy.is_empty()) {
+        for i in 0..self.trips.len() {
+            let trip = &self.trips[i];
+            if !is_type1(trip) {
+                continue;
+            }
+            if self.excludes_type2(trip) {
+                skipped += 1;
+                continue;
+            }
+            let trip = &mut self.trips[i];
             if !trip.stations.is_empty() || trip.train_reverse {
                 log::warn!("timetable: {} skipped in Type 2 conversion (mixed station formats or train reversal)", trip.name);
                 skipped += 1;

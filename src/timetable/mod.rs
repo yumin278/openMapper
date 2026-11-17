@@ -11,7 +11,9 @@ pub mod profile;
 pub mod route;
 pub mod way;
 
-use std::collections::BTreeSet;
+pub(crate) use convert::is_type1;
+
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use omsi_timetable::{BusStopEntry, Line, StnLink, StnLinkEntry, TimetableData, Track, TrackEntry, Trip};
@@ -47,6 +49,8 @@ pub struct Timetable {
     pub reroute: BTreeSet<String>,
     /// Trips converted since the last save, whose existing route is kept on that save.
     pub type2_converted: BTreeSet<String>,
+    /// Manual overrides of the default Type 2 conversion exclusion for the open map.
+    type2_exclusions: BTreeMap<String, bool>,
     /// Public holidays and school holidays (`Holidays.txt`): which tours run on a day.
     pub calendar: omsi_map::Calendar,
     calendar_changed: bool,
@@ -300,6 +304,9 @@ impl Timetable {
         if self.type2_converted.remove(&key(old)) {
             self.type2_converted.insert(key(new));
         }
+        if let Some(excluded) = self.type2_exclusions.remove(&key(old)) {
+            self.type2_exclusions.insert(key(new), excluded);
+        }
         for ext in ["ttp", "ttr"] {
             self.removed.insert(key(&format!("{old}.{ext}")));
             self.changed.remove(&key(&format!("{old}.{ext}")));
@@ -350,6 +357,7 @@ impl Timetable {
         }
         self.reroute.remove(&key(name));
         self.type2_converted.remove(&key(name));
+        self.type2_exclusions.remove(&key(name));
         self.hand.remove(&key(name));
         self.mark();
     }

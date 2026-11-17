@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Vybrat návěstidlo a jeho úseky v
 Delete the route	Smazat cestu
 Lines and timetable	Linky a jízdní řád
 Convert all Type 1 trips to Type 2	Převést všechny spoje typu 1 na typ 2
+Exclude from Type 2 conversion	Vynechat při převodu na typ 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Převeďte seznamy zastávek u spojů typu 1 ({count}) a potom uložte mapu. Přepočet tras spusťte zvlášť.
 Converted: {converted}. Skipped: {skipped}.	Převedeno: {converted}. Přeskočeno: {skipped}.
 Edit timetable	Úprava jízdního řádu
