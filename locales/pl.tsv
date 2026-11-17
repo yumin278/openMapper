@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	pozycja sygnalizatora nie jest liczbą skończoną
 a signal shows a light this crossing does not have	sygnalizator pokazuje światło, którego to skrzyżowanie nie ma
 The object has no surface there: no signal was put down	Obiekt nie ma tam powierzchni: nie umieszczono sygnalizatora
+Click to place a signal	Kliknij, aby umieścić sygnalizator
+The signal is outside the object: its previous height was kept	Sygnalizator jest poza obiektem: zachowano poprzednią wysokość

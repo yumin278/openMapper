@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	месца святлафора не з'яўляецца канечным лікам
 a signal shows a light this crossing does not have	святлафор паказвае святло, якога няма ў гэтым скрыжаванні
 The object has no surface there: no signal was put down	У аб'екта там няма паверхні: святлафор не пастаўлены
+Click to place a signal	Націсніце, каб паставіць святлафор
+The signal is outside the object: its previous height was kept	Святлафор па-за аб’ектам: захавана ранейшая вышыня

@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	ang puwesto ng signal ay hindi isang may hangganang numero
 a signal shows a light this crossing does not have	nagpapakita ang signal ng ilaw na wala sa crossing na ito
 The object has no surface there: no signal was put down	Walang ibabaw ang object doon: walang signal na inilagay
+Click to place a signal	I-click upang maglagay ng ilaw-trapiko
+The signal is outside the object: its previous height was kept	Nasa labas ng bagay ang ilaw-trapiko: pinanatili ang dating taas nito

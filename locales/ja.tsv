@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	信号灯器の位置が有限の数値ではありません
 a signal shows a light this crossing does not have	信号灯器が、この交差点にない現示を表示しています
 The object has no surface there: no signal was put down	その場所にオブジェクトの面がないため、信号灯器は設置されませんでした
+Click to place a signal	クリックして信号機を配置
+The signal is outside the object: its previous height was kept	信号機がオブジェクトの外にあります：元の高さを維持しました

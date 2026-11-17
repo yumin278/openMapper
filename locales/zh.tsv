@@ -3001,3 +3001,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	信号的位置不是有限数值
 a signal shows a light this crossing does not have	信号显示了此路口没有的灯光
 The object has no surface there: no signal was put down	对象在该处没有表面：未放置信号
+Click to place a signal	点击放置信号灯
+The signal is outside the object: its previous height was kept	信号灯已移到物体外：保留原来的高度

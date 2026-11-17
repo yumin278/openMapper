@@ -3006,3 +3006,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	de positie van een sein is geen eindig getal
 a signal shows a light this crossing does not have	een sein toont een licht dat deze kruising niet heeft
 The object has no surface there: no signal was put down	Het object heeft daar geen oppervlak: er is geen sein geplaatst
+Click to place a signal	Klik om een verkeerslicht te plaatsen
+The signal is outside the object: its previous height was kept	Het verkeerslicht staat buiten het object: de vorige hoogte is behouden

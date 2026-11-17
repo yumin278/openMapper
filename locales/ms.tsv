@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	kedudukan isyarat bukan nombor terhingga
 a signal shows a light this crossing does not have	isyarat menunjukkan cahaya yang tiada pada persimpangan ini
 The object has no surface there: no signal was put down	Objek tiada permukaan di situ: tiada isyarat diletakkan
+Click to place a signal	Klik untuk meletakkan lampu isyarat
+The signal is outside the object: its previous height was kept	Lampu isyarat berada di luar objek: ketinggian sebelumnya dikekalkan

@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	la posición de un semáforo no es un número finito
 a signal shows a light this crossing does not have	un semáforo muestra una luz que este cruce no tiene
 The object has no surface there: no signal was put down	El objeto no tiene superficie ahí: no se ha colocado ningún semáforo
+Click to place a signal	Haz clic para colocar un semáforo
+The signal is outside the object: its previous height was kept	El semáforo está fuera del objeto: se conservó su altura anterior

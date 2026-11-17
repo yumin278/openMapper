@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	místo návěstidla není konečné číslo
 a signal shows a light this crossing does not have	návěstidlo ukazuje světlo, které tato křižovatka nemá
 The object has no surface there: no signal was put down	Objekt zde nemá povrch: návěstidlo nebylo umístěno
+Click to place a signal	Kliknutím umístíte semafor
+The signal is outside the object: its previous height was kept	Semafor je mimo objekt: byla zachována původní výška

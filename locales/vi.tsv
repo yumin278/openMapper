@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	vị trí của đèn tín hiệu không phải là một số hữu hạn
 a signal shows a light this crossing does not have	đèn tín hiệu hiển thị ánh sáng mà ngã tư này không có
 The object has no surface there: no signal was put down	Đối tượng không có bề mặt ở đó: không đặt đèn tín hiệu
+Click to place a signal	Nhấp để đặt đèn tín hiệu
+The signal is outside the object: its previous height was kept	Đèn tín hiệu nằm ngoài đối tượng: đã giữ nguyên độ cao trước đó

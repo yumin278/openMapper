@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	신호등의 위치가 유한한 숫자가 아닙니다
 a signal shows a light this crossing does not have	신호등이 이 교차로에 없는 신호를 표시합니다
 The object has no surface there: no signal was put down	해당 위치에 오브젝트의 표면이 없어 신호등을 놓지 않았습니다
+Click to place a signal	클릭하여 신호등 배치
+The signal is outside the object: its previous height was kept	신호등이 오브젝트 밖에 있습니다: 이전 높이를 유지했습니다

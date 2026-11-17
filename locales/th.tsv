@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	ตำแหน่งของสัญญาณไม่ใช่จำนวนจำกัด
 a signal shows a light this crossing does not have	สัญญาณแสดงไฟที่ทางแยกนี้ไม่มี
 The object has no surface there: no signal was put down	วัตถุไม่มีพื้นผิวตรงนั้น: ไม่ได้วางสัญญาณ
+Click to place a signal	คลิกเพื่อวางสัญญาณไฟจราจร
+The signal is outside the object: its previous height was kept	สัญญาณไฟอยู่นอกวัตถุ: คงความสูงเดิมไว้

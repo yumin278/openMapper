@@ -33,6 +33,43 @@ const GOOD: Color32 = Color32::from_rgb(120, 200, 130);
 /// How near a click must be to an end to take it (pixels).
 const GRAB: f32 = 9.0;
 
+/// Signal circles win over heading handles, and both win over path endpoints.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum SignalHandle {
+    Position(usize),
+    Heading(usize),
+}
+
+fn signal_at(sheet: &Sheet, pos: Pos2, screen: &dyn Fn(DVec2) -> Pos2) -> Option<SignalHandle> {
+    for heading in [false, true] {
+        let hit = sheet.crossing.signals.iter().enumerate().map(|(n, s)| {
+            let q = s.local().truncate() + if heading { crate::roads::dir(s.heading as f64) * 4.0 } else { DVec2::ZERO };
+            (screen(q).distance(pos), n)
+        }).filter(|(d, _)| *d <= GRAB).min_by(|a, b| a.0.total_cmp(&b.0));
+        if let Some((_, n)) = hit {
+            return Some(if heading { SignalHandle::Heading(n) } else { SignalHandle::Position(n) });
+        }
+    }
+    None
+}
+
+fn canvas_to_screen(p: DVec2, origin: Pos2, centre: DVec2, scale: f32) -> Pos2 {
+    Pos2::new(origin.x + ((p.x - centre.x) * scale as f64) as f32, origin.y - ((p.y - centre.y) * scale as f64) as f32)
+}
+
+fn canvas_from_screen(q: Pos2, origin: Pos2, centre: DVec2, scale: f32) -> DVec2 {
+    DVec2::new(centre.x + (q.x - origin.x) as f64 / scale as f64, centre.y - (q.y - origin.y) as f64 / scale as f64)
+}
+
+fn signal_heading(direction: DVec2, shift: bool) -> f32 {
+    let h = crate::roads::heading_of(direction);
+    crate::roads::norm_deg(if shift { (h / 15.0).round() * 15.0 } else { h }) as f32
+}
+
+fn signal_log(n: usize, s: &SignalPoint, up: &str) {
+    log::info!("crossing signal #{n}: light={} x={} fwd={} up={} heading={} up_status={up}", s.light, s.x, s.fwd, s.up, s.heading);
+}
+
 /// The end a click at `pos` takes: the nearest within [`GRAB`] pixels of it. The picked path's
 /// own ends win over the rest - the end of one piece and the start of the next are one point at
 /// every join, so nearest-first took the neighbour's disc and dragged the wrong path.
@@ -88,6 +125,10 @@ pub struct CrossingPaths {
     /// Where a Shift+click measures its run from: the pick it came after.
     anchor: Option<usize>,
     drag: Option<(usize, bool)>,
+    signal_selected: Option<usize>,
+    signal_drag: Option<SignalHandle>,
+    signal_place: bool,
+    signal_reveal: bool,
     /// The canvas: pixels per metre, and the point of the object at its centre.
     scale: f32,
     centre: DVec2,
@@ -235,6 +276,10 @@ impl Default for CrossingPaths {
             multi: Vec::new(),
             anchor: None,
             drag: None,
+            signal_selected: None,
+            signal_drag: None,
+            signal_place: false,
+            signal_reveal: false,
             scale: 14.0,
             centre: DVec2::ZERO,
             fit: true,
@@ -1960,6 +2005,10 @@ impl CrossingPaths {
     /// being split into pieces. Another crossing - or this one put back as it was - has other
     /// paths under those indices.
     fn forget_gestures(&mut self) {
+        self.signal_selected = None;
+        self.signal_drag = None;
+        self.signal_place = false;
+        self.signal_reveal = false;
         self.multi.clear();
         self.anchor = self.selected;
         self.drag = None;
@@ -2025,7 +2074,7 @@ impl CrossingPaths {
     /// A record of the crossing as it is now, when it has changed and no drag is under way:
     /// a burst of changes to one number is one step, not thirty.
     fn checkpoint(&mut self, now: f64) {
-        if self.drag.is_some() || self.map_drag.is_some() || self.draw_from.is_some() || self.edge.is_some() {
+        if self.signal_drag.is_some() || self.drag.is_some() || self.map_drag.is_some() || self.draw_from.is_some() || self.edge.is_some() {
             return;
         }
         let Some(sheet) = self.sheet.as_ref() else { return };
@@ -3425,12 +3474,21 @@ impl CrossingPaths {
         // ---- the signal positions (kept beside the map, not in the .sco)
         ui.separator();
         let mut signal_gone = None;
-        egui::CollapsingHeader::new(RichText::new(format!("{} ({})", tr("Signal positions", "Позиции светофоров"), sheet.crossing.signals.len())).strong()).id_salt("crossing signals").default_open(false).show(ui, |ui| {
+        egui::CollapsingHeader::new(RichText::new(format!("{} ({})", tr("Signal positions", "Позиции светофоров"), sheet.crossing.signals.len())).strong()).id_salt("crossing signals").open(self.signal_reveal.then_some(true)).show(ui, |ui| {
             ui.label(RichText::new(tr("Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object", "Где стоит светофор, в системе перекрёстка. Хранится рядом с картой, не в объекте")).small().color(DIM));
             let names: Vec<(usize, String)> = sheet.crossing.lights.iter().enumerate().map(|(n, l)| (n, format!("#{n} {}", if l.name.trim().is_empty() { tr("(no name)", "(без имени)") } else { l.name.trim() }))).collect();
+            if !self.view_3d && ui.selectable_label(self.signal_place, RichText::new(tr("Click to place a signal", "Щёлкните, чтобы поставить светофор")).small().color(if self.signal_place { SNAPPED } else { DIM })).clicked() {
+                self.signal_place = !self.signal_place;
+                self.draw_from = None;
+            }
             for (n, p) in sheet.crossing.signals.iter_mut().enumerate() {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(format!("#{n}")).small().color(DIM));
+                    let row = ui.selectable_label(self.signal_selected == Some(n), format!("#{n}"));
+                    if row.clicked() { self.signal_selected = Some(n); }
+                    if self.signal_selected == Some(n) && self.signal_reveal {
+                        row.scroll_to_me(Some(egui::Align::Center));
+                        self.signal_reveal = false;
+                    }
                     let selected = names.iter().find(|(i, _)| *i == p.light).map(|(_, s)| s.clone()).unwrap_or_else(|| format!("#{}", p.light));
                     egui::ComboBox::from_id_salt(("crossing signal light", n)).selected_text(selected).width(130.0).show_ui(ui, |ui| {
                         for (i, s) in &names {
@@ -3453,6 +3511,8 @@ impl CrossingPaths {
             }
             if let Some(n) = signal_gone {
                 sheet.crossing.signals.remove(n);
+                self.signal_drag = None;
+                self.signal_selected = self.signal_selected.and_then(|i| if i == n { None } else { Some(if i > n { i - 1 } else { i }) });
                 changed = true;
             }
             ui.horizontal(|ui| {
@@ -3483,13 +3543,49 @@ impl CrossingPaths {
     /// that point: a height guessed as 0 would be a signal in the ground, so nothing is put
     /// down until the user places it where the object has a surface.
     fn put_signal(&mut self, sheet: &mut Sheet, at: DVec2, heading: f32) -> bool {
+        self.put_signal_light(sheet, at, heading, 0)
+    }
+
+    fn put_signal_light(&mut self, sheet: &mut Sheet, at: DVec2, heading: f32, light: usize) -> bool {
         let Some(up) = self.surface_height(at) else {
-            log::warn!("crossing signals: {at:?} is off the object's surface; no signal was put down");
+            log::info!("crossing signal #{}: light={light} x={} fwd={} up=unavailable heading={heading} up_status=rejected", sheet.crossing.signals.len(), at.x, at.y);
             self.message = Some((tr("The object has no surface there: no signal was put down", "У объекта там нет поверхности: светофор не поставлен").into(), true));
             return false;
         };
-        sheet.crossing.signals.push(SignalPoint { light: 0, set: String::new(), x: at.x as f32, up: up as f32, fwd: at.y as f32, heading });
+        sheet.crossing.signals.push(SignalPoint { light, set: String::new(), x: at.x as f32, up: up as f32, fwd: at.y as f32, heading });
+        let n = sheet.crossing.signals.len() - 1;
+        self.signal_selected = Some(n);
+        self.signal_reveal = true;
+        signal_log(n, &sheet.crossing.signals[n], "resampled");
         true
+    }
+
+    fn move_signal(&mut self, sheet: &mut Sheet, handle: SignalHandle, q: DVec2, shift: bool) {
+        match handle {
+            SignalHandle::Position(n) => if let Some(s) = sheet.crossing.signals.get_mut(n) {
+                s.x = q.x as f32;
+                s.fwd = q.y as f32;
+            },
+            SignalHandle::Heading(n) => if let Some(s) = sheet.crossing.signals.get_mut(n) {
+                let d = q - s.local().truncate();
+                if d.length_squared() > 1e-12 { s.heading = signal_heading(d, shift); }
+            },
+        }
+    }
+
+    fn finish_signal(&mut self, sheet: &mut Sheet, handle: SignalHandle) {
+        let n = match handle { SignalHandle::Position(n) | SignalHandle::Heading(n) => n };
+        let Some(s) = sheet.crossing.signals.get_mut(n) else { return };
+        let mut status = "retained";
+        if matches!(handle, SignalHandle::Position(_)) {
+            if let Some(up) = self.surface_height(s.local().truncate()) {
+                s.up = up as f32;
+                status = "resampled";
+            } else {
+                self.message = Some((tr("The signal is outside the object: its previous height was kept", "Светофор вне объекта: сохранена прежняя высота").into(), true));
+            }
+        }
+        signal_log(n, s, status);
     }
 
     /// Turn one end of path `index` to `heading`. The other end's angle and both points stay.
@@ -4472,8 +4568,8 @@ impl CrossingPaths {
             self.centre -= DVec2::new(d.x as f64, -d.y as f64) / self.scale as f64;
         }
         let (scale, centre) = (self.scale, self.centre);
-        let to_screen = move |p: DVec2| Pos2::new(rect.center().x + ((p.x - centre.x) * scale as f64) as f32, rect.center().y - ((p.y - centre.y) * scale as f64) as f32);
-        let from_screen = move |q: Pos2| DVec2::new(centre.x + (q.x - rect.center().x) as f64 / scale as f64, centre.y - (q.y - rect.center().y) as f64 / scale as f64);
+        let to_screen = move |p: DVec2| canvas_to_screen(p, rect.center(), centre, scale);
+        let from_screen = move |q: Pos2| canvas_from_screen(q, rect.center(), centre, scale);
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 3.0, Color32::from_rgb(30, 34, 31));
         // the object itself, so the crossing is seen under the paths
@@ -4621,11 +4717,14 @@ impl CrossingPaths {
             painter.line_segment([at, to_screen(h.local().truncate() + d * 4.0)], Stroke::new(1.2, SNAPPED));
         }
         // the signal positions: where a head will be put
-        for s in &sheet.crossing.signals {
+        for (n, s) in sheet.crossing.signals.iter().enumerate() {
+            let on = self.signal_selected == Some(n);
             let at = to_screen(s.local().truncate());
-            painter.circle_stroke(at, 4.4, Stroke::new(1.3, SIGNAL));
+            painter.circle_stroke(at, 4.4, Stroke::new(if on { 3.0 } else { 1.3 }, SIGNAL));
             let d = crate::roads::dir(s.heading as f64);
-            painter.line_segment([at, to_screen(s.local().truncate() + d * 4.0)], Stroke::new(1.2, SIGNAL));
+            let tip = to_screen(s.local().truncate() + d * 4.0);
+            painter.line_segment([at, tip], Stroke::new(if on { 2.4 } else { 1.2 }, SIGNAL));
+            painter.circle_filled(tip, 3.5, SIGNAL);
             painter.text(at + Vec2::new(6.0, -6.0), egui::Align2::LEFT_BOTTOM, format!("#{}", s.light), egui::FontId::proportional(11.0), SIGNAL);
         }
         // the end being dragged is locked onto another end: shown, so a snap is not a surprise
@@ -4665,6 +4764,47 @@ impl CrossingPaths {
                     head(&painter, j.pos, j.outward(), len);
                 }
             }
+        }
+
+        // Capture the press, before nearby ends, Draw, or path selection can take it.
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) { self.signal_place = false; }
+        if resp.hovered() && ui.input(|i| i.pointer.primary_pressed()) {
+            if let Some(pos) = ui.input(|i| i.pointer.press_origin()) {
+                if let Some(hit) = signal_at(sheet, pos, &to_screen) {
+                    self.signal_selected = Some(match hit { SignalHandle::Position(n) | SignalHandle::Heading(n) => n });
+                    self.signal_reveal = true;
+                    self.signal_drag = Some(hit);
+                    self.drag = None;
+                    self.with_sheet(sheet, |me| me.push_undo());
+                }
+            }
+        }
+        if let Some(hit) = self.signal_drag {
+            if let Some(pos) = ui.input(|i| i.pointer.latest_pos()) {
+                if resp.dragged_by(egui::PointerButton::Primary) || resp.drag_stopped_by(egui::PointerButton::Primary) {
+                    self.move_signal(sheet, hit, from_screen(pos), ui.input(|i| i.modifiers.shift));
+                }
+            }
+            if ui.input(|i| i.pointer.primary_released()) {
+                if resp.drag_stopped_by(egui::PointerButton::Primary) { self.finish_signal(sheet, hit); }
+                self.signal_drag = None;
+            }
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+            return;
+        }
+        if self.signal_place {
+            if resp.clicked() {
+                if let Some(pos) = resp.interact_pointer_pos() {
+                    let light = self.signal_selected.and_then(|n| sheet.crossing.signals.get(n)).map_or(0, |s| s.light);
+                    self.with_sheet(sheet, |me| me.push_undo());
+                    self.put_signal_light(sheet, from_screen(pos), 0.0, light);
+                }
+            }
+            if resp.hovered() { ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair); }
+            return;
+        }
+        if resp.hover_pos().is_some_and(|pos| signal_at(sheet, pos, &to_screen).is_some()) {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
         }
 
         // ---- the mouse
@@ -5089,6 +5229,110 @@ Main
 
     fn press(pos: Pos2, pressed: bool) -> egui::Event {
         egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default() }
+    }
+
+    #[test]
+    fn signal_canvas_coordinates_round_trip() {
+        let origin = Pos2::new(700.0, 450.0);
+        let centre = DVec2::new(3.5, -2.25);
+        for scale in [1.0, 14.0, 64.0, 400.0] {
+            for p in [DVec2::ZERO, DVec2::new(-6.5, -12.0), DVec2::new(10.25, 7.5)] {
+                let q = canvas_to_screen(p, origin, centre, scale);
+                assert!((canvas_from_screen(q, origin, centre, scale) - p).length() < 1e-6);
+            }
+        }
+    }
+
+    #[test]
+    fn signal_heading_uses_clockwise_north_and_shift_snaps() {
+        for h in [0.0, 14.0, 47.0, 91.0, 181.0, 359.0] {
+            let d = crate::roads::dir(h);
+            let free = signal_heading(d, false);
+            assert!((crate::roads::dir(free as f64) - d).length() < 1e-6);
+            assert!((signal_heading(d, true) % 15.0).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn dragging_a_signal_wins_over_an_overlapping_path_and_keeps_height_off_mesh() {
+        let mut w = opened(Tab::Paths);
+        let at = w.sheet.as_ref().unwrap().crossing.paths[0].start();
+        w.sheet.as_mut().unwrap().crossing.signals.push(SignalPoint { x: at.x as f32, fwd: at.y as f32, up: 7.0, ..Default::default() });
+        w.seen = w.sheet.as_ref().unwrap().crossing.clone();
+        let paths = w.seen.paths.clone();
+        let mut ed = Editor::default();
+        let ctx = context();
+        run(&ctx, &mut w, &mut ed, vec![], 0.0);
+        run(&ctx, &mut w, &mut ed, vec![], 0.1);
+        let rect = w.last_canvas_rect.unwrap();
+        let from = canvas_to_screen(at.truncate(), rect.center(), w.centre, w.scale);
+        assert!(end_at(w.sheet.as_ref().unwrap(), w.selected, from, &|p| canvas_to_screen(p, rect.center(), w.centre, w.scale)).is_some());
+        let to = from + Vec2::new(40.0, -20.0);
+        run(&ctx, &mut w, &mut ed, vec![egui::Event::PointerMoved(from), press(from, true)], 0.2);
+        assert_eq!(w.signal_drag, Some(SignalHandle::Position(0)));
+        run(&ctx, &mut w, &mut ed, vec![egui::Event::PointerMoved(to)], 0.3);
+        run(&ctx, &mut w, &mut ed, vec![press(to, false)], 0.4);
+        let s = &w.sheet.as_ref().unwrap().crossing.signals[0];
+        assert_ne!(s.x, at.x as f32);
+        assert_eq!(s.up, 7.0);
+        assert_eq!(w.sheet.as_ref().unwrap().crossing.paths, paths);
+        assert!(w.message.as_ref().is_some_and(|(_, bad)| *bad));
+        assert!(w.unsaved());
+    }
+
+    #[test]
+    fn heading_handle_rotates_with_shift_and_position_release_samples_the_deck() {
+        let mut w = opened(Tab::Paths);
+        let mut sheet = w.sheet.take().unwrap();
+        sheet.crossing.signals.push(SignalPoint { up: 9.0, ..Default::default() });
+        let screen = |p| canvas_to_screen(p, Pos2::new(400.0, 400.0), DVec2::ZERO, 14.0);
+        assert_eq!(signal_at(&sheet, screen(DVec2::Y * 4.0), &screen), Some(SignalHandle::Heading(0)));
+        w.move_signal(&mut sheet, SignalHandle::Heading(0), crate::roads::dir(47.0) * 4.0, true);
+        assert_eq!(sheet.crossing.signals[0].heading, 45.0);
+        assert_eq!(sheet.crossing.signals[0].local(), DVec3::new(0.0, 0.0, 9.0));
+        let tris = vec![-10.0, -10.0, 2.5, 10.0, -10.0, 2.5, 0.0, 10.0, 2.5];
+        w.surface_grid = SurfaceGrid::build(&tris);
+        w.surface = std::sync::Arc::new(tris);
+        w.move_signal(&mut sheet, SignalHandle::Position(0), DVec2::new(1.0, 0.0), false);
+        assert_eq!(sheet.crossing.signals[0].up, 9.0, "height waits until release");
+        w.finish_signal(&mut sheet, SignalHandle::Position(0));
+        assert_eq!(sheet.crossing.signals[0].up, 2.5);
+        w.sheet = Some(sheet);
+        assert!(w.unsaved());
+    }
+
+    #[test]
+    fn canvas_signal_placement_inherits_light_and_blocks_draw_and_path_selection() {
+        let mut w = opened(Tab::Paths);
+        let mut ed = Editor::default();
+        let ctx = context();
+        run(&ctx, &mut w, &mut ed, vec![], 0.0);
+        run(&ctx, &mut w, &mut ed, vec![], 0.1);
+        let tris = vec![-100.0, -100.0, 2.0, 100.0, -100.0, 2.0, 0.0, 100.0, 2.0];
+        w.surface_grid = SurfaceGrid::build(&tris);
+        w.surface = std::sync::Arc::new(tris);
+        w.sheet.as_mut().unwrap().crossing.signals.push(SignalPoint { light: 3, x: -10.0, ..Default::default() });
+        w.seen = w.sheet.as_ref().unwrap().crossing.clone();
+        w.signal_selected = Some(0);
+        w.signal_place = true;
+        w.draw = true;
+        let paths = w.seen.paths.clone();
+        let rect = w.last_canvas_rect.unwrap();
+        let pos = canvas_to_screen(DVec2::new(0.0, 2.0), rect.center(), w.centre, w.scale);
+        run(&ctx, &mut w, &mut ed, vec![egui::Event::PointerMoved(pos), press(pos, true)], 0.2);
+        run(&ctx, &mut w, &mut ed, vec![press(pos, false)], 0.3);
+        let points = &w.sheet.as_ref().unwrap().crossing.signals;
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[1].light, 3);
+        assert_eq!(points[1].up, 2.0);
+        assert_eq!(points[1].heading, 0.0);
+        assert_eq!(w.signal_selected, Some(1));
+        assert_eq!(w.sheet.as_ref().unwrap().crossing.paths, paths);
+        assert!(w.unsaved());
+        let mut sheet = w.sheet.take().unwrap();
+        assert!(!w.put_signal_light(&mut sheet, DVec2::splat(1000.0), 0.0, 3));
+        assert_eq!(sheet.crossing.signals.len(), 2);
+        w.sheet = Some(sheet);
     }
 
     /// The light page gives the timeline the room beside the program, and draws the phases

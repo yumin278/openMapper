@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	a jelző helye nem véges szám
 a signal shows a light this crossing does not have	a jelző olyan fényt mutat, amilyen ennek a kereszteződésnek nincs
 The object has no surface there: no signal was put down	Az objektumnak ott nincs felülete: nem került jelző elhelyezésre
+Click to place a signal	Kattintson egy jelzőlámpa elhelyezéséhez
+The signal is outside the object: its previous height was kept	A jelzőlámpa az objektumon kívül van: a korábbi magassága megmaradt

@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	सिग्नल की जगह एक परिमित संख्या नहीं है
 a signal shows a light this crossing does not have	सिग्नल एक ऐसी लाइट दिखा रहा है जो इस चौराहे पर नहीं है
 The object has no surface there: no signal was put down	वहाँ वस्तु की कोई सतह नहीं है: कोई सिग्नल नहीं रखा गया
+Click to place a signal	सिग्नल लगाने के लिए क्लिक करें
+The signal is outside the object: its previous height was kept	सिग्नल वस्तु के बाहर है: उसकी पिछली ऊँचाई रखी गई

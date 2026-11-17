@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	sinyalin konumu sonlu bir sayı değil
 a signal shows a light this crossing does not have	sinyal bu kavşakta olmayan bir ışık gösteriyor
 The object has no surface there: no signal was put down	Nesnenin orada yüzeyi yok: sinyal yerleştirilmedi
+Click to place a signal	Trafik ışığı yerleştirmek için tıklayın
+The signal is outside the object: its previous height was kept	Trafik ışığı nesnenin dışında: önceki yüksekliği korundu

@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	en signals plats är inte ett ändligt tal
 a signal shows a light this crossing does not have	en signal visar ett ljus som den här korsningen inte har
 The object has no surface there: no signal was put down	Objektet har ingen yta där: ingen signal placerades
+Click to place a signal	Klicka för att placera en trafiksignal
+The signal is outside the object: its previous height was kept	Trafiksignalen är utanför objektet: den tidigare höjden behölls

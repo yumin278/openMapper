@@ -3004,3 +3004,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	交通燈的位置不是有限數值
 a signal shows a light this crossing does not have	交通燈顯示了此路口沒有的燈號
 The object has no surface there: no signal was put down	物件在該處沒有表面：未放置交通燈
+Click to place a signal	點擊放置號誌
+The signal is outside the object: its previous height was kept	交通燈已移到物件外：保留原本的高度

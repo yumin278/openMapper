@@ -3003,3 +3003,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	die Position eines Signals ist keine endliche Zahl
 a signal shows a light this crossing does not have	ein Signal zeigt ein Licht, das diese Kreuzung nicht hat
 The object has no surface there: no signal was put down	Das Objekt hat dort keine Oberfläche: Es wurde kein Signal gesetzt
+Click to place a signal	Klicken, um eine Ampel zu platzieren
+The signal is outside the object: its previous height was kept	Die Ampel liegt außerhalb des Objekts: Die bisherige Höhe wurde beibehalten

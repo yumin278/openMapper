@@ -3005,3 +3005,5 @@ Replace all objects linked to this crossing by var_parent with the configured si
 a signal's place is not a finite number	la posició d'un semàfor no és un nombre finit
 a signal shows a light this crossing does not have	un semàfor mostra un llum que aquest creuament no té
 The object has no surface there: no signal was put down	L'objecte no té superfície aquí: no s'ha col·locat cap semàfor
+Click to place a signal	Fes clic per col·locar un semàfor
+The signal is outside the object: its previous height was kept	El semàfor és fora de l’objecte: s’ha mantingut l’altura anterior
