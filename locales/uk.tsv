@@ -2999,3 +2999,7 @@ A signal head at the crossing's origin	Голівка світлофора в п
 A signal where the picked path ends, facing out of the crossing	Світлофор там, де закінчується вибраний шлях, назовні від перехрестя
 Place signals as configured	Розставити світлофори за конфігурацією
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Видалити голівки та стійки світлофорів цього перехрестя й розставити їх за позиціями редактора перехресть
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Замінити всі об'єкти, пов'язані з цим перехрестям через var_parent, заданими світлофорами (скасування відновить їх)
+a signal's place is not a finite number	місце світлофора не є скінченним числом
+a signal shows a light this crossing does not have	світлофор показує світло, якого немає на цьому перехресті
+The object has no surface there: no signal was put down	У об'єкта там немає поверхні: світлофор не поставлено

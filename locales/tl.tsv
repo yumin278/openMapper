@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Ulo ng ilaw-trapiko sa pinagmulan ng sang
 A signal where the picked path ends, facing out of the crossing	Ilaw-trapiko sa dulo ng napiling daan, palabas ng sangandaan
 Place signals as configured	Ilagay ang mga ilaw-trapiko ayon sa configuration
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Burahin ang mga ulo at poste ng ilaw-trapiko ng sangandaan na ito at ilagay ayon sa mga posisyon ng editor ng sangandaan
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Palitan ang lahat ng bagay na nakaugnay sa sangandaang ito sa pamamagitan ng var_parent ng mga naka-configure na ilaw-trapiko (ibinabalik sila ng Undo)
+a signal's place is not a finite number	ang puwesto ng signal ay hindi isang may hangganang numero
+a signal shows a light this crossing does not have	nagpapakita ang signal ng ilaw na wala sa crossing na ito
+The object has no surface there: no signal was put down	Walang ibabaw ang object doon: walang signal na inilagay

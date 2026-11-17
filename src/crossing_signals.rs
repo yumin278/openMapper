@@ -9,9 +9,12 @@
 //!
 //! The file is written the same way it is read: read, the one key changed, everything else
 //! (other crossings, entries this editor does not understand) kept exactly as it was.
+//! [`prepare_points`] builds that file without touching the disk, so the crossing editor can
+//! put it in the same transaction as the object's `.sco`; [`write_points`] is the plain
+//! one-file writer tests and other callers use.
 
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use glam::DVec3;
 use serde::{Deserialize, Serialize};
@@ -28,7 +31,8 @@ pub(crate) fn key(rel: &str) -> String {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SignalPoint {
     pub light: usize,
-    #[serde(default)]
+    /// Required: a point says which signal set it uses (empty: the map's default). A missing
+    /// field is an invalid entry, and the warning names the missing field.
     pub set: String,
     pub x: f32,
     pub up: f32,
@@ -55,7 +59,7 @@ impl SignalPoint {
 struct Raw {
     version: u32,
     #[serde(default)]
-    crossings: BTreeMap<String, Vec<serde_json::Value>>,
+    crossings: BTreeMap<String, serde_json::Value>,
 }
 
 /// The map's crossing signal positions, loaded from `openMapper/crossing_signals.json`.
@@ -70,7 +74,8 @@ impl CrossingSignals {
         *self = Self::load(map_dir);
     }
 
-    fn load(map_dir: &Path) -> Self {
+    /// Read this map's positions without changing `self` (the editor opening a map fresh).
+    pub(crate) fn load(map_dir: &Path) -> Self {
         let path = map_dir.join("openMapper").join(FILE_NAME);
         let mut result = Self::default();
         let parsed = std::fs::read(&path)
@@ -84,19 +89,42 @@ impl CrossingSignals {
                 raw.version
             ),
             Ok(raw) => {
+                // (the raw keys come from a BTreeMap: the first spelling of a crossing in
+                // sorted order is the one kept, so the same file always reads the same way)
+                let mut claimed: BTreeMap<String, String> = BTreeMap::new();
                 for (rel, entries) in raw.crossings {
-                    for (index, entry) in entries.into_iter().enumerate() {
-                        match serde_json::from_value::<SignalPoint>(entry)
+                    let Some(entries) = entries.as_array() else {
+                        log::warn!(
+                            "crossing signals {}: skipping {rel:?}: not an array of positions",
+                            path.display()
+                        );
+                        continue;
+                    };
+                    let normalised = key(&rel);
+                    if let Some(kept) = claimed.get(&normalised) {
+                        log::warn!(
+                            "crossing signals {}: {rel:?} and {kept:?} both normalise to {normalised:?}; keeping {kept:?}, ignoring {} item(s) of {rel:?}",
+                            path.display(),
+                            entries.len()
+                        );
+                        continue;
+                    }
+                    claimed.insert(normalised.clone(), rel.clone());
+                    let mut points = Vec::new();
+                    for (index, entry) in entries.iter().enumerate() {
+                        match serde_json::from_value::<SignalPoint>(entry.clone())
                             .map_err(anyhow::Error::from)
                             .and_then(|p| p.validated())
                         {
-                            Ok(point) => result.crossings.entry(key(&rel)).or_default().push(point),
+                            Ok(point) => points.push(point),
                             Err(e) => log::warn!(
                                 "crossing signals {}: skipping {rel:?} items[{index}]: {e}",
                                 path.display()
                             ),
                         }
                     }
+                    // (a valid array keeps its key even when it is empty or nothing in it was usable)
+                    result.crossings.insert(normalised, points);
                 }
             }
         }
@@ -119,32 +147,107 @@ impl CrossingSignals {
     }
 }
 
-/// Rewrite `openMapper/crossing_signals.json`, replacing only crossing `rel`'s entry with
-/// `points`. Every other key - and anything this editor does not read - is kept as it was.
-/// A file that cannot be read, or whose version is not 1, is left alone.
-pub(crate) fn write_points(map_dir: &Path, rel: &str, points: &[SignalPoint]) -> anyhow::Result<()> {
+/// The file [`prepare_points`] would write, made without touching the disk: the crossing
+/// editor puts [`PreparedPoints::path`] and [`PreparedPoints::bytes`] in the same
+/// `doc::safe` transaction as the object's `.sco`, then calls [`PreparedPoints::log_after`]
+/// once that transaction has succeeded.
+pub(crate) struct PreparedPoints {
+    /// The map's `openMapper/crossing_signals.json`.
+    pub path: PathBuf,
+    /// The whole file as it would stand after the write.
+    pub bytes: Vec<u8>,
+    /// The file as it stands now (none: there is no file yet).
+    before: Option<String>,
+    /// The file as it would stand, kept as text for the log.
+    after: String,
+    /// The normalised key that was written.
+    rel: String,
+    /// Other spellings of the same crossing that the write replaces in the file.
+    merged: Vec<String>,
+}
+
+impl PreparedPoints {
+    /// The file as it stands, in full (or that there is none).
+    pub fn log_before(&self) {
+        match &self.before {
+            Some(before) => log::info!("crossing signals {}: before write:\n{before}", self.path.display()),
+            None => log::info!("crossing signals {}: before write: (no file)", self.path.display()),
+        }
+    }
+
+    /// The file as it would stand, in full. Call this only once the write (or the
+    /// transaction it is part of) has actually succeeded.
+    pub fn log_after(&self) {
+        if self.merged.is_empty() {
+            log::info!(
+                "crossing signals {}: after write ({}):\n{}",
+                self.path.display(),
+                self.rel,
+                self.after
+            );
+        } else {
+            log::info!(
+                "crossing signals {}: after write ({}; replaced {:?}):\n{}",
+                self.path.display(),
+                self.rel,
+                self.merged,
+                self.after
+            );
+        }
+    }
+}
+
+/// Build the whole file with only crossing `rel`'s entry replaced by `points`, without
+/// writing anything. Every other key - and anything this editor does not read - is kept as
+/// it was, as are the JSON values of the other crossings. Other spellings of `rel` (another
+/// case, forward slashes) are removed, so the file holds one entry for the crossing.
+///
+/// An existing file must be a JSON object with an integer `version` of 1 and, when present,
+/// a `crossings` object; anything else is refused, not rewritten. A missing file becomes a
+/// new version 1 file. Every point must have finite numbers; the points are not changed.
+pub(crate) fn prepare_points(map_dir: &Path, rel: &str, points: &[SignalPoint]) -> anyhow::Result<PreparedPoints> {
+    let target = key(rel);
+    // (nothing is prepared until every point can be written: the file holds other crossings)
+    for (index, point) in points.iter().enumerate() {
+        point
+            .clone()
+            .validated()
+            .map_err(|e| anyhow::anyhow!("{target} point {index}: {e}"))?;
+    }
     let path = map_dir.join("openMapper").join(FILE_NAME);
-    let mut root: serde_json::Map<String, serde_json::Value> = if path.exists() {
-        let bytes = std::fs::read(&path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
-        let value: serde_json::Value =
-            serde_json::from_slice(&bytes).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
-        value
-            .as_object()
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("{}: not a JSON object", path.display()))?
+    let existing = if path.exists() {
+        Some(std::fs::read(&path).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?)
     } else {
-        serde_json::Map::new()
+        None
     };
-    if let Some(v) = root.get("version").and_then(|v| v.as_u64()) {
+    let (mut root, before) = match &existing {
+        Some(bytes) => {
+            let before = String::from_utf8_lossy(bytes).into_owned();
+            let value: serde_json::Value =
+                serde_json::from_slice(bytes).map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
+            let root = value
+                .as_object()
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("{}: not a JSON object", path.display()))?;
+            (root, Some(before))
+        }
+        None => (serde_json::Map::new(), None),
+    };
+    if existing.is_some() {
+        let version = root.get("version").ok_or_else(|| {
+            anyhow::anyhow!(
+                "{}: no \"version\" (expected integer 1); not written",
+                path.display()
+            )
+        })?;
         anyhow::ensure!(
-            v == 1,
-            "{}: unsupported version {v} (expected 1); not written",
+            version.as_u64() == Some(1),
+            "{}: unsupported version {version} (expected integer 1); not written",
             path.display()
         );
+    } else {
+        root.insert("version".into(), serde_json::json!(1));
     }
-    let before = serde_json::to_string_pretty(&serde_json::Value::Object(root.clone()))
-        .unwrap_or_else(|_| "{unreadable}".into());
-    root.insert("version".into(), serde_json::json!(1));
     if !root.contains_key("crossings") {
         root.insert("crossings".into(), serde_json::json!({}));
     }
@@ -152,17 +255,39 @@ pub(crate) fn write_points(map_dir: &Path, rel: &str, points: &[SignalPoint]) ->
         .get_mut("crossings")
         .and_then(|v| v.as_object_mut())
         .ok_or_else(|| anyhow::anyhow!("{}: \"crossings\" is not an object", path.display()))?;
-    crossings.insert(key(rel), serde_json::to_value(points)?);
-    let after = serde_json::to_string_pretty(&serde_json::Value::Object(root))
-        .unwrap_or_else(|_| "{unreadable}".into());
-    log::info!("crossing signals {}: before write:\n{before}", path.display());
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| anyhow::anyhow!("{}: {e}", parent.display()))?;
+    let mut merged = Vec::new();
+    for spelling in crossings.keys() {
+        if spelling != &target && key(spelling) == target {
+            merged.push(spelling.clone());
+        }
     }
-    crate::doc::safe::write_atomic(&path, after.as_bytes())
-        .map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))?;
-    log::info!("crossing signals {}: after write:\n{after}", path.display());
+    for spelling in &merged {
+        crossings.remove(spelling);
+    }
+    crossings.insert(target.clone(), serde_json::to_value(points)?);
+    let after = serde_json::to_string_pretty(&serde_json::Value::Object(root))?;
+    Ok(PreparedPoints {
+        path,
+        bytes: after.as_bytes().to_vec(),
+        before,
+        after,
+        rel: target,
+        merged,
+    })
+}
+
+/// Rewrite `openMapper/crossing_signals.json`, replacing only crossing `rel`'s entry with
+/// `points`. Every other key - and anything this editor does not read - is kept as it was.
+/// A file that cannot be read, or whose version is not the integer 1, is left alone.
+pub(crate) fn write_points(map_dir: &Path, rel: &str, points: &[SignalPoint]) -> anyhow::Result<()> {
+    let prepared = prepare_points(map_dir, rel, points)?;
+    if let Some(parent) = prepared.path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| anyhow::anyhow!("{}: {e}", parent.display()))?;
+    }
+    prepared.log_before();
+    crate::doc::safe::write_atomic(&prepared.path, &prepared.bytes)
+        .map_err(|e| anyhow::anyhow!("{}: {e}", prepared.path.display()))?;
+    prepared.log_after();
     Ok(())
 }
 

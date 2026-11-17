@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	교차로 원점의 신호등 머리
 A signal where the picked path ends, facing out of the crossing	선택한 경로가 끝나는 곳, 교차로 바깥쪽을 향한 신호등
 Place signals as configured	구성대로 신호등 배치
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	이 교차로의 신호등 머리와 기둥을 삭제하고 교차로 편집기의 위치에 배치
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	var_parent로 이 교차로에 연결된 모든 객체를 설정된 신호등으로 교체합니다 (실행 취소로 복원)
+a signal's place is not a finite number	신호등의 위치가 유한한 숫자가 아닙니다
+a signal shows a light this crossing does not have	신호등이 이 교차로에 없는 신호를 표시합니다
+The object has no surface there: no signal was put down	해당 위치에 오브젝트의 표면이 없어 신호등을 놓지 않았습니다

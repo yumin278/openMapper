@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Kavşağın başlangıç noktasında bir 
 A signal where the picked path ends, facing out of the crossing	Seçilen yolun bittiği yerde, kavşaktan dışarı doğru bir sinyal
 Place signals as configured	Sinyalleri yapılandırmaya göre yerleştir
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Bu kavşağın sinyal başlıklarını ve direklerini sil ve kavşak düzenleyicisinin konumlarına göre yerleştir
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Bu kavşağa var_parent ile bağlı tüm nesneleri yapılandırılmış sinyallerle değiştir (Geri al bunları geri yükler)
+a signal's place is not a finite number	sinyalin konumu sonlu bir sayı değil
+a signal shows a light this crossing does not have	sinyal bu kavşakta olmayan bir ışık gösteriyor
+The object has no surface there: no signal was put down	Nesnenin orada yüzeyi yok: sinyal yerleştirilmedi

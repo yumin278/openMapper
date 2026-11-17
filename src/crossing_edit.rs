@@ -595,7 +595,8 @@ impl Crossing {
     }
 
     /// Remove light `i`; the paths that waited at it keep waiting at none, the later lights
-    /// move up.
+    /// move up - and so do the hand-placed signals: one showing this light goes with it, the
+    /// others follow the light they show, so a signal never names a light that is not there.
     pub fn remove_light(&mut self, i: usize) {
         if i >= self.lights.len() {
             return;
@@ -621,6 +622,34 @@ impl Crossing {
                 j[0] -= 1.0;
             }
         }
+        // (the signals are part of the crossing, so this one step of undo takes them all back)
+        self.signals.retain(|s| s.light != i);
+        for s in &mut self.signals {
+            if s.light > i {
+                s.light -= 1;
+            }
+        }
+    }
+
+    /// Why these hand-placed signals cannot be saved, if they cannot: every place a finite
+    /// number, and every signal showing a light this crossing has. The game has no use for
+    /// either, and the file is not written with one in it.
+    pub fn why_signals_not(&self, signals: &[SignalPoint]) -> Option<String> {
+        for (n, s) in signals.iter().enumerate() {
+            if ![s.x, s.up, s.fwd, s.heading].iter().all(|v| v.is_finite()) {
+                return Some(format!(
+                    "#{n}: {}",
+                    crate::i18n::tr("a signal's place is not a finite number", "место светофора — не конечное число")
+                ));
+            }
+            if s.light >= self.lights.len() {
+                return Some(format!(
+                    "#{n}: {}",
+                    crate::i18n::tr("a signal shows a light this crossing does not have", "светофор показывает свет, которого у перекрёстка нет")
+                ));
+            }
+        }
+        None
     }
 
     /// The path whose end is nearest `p` within `reach` (the object's frame), for snapping:
@@ -1177,15 +1206,54 @@ pub fn write(abs: &FsPath, text: &str, original: &[u8]) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Write the text beside `abs`, read it back, and only if it checks out put it in place: a
-/// save that fails leaves the file as it was.
-pub fn write_checked(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing) -> anyhow::Result<()> {
-    let trial = abs.with_extension("crossing-check.sco");
-    let done = write(&trial, text, original).and_then(|_| verify(&trial, crossing)).and_then(|_| std::fs::rename(&trial, abs).map_err(Into::into));
-    if done.is_err() {
-        let _ = std::fs::remove_file(&trial);
+/// The parts of a `.sco` save, worked out before anything is installed: the text in the
+/// file's own encoding, and the file as it stands to be kept beside it.
+pub struct ScoWrite {
+    /// The text to write; None when it is the file's own already, and nothing is written.
+    pub bytes: Option<Vec<u8>>,
+    /// The file as it stands now, to be kept as its `.bak`; None when no backup is made.
+    pub bak: Option<Vec<u8>>,
+}
+
+impl ScoWrite {
+    /// The operations that install it, for [`crate::doc::safe::commit`]: the `.bak` first, so
+    /// a failure anywhere leaves both files as they were.
+    pub fn ops(self, abs: &FsPath) -> Vec<crate::doc::safe::Op> {
+        let mut ops = Vec::with_capacity(2);
+        if let Some(bak) = self.bak {
+            ops.push(crate::doc::safe::Op::Write(bak_path(abs), bak));
+        }
+        if let Some(bytes) = self.bytes {
+            ops.push(crate::doc::safe::Op::Write(abs.to_path_buf(), bytes));
+        }
+        ops
     }
-    done
+}
+
+/// Prepare a save into `abs`: the text encoded as the file is, written beside it and read
+/// back so the game's own reader checks it, then read as the bytes to install. With
+/// `keep_bak`, the file as it stands is kept as its `.bak` unless one is there already. Only
+/// the trial file is written, and it is taken away: the crossing editor puts the operations in
+/// the same transaction as the signal positions beside the map, so a save is all or nothing.
+pub fn prepare_sco(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing, keep_bak: bool) -> anyhow::Result<ScoWrite> {
+    // (a file that is not there is written even when the text is the one it was copied from: a
+    // copy under a name of its own has no `.sco` at all until this writes it)
+    if abs.is_file() && encode_like(text, original) == original {
+        return Ok(ScoWrite { bytes: None, bak: None });
+    }
+    // (checked beside the file first: a save that fails never touches what is there)
+    let trial = abs.with_extension("crossing-check.sco");
+    let checked = write(&trial, text, original)
+        .and_then(|_| verify(&trial, crossing))
+        .and_then(|_| std::fs::read(&trial).map_err(anyhow::Error::from));
+    let _ = std::fs::remove_file(&trial);
+    let bytes = checked?;
+    let bak = if keep_bak && abs.is_file() && !bak_path(abs).exists() {
+        Some(std::fs::read(abs).map_err(|e| anyhow::anyhow!("{}: {e}", abs.display()))?)
+    } else {
+        None
+    };
+    Ok(ScoWrite { bytes: Some(bytes), bak })
 }
 
 /// The backup of `abs` taken before it is written over: the file's own name with `.bak` after
@@ -1194,40 +1262,6 @@ pub fn bak_path(abs: &FsPath) -> std::path::PathBuf {
     let mut s = abs.as_os_str().to_os_string();
     s.push(".bak");
     std::path::PathBuf::from(s)
-}
-
-/// Write the text into `abs` itself, the file as it stood before the first such save kept as
-/// `abs.bak`: the crossing editor's ordinary save. A `.bak` that is there already is left as it
-/// is - it holds the file from before the editor's first save (or somebody else's backup), and
-/// a second save must not put the first one's text in its place. False when the text is the
-/// file's own already (nothing is written, and the backup is left as it was).
-pub fn write_in_place(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing) -> anyhow::Result<bool> {
-    let encoded = encode_like(text, original);
-    if encoded == original {
-        return Ok(false);
-    }
-    // (checked beside the file first: a save that fails never touches what is there)
-    let trial = abs.with_extension("crossing-check.sco");
-    let checked = write(&trial, text, original).and_then(|_| verify(&trial, crossing));
-    if let Err(e) = checked {
-        let _ = std::fs::remove_file(&trial);
-        return Err(e);
-    }
-    // (the file as it stands becomes the backup, unless there is one, then the checked one
-    // takes its place)
-    let bak = bak_path(abs);
-    if !bak.exists() {
-        let kept = std::fs::copy(abs, &bak).map_err(|e| anyhow::anyhow!("{}: {e}", bak.display()));
-        if let Err(e) = kept {
-            let _ = std::fs::remove_file(&trial);
-            return Err(e);
-        }
-    }
-    if let Err(e) = std::fs::rename(&trial, abs) {
-        let _ = std::fs::remove_file(&trial);
-        return Err(e.into());
-    }
-    Ok(true)
 }
 
 /// Take a file's `.bak` away: true when there was one.

@@ -360,7 +360,7 @@ mod tests {
             descriptions: Default::default(),
             groups: Vec::new(),
             signal_sets: Default::default(),
-        crossing_signals: Default::default(),
+            crossing_signals: Default::default(),
         };
         doc.global.name = "M".into();
         for k in [(0, 0), (1, 0)] {

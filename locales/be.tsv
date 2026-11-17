@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Светлафор у пачатку ка
 A signal where the picked path ends, facing out of the crossing	Светлафор там, дзе канчаецца выбраны шлях, вонкі ад скрыжавання
 Place signals as configured	Расставіць светлафоры па канфігурацыі
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Выдаліць светлафоры і стойкі гэтага скрыжавання і расставіць іх па пазіцыях з рэдактара скрыжавання
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Замяніць усе аб'екты, звязаныя з гэтым скрыжаваннем праз var_parent, зададзенымі светлафорамі (адмена адновіць іх)
+a signal's place is not a finite number	месца святлафора не з'яўляецца канечным лікам
+a signal shows a light this crossing does not have	святлафор паказвае святло, якога няма ў гэтым скрыжаванні
+The object has no surface there: no signal was put down	У аб'екта там няма паверхні: святлафор не пастаўлены

@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	หัวสัญญาณไฟที�
 A signal where the picked path ends, facing out of the crossing	สัญญาณไฟตรงจุดที่เส้นทางที่เลือกสิ้นสุด ออกจากทางแยก
 Place signals as configured	วางสัญญาณไฟตามการตั้งค่า
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	ลบหัวและเสาสัญญาณไฟของทางแยกนี้ แล้ววางตามตำแหน่งจากเครื่องมือแก้ไขทางแยก
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	แทนที่วัตถุทั้งหมดที่เชื่อมกับทางแยกนี้ผ่าน var_parent ด้วยสัญญาณไฟที่กำหนดไว้ (เลิกทำเพื่อคืนค่า)
+a signal's place is not a finite number	ตำแหน่งของสัญญาณไม่ใช่จำนวนจำกัด
+a signal shows a light this crossing does not have	สัญญาณแสดงไฟที่ทางแยกนี้ไม่มี
+The object has no surface there: no signal was put down	วัตถุไม่มีพื้นผิวตรงนั้น: ไม่ได้วางสัญญาณ

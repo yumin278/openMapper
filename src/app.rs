@@ -1744,8 +1744,9 @@ impl App {
                 if self.collab.is_guest() {
                     self.ed.error(tr("In multiplayer the host edits the map. Leave the session to place the signals.", "В совместной правке карту правит хост. Выйдите из сессии, чтобы расставить светофоры."));
                 } else if let Some(assets) = self.assets.as_ref() {
-                    if let Err(e) = self.ed.place_crossing_signals(assets, k, id) {
-                        self.ed.error(e.to_string());
+                    match self.ed.place_crossing_signals(assets, k, id) {
+                        Ok(report) => self.ed.toast(format!("{}: {}/{}", tr("Traffic lights", "Светофоры"), report.placed, report.requested)),
+                        Err(e) => self.ed.error(e.to_string()),
                     }
                 } else {
                     self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
@@ -2037,6 +2038,7 @@ impl App {
                 // catalogue, the other models or the whole map)
                 if let Some(roots) = &self.roots {
                     let (dir, _) = crate::editable::folder_of(roots, &rel);
+                    self.lib.refresh_crossing(roots, &rel);
                     if let Some(g) = &mut self.gfx {
                         g.renderer.forget_model(&rel, &dir);
                     }

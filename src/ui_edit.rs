@@ -1214,18 +1214,18 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64,
 pub fn crossing_signal_section(ui: &mut egui::Ui, ed: &Editor, lib: &Library, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
     let Some(o) = doc.object(k, id) else { return };
-    let light_program = lib.find(&o.file).map(|a| a.light_program).unwrap_or(false);
+    let light_program = lib.find(&o.file.replace('/', "\\")).map(|a| a.light_program).unwrap_or(false);
     if !light_program {
         return;
     }
-    let in_table = doc.crossing_signals.points(&o.file).is_some_and(|p| !p.is_empty());
+    let in_table = doc.crossing_signals.points(&o.file).is_some();
     if !in_table {
         return;
     }
     section(ui, tr("Traffic lights", "Светофоры"));
     egui::Frame::new().inner_margin(Margin::same(8)).show(ui, |ui| {
         if ui.button(icons::labelled(Icon::Traffic, tr("Place signals as configured", "Расставить светофоры по конфигурации")))
-            .on_hover_text(tr("Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say", "Удалить светофоры и стойки этого перекрёстка и расставить их по позициям из редактора перекрёстка"))
+            .on_hover_text(tr("Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)", "Заменить все объекты, связанные с этим перекрёстком через var_parent, заданными светофорами (отмена восстановит их)"))
             .clicked()
         {
             actions.push(crate::ui::Action::PlaceCrossingSignals(k, id));

@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Una testa di semaforo all'origine dell'in
 A signal where the picked path ends, facing out of the crossing	Un semaforo dove finisce il percorso scelto, verso l'esterno dell'incrocio
 Place signals as configured	Posiziona i semafori secondo la configurazione
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Elimina le teste e i pali dei semafori di questo incrocio e posizionali secondo le posizioni dell'editor di incroci
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Sostituisci tutti gli oggetti collegati a questo incrocio tramite var_parent con i semafori configurati (Annulla li ripristina)
+a signal's place is not a finite number	la posizione di un semaforo non è un numero finito
+a signal shows a light this crossing does not have	un semaforo mostra una luce che questo incrocio non ha
+The object has no surface there: no signal was put down	L'oggetto non ha una superficie lì: non è stato posato alcun semaforo

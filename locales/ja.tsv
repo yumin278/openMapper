@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	交差点の原点に信号ヘッド
 A signal where the picked path ends, facing out of the crossing	選択した経路の終点、交差点の外側へ向けて信号
 Place signals as configured	設定どおりに信号を配置
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	この交差点の信号ヘッドと支柱を削除し、交差点エディタの位置に配置
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	var_parent でこの交差点にリンクされたすべてのオブジェクトを設定した信号に置き換えます（元に戻すで復元）
+a signal's place is not a finite number	信号灯器の位置が有限の数値ではありません
+a signal shows a light this crossing does not have	信号灯器が、この交差点にない現示を表示しています
+The object has no surface there: no signal was put down	その場所にオブジェクトの面がないため、信号灯器は設置されませんでした

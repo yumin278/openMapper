@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Un cabezal de semáforo en el origen del 
 A signal where the picked path ends, facing out of the crossing	Un semáforo donde termina la vía seleccionada, hacia fuera del cruce
 Place signals as configured	Colocar semáforos según la configuración
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Elimina los cabezales y postes de semáforo de este cruce y colócalos donde indican las posiciones del editor de cruces
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Sustituir todos los objetos vinculados a este cruce mediante var_parent por los semáforos configurados (Deshacer los restaura)
+a signal's place is not a finite number	la posición de un semáforo no es un número finito
+a signal shows a light this crossing does not have	un semáforo muestra una luz que este cruce no tiene
+The object has no surface there: no signal was put down	El objeto no tiene superficie ahí: no se ha colocado ningún semáforo

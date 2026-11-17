@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Un cap de semàfor a l'origen de l'encreu
 A signal where the picked path ends, facing out of the crossing	Un semàfor on acaba el camí seleccionat, cap enfora de l'encreuament
 Place signals as configured	Col·loca els semàfors segons la configuració
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Suprimeix els caps i pals de semàfor d'aquest encreuament i col·loca'ls on diuen les posicions de l'editor d'encreuaments
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Substitueix tots els objectes vinculats a aquest encreuament per var_parent pels semàfors configurats (Desfés els restaura)
+a signal's place is not a finite number	la posició d'un semàfor no és un nombre finit
+a signal shows a light this crossing does not have	un semàfor mostra un llum que aquest creuament no té
+The object has no surface there: no signal was put down	L'objecte no té superfície aquí: no s'ha col·locat cap semàfor

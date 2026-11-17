@@ -2997,3 +2997,7 @@ A signal head at the crossing's origin	路口原点处的信号灯头
 A signal where the picked path ends, facing out of the crossing	所选路径终点处、朝路口外侧的信号灯
 Place signals as configured	按配置放置信号灯
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	删除此路口的信号灯头和灯杆，并按路口编辑器的位置放置
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	用配置的信号灯替换所有通过 var_parent 链接至此路口的对象（可撤销恢复）
+a signal's place is not a finite number	信号的位置不是有限数值
+a signal shows a light this crossing does not have	信号显示了此路口没有的灯光
+The object has no surface there: no signal was put down	对象在该处没有表面：未放置信号

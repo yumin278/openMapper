@@ -2999,3 +2999,7 @@ A signal head at the crossing's origin	Une tête de feu à l'origine du carrefou
 A signal where the picked path ends, facing out of the crossing	Un feu là où se termine la voie choisie, vers l'extérieur du carrefour
 Place signals as configured	Placer les feux selon la configuration
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Supprimer les têtes et mâts de feu de ce carrefour et les placer selon les positions de l'éditeur de carrefours
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Remplacer tous les objets liés à ce carrefour par var_parent par les feux configurés (Annuler les restaure)
+a signal's place is not a finite number	l'emplacement d'un feu n'est pas un nombre fini
+a signal shows a light this crossing does not have	un feu montre une lumière que ce carrefour n'a pas
+The object has no surface there: no signal was put down	L'objet n'a pas de surface à cet endroit : aucun feu n'a été placé

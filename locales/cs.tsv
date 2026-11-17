@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Hlava semaforu v počátku křižovatky
 A signal where the picked path ends, facing out of the crossing	Semafory tam, kde končí vybraná cesta, ven z křižovatky
 Place signals as configured	Rozmístit semafory podle konfigurace
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Odstranit hlavy a stožáry semaforů této křižovatky a rozmístit je podle pozic z editoru křižovatek
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Nahradit všechny objekty propojené s touto křižovatkou přes var_parent nastavenými semafory (Zpět je obnoví)
+a signal's place is not a finite number	místo návěstidla není konečné číslo
+a signal shows a light this crossing does not have	návěstidlo ukazuje světlo, které tato křižovatka nemá
+The object has no surface there: no signal was put down	Objekt zde nemá povrch: návěstidlo nebylo umístěno

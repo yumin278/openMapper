@@ -2998,5 +2998,9 @@ The signal set to use (empty: the map's default)	要使用的號誌套件（空�
 A signal	一個號誌
 A signal head at the crossing's origin	路口原點處的號誌頭
 A signal where the picked path ends, facing out of the crossing	所選路徑終點處、朝路口外側的號誌
-Place signals as configured	依設定放置號誌
+Place signals as configured	依配置放置紅綠燈
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	刪除此路口的號誌頭與燈桿，並按路口編輯器的位置放置
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	以配置的紅綠燈取代所有透過 var_parent 連結至此路口的物件（可復原）
+a signal's place is not a finite number	交通燈的位置不是有限數值
+a signal shows a light this crossing does not have	交通燈顯示了此路口沒有的燈號
+The object has no surface there: no signal was put down	物件在該處沒有表面：未放置交通燈

@@ -3002,3 +3002,7 @@ A signal head at the crossing's origin	Een seinkop op de oorsprong van het kruis
 A signal where the picked path ends, facing out of the crossing	Een sein waar het gekozen pad eindigt, uit het kruispunt
 Place signals as configured	Seinen plaatsen volgens de configuratie
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Verwijder de seinkoppen en palen van dit kruispunt en plaats ze volgens de posities van de kruispunt-editor
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Vervang alle via var_parent aan dit kruispunt gekoppelde objecten door de ingestelde seinen (Ongedaan maken herstelt ze)
+a signal's place is not a finite number	de positie van een sein is geen eindig getal
+a signal shows a light this crossing does not have	een sein toont een licht dat deze kruising niet heeft
+The object has no surface there: no signal was put down	Het object heeft daar geen oppervlak: er is geen sein geplaatst

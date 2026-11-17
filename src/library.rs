@@ -218,6 +218,25 @@ impl Library {
         self.rev += 1;
     }
 
+    /// Refresh one saved crossing without rescanning or reordering the catalogue.
+    pub(crate) fn refresh_crossing(&mut self, roots: &Roots, rel: &str) {
+        let rel = crate::crossing_signals::key(rel);
+        let Some((root, path, from_content)) = [(&roots.content, true), (&roots.omsi, false)]
+            .into_iter()
+            .map(|(root, own)| (root, omsi_cfg::resolve_path(root, &rel), own))
+            .find(|(_, path, _)| omsi_cfg::vfs::is_file(path))
+        else { return };
+        let Some(asset) = describe(root, &path, Kind::Object, from_content) else { return };
+        if let Some(&index) = self.index.get(&rel) {
+            self.assets[index] = asset;
+        } else {
+            let index = self.assets.len();
+            self.index.insert(asset.rel.to_lowercase(), index);
+            self.assets.push(asset);
+        }
+        self.rev += 1;
+    }
+
     pub fn find(&self, rel: &str) -> Option<&Asset> {
         // (an ASCII path, nearly all of them, is lower-cased on the stack: no allocation)
         let mut buf = [0u8; 192];

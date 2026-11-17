@@ -2999,3 +2999,7 @@ A signal head at the crossing's origin	Ein Signalkopf am Ursprung der Kreuzung
 A signal where the picked path ends, facing out of the crossing	Ein Signal dort, wo der gewählte Weg endet, von der Kreuzung weg
 Place signals as configured	Signale nach Konfiguration setzen
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Die Signalköpfe und -masten dieser Kreuzung löschen und sie an die Positionen des Kreuzungseditors setzen
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Alle über var_parent mit dieser Kreuzung verknüpften Objekte durch die konfigurierten Signale ersetzen (Rückgängig stellt sie wieder her)
+a signal's place is not a finite number	die Position eines Signals ist keine endliche Zahl
+a signal shows a light this crossing does not have	ein Signal zeigt ein Licht, das diese Kreuzung nicht hat
+The object has no surface there: no signal was put down	Das Objekt hat dort keine Oberfläche: Es wurde kein Signal gesetzt

@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Қиылыстың бас нүктесі�
 A signal where the picked path ends, facing out of the crossing	Таңдалған жолдың соңында, қиылыстан сыртқа қарай бағдаршам
 Place signals as configured	Бағдаршамдарды баптау бойынша қою
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Осы қиылыстың бағдаршам бастары мен тіректерін жойып, қиылыс редакторының орындарына қою
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Осы қиылысқа var_parent арқылы байланысқан барлық нысанды бапталған бағдаршамдармен ауыстыру (болдырмау оларды қалпына келтіреді)
+a signal's place is not a finite number	бағдаршамның орны шектеулі сан емес
+a signal shows a light this crossing does not have	бағдаршам бұл қиылыста жоқ жарықты көрсетеді
+The object has no surface there: no signal was put down	Нысанның сол жерде беті жоқ: бағдаршам қойылмады

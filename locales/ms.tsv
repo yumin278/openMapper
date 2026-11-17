@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	Kepala lampu isyarat pada asalan persimpa
 A signal where the picked path ends, facing out of the crossing	Lampu isyarat di hujung laluan terpilih, keluar dari persimpangan
 Place signals as configured	Letak lampu isyarat mengikut konfigurasi
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Padam kepala dan tiang lampu isyarat persimpangan ini dan letakkan mengikut kedudukan editor persimpangan
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Gantikan semua objek yang dipautkan ke persimpangan ini melalui var_parent dengan lampu isyarat yang dikonfigurasi (Buat asal memulihkannya)
+a signal's place is not a finite number	kedudukan isyarat bukan nombor terhingga
+a signal shows a light this crossing does not have	isyarat menunjukkan cahaya yang tiada pada persimpangan ini
+The object has no surface there: no signal was put down	Objek tiada permukaan di situ: tiada isyarat diletakkan

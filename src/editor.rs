@@ -16,6 +16,14 @@ use crate::reshape::{self, Handle};
 use crate::roads::{self, Anchor, Seg};
 use crate::selection::{self, Origin};
 
+/// Counts signal pairs, not individual head/pole objects.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct CrossingSignalPlacement {
+    pub requested: usize,
+    pub placed: usize,
+    pub skipped: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tool {
     Select,
@@ -10147,7 +10155,7 @@ impl Editor {
 
     /// Place a crossing's hand-authored signal heads and poles (the map's
     /// `crossing_signals.json`), deleting the crossing's own signal objects first. One undo step.
-    pub fn place_crossing_signals(&mut self, assets: &Assets, k: TileKey, id: i64) -> anyhow::Result<()> {
+    pub fn place_crossing_signals(&mut self, assets: &Assets, k: TileKey, id: i64) -> anyhow::Result<CrossingSignalPlacement> {
         let Some(doc) = self.doc.as_ref() else {
             anyhow::bail!("{}", tr("Open a map", "Открыть карту"));
         };
@@ -10158,15 +10166,14 @@ impl Editor {
         let Some(points) = doc.crossing_signals.points(&rel).map(|v| v.to_vec()) else {
             anyhow::bail!("{}", tr("no signal positions are configured for this crossing", "для этого перекрёстка не заданы позиции светофоров"));
         };
-        if points.is_empty() {
-            anyhow::bail!("{}", tr("no signal positions are configured for this crossing", "для этого перекрёстка не заданы позиции светофоров"));
-        }
         // (the crossing's own height mode and light count, from its .sco)
         let sco_path = assets.resolve(&rel);
         let sco = omsi_scenery::SceneryObject::load(&sco_path)
             .map_err(|e| anyhow::anyhow!("{}: {e}", sco_path.display()))?;
         let junction_abs = sco.absolute_height();
         let light_count = sco.traffic_lights.len();
+        anyhow::ensure!(light_count > 0, "{}: no traffic-light program", sco_path.display());
+        let config_path = doc.dir.join("openMapper").join(crate::crossing_signals::FILE_NAME);
 
         // (the crossing's world origin and height; its turn is the clockwise heading of `rot`)
         let org = tile_origin(k);
@@ -10180,8 +10187,8 @@ impl Editor {
         for (i, p) in points.iter().enumerate() {
             if p.light >= light_count {
                 log::warn!(
-                    "junction {id} signal {i}: light {} is out of range ({light_count} light(s)); skipped",
-                    p.light
+                    "crossing signals {}: junction {id} signal {i}: light {} is out of range ({light_count} light(s)); skipped",
+                    config_path.display(), p.light
                 );
                 skipped += 1;
                 continue;
@@ -10218,6 +10225,7 @@ impl Editor {
             .unwrap_or_default();
         {
             let doc = self.doc.as_mut().unwrap();
+            self.history.touch_global(doc);
             for k in &child_tiles {
                 self.history.touch_tile(doc, *k);
             }
@@ -10232,15 +10240,20 @@ impl Editor {
                 }
             }
         }
-        let placed = planned.len();
+        let planned_count = planned.len();
         let doc = self.doc.as_mut().unwrap();
         for (set, height_modes, light, heading, head) in planned {
             let at = crate::signal_sets::Placement { junction: id, light, heading, head };
             set.place(doc, Some(&mut self.history), at, height_modes);
         }
+        let placed = doc.tiles.values().flat_map(|t| &t.tile.objects)
+            .filter(|o| o.var_parent == Some(id) && o.extra.len() == 1).count();
+        let missing_tiles = planned_count - placed;
+        skipped += missing_tiles;
         self.history.commit();
-        log::info!("junction {id}: placed {placed} signal pair(s), skipped {skipped}");
-        Ok(())
+        log::info!("junction {id}: requested={} placed {placed} signal pair(s) ({} objects), skipped {skipped} (invalid light={}, missing head/pole tile={missing_tiles})",
+            points.len(), placed * 2, points.len() - planned_count);
+        Ok(CrossingSignalPlacement { requested: points.len(), placed, skipped })
     }
 
     /// After a save: the junction files of this map that nothing uses any more (not a tile,

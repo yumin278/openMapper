@@ -3001,3 +3001,7 @@ A signal head at the crossing's origin	चौराहे के मूल ब�
 A signal where the picked path ends, facing out of the crossing	चुने गए रास्ते के अंत में, चौराहे से बाहर की ओर एक सिग्नल
 Place signals as configured	कॉन्फ़िगरेशन के अनुसार सिग्नल लगाएँ
 Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	इस चौराहे के सिग्नल हेड और खंभे हटाएँ और उन्हें चौराहा संपादक की स्थितियों पर लगाएँ
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	इस चौराहे से var_parent द्वारा जुड़े सभी ऑब्जेक्ट को कॉन्फ़िगर किए गए सिग्नलों से बदलें (पूर्ववत करें उन्हें पुनर्स्थापित करता है)
+a signal's place is not a finite number	सिग्नल की जगह एक परिमित संख्या नहीं है
+a signal shows a light this crossing does not have	सिग्नल एक ऐसी लाइट दिखा रहा है जो इस चौराहे पर नहीं है
+The object has no surface there: no signal was put down	वहाँ वस्तु की कोई सतह नहीं है: कोई सिग्नल नहीं रखा गया
