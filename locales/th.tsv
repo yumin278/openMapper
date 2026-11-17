@@ -2989,3 +2989,15 @@ The median and footway must not be lower than the roadway	สายกลาง�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	ทางเท้านี้อยู่ระดับเดียวกับผิวถนน: เครื่องมือช่องจอดรถบัสจะสร้างช่องจอดไว้ด้านนอก
 Contains a footway without an AI path	มีทางเท้าที่ไม่มีเส้นทาง AI
 Contains strips with a fixed height	มีแถบที่กำหนดความสูงไว้
+In multiplayer the host edits the map. Leave the session to place the signals.	ในโหมดหลายผู้เล่น โฮสต์เป็นผู้แก้ไขแผนที่ ออกจากเซสชันเพื่อวางสัญญาณไฟ
+no signal positions are configured for this crossing	ยังไม่ได้กำหนดตำแหน่งสัญญาณไฟสำหรับทางแยกนี้
+Place signals	วางสัญญาณไฟ
+Signal positions	ตำแหน่งสัญญาณไฟ
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	ตำแหน่งที่หัวสัญญาณไฟตั้งอยู่ ในระบบพิกัดของทางแยก บันทึกข้างแผนที่ ไม่ใช่ในวัตถุ
+set id	id ชุด
+The signal set to use (empty: the map's default)	ชุดสัญญาณไฟที่จะใช้ (ว่าง: ค่าเริ่มต้นของแผนที่)
+A signal	สัญญาณไฟ
+A signal head at the crossing's origin	หัวสัญญาณไฟที่จุดกำเนิดของทางแยก
+A signal where the picked path ends, facing out of the crossing	สัญญาณไฟตรงจุดที่เส้นทางที่เลือกสิ้นสุด ออกจากทางแยก
+Place signals as configured	วางสัญญาณไฟตามการตั้งค่า
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	ลบหัวและเสาสัญญาณไฟของทางแยกนี้ แล้ววางตามตำแหน่งจากเครื่องมือแก้ไขทางแยก

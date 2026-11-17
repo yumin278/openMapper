@@ -16,6 +16,8 @@ use std::path::{Path as FsPath, PathBuf};
 use glam::{DVec2, DVec3};
 use omsi_scenery::{TrafficLight, TrafficLightPhase};
 
+use crate::crossing_signals::SignalPoint;
+
 /// No turn signal.
 pub const TURN_NONE: i32 = 0;
 /// The file's code for a left turn (the game's own `turn = 1`).
@@ -538,6 +540,8 @@ pub struct Crossing {
     /// `[traffic_light_jump] light time if_request jump_to`.
     pub jumps: Vec<[f32; 4]>,
     pub helpers: Vec<Helper>,
+    /// Signal heads the user put down by hand (kept beside the map, not in the `.sco`).
+    pub signals: Vec<SignalPoint>,
 }
 
 impl Crossing {

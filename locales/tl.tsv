@@ -2989,3 +2989,15 @@ The median and footway must not be lower than the roadway	Ang median strip at la
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Ang lakaran ng tao na ito ay kapantay ng daanan: ang tool ng bus bay ay bubuksan ang bay sa labas nito
 Contains a footway without an AI path	Naglalaman ng lakaran ng tao na walang AI path
 Contains strips with a fixed height	Naglalaman ng mga strip na may takdang taas
+In multiplayer the host edits the map. Leave the session to place the signals.	Sa multiplayer, ang host ang nag-e-edit ng mapa. Umalis sa session para ilagay ang mga ilaw-trapiko.
+no signal positions are configured for this crossing	walang naka-configure na posisyon ng ilaw-trapiko para sa sangandaan na ito
+Place signals	Ilagay ang mga ilaw-trapiko
+Signal positions	Mga posisyon ng ilaw-trapiko
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Kung saan nakatayo ang ulo ng ilaw-trapiko, sa sistema ng sangandaan. Nai-save sa tabi ng mapa, hindi sa bagay
+set id	id ng set
+The signal set to use (empty: the map's default)	Ang set ng ilaw-trapiko na gagamitin (walang laman: default ng mapa)
+A signal	Isang ilaw-trapiko
+A signal head at the crossing's origin	Ulo ng ilaw-trapiko sa pinagmulan ng sangandaan
+A signal where the picked path ends, facing out of the crossing	Ilaw-trapiko sa dulo ng napiling daan, palabas ng sangandaan
+Place signals as configured	Ilagay ang mga ilaw-trapiko ayon sa configuration
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Burahin ang mga ulo at poste ng ilaw-trapiko ng sangandaan na ito at ilagay ayon sa mga posisyon ng editor ng sangandaan

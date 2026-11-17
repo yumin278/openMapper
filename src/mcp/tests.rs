@@ -24,6 +24,7 @@ fn server(allow_edit: bool) -> Server {
         descriptions: Default::default(),
         groups: Vec::new(),
         signal_sets: Default::default(),
+        crossing_signals: Default::default(),
     };
     doc.add_tile((0, 0));
     let mut s = Server::new(roots, allow_edit);

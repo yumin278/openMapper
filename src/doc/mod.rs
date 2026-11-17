@@ -216,6 +216,7 @@ pub struct Document {
     /// Things kept together (openMapper's own: `openMapper/groups.json` beside the map).
     pub groups: Vec<crate::mapgroups::MapGroup>,
     pub(crate) signal_sets: crate::signal_sets::SignalSets,
+    pub(crate) crossing_signals: crate::crossing_signals::CrossingSignals,
 }
 
 impl Document {
@@ -253,6 +254,7 @@ impl Document {
             descriptions: Default::default(),
             groups: Vec::new(),
             signal_sets: Default::default(),
+            crossing_signals: Default::default(),
             source: Some(template),
             global_dirty: true,
             fresh: true,
@@ -354,6 +356,7 @@ impl Document {
             descriptions,
             groups: Vec::new(),
             signal_sets: Default::default(),
+            crossing_signals: Default::default(),
         })
     }
 
@@ -407,6 +410,7 @@ impl Document {
             descriptions: Default::default(),
             groups: Vec::new(),
             signal_sets: Default::default(),
+            crossing_signals: Default::default(),
         }
     }
 

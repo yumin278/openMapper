@@ -2989,3 +2989,15 @@ The median and footway must not be lower than the roadway	Median dan trotoar tid
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Trotoar ini sejajar dengan badan jalan: alat teluk bus akan membuka teluk di luarnya
 Contains a footway without an AI path	Mengandung trotoar tanpa jalur AI
 Contains strips with a fixed height	Mengandung strip dengan tinggi tetap
+In multiplayer the host edits the map. Leave the session to place the signals.	Dalam multipemain, host yang mengedit peta. Tinggalkan sesi untuk menempatkan lampu.
+no signal positions are configured for this crossing	tidak ada posisi lampu yang dikonfigurasi untuk persimpangan ini
+Place signals	Pasang lampu
+Signal positions	Posisi lampu
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Tempat kepala lampu berdiri, dalam kerangka persimpangan. Disimpan di samping peta, bukan di objek
+set id	id set
+The signal set to use (empty: the map's default)	Set lampu yang dipakai (kosong: bawaan peta)
+A signal	Sebuah lampu
+A signal head at the crossing's origin	Kepala lampu di titik asal persimpangan
+A signal where the picked path ends, facing out of the crossing	Lampu di tempat jalur terpilih berakhir, keluar dari persimpangan
+Place signals as configured	Pasang lampu sesuai konfigurasi
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Hapus kepala dan tiang lampu persimpangan ini, lalu pasang sesuai posisi dari editor persimpangan

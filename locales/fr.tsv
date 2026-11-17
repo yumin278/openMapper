@@ -2987,3 +2987,15 @@ The median and footway must not be lower than the roadway	La bande médiane et l
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Ce trottoir est au niveau de la chaussée : l'outil de baie d'arrêt de bus ouvrira la baie à l'extérieur
 Contains a footway without an AI path	Contient un trottoir sans chemin IA
 Contains strips with a fixed height	Contient des bandes à hauteur fixe
+In multiplayer the host edits the map. Leave the session to place the signals.	En multijoueur, c'est l'hôte qui modifie la carte. Quittez la session pour placer les feux.
+no signal positions are configured for this crossing	aucune position de feu n'est configurée pour ce carrefour
+Place signals	Placer les feux
+Signal positions	Positions des feux
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Où se tient une tête de feu, dans le repère du carrefour. Enregistré à côté de la carte, pas dans l'objet
+set id	id du jeu
+The signal set to use (empty: the map's default)	Le jeu de feux à utiliser (vide : défaut de la carte)
+A signal	Un feu
+A signal head at the crossing's origin	Une tête de feu à l'origine du carrefour
+A signal where the picked path ends, facing out of the crossing	Un feu là où se termine la voie choisie, vers l'extérieur du carrefour
+Place signals as configured	Placer les feux selon la configuration
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Supprimer les têtes et mâts de feu de ce carrefour et les placer selon les positions de l'éditeur de carrefours

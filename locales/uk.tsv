@@ -2987,3 +2987,15 @@ The median and footway must not be lower than the roadway	Медіанна см�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Цей тротуар на одному рівні з проїжджою частиною: інструмент автобусного кармана зробить карман ззовні нього
 Contains a footway without an AI path	Містить тротуар без шляху ШІ
 Contains strips with a fixed height	Містить смуги з фіксованою висотою
+In multiplayer the host edits the map. Leave the session to place the signals.	У багатокористувацькій грі карту редагує хост. Вийдіть із сесії, щоб розставити світлофори.
+no signal positions are configured for this crossing	для цього перехрестя не задано позиції світлофорів
+Place signals	Розставити світлофори
+Signal positions	Позиції світлофорів
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Де стоїть голівка світлофора, у системі перехрестя. Зберігається поруч із картою, не в об'єкті
+set id	id набору
+The signal set to use (empty: the map's default)	Набір світлофора (порожньо: типовий карти)
+A signal	Світлофор
+A signal head at the crossing's origin	Голівка світлофора в початку координат перехрестя
+A signal where the picked path ends, facing out of the crossing	Світлофор там, де закінчується вибраний шлях, назовні від перехрестя
+Place signals as configured	Розставити світлофори за конфігурацією
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Видалити голівки та стійки світлофорів цього перехрестя й розставити їх за позиціями редактора перехресть

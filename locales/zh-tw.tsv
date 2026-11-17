@@ -2988,3 +2988,15 @@ The median and footway must not be lower than the roadway	分隔帶與行人路�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	此人行路與行車道同高，巴士停車灣工具會把停車灣開在其外側
 Contains a footway without an AI path	含有未設 AI 路徑的行人路
 Contains strips with a fixed height	含有指定高度的積木
+In multiplayer the host edits the map. Leave the session to place the signals.	多人模式下由主機編輯地圖。請離開工作階段以放置號誌。
+no signal positions are configured for this crossing	此路口未設定號誌位置
+Place signals	放置號誌
+Signal positions	號誌位置
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	號誌頭在路口坐標系中的位置。儲存在地圖旁，不在物件內
+set id	套件 id
+The signal set to use (empty: the map's default)	要使用的號誌套件（空白：地圖預設）
+A signal	一個號誌
+A signal head at the crossing's origin	路口原點處的號誌頭
+A signal where the picked path ends, facing out of the crossing	所選路徑終點處、朝路口外側的號誌
+Place signals as configured	依設定放置號誌
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	刪除此路口的號誌頭與燈桿，並按路口編輯器的位置放置

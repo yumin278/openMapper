@@ -1740,6 +1740,17 @@ impl App {
                     self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
                 }
             }
+            Action::PlaceCrossingSignals(k, id) => {
+                if self.collab.is_guest() {
+                    self.ed.error(tr("In multiplayer the host edits the map. Leave the session to place the signals.", "В совместной правке карту правит хост. Выйдите из сессии, чтобы расставить светофоры."));
+                } else if let Some(assets) = self.assets.as_ref() {
+                    if let Err(e) = self.ed.place_crossing_signals(assets, k, id) {
+                        self.ed.error(e.to_string());
+                    }
+                } else {
+                    self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
+                }
+            }
             Action::CrossingPaths => {
                 // (its copy of the object would be on this disk only, and the map's others would get a path they lack)
                 if self.collab.is_guest() {

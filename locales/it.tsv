@@ -2989,3 +2989,15 @@ The median and footway must not be lower than the roadway	La fascia mediana e il
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Questo marciapiede è a livello della carreggiata: lo strumento piazzola bus aprirà la piazzola all'esterno
 Contains a footway without an AI path	Contiene un marciapiede senza percorso IA
 Contains strips with a fixed height	Contiene strisce con altezza fissa
+In multiplayer the host edits the map. Leave the session to place the signals.	In multigiocatore la mappa la modifica l'host. Esci dalla sessione per posizionare i semafori.
+no signal positions are configured for this crossing	nessuna posizione dei semafori configurata per questo incrocio
+Place signals	Posiziona i semafori
+Signal positions	Posizioni dei semafori
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Dove sta una testa di semaforo, nel sistema dell'incrocio. Salvato accanto alla mappa, non nell'oggetto
+set id	id del set
+The signal set to use (empty: the map's default)	Il set di semafori da usare (vuoto: predefinito della mappa)
+A signal	Un semaforo
+A signal head at the crossing's origin	Una testa di semaforo all'origine dell'incrocio
+A signal where the picked path ends, facing out of the crossing	Un semaforo dove finisce il percorso scelto, verso l'esterno dell'incrocio
+Place signals as configured	Posiziona i semafori secondo la configurazione
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Elimina le teste e i pali dei semafori di questo incrocio e posizionali secondo le posizioni dell'editor di incroci

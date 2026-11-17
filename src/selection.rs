@@ -753,6 +753,7 @@ pub mod tests {
             descriptions: Default::default(),
             groups: Vec::new(),
             signal_sets: Default::default(),
+            crossing_signals: Default::default(),
         };
         for x in 0..n {
             doc.tiles.insert((x, 0), TileDoc::new_flat(0.0));

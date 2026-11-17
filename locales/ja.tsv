@@ -2989,3 +2989,15 @@ The median and footway must not be lower than the roadway	中央分離帯と歩�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	この歩道は車道と同じ高さです：バス停車帯ツールは停車帯をその外側に作ります
 Contains a footway without an AI path	AI経路のない歩道が含まれています
 Contains strips with a fixed height	高さが固定された帯が含まれています
+In multiplayer the host edits the map. Leave the session to place the signals.	マルチプレイではホストがマップを編集します。信号を配置するにはセッションを抜けてください。
+no signal positions are configured for this crossing	この交差点には信号位置が設定されていません
+Place signals	信号を配置
+Signal positions	信号位置
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	交差点の座標系で信号ヘッドが立つ位置。オブジェクトではなくマップの隣に保存されます
+set id	セット id
+The signal set to use (empty: the map's default)	使用する信号セット（空：マップの既定）
+A signal	信号
+A signal head at the crossing's origin	交差点の原点に信号ヘッド
+A signal where the picked path ends, facing out of the crossing	選択した経路の終点、交差点の外側へ向けて信号
+Place signals as configured	設定どおりに信号を配置
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	この交差点の信号ヘッドと支柱を削除し、交差点エディタの位置に配置

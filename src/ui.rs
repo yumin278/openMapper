@@ -103,6 +103,9 @@ pub enum Action {
     /// Put the crossing being edited in the middle of the map's view, close enough that its
     /// paths fill it.
     CrossingFrame,
+    /// Place the selected crossing's hand-authored signal heads and poles (from the map's
+    /// `crossing_signals.json`).
+    PlaceCrossingSignals(crate::doc::TileKey, i64),
     /// The crossing editor saved an object: its rel path is now what the map names. Only that
     /// object's model is read again - the catalogue and the other models stay as they are.
     CrossingSaved(String),
@@ -2868,6 +2871,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
     match sel {
         Sel::Object(k, id) => {
             crate::ui_edit::junction_section(ui, ed, k, id, actions);
+            crate::ui_edit::crossing_signal_section(ui, ed, lib, k, id, actions);
             crate::ui_edit::array_section(ui, ed, lib);
             crate::ui_edit::link_section(ui, ed, lib, k, id, obj_info.as_ref(), parent_lights.as_ref());
             if has_paths {

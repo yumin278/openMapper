@@ -11,6 +11,7 @@ use glam::{DVec2, DVec3};
 
 use crate::assets::Assets;
 use crate::crossing_edit::{self, outward_flow, Crossing, Helper, Joint, Path, Sheet, TURN_LEFT, TURN_NONE, TURN_RIGHT};
+use crate::crossing_signals::SignalPoint;
 use crate::doc::Sel;
 use crate::editor::Editor;
 use crate::i18n::tr;
@@ -24,6 +25,7 @@ const RAIL: Color32 = Color32::from_rgb(196, 148, 208);
 const PICKED: Color32 = Color32::from_rgb(255, 148, 40);
 const HANDLE: Color32 = Color32::from_rgb(238, 238, 238);
 const SNAPPED: Color32 = Color32::from_rgb(96, 208, 128);
+const SIGNAL: Color32 = Color32::from_rgb(232, 96, 176);
 const DIM: Color32 = Color32::from_gray(150);
 const BAD: Color32 = Color32::from_rgb(240, 110, 96);
 const GOOD: Color32 = Color32::from_rgb(120, 200, 130);
@@ -2738,7 +2740,7 @@ impl CrossingPaths {
             return false;
         }
         match crossing_edit::open(roots, &rel) {
-            Ok((abs, bytes, sheet)) => {
+            Ok((abs, bytes, mut sheet)) => {
                 self.copied = sidecar(&abs).is_file();
                 self.target = Some(Sel::Object(k, id));
                 // (another object's ends are not this one's: the pool is gathered afresh)
@@ -2748,6 +2750,8 @@ impl CrossingPaths {
                 self.rel = rel;
                 self.abs = abs;
                 self.bytes = bytes;
+                // (the hand-placed signal positions live beside the map, not in the .sco)
+                sheet.crossing.signals = doc.crossing_signals.points(&self.rel).map(|v| v.to_vec()).unwrap_or_default();
                 self.seen = sheet.crossing.clone();
                 self.selected = (!sheet.crossing.paths.is_empty()).then_some(0);
                 self.mark = sheet.crossing.clone();
@@ -3402,6 +3406,71 @@ impl CrossingPaths {
                         let heading = c.heading_at(c.length) as f32;
                         let spline = ed.road_type.clone().unwrap_or_default();
                         sheet.crossing.helpers.push(Helper { spline, x: at.x as f32, up: at.z as f32, fwd: at.y as f32, heading, length: 0.1, radius: 0.0 });
+                        changed = true;
+                    }
+                }
+            });
+        });
+
+        // ---- the signal positions (kept beside the map, not in the .sco)
+        ui.separator();
+        let mut signal_gone = None;
+        egui::CollapsingHeader::new(RichText::new(format!("{} ({})", tr("Signal positions", "Позиции светофоров"), sheet.crossing.signals.len())).strong()).id_salt("crossing signals").default_open(false).show(ui, |ui| {
+            ui.label(RichText::new(tr("Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object", "Где стоит светофор, в системе перекрёстка. Хранится рядом с картой, не в объекте")).small().color(DIM));
+            let names: Vec<(usize, String)> = sheet.crossing.lights.iter().enumerate().map(|(n, l)| (n, format!("#{n} {}", if l.name.trim().is_empty() { tr("(no name)", "(без имени)") } else { l.name.trim() }))).collect();
+            for (n, p) in sheet.crossing.signals.iter_mut().enumerate() {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(format!("#{n}")).small().color(DIM));
+                    let selected = names.iter().find(|(i, _)| *i == p.light).map(|(_, s)| s.clone()).unwrap_or_else(|| format!("#{}", p.light));
+                    egui::ComboBox::from_id_salt(("crossing signal light", n)).selected_text(selected).width(130.0).show_ui(ui, |ui| {
+                        for (i, s) in &names {
+                            ui.selectable_value(&mut p.light, *i, s);
+                        }
+                    });
+                    changed |= ui.add(egui::TextEdit::singleline(&mut p.set).desired_width(90.0).hint_text(tr("set id", "id набора"))).on_hover_text(tr("The signal set to use (empty: the map's default)", "Набор светофора (пусто: по умолчанию карты)")).changed();
+                    if ui.small_button(icons::labelled(Icon::Delete, "")).clicked() {
+                        signal_gone = Some(n);
+                    }
+                });
+                ui.horizontal(|ui| {
+                    changed |= ui.add(egui::DragValue::new(&mut p.x).speed(0.05).prefix("x ")).changed();
+                    changed |= ui.add(egui::DragValue::new(&mut p.fwd).speed(0.05).prefix("f ")).changed();
+                    changed |= ui.add(egui::DragValue::new(&mut p.up).speed(0.05).prefix("h ")).changed();
+                });
+                ui.horizontal(|ui| {
+                    changed |= ui.add(egui::DragValue::new(&mut p.heading).speed(0.5).suffix("°")).changed();
+                });
+            }
+            if let Some(n) = signal_gone {
+                sheet.crossing.signals.remove(n);
+                changed = true;
+            }
+            ui.horizontal(|ui| {
+                if ui.add_enabled(!sheet.crossing.lights.is_empty(), egui::Button::new(icons::labelled(Icon::Add, tr("A signal", "Светофор")))).on_hover_text(tr("A signal head at the crossing's origin", "Светофор в начале координат перекрёстка")).clicked() {
+                    let up = match self.surface_height(DVec2::ZERO) {
+                        Some(z) => z as f32,
+                        None => {
+                            log::warn!("crossing signals: no surface height at the origin; the signal's height is left 0");
+                            0.0
+                        }
+                    };
+                    sheet.crossing.signals.push(SignalPoint { light: 0, set: String::new(), x: 0.0, up, fwd: 0.0, heading: 0.0 });
+                    changed = true;
+                }
+                let picked = self.selected.is_some() && !sheet.crossing.lights.is_empty();
+                if ui.add_enabled(picked, egui::Button::new(tr("At the picked end", "У выбранного конца"))).on_hover_text(tr("A signal where the picked path ends, facing out of the crossing", "Светофор там, где кончается выбранный путь, наружу от перекрёстка")).clicked() {
+                    if let Some(p) = self.selected.and_then(|i| sheet.crossing.paths.get(i)) {
+                        let at = p.end();
+                        let c = p.curve();
+                        let heading = c.heading_at(c.length) as f32;
+                        let up = match self.surface_height(at.truncate()) {
+                            Some(z) => z as f32,
+                            None => {
+                                log::warn!("crossing signals: no surface height at the picked end; the signal's height is left 0");
+                                0.0
+                            }
+                        };
+                        sheet.crossing.signals.push(SignalPoint { light: 0, set: String::new(), x: at.x as f32, up, fwd: at.y as f32, heading });
                         changed = true;
                     }
                 }
@@ -4161,6 +4230,15 @@ impl CrossingPaths {
         });
     }
 
+    /// Write the hand-placed signal positions beside the map and put them in the cache.
+    fn write_signals(&mut self, ed: &mut Editor, rel: &str, points: &[SignalPoint]) -> anyhow::Result<()> {
+        crate::crossing_signals::write_points(&self.map_dir, rel, points)?;
+        if let Some(doc) = ed.doc.as_mut() {
+            doc.crossing_signals.set(rel, points.to_vec());
+        }
+        Ok(())
+    }
+
     fn save(&mut self, ed: &mut Editor, roots: &Roots, assets: &mut Assets, actions: &mut Vec<crate::ui::Action>) {
         let Some(Sel::Object(k, id)) = self.target else { return };
         let Some(sheet) = self.sheet.as_ref() else { return };
@@ -4179,14 +4257,20 @@ impl CrossingPaths {
             return;
         }
         let text = sheet.text();
+        let signals_changed = crossing.signals != self.seen.signals;
         // (in the object's own file: the map's object keeps naming the file it names, and the
         // file as it stood is kept as its `.bak`)
         if self.save_mode == SaveMode::InPlace {
             let abs = self.abs.clone();
+            let rel = self.rel.clone();
             // (a `.bak` that was there before is not the editor's: it is kept, and not noted)
             let had_bak = crossing_edit::bak_path(&abs).exists();
             match crossing_edit::write_in_place(&abs, &text, &self.bytes, &crossing) {
                 Ok(false) => {
+                    if signals_changed && let Err(e) = self.write_signals(ed, &rel, &crossing.signals) {
+                        self.message = Some((e.to_string(), true));
+                        return;
+                    }
                     self.seen = crossing;
                     // (nothing was written, but the view may still hold the old model)
                     actions.push(crate::ui::Action::CrossingSaved(self.rel.clone()));
@@ -4194,6 +4278,10 @@ impl CrossingPaths {
                     return;
                 }
                 Ok(true) => {
+                    if signals_changed && let Err(e) = self.write_signals(ed, &rel, &crossing.signals) {
+                        self.message = Some((e.to_string(), true));
+                        return;
+                    }
                     if !had_bak {
                         crossing_edit::baks::note(roots, &crossing_edit::bak_path(&abs));
                     }
@@ -4243,6 +4331,17 @@ impl CrossingPaths {
             self.message = Some((e.to_string(), true));
             return;
         }
+        // (a copy is a fresh `.sco`, so its signal positions are written to its own key even
+        // when they were not changed here; the source's key is left as it was)
+        if signals_changed || fresh {
+            if let Err(e) = self.write_signals(ed, &rel, &crossing.signals) {
+                if fresh {
+                    crossing_edit::discard_copy(roots, &rel);
+                }
+                self.message = Some((e.to_string(), true));
+                return;
+            }
+        }
         // (the mark that this file is the editor's own: the next save writes it in place)
         let _ = std::fs::write(sidecar(&abs), format!("{{\"from\": {:?}}}", self.from_rel));
         self.copied = true;
@@ -4277,6 +4376,10 @@ impl CrossingPaths {
         for h in &sheet.crossing.helpers {
             lo = lo.min(h.local().truncate());
             hi = hi.max(h.local().truncate());
+        }
+        for s in &sheet.crossing.signals {
+            lo = lo.min(s.local().truncate());
+            hi = hi.max(s.local().truncate());
         }
         // (the object itself: a crossing whose roads run far out is framed whole)
         if let Some((_, _, b)) = &self.footprint {
@@ -4495,6 +4598,14 @@ impl CrossingPaths {
             painter.circle_stroke(at, 4.4, Stroke::new(1.3, SNAPPED));
             let d = crate::roads::dir(h.heading as f64);
             painter.line_segment([at, to_screen(h.local().truncate() + d * 4.0)], Stroke::new(1.2, SNAPPED));
+        }
+        // the signal positions: where a head will be put
+        for s in &sheet.crossing.signals {
+            let at = to_screen(s.local().truncate());
+            painter.circle_stroke(at, 4.4, Stroke::new(1.3, SIGNAL));
+            let d = crate::roads::dir(s.heading as f64);
+            painter.line_segment([at, to_screen(s.local().truncate() + d * 4.0)], Stroke::new(1.2, SIGNAL));
+            painter.text(at + Vec2::new(6.0, -6.0), egui::Align2::LEFT_BOTTOM, format!("#{}", s.light), egui::FontId::proportional(11.0), SIGNAL);
         }
         // the end being dragged is locked onto another end: shown, so a snap is not a surprise
         if let Some(at) = self.snap_mark {

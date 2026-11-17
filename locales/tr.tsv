@@ -2989,3 +2989,15 @@ The median and footway must not be lower than the roadway	Orta şerit ve yaya yo
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Bu yaya yolu yol yüzeyiyle aynı hizadadır: otobüs cebi aracı cebi onun dışında açar
 Contains a footway without an AI path	YZ yolu olmayan bir yaya yolu içerir
 Contains strips with a fixed height	Sabit yüksekliğe sahip şeritler içerir
+In multiplayer the host edits the map. Leave the session to place the signals.	Çok oyunculu modda haritayı sunucu düzenler. Sinyalleri yerleştirmek için oturumdan çıkın.
+no signal positions are configured for this crossing	bu kavşak için sinyal konumu yapılandırılmamış
+Place signals	Sinyalleri yerleştir
+Signal positions	Sinyal konumları
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Kavşağın koordinat sisteminde bir sinyal başlığının durduğu yer. Nesnede değil, haritanın yanında kaydedilir
+set id	set kimliği
+The signal set to use (empty: the map's default)	Kullanılacak sinyal seti (boş: haritanın varsayılanı)
+A signal	Bir sinyal
+A signal head at the crossing's origin	Kavşağın başlangıç noktasında bir sinyal başlığı
+A signal where the picked path ends, facing out of the crossing	Seçilen yolun bittiği yerde, kavşaktan dışarı doğru bir sinyal
+Place signals as configured	Sinyalleri yapılandırmaya göre yerleştir
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Bu kavşağın sinyal başlıklarını ve direklerini sil ve kavşak düzenleyicisinin konumlarına göre yerleştir
