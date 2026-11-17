@@ -423,7 +423,7 @@ impl Document {
     }
 
     pub fn is_dirty(&self) -> bool {
-        self.global_dirty || self.timetable.dirty || self.traffic.dirty || self.descriptions.dirty || self.tiles.values().any(|t| t.dirty)
+        self.global_dirty || self.timetable.is_dirty() || self.traffic.dirty || self.descriptions.dirty || self.tiles.values().any(|t| t.dirty)
     }
 
     /// A fresh IDCode for a new object or spline. Maps often keep `NextIDCode` below an

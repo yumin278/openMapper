@@ -103,7 +103,7 @@ pub fn snapshot(doc: &Document) -> Snapshot {
         global_dirty: doc.global_dirty,
         fresh: doc.fresh,
         global_rev: doc.global_rev,
-        timetable: if doc.timetable.dirty { doc.timetable.clone() } else { Default::default() },
+        timetable: if doc.timetable.is_dirty() { doc.timetable.clone() } else { Default::default() },
         traffic: if doc.traffic.dirty { doc.traffic.clone() } else { Default::default() },
         descriptions: if doc.descriptions.dirty { doc.descriptions.clone() } else { Default::default() },
         groups: Vec::new(),
@@ -134,7 +134,7 @@ fn prepare_from(doc: &Document, known: &std::collections::HashSet<TileKey>, epoc
     let mut ops: Vec<_> = ops.into_iter().filter(|o| matches!(o, super::safe::Op::Write(..))).collect();
     // the timetable and the traffic through their own writers, every file of them (a copy
     // marked as all changed: the map's own stays as it is)
-    if doc.timetable.dirty {
+    if doc.timetable.is_dirty() {
         let mut tt = doc.timetable.clone();
         tt.restored(&Default::default());
         ops.extend(crate::timetable::plan(&mut tt, &fresh_dir, &doc.order).into_iter().filter(|o| matches!(o, super::safe::Op::Write(..))));
@@ -155,7 +155,7 @@ fn prepare_from(doc: &Document, known: &std::collections::HashSet<TileKey>, epoc
         source: doc.source.clone(),
         fresh: doc.fresh,
         tiles,
-        timetable: doc.timetable.dirty,
+        timetable: doc.timetable.is_dirty(),
         traffic: doc.traffic.dirty,
         descriptions: doc.descriptions.dirty,
         time: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0),

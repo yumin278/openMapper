@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	ビューで信号とその区間�
 Delete the route	経路を削除
 Lines and timetable	系統と時刻表
 Convert all Type 1 trips to Type 2	すべてのタイプ1便をタイプ2に変換
+Exclude from Type 2 conversion	タイプ2への変換から除外
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	タイプ1の{count}便の停留所リストを変換してから、マップを保存してください。経路の再計算は別に実行します。
 Converted: {converted}. Skipped: {skipped}.	変換済み：{converted}。スキップ：{skipped}。
 Edit timetable	時刻表を編集

@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	व्यू में सिग्
 Delete the route	रूट हटाएँ
 Lines and timetable	लाइनें और टाइमटेबल
 Convert all Type 1 trips to Type 2	सभी प्रकार 1 की यात्राओं को प्रकार 2 में बदलें
+Exclude from Type 2 conversion	प्रकार 2 में रूपांतरण से बाहर रखें
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	प्रकार 1 की {count} यात्राओं की स्टॉप सूची बदलें, फिर नक्शा सहेजें। मार्गों की दोबारा गणना अलग से करें।
 Converted: {converted}. Skipped: {skipped}.	बदली गईं: {converted}। छोड़ी गईं: {skipped}।
 Edit timetable	टाइमटेबल बदलें

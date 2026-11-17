@@ -1552,7 +1552,7 @@ impl App {
                         if let Some(d) = self.ed.doc.as_mut() {
                             // (what is on disk now is what gets opened)
                             d.global_dirty = false;
-                            d.timetable.dirty = false;
+                            crate::timetable::saved(&mut d.timetable);
                             d.tiles.values_mut().for_each(|t| t.dirty = false);
                         }
                         self.open_map(&dir.join("global.cfg"));

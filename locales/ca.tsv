@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Selecciona el senyal i els seus tra
 Delete the route	Elimina la ruta
 Lines and timetable	Línies i horari
 Convert all Type 1 trips to Type 2	Converteix tots els trajectes de tipus 1 a tipus 2
+Exclude from Type 2 conversion	Exclou de la conversió al tipus 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Converteix les llistes de parades de {count} trajectes de tipus 1 i desa el mapa. El recàlcul de rutes es fa per separat.
 Converted: {converted}. Skipped: {skipped}.	Convertits: {converted}. Omesos: {skipped}.
 Edit timetable	Edita l'horari

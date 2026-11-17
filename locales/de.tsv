@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Das Signal und seine Stücke in der
 Delete the route	Route löschen
 Lines and timetable	Linien und Fahrplan
 Convert all Type 1 trips to Type 2	Alle Fahrten von Typ 1 in Typ 2 umwandeln
+Exclude from Type 2 conversion	Von der Umwandlung in Typ 2 ausschließen
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Die Haltestellenlisten von {count} Typ-1-Fahrten umwandeln und anschließend die Karte speichern. Die Routenberechnung wird separat gestartet.
 Converted: {converted}. Skipped: {skipped}.	Umgewandelt: {converted}. Übersprungen: {skipped}.
 Edit timetable	Fahrplan bearbeiten

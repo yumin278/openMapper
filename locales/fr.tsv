@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Sélectionner le signal et ses él�
 Delete the route	Supprimer l'itinéraire
 Lines and timetable	Lignes et horaires
 Convert all Type 1 trips to Type 2	Convertir tous les trajets de type 1 en type 2
+Exclude from Type 2 conversion	Exclure de la conversion vers le type 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Convertissez les listes d’arrêts de {count} trajets de type 1, puis enregistrez la carte. Le recalcul des itinéraires se lance séparément.
 Converted: {converted}. Skipped: {skipped}.	Convertis : {converted}. Ignorés : {skipped}.
 Edit timetable	Modifier l'horaire

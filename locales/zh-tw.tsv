@@ -1957,6 +1957,7 @@ Select the signal and its pieces in the view	在視圖中選取號誌及其軌�
 Delete the route	刪除路徑
 Lines and timetable	路線與時刻表
 Convert all Type 1 trips to Type 2	將全地圖的 Type 1 班次轉成 Type 2
+Exclude from Type 2 conversion	排除 Type 2 轉換
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	轉換 {count} 條 Type 1 班次的站序後，請儲存地圖。路徑重算可另外執行。
 Converted: {converted}. Skipped: {skipped}.	已轉換 {converted} 條，略過 {skipped} 條。
 Edit timetable	編輯時刻表

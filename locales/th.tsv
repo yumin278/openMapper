@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	เลือกสัญญาณ�
 Delete the route	ลบเส้นทาง
 Lines and timetable	สายและตารางเวลา
 Convert all Type 1 trips to Type 2	แปลงเที่ยวเดินรถประเภท 1 ทั้งหมดเป็นประเภท 2
+Exclude from Type 2 conversion	ยกเว้นจากการแปลงเป็นประเภท 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	แปลงรายการป้ายหยุดของเที่ยวเดินรถประเภท 1 จำนวน {count} เที่ยว แล้วบันทึกแผนที่ คำนวณเส้นทางใหม่แยกต่างหาก
 Converted: {converted}. Skipped: {skipped}.	แปลงแล้ว: {converted} ข้าม: {skipped}
 Edit timetable	แก้ไขตารางเวลา

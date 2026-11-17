@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Сигнал мен оның бөл
 Delete the route	Маршрутты жою
 Lines and timetable	Желілер және кесте
 Convert all Type 1 trips to Type 2	1-типтегі барлық рейсті 2-типке түрлендіру
+Exclude from Type 2 conversion	2-типке түрлендіруден шығару
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	1-типтегі {count} рейстің аялдама тізімін түрлендіріп, картаны сақтаңыз. Маршруттарды қайта есептеуді бөлек іске қосыңыз.
 Converted: {converted}. Skipped: {skipped}.	Түрлендірілді: {converted}. Өткізілді: {skipped}.
 Edit timetable	Кестені өңдеу

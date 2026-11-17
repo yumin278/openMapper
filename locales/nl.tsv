@@ -1948,6 +1948,7 @@ Select the signal and its pieces in the view	Het sein en zijn delen in het beeld
 Delete the route	De route verwijderen
 Lines and timetable	Lijnen en dienstregeling
 Convert all Type 1 trips to Type 2	Alle ritten van type 1 omzetten naar type 2
+Exclude from Type 2 conversion	Uitsluiten van omzetting naar type 2
 Convert the stop lists of {count} Type 1 trips, then save the map. Use route recalculation separately.	Zet de haltelijsten van {count} type 1-ritten om en sla daarna de kaart op. Bereken de routes afzonderlijk opnieuw.
 Converted: {converted}. Skipped: {skipped}.	Omgezet: {converted}. Overgeslagen: {skipped}.
 Edit timetable	Dienstregeling bewerken

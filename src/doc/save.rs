@@ -73,7 +73,7 @@ pub(crate) fn prepare_save(doc: &Document) -> SaveJob {
         global_text: global_text(doc),
         global_dirty: doc.global_dirty,
         tt_gen: doc.timetable.edit,
-        tt_dirty: doc.timetable.dirty,
+        tt_dirty: doc.timetable.is_dirty(),
         traffic_gen: doc.traffic.edit,
         traffic_dirty: doc.traffic.dirty,
         desc_gen: doc.descriptions.edit,
