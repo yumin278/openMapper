@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	sinyal menampilkan cahaya yan
 The object has no surface there: no signal was put down	Objek tidak memiliki permukaan di sana: tidak ada sinyal yang dipasang
 Click to place a signal	Klik untuk menempatkan lampu lalu lintas
 The signal is outside the object: its previous height was kept	Lampu lalu lintas berada di luar objek: ketinggian sebelumnya dipertahankan
+Copy traffic rules	Salin aturan lalu lintas
+Paste traffic rules	Tempel aturan lalu lintas
+Only the traffic rules are copied, not the shape	Hanya aturan lalu lintas yang disalin, bukan bentuknya
+Select exactly one object or road to copy its traffic rules	Pilih tepat satu objek atau jalan untuk menyalin aturan lalu lintasnya
+Traffic rules copied:	Aturan lalu lintas disalin:
+Traffic rules pasted to:	Aturan lalu lintas ditempel ke:
+Rules written:	Aturan ditulis:
+Dropped, path number beyond the target:	Dibuang, nomor jalur melebihi tujuan:
+Not pasted, the number of paths is unknown:	Tidak ditempel, jumlah jalur tidak diketahui:
+Rebuilding the junction replaces its rules with newly generated ones	Membangun ulang persimpangan mengganti aturannya dengan yang baru dibuat
+It has no traffic rules to copy	Tidak ada aturan lalu lintas untuk disalin
+The clipboard has no traffic rules	Papan klip tidak berisi aturan lalu lintas

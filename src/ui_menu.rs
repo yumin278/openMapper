@@ -64,6 +64,14 @@ pub fn show(ctx: &egui::Context, menu: &mut Option<ViewMenu>, ed: &mut Editor, l
                 actions.push(Action::Duplicate);
                 done = true;
             }
+            if item(ui, Icon::Copy, tr("Copy traffic rules", "Копировать правила"), "", ed.can_copy_rules()) {
+                actions.push(Action::CopyRules);
+                done = true;
+            }
+            if item(ui, Icon::Paste, tr("Paste traffic rules", "Вставить правила"), "", ed.can_paste_rules()) {
+                actions.push(Action::PasteRules);
+                done = true;
+            }
             if item(ui, Icon::Delete, tr("Delete", "Удалить"), "Del", any) {
                 ed.delete_selected();
                 done = true;

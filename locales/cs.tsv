@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	návěstidlo ukazuje světlo,
 The object has no surface there: no signal was put down	Objekt zde nemá povrch: návěstidlo nebylo umístěno
 Click to place a signal	Kliknutím umístíte semafor
 The signal is outside the object: its previous height was kept	Semafor je mimo objekt: byla zachována původní výška
+Copy traffic rules	Kopírovat dopravní pravidla
+Paste traffic rules	Vložit dopravní pravidla
+Only the traffic rules are copied, not the shape	Kopírují se jen dopravní pravidla, ne tvar
+Select exactly one object or road to copy its traffic rules	Vyberte právě jeden objekt nebo silnici, jejichž dopravní pravidla chcete kopírovat
+Traffic rules copied:	Dopravní pravidla zkopírována:
+Traffic rules pasted to:	Dopravní pravidla vložena do:
+Rules written:	Zapsaná pravidla:
+Dropped, path number beyond the target:	Vynechána, číslo cesty mimo cíl:
+Not pasted, the number of paths is unknown:	Nevloženo, počet cest neznámý:
+Rebuilding the junction replaces its rules with newly generated ones	Přestavba křižovatky nahradí její pravidla nově vytvořenými
+It has no traffic rules to copy	Nemá žádná dopravní pravidla ke zkopírování
+The clipboard has no traffic rules	Schránka neobsahuje dopravní pravidla

@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	đèn tín hiệu hiển th�
 The object has no surface there: no signal was put down	Đối tượng không có bề mặt ở đó: không đặt đèn tín hiệu
 Click to place a signal	Nhấp để đặt đèn tín hiệu
 The signal is outside the object: its previous height was kept	Đèn tín hiệu nằm ngoài đối tượng: đã giữ nguyên độ cao trước đó
+Copy traffic rules	Sao chép quy tắc giao thông
+Paste traffic rules	Dán quy tắc giao thông
+Only the traffic rules are copied, not the shape	Chỉ sao chép quy tắc giao thông, không sao chép hình dạng
+Select exactly one object or road to copy its traffic rules	Chọn đúng một đối tượng hoặc một con đường để sao chép quy tắc giao thông
+Traffic rules copied:	Đã sao chép quy tắc giao thông:
+Traffic rules pasted to:	Đã dán quy tắc giao thông vào:
+Rules written:	Số quy tắc đã ghi:
+Dropped, path number beyond the target:	Đã bỏ, số đường đi vượt quá đích:
+Not pasted, the number of paths is unknown:	Không dán, chưa biết số đường đi:
+Rebuilding the junction replaces its rules with newly generated ones	Khi dựng lại giao lộ, quy tắc của nó sẽ bị thay bằng quy tắc mới tạo
+It has no traffic rules to copy	Không có quy tắc giao thông nào để sao chép
+The clipboard has no traffic rules	Bảng nhớ tạm không có quy tắc giao thông

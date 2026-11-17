@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	un semàfor mostra un llum qu
 The object has no surface there: no signal was put down	L'objecte no té superfície aquí: no s'ha col·locat cap semàfor
 Click to place a signal	Fes clic per col·locar un semàfor
 The signal is outside the object: its previous height was kept	El semàfor és fora de l’objecte: s’ha mantingut l’altura anterior
+Copy traffic rules	Copia les regles de trànsit
+Paste traffic rules	Enganxa les regles de trànsit
+Only the traffic rules are copied, not the shape	Només es copien les regles de trànsit, no la forma
+Select exactly one object or road to copy its traffic rules	Seleccioneu un sol objecte o carretera per copiar-ne les regles de trànsit
+Traffic rules copied:	Regles de trànsit copiades:
+Traffic rules pasted to:	Regles de trànsit enganxades a:
+Rules written:	Regles escrites:
+Dropped, path number beyond the target:	Descartades, número de camí fora de la destinació:
+Not pasted, the number of paths is unknown:	No enganxades, nombre de camins desconegut:
+Rebuilding the junction replaces its rules with newly generated ones	En reconstruir el creuament, les seves regles se substitueixen per les regenerades
+It has no traffic rules to copy	No té regles de trànsit per copiar
+The clipboard has no traffic rules	El porta-retalls no conté regles de trànsit

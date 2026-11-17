@@ -3005,3 +3005,15 @@ a signal shows a light this crossing does not have	ein Signal zeigt ein Licht, d
 The object has no surface there: no signal was put down	Das Objekt hat dort keine Oberfläche: Es wurde kein Signal gesetzt
 Click to place a signal	Klicken, um eine Ampel zu platzieren
 The signal is outside the object: its previous height was kept	Die Ampel liegt außerhalb des Objekts: Die bisherige Höhe wurde beibehalten
+Copy traffic rules	Verkehrsregeln kopieren
+Paste traffic rules	Verkehrsregeln einfügen
+Only the traffic rules are copied, not the shape	Es werden nur die Verkehrsregeln kopiert, nicht die Form
+Select exactly one object or road to copy its traffic rules	Genau ein Objekt oder eine Straße wählen, um deren Verkehrsregeln zu kopieren
+Traffic rules copied:	Verkehrsregeln kopiert:
+Traffic rules pasted to:	Verkehrsregeln eingefügt in:
+Rules written:	Regeln geschrieben:
+Dropped, path number beyond the target:	Verworfen, Pfadnummer jenseits des Ziels:
+Not pasted, the number of paths is unknown:	Nicht eingefügt, Pfadanzahl unbekannt:
+Rebuilding the junction replaces its rules with newly generated ones	Beim Neuaufbau der Kreuzung werden ihre Regeln durch neu erzeugte ersetzt
+It has no traffic rules to copy	Es hat keine Verkehrsregeln zum Kopieren
+The clipboard has no traffic rules	Die Zwischenablage enthält keine Verkehrsregeln

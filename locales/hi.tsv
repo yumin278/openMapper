@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	सिग्नल एक ऐ
 The object has no surface there: no signal was put down	वहाँ वस्तु की कोई सतह नहीं है: कोई सिग्नल नहीं रखा गया
 Click to place a signal	सिग्नल लगाने के लिए क्लिक करें
 The signal is outside the object: its previous height was kept	सिग्नल वस्तु के बाहर है: उसकी पिछली ऊँचाई रखी गई
+Copy traffic rules	यातायात नियम कॉपी करें
+Paste traffic rules	यातायात नियम पेस्ट करें
+Only the traffic rules are copied, not the shape	केवल यातायात नियम कॉपी होते हैं, आकार नहीं
+Select exactly one object or road to copy its traffic rules	यातायात नियम कॉपी करने के लिए ठीक एक ऑब्जेक्ट या सड़क चुनें
+Traffic rules copied:	यातायात नियम कॉपी किए गए:
+Traffic rules pasted to:	यातायात नियम यहाँ पेस्ट किए गए:
+Rules written:	लिखे गए नियम:
+Dropped, path number beyond the target:	छोड़े गए, पथ संख्या लक्ष्य से आगे है:
+Not pasted, the number of paths is unknown:	पेस्ट नहीं हुआ, पथों की संख्या अज्ञात है:
+Rebuilding the junction replaces its rules with newly generated ones	चौराहा दोबारा बनाने पर उसके नियम नए बने नियमों से बदल जाएँगे
+It has no traffic rules to copy	कॉपी करने के लिए कोई यातायात नियम नहीं है
+The clipboard has no traffic rules	क्लिपबोर्ड में कोई यातायात नियम नहीं है

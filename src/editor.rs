@@ -9668,6 +9668,130 @@ impl Editor {
         doc.tiles.get_mut(&k).map(|t| t.touch_content());
     }
 
+    // ------------------------------------------------------------ copied path rules
+
+    /// One object or road is selected: its rules can be copied.
+    pub fn can_copy_rules(&self) -> bool {
+        self.doc.is_some() && self.selection().len() == 1
+    }
+
+    /// Something is selected to take rules (what the clipboard holds is looked at on the paste).
+    pub fn can_paste_rules(&self) -> bool {
+        self.doc.is_some() && !self.selection().is_empty()
+    }
+
+    /// How many paths the model of `file` has (road types for a road, else object types).
+    fn rules_path_count(assets: &mut Assets, sel: Sel, file: &str) -> Option<usize> {
+        match sel {
+            Sel::Spline(..) => assets.spline_wait(file, 3000).map(|m| m.def.paths.len()),
+            Sel::Object(..) | Sel::Attached(..) => assets.object_wait(file, 3000).map(|m| m.paths.len()),
+        }
+    }
+
+    /// The rules (all but the `[kill_rule]`s) of the one selected object or road, as the text
+    /// for the system clipboard. None, with a message: not one thing selected, or no rules.
+    pub fn rules_to_copy(&mut self) -> Option<String> {
+        let sels = self.selection();
+        let found = match (self.doc.as_ref(), sels.as_slice()) {
+            (Some(doc), [sel]) => crate::rules_clip::rules_of(doc, *sel),
+            _ => None,
+        };
+        let Some((file, rules)) = found else {
+            self.error(tr("Select exactly one object or road to copy its traffic rules", "Выделите ровно один объект или дорогу, чтобы скопировать их правила"));
+            return None;
+        };
+        let rules = crate::rules_clip::copied(&rules);
+        if rules.is_empty() {
+            self.error(tr("It has no traffic rules to copy", "У него нет правил для копирования"));
+            return None;
+        }
+        log::info!("copy traffic rules of {file}: {}", crate::rules_clip::describe_all(&rules));
+        self.toast(format!("{} {}", tr("Traffic rules copied:", "Правила скопированы:"), rules.len()));
+        Some(crate::rules_clip::to_text(&rules))
+    }
+
+    pub fn paste_rules(&mut self, text: &str, assets: &mut Assets) -> bool {
+        self.paste_rules_with(text, |sel, file| Self::rules_path_count(assets, sel, file))
+    }
+
+    /// Paste the rules of a clipboard `text` into every selected object and road, in one step
+    /// of the history: each one's rules but its `[kill_rule]`s are replaced by the copied
+    /// ones, and those that name a path the target does not have are left out. A target whose
+    /// model cannot be read (`paths` knows how many paths a model has) is left as it is.
+    pub fn paste_rules_with(&mut self, text: &str, mut paths: impl FnMut(Sel, &str) -> Option<usize>) -> bool {
+        let Some(clip) = crate::rules_clip::from_text(text) else {
+            self.error(tr("The clipboard has no traffic rules", "В буфере обмена нет правил"));
+            return false;
+        };
+        let sels = self.selection();
+        let Some(doc) = self.doc.as_mut() else { return false };
+        if sels.is_empty() {
+            return false;
+        }
+        log::info!("paste {} traffic rules into {} targets", clip.len(), sels.len());
+        self.history.begin(tr("Paste traffic rules", "Вставить правила"));
+        let (mut targets, mut written, mut dropped, mut unknown) = (0usize, 0usize, 0usize, 0usize);
+        let mut own_junction = false;
+        for sel in sels {
+            let Some((file, old)) = crate::rules_clip::rules_of(doc, sel) else { continue };
+            let Some(n) = paths(sel, &file) else {
+                log::warn!("traffic rules not pasted into {file}: its number of paths is unknown");
+                unknown += 1;
+                continue;
+            };
+            let p = crate::rules_clip::paste(&old, &clip, n);
+            log::info!("traffic rules of {file} ({n} paths) before: {}", crate::rules_clip::describe_all(&old));
+            log::info!("traffic rules of {file} after: {}", crate::rules_clip::describe_all(&p.after));
+            for r in &p.dropped {
+                log::info!("traffic rule dropped, path {} is beyond the {n} paths of {file}: {}", r.path_index, crate::rules_clip::describe(r));
+            }
+            own_junction |= matches!(sel, Sel::Object(..)) && is_own_junction(&file);
+            targets += 1;
+            written += p.written;
+            dropped += p.dropped.len();
+            let k = match sel {
+                Sel::Object(k, _) | Sel::Spline(k, _) | Sel::Attached(k, _) => k,
+            };
+            self.history.touch_tile(doc, k);
+            match sel {
+                Sel::Object(k, id) => {
+                    if let Some(o) = selection::any_object_mut(doc, k, id) {
+                        o.rules = p.after;
+                    }
+                }
+                Sel::Spline(k, id) => {
+                    if let Some(s) = doc.tiles.get_mut(&k).and_then(|t| t.tile.splines.iter_mut().find(|s| s.id == id && !s.deleted)) {
+                        s.rules = p.after;
+                    }
+                }
+                Sel::Attached(k, id) => {
+                    if let Some(a) = doc.attachment_mut(k, id) {
+                        a.rules = p.after;
+                    }
+                }
+            }
+            doc.tiles.get_mut(&k).map(|t| t.touch_content());
+        }
+        self.history.commit();
+        let mut text = vec![format!("{} {targets}", tr("Traffic rules pasted to:", "Правила вставлены в:")), format!("{} {written}", tr("Rules written:", "Записано правил:"))];
+        if dropped > 0 {
+            text.push(format!("{} {dropped}", tr("Dropped, path number beyond the target:", "Отброшено, номер пути за пределами цели:")));
+        }
+        if unknown > 0 {
+            text.push(format!("{} {unknown}", tr("Not pasted, the number of paths is unknown:", "Не вставлено, число путей неизвестно:")));
+        }
+        if own_junction {
+            text.push(tr("Rebuilding the junction replaces its rules with newly generated ones", "При перестройке перекрёстка правила заменятся заново созданными").to_string());
+        }
+        let text = text.join(". ");
+        if targets == 0 {
+            self.error(text);
+        } else {
+            self.toast(text);
+        }
+        targets > 0
+    }
+
     /// An object of the map made one of the type `file` (the crossing editor's copy), in one
     /// step of the history.
     pub fn set_object_file(&mut self, k: TileKey, id: i64, file: &str) {
@@ -15119,6 +15243,107 @@ mod tests {
         assert_eq!(ed.doc.as_ref().unwrap().spline((0, 0), 3).unwrap().rules[0].value, 40.0);
         ed.undo();
         assert!(ed.doc.as_ref().unwrap().spline((0, 0), 3).unwrap().rules.is_empty());
+    }
+
+    fn rule(path: i32, kind: &str, value: f64, extra: f64, kill: bool) -> omsi_map::MapRule {
+        omsi_map::MapRule { path_index: path, kind: kind.into(), value, extra, kill }
+    }
+
+    fn rules_at(ed: &Editor, sel: Sel) -> Vec<omsi_map::MapRule> {
+        crate::rules_clip::rules_of(ed.doc.as_ref().unwrap(), sel).unwrap().1
+    }
+
+    /// Two objects of one .sco: the copied rules replace the target's own, its kill_rules stay,
+    /// and `extra` goes over as it is.
+    #[test]
+    fn pasted_rules_replace_the_targets_and_keep_its_kill_rules() {
+        let mut ed = editor();
+        let (a, b) = (Sel::Object((0, 0), 1), Sel::Object((0, 0), 2));
+        let src = vec![rule(0, "speedlimit", 30.0, 0.0, false), rule(1, "trafficdensity", 0.5, 4.0, false), rule(2, "no_cars", 0.0, 0.0, false)];
+        ed.doc.as_mut().unwrap().object_mut((0, 0), 1).unwrap().rules = [src.clone(), vec![rule(5, "speedlimit", 1.0, 0.0, true)]].concat();
+        let kill = rule(3, "trafficdensity", 1.0, 4.0, true);
+        ed.doc.as_mut().unwrap().object_mut((0, 0), 2).unwrap().rules = vec![rule(4, "bus", 0.0, 0.0, false), kill.clone(), rule(0, "speedlimit", 99.0, 0.0, false)];
+        ed.set_selection(vec![a]);
+        let text = ed.rules_to_copy().unwrap();
+        assert_eq!(crate::rules_clip::from_text(&text), Some(src.clone()), "no kill_rule is copied");
+        ed.set_selection(vec![b]);
+        assert!(ed.paste_rules_with(&text, |_, _| Some(6)));
+        assert_eq!(rules_at(&ed, b), [vec![kill], src.clone()].concat());
+        // (the source is not touched)
+        assert_eq!(rules_at(&ed, a).len(), 4);
+        ed.undo();
+        assert_eq!(rules_at(&ed, b).len(), 3);
+    }
+
+    /// A source of ten paths into a target of six: the rules of paths 6 to 9 are left out.
+    #[test]
+    fn pasted_rules_of_paths_the_target_lacks_are_dropped() {
+        let mut ed = editor();
+        let b = Sel::Object((0, 0), 2);
+        ed.doc.as_mut().unwrap().object_mut((0, 0), 1).unwrap().rules = (0..10).map(|i| rule(i, "speedlimit", 10.0 + i as f64, 0.0, false)).collect();
+        ed.set_selection(vec![Sel::Object((0, 0), 1)]);
+        let text = ed.rules_to_copy().unwrap();
+        ed.set_selection(vec![b]);
+        assert!(ed.paste_rules_with(&text, |_, _| Some(6)));
+        assert_eq!(rules_at(&ed, b).iter().map(|r| r.path_index).collect::<Vec<_>>(), vec![0, 1, 2, 3, 4, 5]);
+        let t = ed.toasts.last().unwrap().text.clone();
+        assert!(t.contains("Dropped") && t.ends_with(" 4"), "{t}");
+    }
+
+    /// Several targets at once are one step of the history.
+    #[test]
+    fn rules_pasted_into_several_targets_are_undone_at_once() {
+        let mut ed = editor();
+        let own = vec![rule(0, "speedlimit", 70.0, 0.0, false)];
+        for id in [1, 2] {
+            ed.doc.as_mut().unwrap().object_mut((0, 0), id).unwrap().rules = own.clone();
+        }
+        let src = vec![rule(1, "priority", 1.0, 0.0, false)];
+        ed.doc.as_mut().unwrap().tiles.get_mut(&(0, 0)).unwrap().tile.splines.iter_mut().find(|s| s.id == 3).unwrap().rules = src.clone();
+        ed.set_selection(vec![Sel::Spline((0, 0), 3)]);
+        let text = ed.rules_to_copy().unwrap();
+        let targets = vec![Sel::Object((0, 0), 1), Sel::Object((0, 0), 2)];
+        ed.set_selection(targets.clone());
+        let before = ed.history.undo_label().map(String::from);
+        assert!(ed.paste_rules_with(&text, |_, _| Some(2)));
+        for t in &targets {
+            assert_eq!(rules_at(&ed, *t), src);
+        }
+        ed.undo();
+        for t in &targets {
+            assert_eq!(rules_at(&ed, *t), own);
+        }
+        assert_eq!(ed.history.undo_label().map(String::from), before, "one step for both");
+    }
+
+    /// Text that is not rules changes nothing, and nothing is copied from a thing without any.
+    #[test]
+    fn only_rule_text_is_pasted_and_only_rules_are_copied() {
+        let mut ed = editor();
+        let t = Sel::Object((0, 0), 2);
+        let own = vec![rule(0, "speedlimit", 50.0, 0.0, false)];
+        ed.doc.as_mut().unwrap().object_mut((0, 0), 2).unwrap().rules = own.clone();
+        ed.set_selection(vec![t]);
+        assert!(!ed.paste_rules_with("some other text", |_, _| Some(4)));
+        assert_eq!(rules_at(&ed, t), own);
+        ed.set_selection(vec![Sel::Object((0, 0), 1)]);
+        assert_eq!(ed.rules_to_copy(), None);
+        ed.set_selection(vec![Sel::Object((0, 0), 1), t]);
+        assert_eq!(ed.rules_to_copy(), None, "two things are selected");
+    }
+
+    /// A target whose model is unknown is left alone.
+    #[test]
+    fn rules_are_not_pasted_where_the_path_count_is_unknown() {
+        let mut ed = editor();
+        ed.doc.as_mut().unwrap().object_mut((0, 0), 1).unwrap().rules = vec![rule(0, "speedlimit", 30.0, 0.0, false)];
+        ed.set_selection(vec![Sel::Object((0, 0), 1)]);
+        let text = ed.rules_to_copy().unwrap();
+        ed.set_selection(vec![Sel::Object((0, 0), 2)]);
+        assert!(!ed.paste_rules_with(&text, |_, _| None));
+        assert!(rules_at(&ed, Sel::Object((0, 0), 2)).is_empty());
+        assert!(ed.paste_rules_with(&text, |_, _| Some(4)));
+        assert_eq!(rules_at(&ed, Sel::Object((0, 0), 2)).len(), 1);
     }
 
     #[test]

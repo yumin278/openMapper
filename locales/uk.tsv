@@ -3005,3 +3005,15 @@ a signal shows a light this crossing does not have	світлофор показ
 The object has no surface there: no signal was put down	У об'єкта там немає поверхні: світлофор не поставлено
 Click to place a signal	Клацніть, щоб розмістити світлофор
 The signal is outside the object: its previous height was kept	Світлофор поза об’єктом: збережено попередню висоту
+Copy traffic rules	Копіювати правила руху
+Paste traffic rules	Вставити правила руху
+Only the traffic rules are copied, not the shape	Копіюються лише правила руху, а не форма
+Select exactly one object or road to copy its traffic rules	Виділіть рівно один об'єкт або дорогу, щоб скопіювати їхні правила руху
+Traffic rules copied:	Правила руху скопійовано:
+Traffic rules pasted to:	Правила руху вставлено в:
+Rules written:	Записано правил:
+Dropped, path number beyond the target:	Відкинуто, номер шляху за межами цілі:
+Not pasted, the number of paths is unknown:	Не вставлено, кількість шляхів невідома:
+Rebuilding the junction replaces its rules with newly generated ones	Під час перебудови перехрестя його правила замінять новостворені
+It has no traffic rules to copy	У нього немає правил руху для копіювання
+The clipboard has no traffic rules	У буфері обміну немає правил руху

@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	信号灯器が、この交�
 The object has no surface there: no signal was put down	その場所にオブジェクトの面がないため、信号灯器は設置されませんでした
 Click to place a signal	クリックして信号機を配置
 The signal is outside the object: its previous height was kept	信号機がオブジェクトの外にあります：元の高さを維持しました
+Copy traffic rules	交通ルールをコピー
+Paste traffic rules	交通ルールを貼り付け
+Only the traffic rules are copied, not the shape	形状ではなく交通ルールだけをコピーします
+Select exactly one object or road to copy its traffic rules	交通ルールをコピーするには、オブジェクトか道路を1つだけ選択してください
+Traffic rules copied:	交通ルールをコピーしました：
+Traffic rules pasted to:	交通ルールを貼り付けた対象数：
+Rules written:	書き込んだルール数：
+Dropped, path number beyond the target:	破棄（対象にない経路番号）：
+Not pasted, the number of paths is unknown:	貼り付けなし（経路数が不明）：
+Rebuilding the junction replaces its rules with newly generated ones	交差点を再構築すると、そのルールは新しく生成されたものに置き換わります
+It has no traffic rules to copy	コピーできる交通ルールがありません
+The clipboard has no traffic rules	クリップボードに交通ルールがありません

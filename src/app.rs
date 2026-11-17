@@ -1997,6 +1997,27 @@ impl App {
                 self.ed.copy(&self.lib);
             }
             Action::Cut => self.ed.cut(&self.lib),
+            Action::CopyRules => {
+                if let Some(text) = self.ed.rules_to_copy() {
+                    if let Some(g) = &self.gfx {
+                        g.egui_ctx.copy_text(text);
+                    }
+                }
+            }
+            Action::PasteRules => {
+                // (egui hands over a paste on Ctrl+V only: a button reads the clipboard itself)
+                match arboard::Clipboard::new().and_then(|mut c| c.get_text()) {
+                    Ok(text) => {
+                        if let Some(assets) = self.assets.as_mut() {
+                            self.ed.paste_rules(&text, assets);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("the clipboard cannot be read: {e}");
+                        self.ed.error(tr("The clipboard has no traffic rules", "В буфере обмена нет правил"));
+                    }
+                }
+            }
             Action::Paste => self.ed.paste(&self.lib),
             Action::PasteAt(at) => {
                 if at.is_some() {

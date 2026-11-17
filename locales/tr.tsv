@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	sinyal bu kavşakta olmayan b
 The object has no surface there: no signal was put down	Nesnenin orada yüzeyi yok: sinyal yerleştirilmedi
 Click to place a signal	Trafik ışığı yerleştirmek için tıklayın
 The signal is outside the object: its previous height was kept	Trafik ışığı nesnenin dışında: önceki yüksekliği korundu
+Copy traffic rules	Trafik kurallarını kopyala
+Paste traffic rules	Trafik kurallarını yapıştır
+Only the traffic rules are copied, not the shape	Şekil değil, yalnızca trafik kuralları kopyalanır
+Select exactly one object or road to copy its traffic rules	Trafik kurallarını kopyalamak için tam bir nesne veya yol seçin
+Traffic rules copied:	Trafik kuralları kopyalandı:
+Traffic rules pasted to:	Trafik kuralları yapıştırılan hedef:
+Rules written:	Yazılan kural:
+Dropped, path number beyond the target:	Atlanan, yol numarası hedefin ötesinde:
+Not pasted, the number of paths is unknown:	Yapıştırılmadı, yol sayısı bilinmiyor:
+Rebuilding the junction replaces its rules with newly generated ones	Kavşak yeniden kurulunca kuralları yeni üretilenlerle değişir
+It has no traffic rules to copy	Kopyalanacak trafik kuralı yok
+The clipboard has no traffic rules	Panoda trafik kuralı yok

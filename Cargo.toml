@@ -27,6 +27,8 @@ winit = "0.30"
 egui = { git = "https://github.com/openOMSI-org/egui-openomsi", rev = "0119a7a0a8de46a931640912685605223f28da04" }
 egui-wgpu = { git = "https://github.com/openOMSI-org/egui-openomsi", rev = "0119a7a0a8de46a931640912685605223f28da04", default-features = false }
 egui-winit = { git = "https://github.com/openOMSI-org/egui-openomsi", rev = "0119a7a0a8de46a931640912685605223f28da04", default-features = false, features = ["clipboard", "links", "wayland", "x11"] }
+# reads the system clipboard for the pasted traffic rules (egui only hands a paste over on Ctrl+V)
+arboard = { version = "3.6", default-features = false }
 
 glam = "0.30"
 # openMapper's own polygon meshes: primitives, booleans, modifiers, UVs, baking, export

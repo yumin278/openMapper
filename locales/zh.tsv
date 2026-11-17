@@ -3003,3 +3003,15 @@ a signal shows a light this crossing does not have	信号显示了此路口没�
 The object has no surface there: no signal was put down	对象在该处没有表面：未放置信号
 Click to place a signal	点击放置信号灯
 The signal is outside the object: its previous height was kept	信号灯已移到物体外：保留原来的高度
+Copy traffic rules	复制交通规则
+Paste traffic rules	粘贴交通规则
+Only the traffic rules are copied, not the shape	只复制交通规则，不复制形状
+Select exactly one object or road to copy its traffic rules	请只选择一个物体或一段道路，才能复制其交通规则
+Traffic rules copied:	已复制交通规则：
+Traffic rules pasted to:	已粘贴交通规则的目标数：
+Rules written:	已写入的规则数：
+Dropped, path number beyond the target:	已丢弃，路径编号超出目标：
+Not pasted, the number of paths is unknown:	未粘贴，路径数量未知：
+Rebuilding the junction replaces its rules with newly generated ones	重建路口后，其规则会被重新生成的规则取代
+It has no traffic rules to copy	它没有可复制的交通规则
+The clipboard has no traffic rules	剪贴板中没有交通规则

@@ -3007,3 +3007,15 @@ a signal shows a light this crossing does not have	a jelző olyan fényt mutat, 
 The object has no surface there: no signal was put down	Az objektumnak ott nincs felülete: nem került jelző elhelyezésre
 Click to place a signal	Kattintson egy jelzőlámpa elhelyezéséhez
 The signal is outside the object: its previous height was kept	A jelzőlámpa az objektumon kívül van: a korábbi magassága megmaradt
+Copy traffic rules	Közlekedési szabályok másolása
+Paste traffic rules	Közlekedési szabályok beillesztése
+Only the traffic rules are copied, not the shape	Csak a közlekedési szabályok másolódnak, az alak nem
+Select exactly one object or road to copy its traffic rules	Pontosan egy objektumot vagy utat jelöljön ki a közlekedési szabályok másolásához
+Traffic rules copied:	Közlekedési szabályok átmásolva:
+Traffic rules pasted to:	Közlekedési szabályok beillesztve ide:
+Rules written:	Beírt szabályok:
+Dropped, path number beyond the target:	Elvetve, az útvonal száma a célon túl van:
+Not pasted, the number of paths is unknown:	Nem illesztve, az útvonalak száma ismeretlen:
+Rebuilding the junction replaces its rules with newly generated ones	A csomópont újjáépítése a szabályait újonnan létrehozottakra cseréli
+It has no traffic rules to copy	Nincs másolható közlekedési szabálya
+The clipboard has no traffic rules	A vágólapon nincsenek közlekedési szabályok

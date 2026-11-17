@@ -3008,3 +3008,15 @@ a signal shows a light this crossing does not have	een sein toont een licht dat 
 The object has no surface there: no signal was put down	Het object heeft daar geen oppervlak: er is geen sein geplaatst
 Click to place a signal	Klik om een verkeerslicht te plaatsen
 The signal is outside the object: its previous height was kept	Het verkeerslicht staat buiten het object: de vorige hoogte is behouden
+Copy traffic rules	Verkeersregels kopiëren
+Paste traffic rules	Verkeersregels plakken
+Only the traffic rules are copied, not the shape	Alleen de verkeersregels worden gekopieerd, niet de vorm
+Select exactly one object or road to copy its traffic rules	Selecteer precies één object of weg om de verkeersregels te kopiëren
+Traffic rules copied:	Verkeersregels gekopieerd:
+Traffic rules pasted to:	Verkeersregels geplakt in:
+Rules written:	Regels geschreven:
+Dropped, path number beyond the target:	Weggelaten, padnummer voorbij het doel:
+Not pasted, the number of paths is unknown:	Niet geplakt, aantal paden onbekend:
+Rebuilding the junction replaces its rules with newly generated ones	Bij het opnieuw opbouwen van het kruispunt worden de regels vervangen door nieuw gegenereerde
+It has no traffic rules to copy	Het heeft geen verkeersregels om te kopiëren
+The clipboard has no traffic rules	Het klembord bevat geen verkeersregels
