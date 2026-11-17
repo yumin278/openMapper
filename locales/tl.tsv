@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	nagpapakita ang signal ng ila
 The object has no surface there: no signal was put down	Walang ibabaw ang object doon: walang signal na inilagay
 Click to place a signal	I-click upang maglagay ng ilaw-trapiko
 The signal is outside the object: its previous height was kept	Nasa labas ng bagay ang ilaw-trapiko: pinanatili ang dating taas nito
+Taper section	Seksiyong paglipat
+Pick a road type in the catalogue on the left first	Pumili muna ng uri ng daan sa katalogo sa kaliwa
+Click the end of a road piece	I-click ang dulo ng piraso ng daan
+The taper could not be made between these road types	Hindi magawa ang paglipat sa pagitan ng mga uri ng daang ito
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	I-click ang dulo ng daan: mula roon pasulong, gagawa ng paglipat papunta sa uri ng daang pinili sa katalogo
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Paglihis sa gilid ng malayong dulo: positibo pakanan ng direksyon ng biyahe, negatibo pakaliwa
+Click the end of a road to lay a taper from it	I-click ang dulo ng daan para maglatag ng paglipat mula roon

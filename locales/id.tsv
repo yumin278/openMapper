@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	sinyal menampilkan cahaya yan
 The object has no surface there: no signal was put down	Objek tidak memiliki permukaan di sana: tidak ada sinyal yang dipasang
 Click to place a signal	Klik untuk menempatkan lampu lalu lintas
 The signal is outside the object: its previous height was kept	Lampu lalu lintas berada di luar objek: ketinggian sebelumnya dipertahankan
+Taper section	Ruas peralihan
+Pick a road type in the catalogue on the left first	Pilih dulu tipe jalan di katalog sebelah kiri
+Click the end of a road piece	Klik ujung potongan jalan
+The taper could not be made between these road types	Peralihan tidak dapat dibuat di antara tipe jalan ini
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Klik ujung jalan: dari sana ke depan dibuat peralihan ke tipe jalan yang dipilih di katalog
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Pergeseran samping ujung jauh: positif ke kanan arah perjalanan, negatif ke kiri
+Click the end of a road to lay a taper from it	Klik ujung jalan untuk memasang peralihan dari sana

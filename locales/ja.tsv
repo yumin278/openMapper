@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	信号灯器が、この交�
 The object has no surface there: no signal was put down	その場所にオブジェクトの面がないため、信号灯器は設置されませんでした
 Click to place a signal	クリックして信号機を配置
 The signal is outside the object: its previous height was kept	信号機がオブジェクトの外にあります：元の高さを維持しました
+Taper section	テーパー区間
+Pick a road type in the catalogue on the left first	先に左のカタログで道路タイプを選んでください
+Click the end of a road piece	道路パーツの端をクリックしてください
+The taper could not be made between these road types	これらの道路タイプの間にテーパーを作れませんでした
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	道路の端をクリック：そこから前方へ、カタログで選んだ道路タイプへのテーパーを作ります
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	遠い端の横方向のずれ：正は進行方向の右、負は左
+Click the end of a road to lay a taper from it	道路の端をクリックしてテーパーを敷きます

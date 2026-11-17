@@ -3005,3 +3005,10 @@ a signal shows a light this crossing does not have	світлофор показ
 The object has no surface there: no signal was put down	У об'єкта там немає поверхні: світлофор не поставлено
 Click to place a signal	Клацніть, щоб розмістити світлофор
 The signal is outside the object: its previous height was kept	Світлофор поза об’єктом: збережено попередню висоту
+Taper section	Перехідна ділянка
+Pick a road type in the catalogue on the left first	Спершу виберіть тип дороги в каталозі ліворуч
+Click the end of a road piece	Клацніть кінець деталі дороги
+The taper could not be made between these road types	Не вдалося побудувати перехід між цими типами доріг
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Клацніть кінець дороги: від нього вперед робиться перехід до типу дороги, вибраного в каталозі
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Бічне зміщення дальнього кінця: плюс — праворуч за напрямком руху, мінус — ліворуч
+Click the end of a road to lay a taper from it	Клацніть кінець дороги, щоб покласти від нього перехід

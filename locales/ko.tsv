@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	신호등이 이 교차로에
 The object has no surface there: no signal was put down	해당 위치에 오브젝트의 표면이 없어 신호등을 놓지 않았습니다
 Click to place a signal	클릭하여 신호등 배치
 The signal is outside the object: its previous height was kept	신호등이 오브젝트 밖에 있습니다: 이전 높이를 유지했습니다
+Taper section	테이퍼 구간
+Pick a road type in the catalogue on the left first	먼저 왼쪽 카탈로그에서 도로 유형을 선택하세요
+Click the end of a road piece	도로 조각의 끝을 클릭하세요
+The taper could not be made between these road types	이 도로 유형들 사이에 테이퍼를 만들 수 없습니다
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	도로 끝을 클릭: 그곳에서 앞으로 카탈로그에서 선택한 도로 유형까지 테이퍼를 만듭니다
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	먼 끝의 옆 방향 이동: 양수는 진행 방향 오른쪽, 음수는 왼쪽
+Click the end of a road to lay a taper from it	도로 끝을 클릭해 테이퍼를 놓습니다

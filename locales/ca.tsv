@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	un semàfor mostra un llum qu
 The object has no surface there: no signal was put down	L'objecte no té superfície aquí: no s'ha col·locat cap semàfor
 Click to place a signal	Fes clic per col·locar un semàfor
 The signal is outside the object: its previous height was kept	El semàfor és fora de l’objecte: s’ha mantingut l’altura anterior
+Taper section	Tram de transició
+Pick a road type in the catalogue on the left first	Trieu primer un tipus de carretera al catàleg de l'esquerra
+Click the end of a road piece	Feu clic a l'extrem d'un tram de carretera
+The taper could not be made between these road types	No s'ha pogut fer la transició entre aquests tipus de carretera
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Feu clic a l'extrem d'una carretera: es fa cap endavant una transició al tipus de carretera triat al catàleg
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Desplaçament lateral de l'extrem llunyà: positiu a la dreta del sentit de circulació, negatiu a l'esquerra
+Click the end of a road to lay a taper from it	Feu clic a l'extrem d'una carretera per posar-hi una transició

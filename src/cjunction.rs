@@ -96,6 +96,58 @@ pub struct Arm {
     pub auto: bool,
 }
 
+/// A quick transition between two road types (Taper tool): a plate of two arms laid from a
+/// road piece's end, `length` m straight on and `offset` m across, ending parallel to the start.
+/// It is a plate, not a spline: the roadway, kerbs and lanes come from `layout_plate`, so it is
+/// laid even where the two types are as wide as each other (their lanes may differ).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Taper {
+    /// The start P (where the source piece ends).
+    pub x: f64,
+    pub y: f64,
+    /// The heading leaving the source piece at P.
+    pub out: f64,
+    pub from_file: String,
+    /// The source piece meets P with its end (its spline runs into the taper); else with its start.
+    pub from_at_end: bool,
+    pub to_file: String,
+    pub length: f64,
+    /// Across, m: positive to the right of the way of travel (as the x of a `.sli`).
+    pub offset: f64,
+}
+
+/// The least a taper's length may be (m), and the most it may shift across (m, either way).
+pub const TAPER_MIN_LENGTH: f64 = 1.0;
+pub const TAPER_MAX_OFFSET: f64 = 30.0;
+
+impl Taper {
+    pub fn start(&self) -> DVec2 {
+        DVec2::new(self.x, self.y)
+    }
+
+    /// Q = P + dir(h) * L + right(h) * X, and the heading there (the same as at P).
+    pub fn end(&self) -> (DVec2, f64) {
+        (self.start() + roads::dir(self.out) * self.length + roads::right(self.out) * self.offset, self.out)
+    }
+
+    /// The two arms of its plate.
+    ///
+    /// `PlateArm.out` points away from the plate along the road, and `at_end` says the road's
+    /// spline runs into the plate (its way there is `out + 180`), else away from it (`out`).
+    /// - At P the source road lies behind the taper: `out = h + 180`. A source piece that ends at P
+    ///   runs on in the taper's direction `h = out + 180`: `at_end = true`; one that starts at P
+    ///   runs away along `h + 180 = out`: `at_end = false`. So `at_end = from_at_end`.
+    /// - At Q the target road goes on ahead and is drawn from Q: `out = h`, its spline runs away
+    ///   from the plate, `at_end = false`.
+    pub fn plate_arms(&self) -> [crate::junction::PlateArm; 2] {
+        let (q, h) = self.end();
+        [
+            crate::junction::PlateArm { file: self.from_file.clone(), pos: self.start(), out: roads::norm_deg(self.out + 180.0), at_end: self.from_at_end },
+            crate::junction::PlateArm { file: self.to_file.clone(), pos: q, out: h, at_end: false },
+        ]
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Layout {
@@ -110,6 +162,8 @@ pub struct Layout {
     pub auto: bool,
     /// The scenery object it was written as (`Sceneryobjects\...sco`), once saved as custom.
     pub baked: Option<String>,
+    /// Quick transitions between road types (Taper tool), each a plate of its own.
+    pub tapers: Vec<Taper>,
 }
 
 /// What Auto-Junction builds between the arms of a drawing (each switchable).
@@ -172,7 +226,8 @@ impl Layout {
     /// How far from the layout's origin its pieces and arms reach (m).
     pub fn radius(&self) -> f64 {
         let seg_pts = self.pieces.iter().flat_map(|p| p.segs.iter()).flat_map(|s| [s.seg().point(0.0), s.seg().end()]);
-        seg_pts.chain(self.arms.iter().map(|a| DVec2::new(a.x, a.y))).map(|p| p.length()).fold(0.0, f64::max)
+        let taper_pts = self.tapers.iter().flat_map(|t| [t.start(), t.end().0]);
+        seg_pts.chain(self.arms.iter().map(|a| DVec2::new(a.x, a.y))).chain(taper_pts).map(|p| p.length()).fold(0.0, f64::max)
     }
 }
 
@@ -324,8 +379,10 @@ pub fn extra_lines(layout: &Layout, models: &dyn Fn(&str) -> Option<std::sync::A
 /// (half, m), read from their models.
 pub fn road_kinds(layout: &Layout, assets: &mut Assets) -> std::collections::HashMap<String, (bool, f64)> {
     let mut out = std::collections::HashMap::new();
-    for p in &layout.pieces {
-        out.entry(p.file.to_lowercase()).or_insert_with(|| assets.spline_wait(&p.file, 5000).map(|m| (m.joinable() && !m.is_track(), m.half_width as f64)).unwrap_or((false, 1.5)));
+    // (the tapers' road types too: loaded here, their plates find them)
+    let files = layout.pieces.iter().map(|p| &p.file).chain(layout.tapers.iter().flat_map(|t| [&t.from_file, &t.to_file]));
+    for file in files {
+        out.entry(file.to_lowercase()).or_insert_with(|| assets.spline_wait(file, 5000).map(|m| (m.joinable() && !m.is_track(), m.half_width as f64)).unwrap_or((false, 1.5)));
     }
     out
 }
@@ -349,7 +406,7 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
     let mut plate_bus_paths = Vec::new();
     let mut plate_path_count = 0;
     let asphalt = crate::junction::asphalt_texture(&roots.omsi);
-    for arms in &resolved.plates {
+    for arms in &layout.all_plates(&resolved) {
         for a in arms {
             anyhow::ensure!(assets.spline_wait(&a.file, 5000).is_some(), "{}: {}", tr("the spline cannot be read", "сплайн не читается"), a.file);
         }
@@ -490,6 +547,16 @@ impl Layout {
             a.y = q.y;
             a.out = roads::norm_deg(if mirror { -a.out } else { a.out } + rot);
         }
+        for t in &mut self.tapers {
+            let q = if mirror { DVec2::new(-t.x, t.y) } else { DVec2::new(t.x, t.y) };
+            let q = to_world(q, DVec2::ZERO, rot);
+            t.x = q.x;
+            t.y = q.y;
+            t.out = roads::norm_deg(if mirror { -t.out } else { t.out } + rot);
+            if mirror {
+                t.offset = -t.offset;
+            }
+        }
     }
 
     /// The box the drawing fills: (low corner, high corner).
@@ -504,6 +571,7 @@ impl Layout {
                 (0..=n).map(move |k| seg.point(s.length * k as f64 / n as f64))
             })
             .chain(self.arms.iter().map(|a| DVec2::new(a.x, a.y)))
+            .chain(self.tapers.iter().flat_map(|t| [t.start(), t.end().0]))
             .collect();
         let first = *pts.first()?;
         Some(pts.iter().fold((first, first), |(lo, hi), p| (lo.min(*p), hi.max(*p))))
@@ -513,13 +581,26 @@ impl Layout {
     /// gives a spline type's half width.
     pub fn free_ends(&self, is_road: &dyn Fn(&str) -> bool, half: &dyn Fn(&str) -> f64) -> Vec<Arm> {
         let mut out = Vec::new();
+        // (a taper takes the road end it starts at, and the one a road is drawn from at its far end)
+        let taken = |pt: DVec2| self.tapers.iter().any(|t| (t.start() - pt).length() < 0.3 || (t.end().0 - pt).length() < 0.3);
+        let covered_by_piece = |pt: DVec2, skip: Option<usize>| self.pieces.iter().enumerate().any(|(j, q)| Some(j) != skip && !q.hidden && !q.auto && is_road(&q.file) && q.distance_to(pt) < (half(&q.file) * 0.9).max(0.4));
         for (i, p) in self.pieces.iter().enumerate() {
             let Some((a, ha, b, hb)) = p.ends().filter(|_| is_road(&p.file) && !p.hidden && !p.auto) else { continue };
             for (pt, h) in [(a, roads::norm_deg(ha + 180.0)), (b, hb)] {
-                let covered = self.pieces.iter().enumerate().any(|(j, q)| j != i && !q.hidden && !q.auto && is_road(&q.file) && q.distance_to(pt) < (half(&q.file) * 0.9).max(0.4));
-                if !covered {
+                if taken(pt) {
+                    continue;
+                }
+                if !covered_by_piece(pt, Some(i)) {
                     out.push(Arm { x: pt.x, y: pt.y, out: h, road: p.file.clone(), auto: true });
                 }
+            }
+        }
+        // the far end of a taper, while no road goes on from it
+        for (k, t) in self.tapers.iter().enumerate() {
+            let (q, h) = t.end();
+            let chained = self.tapers.iter().enumerate().any(|(j, o)| j != k && (o.start() - q).length() < 0.3);
+            if !chained && !covered_by_piece(q, None) {
+                out.push(Arm { x: q.x, y: q.y, out: h, road: t.to_file.clone(), auto: true });
             }
         }
         out
@@ -871,6 +952,18 @@ impl Layout {
     }
 }
 
+impl Layout {
+    /// The plates of a resolved drawing: those of its junctions, then one for each taper. Tapers
+    /// are added here, not in `resolve`: that returns early without `build.plate` and drops
+    /// plates of fewer than three arms, and a taper is neither; keeping it apart also leaves what
+    /// `resolve` gives for drawings with no tapers exactly as it was.
+    pub fn all_plates(&self, resolved: &Resolved) -> Vec<Vec<crate::junction::PlateArm>> {
+        let mut plates = resolved.plates.clone();
+        plates.extend(self.tapers.iter().map(|t| t.plate_arms().to_vec()));
+        plates
+    }
+}
+
 /// The arc from `p` that leaves heading `h` and reaches `q` (a tangent arc); a straight when
 /// `q` lies ahead on the line. None when `q` is behind or the arc would be more than a half
 /// circle round.
@@ -1123,5 +1216,94 @@ mod tests {
         l.sync_arms(&is_road, &half);
         l.sync_arms(&is_road, &half);
         assert_eq!(l.arms.len(), 4);
+    }
+
+    fn taper_from(p: &Piece, at_end: bool, to: &str, length: f64, offset: f64) -> Taper {
+        let (a, ha, b, hb) = p.ends().unwrap();
+        let (pt, h) = if at_end { (b, hb) } else { (a, roads::norm_deg(ha + 180.0)) };
+        Taper { x: pt.x, y: pt.y, out: h, from_file: p.file.clone(), from_at_end: at_end, to_file: to.into(), length, offset }
+    }
+
+    #[test]
+    fn a_taper_offset_is_to_the_right_of_the_way_of_travel() {
+        // heading north: right is east (+x)
+        let t = Taper { x: 0.0, y: 0.0, out: 0.0, from_file: "a".into(), from_at_end: true, to_file: "b".into(), length: 20.0, offset: 1.75 };
+        let (q, h) = t.end();
+        assert!((q - DVec2::new(1.75, 20.0)).length() < 1e-9, "{q:?}");
+        assert_eq!(h, 0.0);
+        // heading east: right is south (-y); a negative offset goes left (north)
+        let t = Taper { out: 90.0, offset: -2.0, ..t };
+        let (q, _) = t.end();
+        assert!((q - DVec2::new(20.0, 2.0)).length() < 1e-9, "{q:?}");
+        // the plate's arms: the source behind P, the target ahead from Q
+        let [a, b] = t.plate_arms();
+        assert!((a.out - 270.0).abs() < 1e-9 && a.at_end && a.pos == DVec2::ZERO);
+        assert!((b.out - 90.0).abs() < 1e-9 && !b.at_end && (b.pos - q).length() < 1e-12);
+        // a source piece that starts at P runs away from the taper
+        let piece = Piece { file: "a".into(), segs: vec![LSeg { x: 0.0, y: 0.0, heading: 180.0, radius: 0.0, length: 10.0 }], lift: 0.0, hidden: false, auto: false };
+        let t = taper_from(&piece, false, "b", 10.0, 0.0);
+        assert!((t.out - 0.0).abs() < 1e-9 && !t.from_at_end);
+        let [a, _] = t.plate_arms();
+        // (the spline's own way at P is `out` when it starts there: south, as the piece runs)
+        assert!(!a.at_end && (a.out - 180.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_taper_takes_the_road_end_it_starts_at_and_its_far_end_is_free_until_a_road_goes_on() {
+        let (is_road, half) = (|f: &str| f == "r" || f == "s", |_: &str| 3.0);
+        let road = Piece { file: "r".into(), segs: vec![LSeg { x: 0.0, y: -30.0, heading: 0.0, radius: 0.0, length: 30.0 }], lift: 0.0, hidden: false, auto: false };
+        let mut l = Layout { pieces: vec![road.clone()], ..Default::default() };
+        let before = l.free_ends(&is_road, &half);
+        assert_eq!(before.len(), 2);
+        l.tapers.push(taper_from(&road, true, "s", 20.0, 1.75));
+        let (q, h) = l.tapers[0].end();
+        let ends = l.free_ends(&is_road, &half);
+        println!("free ends with a taper: {ends:?}");
+        // the road's end at P is no longer free; its start still is; Q is
+        assert!(!ends.iter().any(|a| (DVec2::new(a.x, a.y) - DVec2::ZERO).length() < 0.3), "P is taken");
+        assert!(ends.iter().any(|a| (DVec2::new(a.x, a.y) - DVec2::new(0.0, -30.0)).length() < 0.3));
+        let at_q = ends.iter().find(|a| (DVec2::new(a.x, a.y) - q).length() < 1e-9).expect("Q is free");
+        assert!(at_q.road == "s" && (at_q.out - h).abs() < 1e-9 && at_q.auto);
+        assert_eq!(ends.len(), 2);
+        // a road drawn on from Q: neither Q nor the new road's start is free
+        l.pieces.push(Piece { file: "s".into(), segs: vec![LSeg { x: q.x, y: q.y, heading: h, radius: 0.0, length: 25.0 }], lift: 0.0, hidden: false, auto: false });
+        let ends = l.free_ends(&is_road, &half);
+        println!("free ends with a road from Q: {ends:?}");
+        assert!(!ends.iter().any(|a| (DVec2::new(a.x, a.y) - q).length() < 0.3), "Q is joined");
+        assert_eq!(ends.len(), 2, "the old road's start and the new road's far end");
+    }
+
+    #[test]
+    fn tapers_give_plates_without_build_plate_and_old_layouts_read_as_before() {
+        let (is_road, half) = (|f: &str| f == "r" || f == "s", |_: &str| 3.0);
+        let road = Piece { file: "r".into(), segs: vec![LSeg { x: 0.0, y: -30.0, heading: 0.0, radius: 0.0, length: 30.0 }], lift: 0.0, hidden: false, auto: false };
+        let mut l = Layout { pieces: vec![road.clone()], ..Default::default() };
+        l.tapers.push(taper_from(&road, true, "s", 20.0, 0.0));
+        for plate in [true, false] {
+            l.build.plate = plate;
+            let r = l.resolve(&is_road, &half);
+            assert!(r.plates.is_empty(), "resolve itself is as before");
+            let all = l.all_plates(&r);
+            assert_eq!(all.len(), 1, "build.plate = {plate}");
+            assert_eq!(all[0], l.tapers[0].plate_arms().to_vec());
+        }
+        // a layout written before tapers reads, with none, and resolves as it did
+        let json = r#"{"name":"Old","pieces":[{"file":"r","segs":[{"x":0.0,"y":-40.0,"heading":0.0,"radius":0.0,"length":80.0}]},{"file":"r","segs":[{"x":-40.0,"y":0.0,"heading":90.0,"radius":0.0,"length":80.0}]}],"arms":[],"build":{"plate":true,"turns":false,"corners":false,"through":false,"radius":8.0},"objects":[],"auto":true,"baked":null}"#;
+        let old: Layout = serde_json::from_str(json).unwrap();
+        assert!(old.tapers.is_empty());
+        let r = old.resolve(&is_road, &half);
+        assert_eq!(r.plates.len(), 1);
+        assert_eq!(old.all_plates(&r), r.plates);
+        // and a layout with tapers is kept and read back
+        let back: Layout = serde_json::from_str(&serde_json::to_string(&l).unwrap()).unwrap();
+        assert_eq!(back, l);
+        // mirrored, the shift goes the other way and Q is mirrored with it
+        let q = l.tapers[0].end().0;
+        let mut m = l.clone();
+        m.tapers[0].offset = 2.0;
+        let q2 = m.tapers[0].end().0;
+        m.transform(true, 0.0);
+        assert!((m.tapers[0].end().0 - DVec2::new(-q2.x, q2.y)).length() < 1e-9);
+        let _ = q;
     }
 }

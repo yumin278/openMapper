@@ -3008,3 +3008,10 @@ a signal shows a light this crossing does not have	een sein toont een licht dat 
 The object has no surface there: no signal was put down	Het object heeft daar geen oppervlak: er is geen sein geplaatst
 Click to place a signal	Klik om een verkeerslicht te plaatsen
 The signal is outside the object: its previous height was kept	Het verkeerslicht staat buiten het object: de vorige hoogte is behouden
+Taper section	Overgangsstuk
+Pick a road type in the catalogue on the left first	Kies eerst links in de catalogus een wegtype
+Click the end of a road piece	Klik op het uiteinde van een wegstuk
+The taper could not be made between these road types	Tussen deze wegtypen kon geen overgang worden gemaakt
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Klik op het uiteinde van een weg: van daar wordt naar voren een overgang gemaakt naar het in de catalogus gekozen wegtype
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Zijdelingse verschuiving van het verre uiteinde: positief naar rechts in de rijrichting, negatief naar links
+Click the end of a road to lay a taper from it	Klik op het uiteinde van een weg om er een overgang te leggen

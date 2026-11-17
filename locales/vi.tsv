@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	đèn tín hiệu hiển th�
 The object has no surface there: no signal was put down	Đối tượng không có bề mặt ở đó: không đặt đèn tín hiệu
 Click to place a signal	Nhấp để đặt đèn tín hiệu
 The signal is outside the object: its previous height was kept	Đèn tín hiệu nằm ngoài đối tượng: đã giữ nguyên độ cao trước đó
+Taper section	Đoạn chuyển tiếp
+Pick a road type in the catalogue on the left first	Hãy chọn loại đường trong danh mục bên trái trước
+Click the end of a road piece	Nhấp vào đầu mút của một đoạn đường
+The taper could not be made between these road types	Không thể tạo đoạn chuyển tiếp giữa các loại đường này
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Nhấp vào đầu mút của đường: từ đó tạo đoạn chuyển tiếp về phía trước tới loại đường đã chọn trong danh mục
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Độ lệch ngang của đầu xa: dương về bên phải hướng đi, âm về bên trái
+Click the end of a road to lay a taper from it	Nhấp vào đầu mút của đường để đặt đoạn chuyển tiếp từ đó

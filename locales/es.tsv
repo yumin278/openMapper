@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	un semáforo muestra una luz 
 The object has no surface there: no signal was put down	El objeto no tiene superficie ahí: no se ha colocado ningún semáforo
 Click to place a signal	Haz clic para colocar un semáforo
 The signal is outside the object: its previous height was kept	El semáforo está fuera del objeto: se conservó su altura anterior
+Taper section	Tramo de transición
+Pick a road type in the catalogue on the left first	Elija primero un tipo de carretera en el catálogo de la izquierda
+Click the end of a road piece	Haga clic en el extremo de un tramo de carretera
+The taper could not be made between these road types	No se pudo crear la transición entre estos tipos de carretera
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Haga clic en el extremo de una carretera: se crea hacia delante una transición al tipo de carretera elegido en el catálogo
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Desplazamiento lateral del extremo lejano: positivo a la derecha del sentido de marcha, negativo a la izquierda
+Click the end of a road to lay a taper from it	Haga clic en el extremo de una carretera para colocar una transición

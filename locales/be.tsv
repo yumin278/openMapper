@@ -3007,3 +3007,10 @@ a signal shows a light this crossing does not have	святлафор паказ
 The object has no surface there: no signal was put down	У аб'екта там няма паверхні: святлафор не пастаўлены
 Click to place a signal	Націсніце, каб паставіць святлафор
 The signal is outside the object: its previous height was kept	Святлафор па-за аб’ектам: захавана ранейшая вышыня
+Taper section	Пераходны ўчастак
+Pick a road type in the catalogue on the left first	Спачатку абярыце тып дарогі ў каталогу злева
+Click the end of a road piece	Пстрыкніце канец дэталі дарогі
+The taper could not be made between these road types	Не ўдалося пабудаваць пераход паміж гэтымі тыпамі дарог
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Пстрыкніце канец дарогі: ад яго наперад робіцца пераход да тыпу дарогі, абранага ў каталогу
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Бакавое зрушэнне далёкага канца: плюс — управа па ходзе руху, мінус — улева
+Click the end of a road to lay a taper from it	Пстрыкніце канец дарогі, каб пакласці ад яго пераход

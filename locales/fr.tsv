@@ -3005,3 +3005,10 @@ a signal shows a light this crossing does not have	un feu montre une lumière qu
 The object has no surface there: no signal was put down	L'objet n'a pas de surface à cet endroit : aucun feu n'a été placé
 Click to place a signal	Cliquer pour placer un feu
 The signal is outside the object: its previous height was kept	Le feu est hors de l’objet : sa hauteur précédente a été conservée
+Taper section	Tronçon de transition
+Pick a road type in the catalogue on the left first	Choisissez d'abord un type de route dans le catalogue à gauche
+Click the end of a road piece	Cliquez sur l'extrémité d'un tronçon de route
+The taper could not be made between these road types	Impossible de créer la transition entre ces types de route
+Click the end of a road: a taper is made forward from it to the road type chosen in the catalogue	Cliquez sur l'extrémité d'une route : une transition vers le type de route choisi dans le catalogue est créée vers l'avant
+Sideways shift of the far end: positive to the right of the way of travel, negative to the left	Décalage latéral de l'extrémité éloignée : positif à droite du sens de circulation, négatif à gauche
+Click the end of a road to lay a taper from it	Cliquez sur l'extrémité d'une route pour y poser une transition

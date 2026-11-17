@@ -46,6 +46,8 @@ impl Editor {
         let z = doc.ground(origin);
         let kinds = cjunction::road_kinds(layout, assets);
         let resolved = layout.resolve(&|f| kinds.get(&f.to_lowercase()).map(|k| k.0).unwrap_or(false), &|f| kinds.get(&f.to_lowercase()).map(|k| k.1).unwrap_or(1.5));
+        // (the junctions' plates and the tapers', before the cut pieces are taken from it)
+        let plates = layout.all_plates(&resolved);
         let mut cut = layout.clone();
         cut.pieces = resolved.pieces;
         match cjunction::place(doc, &cut, origin, z, rot) {
@@ -55,7 +57,7 @@ impl Editor {
                 if let Some(content) = content {
                     let folder = crate::junction::folder_name(doc);
                     let asphalt = crate::junction::junction_asphalt(Some(&doc.dir), asphalt.as_deref());
-                    for arms in &resolved.plates {
+                    for arms in &plates {
                         let Some(plate) = crate::junction::layout_plate(assets, arms, asphalt.as_deref()) else { continue };
                         let rules = crate::junction::bus_path_rules(&plate.bus_paths);
                         let Ok(rel) = plate.write_object(&content, &folder) else { continue };

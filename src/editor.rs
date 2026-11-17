@@ -16291,6 +16291,7 @@ mod tests {
 
     include!("junction_snapshot_tests.rs");
     include!("junction_placement_tests.rs");
+    include!("cjunction_taper_tests.rs");
 
     /// Two road types made here, the second with a pocket lane, in a scratch content folder.
     fn pocket_fixture(tag: &str) -> (Assets, std::path::PathBuf, String, String) {
