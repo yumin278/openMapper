@@ -2758,10 +2758,8 @@ impl CrossingPaths {
                 // gets none in the cache either.)
                 let signals = crate::crossing_signals::CrossingSignals::load(&map_dir);
                 let points = signals.points(&rel).map(|v| v.to_vec());
-                if let Some(points) = &points
-                    && let Some(doc) = ed.doc.as_mut()
-                {
-                    doc.crossing_signals.set(&rel, points.clone());
+                if let Some(doc) = ed.doc.as_mut() {
+                    doc.crossing_signals = signals;
                 }
                 sheet.crossing.signals = points.unwrap_or_default();
                 self.seen = sheet.crossing.clone();
@@ -6837,6 +6835,21 @@ Main
         assert_eq!(points[0], fresh, "the file's positions, not the cache's");
         assert_eq!(ed.doc.as_ref().unwrap().crossing_signals.points(REL).unwrap()[0], fresh, "the cache follows the file");
         assert_eq!(w.map_dir, ed.doc.as_ref().unwrap().dir);
+        let _ = std::fs::remove_dir_all(roots.content);
+    }
+
+    #[test]
+    fn opening_forgets_positions_removed_from_the_file() {
+        let (mut w, mut ed, roots, assets) = saveable("open-removed");
+        let config = w.map_dir.join("openMapper").join("crossing_signals.json");
+        std::fs::create_dir_all(config.parent().unwrap()).unwrap();
+        std::fs::write(&config, signals_json(&[("other.sco", &[])])).unwrap();
+        ed.doc.as_mut().unwrap().crossing_signals.set(REL, vec![SignalPoint::default()]);
+        assert!(w.open_on(&mut ed, &roots, (0, 0), 1));
+        assert!(w.sheet.as_ref().unwrap().crossing.signals.is_empty());
+        assert!(ed.doc.as_ref().unwrap().crossing_signals.points(REL).is_none());
+        assert!(ed.doc.as_ref().unwrap().crossing_signals.points("other.sco").is_some());
+        assert!(ed.place_crossing_signals(&assets, (0, 0), 1).is_err());
         let _ = std::fs::remove_dir_all(roots.content);
     }
 
