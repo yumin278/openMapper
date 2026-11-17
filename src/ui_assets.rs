@@ -446,8 +446,13 @@ impl AssetBrowser {
             }
         }
         if resp.clicked() {
-            // choosing is using: the tool is ready at once (the button in the details stays for re-arming)
+            // fork change (upstream: "choosing is using", a click also calls `use_asset`): a click
+            // picks, a double click uses. The first click of a double click picks too, which is
+            // harmless to repeat; the button in the details stays for re-arming.
             self.picked = Some(a.rel.clone());
+            pick_asset(ed, a);
+        }
+        if resp.double_clicked() {
             use_asset(ed, a);
         }
         if resp.drag_started() && a.kind == Kind::Object {
@@ -541,6 +546,20 @@ impl AssetBrowser {
             self.confirm_delete = None;
         }
         let _ = Stroke::NONE;
+    }
+}
+
+/// Choose an asset's type without changing the tool: the type is what the Objects / Roads /
+/// Game logic tools take when they are next used, and what the properties offer to replace a
+/// selected object or curve with. Safe to repeat.
+pub fn pick_asset(ed: &mut Editor, a: &Asset) {
+    match a.kind {
+        Kind::Object => {
+            ed.object_type = Some(a.rel.clone());
+            ed.place_heading = 0.0;
+        }
+        Kind::Spline if a.category == Category::Technical && (a.lanes.0 > 0 || a.lanes.1 > 0) => ed.set_path_type(a.rel.clone()),
+        Kind::Spline => ed.road_type = Some(a.rel.clone()),
     }
 }
 
