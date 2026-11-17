@@ -3007,3 +3007,16 @@ a signal shows a light this crossing does not have	isyarat menunjukkan cahaya ya
 The object has no surface there: no signal was put down	Objek tiada permukaan di situ: tiada isyarat diletakkan
 Click to place a signal	Klik untuk meletakkan lampu isyarat
 The signal is outside the object: its previous height was kept	Lampu isyarat berada di luar objek: ketinggian sebelumnya dikekalkan
+Copy traffic rules	Salin peraturan lalu lintas
+Paste traffic rules	Tampal peraturan lalu lintas
+Only the traffic rules are copied, not the shape	Hanya peraturan lalu lintas disalin, bukan bentuknya
+Select exactly one object or road to copy its traffic rules	Pilih tepat satu objek atau jalan untuk menyalin peraturan lalu lintasnya
+Traffic rules copied:	Peraturan lalu lintas disalin:
+Copy traffic rules first	Salin peraturan lalu lintas dahulu
+Traffic rules pasted to:	Peraturan lalu lintas ditampal ke:
+Rules written:	Peraturan ditulis:
+Dropped, path number beyond the target:	Dibuang, nombor laluan melebihi sasaran:
+Not pasted, the number of paths is unknown:	Tidak ditampal, bilangan laluan tidak diketahui:
+The copied set had no rules: the rules of the targets were cleared	Set yang disalin tiada peraturan: peraturan sasaran dikosongkan
+The files differ, rules matched by path number	Fail berbeza, peraturan dipadankan mengikut nombor laluan
+Rebuilding the junction replaces its rules with newly generated ones	Membina semula persimpangan menggantikan peraturannya dengan yang baru dijana

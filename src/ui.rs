@@ -173,6 +173,9 @@ pub enum Action {
     SetMapCamera,
     Copy,
     Cut,
+    /// Copy the traffic rules of the selected object or road / paste them into the selection.
+    CopyRules,
+    PasteRules,
     Paste,
     Duplicate,
     SelectAll,
@@ -965,6 +968,12 @@ fn menu_bar(root: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, can_undo: bo
                 }
                 if menu_item(ui, None, tr("Duplicate", "Дублировать"), "Ctrl+D", any) {
                     actions.push(Action::Duplicate);
+                }
+                if menu_item(ui, None, tr("Copy traffic rules", "Копировать правила"), "", ed.can_copy_rules()) {
+                    actions.push(Action::CopyRules);
+                }
+                if menu_item(ui, None, tr("Paste traffic rules", "Вставить правила"), "", ed.can_paste_rules()) {
+                    actions.push(Action::PasteRules);
                 }
                 if menu_item(ui, Some(Icon::History), tr("Edit history…", "История правок…"), "", true) {
                     st.history_open = true;
@@ -2875,7 +2884,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
             crate::ui_edit::array_section(ui, ed, lib);
             crate::ui_edit::link_section(ui, ed, lib, k, id, obj_info.as_ref(), parent_lights.as_ref());
             if has_paths {
-                crate::ui_edit::rules_section(ui, ed, sel);
+                crate::ui_edit::rules_section(ui, ed, sel, actions);
             }
             if attach_points > 0 {
                 crate::ui_edit::attach_section(ui, ed, lib, k, id, attach_points);
@@ -2975,7 +2984,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
         }
         Sel::Attached(k, id) => {
             if has_paths {
-                crate::ui_edit::rules_section(ui, ed, sel);
+                crate::ui_edit::rules_section(ui, ed, sel, actions);
             }
             crate::ui_edit::link_section(ui, ed, lib, k, id, obj_info.as_ref(), parent_lights.as_ref());
             if attach_points > 0 {
@@ -3073,7 +3082,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
             if let Some((a, b, mode)) = spline_extra {
                 ed.set_spline_extra(k, id, a, b, mode);
             }
-            crate::ui_edit::rules_section(ui, ed, sel);
+            crate::ui_edit::rules_section(ui, ed, sel, actions);
             crate::ui_edit::rows_section(ui, ed, lib);
             crate::ui_edit::paint_along_section(ui, ed, lib);
             crate::ui_profile::profile_section(ui, ed, actions);

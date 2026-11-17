@@ -78,6 +78,7 @@ mod roadpaint;
 mod roads;
 mod roundabout;
 mod rows;
+mod rules_clip;
 mod scaled;
 mod scripting;
 mod selection;

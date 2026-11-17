@@ -3007,3 +3007,16 @@ a signal shows a light this crossing does not have	nagpapakita ang signal ng ila
 The object has no surface there: no signal was put down	Walang ibabaw ang object doon: walang signal na inilagay
 Click to place a signal	I-click upang maglagay ng ilaw-trapiko
 The signal is outside the object: its previous height was kept	Nasa labas ng bagay ang ilaw-trapiko: pinanatili ang dating taas nito
+Copy traffic rules	Kopyahin ang mga patakaran sa trapiko
+Paste traffic rules	I-paste ang mga patakaran sa trapiko
+Only the traffic rules are copied, not the shape	Mga patakaran sa trapiko lang ang kinokopya, hindi ang hugis
+Select exactly one object or road to copy its traffic rules	Pumili ng eksaktong isang bagay o kalsada para kopyahin ang mga patakaran nito sa trapiko
+Traffic rules copied:	Nakopya ang mga patakaran sa trapiko:
+Copy traffic rules first	Kopyahin muna ang mga patakaran sa trapiko
+Traffic rules pasted to:	Na-paste ang mga patakaran sa trapiko sa:
+Rules written:	Mga patakarang naisulat:
+Dropped, path number beyond the target:	Itinapon, ang numero ng landas ay lampas sa target:
+Not pasted, the number of paths is unknown:	Hindi na-paste, hindi alam ang bilang ng mga landas:
+The copied set had no rules: the rules of the targets were cleared	Walang patakaran ang kinopya: nabura ang mga patakaran ng mga target
+The files differ, rules matched by path number	Magkaiba ang mga file, itinugma ang mga patakaran ayon sa numero ng landas
+Rebuilding the junction replaces its rules with newly generated ones	Kapag muling itinayo ang junction, papalitan ng bagong gawa ang mga patakaran nito

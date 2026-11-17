@@ -3007,3 +3007,16 @@ a signal shows a light this crossing does not have	en signal visar ett ljus som 
 The object has no surface there: no signal was put down	Objektet har ingen yta där: ingen signal placerades
 Click to place a signal	Klicka för att placera en trafiksignal
 The signal is outside the object: its previous height was kept	Trafiksignalen är utanför objektet: den tidigare höjden behölls
+Copy traffic rules	Kopiera trafikregler
+Paste traffic rules	Klistra in trafikregler
+Only the traffic rules are copied, not the shape	Bara trafikreglerna kopieras, inte formen
+Select exactly one object or road to copy its traffic rules	Markera exakt ett objekt eller en väg för att kopiera dess trafikregler
+Traffic rules copied:	Trafikregler kopierade:
+Copy traffic rules first	Kopiera trafikregler först
+Traffic rules pasted to:	Trafikregler inklistrade i:
+Rules written:	Regler skrivna:
+Dropped, path number beyond the target:	Utelämnade, banans nummer ligger bortom målet:
+Not pasted, the number of paths is unknown:	Inte inklistrade, antalet banor okänt:
+The copied set had no rules: the rules of the targets were cleared	Det kopierade hade inga regler: målens regler rensades
+The files differ, rules matched by path number	Filerna skiljer sig, reglerna matchas på banans nummer
+Rebuilding the junction replaces its rules with newly generated ones	När korsningen byggs om ersätts dess regler av nygenererade

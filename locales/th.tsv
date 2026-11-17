@@ -3007,3 +3007,16 @@ a signal shows a light this crossing does not have	สัญญาณแสด�
 The object has no surface there: no signal was put down	วัตถุไม่มีพื้นผิวตรงนั้น: ไม่ได้วางสัญญาณ
 Click to place a signal	คลิกเพื่อวางสัญญาณไฟจราจร
 The signal is outside the object: its previous height was kept	สัญญาณไฟอยู่นอกวัตถุ: คงความสูงเดิมไว้
+Copy traffic rules	คัดลอกกฎจราจร
+Paste traffic rules	วางกฎจราจร
+Only the traffic rules are copied, not the shape	คัดลอกเฉพาะกฎจราจร ไม่คัดลอกรูปทรง
+Select exactly one object or road to copy its traffic rules	เลือกวัตถุหรือถนนเพียงหนึ่งรายการเพื่อคัดลอกกฎจราจร
+Traffic rules copied:	คัดลอกกฎจราจรแล้ว:
+Copy traffic rules first	โปรดคัดลอกกฎจราจรก่อน
+Traffic rules pasted to:	วางกฎจราจรไปยัง:
+Rules written:	จำนวนกฎที่เขียน:
+Dropped, path number beyond the target:	ตัดทิ้ง เลขเส้นทางเกินปลายทาง:
+Not pasted, the number of paths is unknown:	ไม่ได้วาง ไม่ทราบจำนวนเส้นทาง:
+The copied set had no rules: the rules of the targets were cleared	ชุดที่คัดลอกไม่มีกฎ: ล้างกฎของปลายทางแล้ว
+The files differ, rules matched by path number	ไฟล์ต่างกัน จับคู่กฎตามเลขเส้นทาง
+Rebuilding the junction replaces its rules with newly generated ones	เมื่อสร้างทางแยกใหม่ กฎของทางแยกจะถูกแทนที่ด้วยกฎที่สร้างใหม่

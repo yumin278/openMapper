@@ -3007,3 +3007,16 @@ a signal shows a light this crossing does not have	un semaforo mostra una luce c
 The object has no surface there: no signal was put down	L'oggetto non ha una superficie lì: non è stato posato alcun semaforo
 Click to place a signal	Fai clic per posizionare un semaforo
 The signal is outside the object: its previous height was kept	Il semaforo è fuori dall’oggetto: è stata mantenuta l’altezza precedente
+Copy traffic rules	Copia regole di traffico
+Paste traffic rules	Incolla regole di traffico
+Only the traffic rules are copied, not the shape	Si copiano solo le regole di traffico, non la forma
+Select exactly one object or road to copy its traffic rules	Seleziona un solo oggetto o strada per copiarne le regole di traffico
+Traffic rules copied:	Regole di traffico copiate:
+Copy traffic rules first	Copia prima le regole di traffico
+Traffic rules pasted to:	Regole di traffico incollate in:
+Rules written:	Regole scritte:
+Dropped, path number beyond the target:	Scartate, numero di percorso oltre la destinazione:
+Not pasted, the number of paths is unknown:	Non incollate, numero di percorsi sconosciuto:
+The copied set had no rules: the rules of the targets were cleared	Il contenuto copiato non aveva regole: le regole delle destinazioni sono state cancellate
+The files differ, rules matched by path number	I file sono diversi, regole associate per numero di percorso
+Rebuilding the junction replaces its rules with newly generated ones	Ricostruendo l'incrocio, le sue regole vengono sostituite da quelle rigenerate

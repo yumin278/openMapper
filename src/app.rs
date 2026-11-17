@@ -1997,6 +1997,16 @@ impl App {
                 self.ed.copy(&self.lib);
             }
             Action::Cut => self.ed.cut(&self.lib),
+            Action::CopyRules => {
+                if let Some(assets) = self.assets.as_mut() {
+                    self.ed.copy_rules(assets);
+                }
+            }
+            Action::PasteRules => {
+                if let Some(assets) = self.assets.as_mut() {
+                    self.ed.paste_rules(assets);
+                }
+            }
             Action::Paste => self.ed.paste(&self.lib),
             Action::PasteAt(at) => {
                 if at.is_some() {

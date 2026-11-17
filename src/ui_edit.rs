@@ -615,7 +615,7 @@ pub(crate) fn close_path_to_cars(rules: &mut Vec<omsi_map::MapRule>, path: i32) 
 
 /// The rules of a road's (or an object's) paths, as OMSI 2's editor sets them: a speed
 /// limit, the traffic density, priority, trucks, cars and buses, each for one path.
-pub fn rules_section(ui: &mut egui::Ui, ed: &mut Editor, sel: Sel) {
+pub fn rules_section(ui: &mut egui::Ui, ed: &mut Editor, sel: Sel, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
     let rules = match sel {
         Sel::Object(k, id) => crate::selection::any_object(doc, k, id).map(|o| o.rules.clone()),
@@ -629,6 +629,14 @@ pub fn rules_section(ui: &mut egui::Ui, ed: &mut Editor, sel: Sel) {
         egui::CollapsingHeader::new(RichText::new(format!("{} ({})", tr("Path rules", "Правила путей"), rules.iter().filter(|r| !r.kill).count())).strong()).id_salt("rules").default_open((1..=6).contains(&rules.iter().filter(|r| !r.kill).count())).show(ui, |ui| {
             ui.label(RichText::new(tr("For the AI and the player on one path (lane) of it, counted from 0: the view shows their numbers", "Для ИИ и игрока на одном пути (полосе), считая от 0: их номера видны в окне вида")).small().color(TEXT_DIM));
             numbered = true;
+            ui.horizontal_wrapped(|ui| {
+                if ui.add_enabled(ed.can_copy_rules(), egui::Button::new(tr("Copy traffic rules", "Копировать правила"))).on_hover_text(tr("Only the traffic rules are copied, not the shape", "Копируются только правила, не форма")).clicked() {
+                    actions.push(crate::ui::Action::CopyRules);
+                }
+                if ui.add_enabled(ed.can_paste_rules(), egui::Button::new(tr("Paste traffic rules", "Вставить правила"))).on_hover_text(tr("Only the traffic rules are copied, not the shape", "Копируются только правила, не форма")).clicked() {
+                    actions.push(crate::ui::Action::PasteRules);
+                }
+            });
             let mut remove = None;
             let mut close_to_cars = None;
             for (i, r) in rules.iter_mut().enumerate().filter(|(_, r)| !r.kill) {

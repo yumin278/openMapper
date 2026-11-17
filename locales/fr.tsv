@@ -3005,3 +3005,16 @@ a signal shows a light this crossing does not have	un feu montre une lumière qu
 The object has no surface there: no signal was put down	L'objet n'a pas de surface à cet endroit : aucun feu n'a été placé
 Click to place a signal	Cliquer pour placer un feu
 The signal is outside the object: its previous height was kept	Le feu est hors de l’objet : sa hauteur précédente a été conservée
+Copy traffic rules	Copier les règles de circulation
+Paste traffic rules	Coller les règles de circulation
+Only the traffic rules are copied, not the shape	Seules les règles de circulation sont copiées, pas la forme
+Select exactly one object or road to copy its traffic rules	Sélectionnez un seul objet ou une seule route pour copier ses règles de circulation
+Traffic rules copied:	Règles de circulation copiées :
+Copy traffic rules first	Copiez d'abord des règles de circulation
+Traffic rules pasted to:	Règles de circulation collées dans :
+Rules written:	Règles écrites :
+Dropped, path number beyond the target:	Ignorées, numéro de chemin au-delà de la cible :
+Not pasted, the number of paths is unknown:	Non collées, nombre de chemins inconnu :
+The copied set had no rules: the rules of the targets were cleared	L'ensemble copié n'avait aucune règle : les règles des cibles ont été effacées
+The files differ, rules matched by path number	Les fichiers diffèrent, règles associées par numéro de chemin
+Rebuilding the junction replaces its rules with newly generated ones	La reconstruction du carrefour remplace ses règles par celles qui sont régénérées
