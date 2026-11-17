@@ -141,6 +141,9 @@ fn type2_exclusions_keep_legacy_files_until_the_trip_is_selected() {
     assert!(!is_type1(tt.trip("draft").unwrap()));
     tt.set_type2_exclusion(baseline.trip("tram").unwrap(), true);
     assert!(!tt.dirty);
+    let mut restored = baseline.clone();
+    restored.restored(&tt);
+    assert!(restored.excludes_type2(restored.trip("tram").unwrap()));
     assert_eq!(tt.convert_all_to_type2(), (1, 3));
     save_to(&mut tt, &out, &[]).unwrap();
     for (file, original) in &inputs {

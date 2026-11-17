@@ -155,6 +155,13 @@ impl Timetable {
     /// Put back as it was (undo, redo) in place of `replaced`: every file of it is written
     /// again on the next save, and those only `replaced` had are taken away.
     pub fn restored(&mut self, replaced: &Timetable) {
+        // The checkbox is session state, so an undo of a timetable edit keeps newer choices.
+        for trip in &self.trips {
+            let name = key(&trip.name);
+            if let Some(&excluded) = replaced.type2_exclusions.get(&name) {
+                self.type2_exclusions.insert(name, excluded);
+            }
+        }
         let names = |t: &Timetable| -> BTreeSet<String> {
             t.lines.iter().map(|l| key(&format!("{}.ttl", l.name))).chain(t.trips.iter().map(|x| key(&format!("{}.ttp", x.name)))).chain(t.tracks.iter().map(|x| key(&format!("{}.ttr", track_name(x))))).collect()
         };
