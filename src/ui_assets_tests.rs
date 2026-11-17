@@ -267,3 +267,82 @@ fn a_closed_browser_still_saves_its_layout() {
     let again = run(&ctx, &mut browser, &mut ed, &mut prefs, vec![], 0.05);
     assert!(saved_layout(&again).is_none());
 }
+
+fn asset(kind: Kind, rel: &str, category: Category, lanes: (u8, u8, u8)) -> Asset {
+    Asset {
+        kind,
+        rel: rel.to_string(),
+        name: rel.to_string(),
+        dir: String::new(),
+        category,
+        haystack: String::new(),
+        from_content: false,
+        is_bus_stop: false,
+        is_entry_point: false,
+        is_car_park: false,
+        abs_height: false,
+        lamp: false,
+        light_head: false,
+        light_program: false,
+        helpers: Vec::new(),
+        paths: 0,
+        half_width: 0.0,
+        lanes,
+    }
+}
+
+/// Picking an object with the Select tool leaves the tool alone.
+#[test]
+fn picking_an_object_keeps_the_select_tool() {
+    let mut ed = Editor::default();
+    ed.tool = Tool::Select;
+    pick_asset(&mut ed, &asset(Kind::Object, "Sceneryobjects\\a.sco", Category::Objects, (0, 0, 0)));
+    assert_eq!(ed.tool, Tool::Select);
+    assert_eq!(ed.object_type.as_deref(), Some("Sceneryobjects\\a.sco"));
+}
+
+/// Picking a road with the Select tool leaves the tool alone.
+#[test]
+fn picking_a_road_keeps_the_select_tool() {
+    let mut ed = Editor::default();
+    ed.tool = Tool::Select;
+    pick_asset(&mut ed, &asset(Kind::Spline, "Splines\\r.sli", Category::Roads, (1, 1, 0)));
+    assert_eq!(ed.tool, Tool::Select);
+    assert_eq!(ed.road_type.as_deref(), Some("Splines\\r.sli"));
+}
+
+/// Picking an AI path with the Select tool changes neither the tool nor the Logic mode.
+#[test]
+fn picking_an_ai_path_keeps_the_tool_and_the_logic_mode() {
+    let mut ed = Editor::default();
+    ed.tool = Tool::Select;
+    let logic = ed.logic;
+    let path_edit = ed.path_edit;
+    let road = ed.road_type.clone();
+    pick_asset(&mut ed, &asset(Kind::Spline, "Splines\\p.sli", Category::Technical, (1, 0, 0)));
+    assert_eq!(ed.tool, Tool::Select);
+    assert_eq!(ed.logic, logic);
+    assert_eq!(ed.path_edit, path_edit);
+    assert_eq!(ed.road_type, road, "the road type is not the path type");
+    assert_eq!(ed.path_type.as_deref(), Some("Splines\\p.sli"));
+}
+
+/// Picking another road in the Roads tool swaps the type being drawn, staying in the tool.
+#[test]
+fn picking_another_road_in_the_roads_tool_swaps_its_type() {
+    let mut ed = Editor::default();
+    ed.tool = Tool::Roads;
+    pick_asset(&mut ed, &asset(Kind::Spline, "Splines\\one.sli", Category::Roads, (1, 1, 0)));
+    pick_asset(&mut ed, &asset(Kind::Spline, "Splines\\two.sli", Category::Roads, (1, 1, 0)));
+    assert_eq!(ed.tool, Tool::Roads);
+    assert_eq!(ed.road_type.as_deref(), Some("Splines\\two.sli"));
+}
+
+/// Using an asset (a double click, the button in the details) still changes the tool.
+#[test]
+fn using_an_asset_still_switches_the_tool() {
+    let mut ed = Editor::default();
+    ed.tool = Tool::Select;
+    use_asset(&mut ed, &asset(Kind::Spline, "Splines\\r.sli", Category::Roads, (1, 1, 0)));
+    assert_eq!(ed.tool, Tool::Roads);
+}
