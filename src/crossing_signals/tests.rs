@@ -86,7 +86,7 @@ fn write_points_replaces_only_one_key_and_keeps_the_rest() {
 
 #[test]
 fn write_points_leaves_a_broken_or_unsupported_file_alone() {
-    for bad in ["{not json", json!({"version": 2, "crossings": {}}).to_string()] {
+    for bad in ["{not json".to_string(), json!({"version": 2, "crossings": {}}).to_string()] {
         let map = temp_map("broken");
         std::fs::create_dir_all(map.join("openMapper")).unwrap();
         std::fs::write(path_of(&map), &bad).unwrap();
