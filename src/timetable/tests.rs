@@ -140,10 +140,24 @@ fn type2_exclusions_keep_legacy_files_until_the_trip_is_selected() {
     }
     assert!(!is_type1(tt.trip("draft").unwrap()));
     tt.set_type2_exclusion(baseline.trip("tram").unwrap(), true);
-    assert!(!tt.dirty);
+    assert!(!tt.dirty && tt.is_dirty());
     let mut restored = baseline.clone();
     restored.restored(&tt);
-    assert!(restored.excludes_type2(restored.trip("tram").unwrap()));
+    assert!(!restored.excludes_type2(restored.trip("tram").unwrap()));
+    assert!(restored.is_dirty());
+    save_to(&mut tt, &out, &[]).unwrap();
+    assert!(!tt.is_dirty());
+    let metadata_path = convert::exclusions_path(&out);
+    let metadata_before = std::fs::read_to_string(&metadata_path).unwrap();
+    println!("Exclusions before conversion:\n{metadata_before}");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&metadata_before).unwrap(), serde_json::json!({
+        "excluded": ["one", "tram", "zero"], "overrides": {"tram": true},
+    }));
+    for (file, original) in &inputs {
+        assert_eq!(std::fs::read(dir.join(file)).unwrap(), encode(original), "{file}");
+    }
+    let mut tt = Timetable::load(&out, &[]);
+    assert!(tt.excludes_type2(tt.trip("tram").unwrap()));
     assert_eq!(tt.convert_all_to_type2(), (1, 3));
     save_to(&mut tt, &out, &[]).unwrap();
     for (file, original) in &inputs {
@@ -154,9 +168,23 @@ fn type2_exclusions_keep_legacy_files_until_the_trip_is_selected() {
     for name in ["zero", "one"] {
         tt.set_type2_exclusion(baseline.trip(name).unwrap(), false);
     }
+    save_to(&mut tt, &out, &[]).unwrap();
+    let metadata_unchecked = std::fs::read_to_string(&metadata_path).unwrap();
+    println!("Exclusions after unchecking short trips:\n{metadata_unchecked}");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&metadata_unchecked).unwrap(), serde_json::json!({
+        "excluded": ["tram"], "overrides": {"one": false, "tram": true, "zero": false},
+    }));
+    let mut tt = Timetable::load(&out, &[]);
+    assert!(!tt.excludes_type2(tt.trip("zero").unwrap()));
+    assert!(!tt.excludes_type2(tt.trip("one").unwrap()));
     assert_eq!(tt.convert_all_to_type2(), (2, 1));
     assert_eq!(tt.convert_all_to_type2(), (0, 1));
     save_to(&mut tt, &out, &[]).unwrap();
+    let metadata_after = std::fs::read_to_string(&metadata_path).unwrap();
+    println!("Exclusions after conversion:\n{metadata_after}");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&metadata_after).unwrap(), serde_json::json!({
+        "excluded": ["tram"], "overrides": {"tram": true},
+    }));
     let reloaded = Timetable::load(&out, &[]);
     for (file, original) in &inputs {
         let bytes = std::fs::read(dir.join(file)).unwrap();

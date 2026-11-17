@@ -49,8 +49,9 @@ pub struct Timetable {
     pub reroute: BTreeSet<String>,
     /// Trips converted since the last save, whose existing route is kept on that save.
     pub type2_converted: BTreeSet<String>,
-    /// Manual overrides of the default Type 2 conversion exclusion for the open map.
+    /// Manual overrides of the default Type 2 conversion exclusion.
     type2_exclusions: BTreeMap<String, bool>,
+    type2_exclusions_changed: bool,
     /// Public holidays and school holidays (`Holidays.txt`): which tours run on a day.
     pub calendar: omsi_map::Calendar,
     calendar_changed: bool,
@@ -88,7 +89,11 @@ impl Timetable {
         calendar.holidays.sort_by_key(|h| h.date);
         calendar.ranges.sort_by_key(|r| r.start);
         let hand = d.tracks.iter().filter(|t| marked_by_hand(&t.path)).map(|t| key(&track_name(t))).collect();
-        Timetable { stops: d.bus_stops, links: d.stn_links, trips: d.trips, tracks: d.tracks, lines: d.lines, order: order.to_vec(), calendar, car_use: caruse::load_dir(dir), hand, ..Default::default() }
+        Timetable { stops: d.bus_stops, links: d.stn_links, trips: d.trips, tracks: d.tracks, lines: d.lines, order: order.to_vec(), calendar, car_use: caruse::load_dir(dir), hand, type2_exclusions: convert::load_exclusions(dir), ..Default::default() }
+    }
+
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.dirty || self.type2_exclusions_changed
     }
 
     /// The trip's paths were picked by hand.
@@ -155,13 +160,7 @@ impl Timetable {
     /// Put back as it was (undo, redo) in place of `replaced`: every file of it is written
     /// again on the next save, and those only `replaced` had are taken away.
     pub fn restored(&mut self, replaced: &Timetable) {
-        // The checkbox is session state, so an undo of a timetable edit keeps newer choices.
-        for trip in &self.trips {
-            let name = key(&trip.name);
-            if let Some(&excluded) = replaced.type2_exclusions.get(&name) {
-                self.type2_exclusions.insert(name, excluded);
-            }
-        }
+        self.type2_exclusions_changed |= self.type2_exclusions != replaced.type2_exclusions;
         let names = |t: &Timetable| -> BTreeSet<String> {
             t.lines.iter().map(|l| key(&format!("{}.ttl", l.name))).chain(t.trips.iter().map(|x| key(&format!("{}.ttp", x.name)))).chain(t.tracks.iter().map(|x| key(&format!("{}.ttr", track_name(x))))).collect()
         };
@@ -187,7 +186,7 @@ impl Timetable {
     /// found for them or what is still to be saved).
     pub fn same_content(&self, o: &Timetable) -> bool {
         let hand_tracks = |t: &Timetable| -> Vec<Track> { t.tracks.iter().filter(|x| t.hand.contains(&key(&track_name(x)))).cloned().collect() };
-        self.lines == o.lines && self.trips == o.trips && self.stops == o.stops && self.calendar == o.calendar && self.car_use == o.car_use && self.hand == o.hand && hand_tracks(self) == hand_tracks(o)
+        self.lines == o.lines && self.trips == o.trips && self.stops == o.stops && self.calendar == o.calendar && self.car_use == o.car_use && self.hand == o.hand && self.type2_exclusions == o.type2_exclusions && hand_tracks(self) == hand_tracks(o)
     }
 
     /// A new line (its name made unique).
@@ -313,6 +312,7 @@ impl Timetable {
         }
         if let Some(excluded) = self.type2_exclusions.remove(&key(old)) {
             self.type2_exclusions.insert(key(new), excluded);
+            self.type2_exclusions_changed = true;
         }
         for ext in ["ttp", "ttr"] {
             self.removed.insert(key(&format!("{old}.{ext}")));
@@ -364,7 +364,7 @@ impl Timetable {
         }
         self.reroute.remove(&key(name));
         self.type2_converted.remove(&key(name));
-        self.type2_exclusions.remove(&key(name));
+        self.type2_exclusions_changed |= self.type2_exclusions.remove(&key(name)).is_some();
         self.hand.remove(&key(name));
         self.mark();
     }
@@ -528,6 +528,7 @@ pub fn track_name(t: &Track) -> String {
 /// files, all or nothing; `saved` then marks it done.
 pub fn plan(tt: &mut Timetable, map_dir: &Path, order: &[TileKey]) -> Vec<Op> {
     let mut ops = Vec::new();
+    ops.extend(tt.plan_type2_exclusions(map_dir));
     // (a tile taken away renumbers the files' tile indices even when nothing of the
     // timetable was edited)
     let held = !(tt.stops.is_empty() && tt.links.is_empty() && tt.tracks.is_empty());
@@ -596,6 +597,7 @@ pub fn saved(tt: &mut Timetable) {
     tt.removed.clear();
     tt.changed.clear();
     tt.type2_converted.clear();
+    tt.type2_exclusions_changed = false;
     tt.stops_changed = false;
     tt.links_changed = false;
     tt.calendar_changed = false;

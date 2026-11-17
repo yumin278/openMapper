@@ -153,7 +153,7 @@ pub fn conflicts(doc: &Document, changes: &Changes, global_base: &str) -> Change
     Changes {
         global: changes.global && doc.global_dirty && super::global_text(doc) != global_base,
         tiles: changes.tiles.iter().filter(|k| doc.tiles.get(k).map(|t| t.dirty).unwrap_or(false)).copied().collect(),
-        timetable: changes.timetable && doc.timetable.dirty,
+        timetable: changes.timetable && doc.timetable.is_dirty(),
         traffic: changes.traffic && doc.traffic.dirty,
         descriptions: changes.descriptions && doc.descriptions.dirty,
     }
@@ -208,7 +208,7 @@ pub fn reload(doc: &mut Document, dir: &Path, changes: &Changes, force: bool) ->
         }
         done.tiles.insert(k);
     }
-    if changes.timetable && (force || !doc.timetable.dirty) {
+    if changes.timetable && (force || !doc.timetable.is_dirty()) {
         doc.timetable = crate::timetable::Timetable::load(dir, &doc.order);
         done.timetable = true;
     }
