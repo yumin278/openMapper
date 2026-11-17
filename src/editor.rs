@@ -16,6 +16,14 @@ use crate::reshape::{self, Handle};
 use crate::roads::{self, Anchor, Seg};
 use crate::selection::{self, Origin};
 
+/// Counts signal pairs, not individual head/pole objects.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct CrossingSignalPlacement {
+    pub requested: usize,
+    pub placed: usize,
+    pub skipped: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tool {
     Select,
@@ -1581,6 +1589,7 @@ impl Editor {
         if let Some(content) = self.content_dir.as_deref() {
             doc.signal_sets.reload(&doc.dir, content);
         }
+        doc.crossing_signals.reload(&doc.dir);
         self.doc = Some(doc);
     }
 
@@ -10142,6 +10151,109 @@ impl Editor {
             }
         }
         Ok(file)
+    }
+
+    /// Place a crossing's hand-authored signal heads and poles (the map's
+    /// `crossing_signals.json`), deleting the crossing's own signal objects first. One undo step.
+    pub fn place_crossing_signals(&mut self, assets: &Assets, k: TileKey, id: i64) -> anyhow::Result<CrossingSignalPlacement> {
+        let Some(doc) = self.doc.as_ref() else {
+            anyhow::bail!("{}", tr("Open a map", "Открыть карту"));
+        };
+        let Some(o) = doc.object(k, id).cloned() else {
+            anyhow::bail!("{}", tr("select an object first", "сначала выделите объект"));
+        };
+        let rel = o.file.clone();
+        let Some(points) = doc.crossing_signals.points(&rel).map(|v| v.to_vec()) else {
+            anyhow::bail!("{}", tr("no signal positions are configured for this crossing", "для этого перекрёстка не заданы позиции светофоров"));
+        };
+        // (the crossing's own height mode and light count, from its .sco)
+        let sco_path = assets.resolve(&rel);
+        let sco = omsi_scenery::SceneryObject::load(&sco_path)
+            .map_err(|e| anyhow::anyhow!("{}: {e}", sco_path.display()))?;
+        let junction_abs = sco.absolute_height();
+        let light_count = sco.traffic_lights.len();
+        anyhow::ensure!(light_count > 0, "{}: no traffic-light program", sco_path.display());
+        let config_path = doc.dir.join("openMapper").join(crate::crossing_signals::FILE_NAME);
+
+        // (the crossing's world origin and height; its turn is the clockwise heading of `rot`)
+        let org = tile_origin(k);
+        let origin_xy = DVec2::new(org.x + o.pos[0], org.y + o.pos[1]);
+        let junction_z = if junction_abs { o.pos[2] } else { doc.ground(origin_xy) + o.pos[2] };
+        let heading_base = o.rot[0];
+
+        // (resolve every point before touching the map: each needs the signal sets' fallback)
+        let mut planned: Vec<(crate::signal_sets::SignalSet, [bool; 2], usize, f64, DVec3)> = Vec::new();
+        let mut skipped = 0usize;
+        for (i, p) in points.iter().enumerate() {
+            if p.light >= light_count {
+                log::warn!(
+                    "crossing signals {}: junction {id} signal {i}: light {} is out of range ({light_count} light(s)); skipped",
+                    config_path.display(), p.light
+                );
+                skipped += 1;
+                continue;
+            }
+            let (set, reason) = doc.signal_sets.resolve(&p.set);
+            let set = set.clone();
+            let height_modes = set.height_modes(assets);
+            let head_xy = origin_xy
+                + crate::selection::turn_point(DVec2::new(p.x as f64, p.fwd as f64), DVec2::ZERO, heading_base);
+            let head = DVec3::new(head_xy.x, head_xy.y, junction_z + p.up as f64 + set.head_height);
+            let heading = heading_base + p.heading as f64;
+            log::info!(
+                "junction {id} signal {i}: light={} set={:?} (reason={reason}) local=({}, {}, {}) heading={heading} head world={head:?} crossing abs height={junction_abs}",
+                p.light, set.id, p.x, p.up, p.fwd
+            );
+            planned.push((set, height_modes, p.light, heading, head));
+        }
+
+        // (drop the crossing's own signal objects, then put the new ones in: one step)
+        self.history.begin(tr("Place signals", "Расставить светофоры"));
+        let child_tiles: Vec<TileKey> = self
+            .doc
+            .as_ref()
+            .map(|d| {
+                d.tiles
+                    .iter()
+                    .filter(|(_, t)| {
+                        t.tile.objects.iter().chain(&t.tile.attach_objects).any(|x| x.var_parent == Some(id))
+                            || t.tile.spline_attachments.iter().any(|a| a.var_parent == Some(id))
+                    })
+                    .map(|(k, _)| *k)
+                    .collect()
+            })
+            .unwrap_or_default();
+        {
+            let doc = self.doc.as_mut().unwrap();
+            self.history.touch_global(doc);
+            for k in &child_tiles {
+                self.history.touch_tile(doc, *k);
+            }
+            for t in doc.tiles.values_mut() {
+                let before = t.tile.objects.len() + t.tile.attach_objects.len() + t.tile.spline_attachments.len();
+                t.tile.objects.retain(|x| x.var_parent != Some(id));
+                t.tile.attach_objects.retain(|x| x.var_parent != Some(id));
+                t.tile.spline_attachments.retain(|a| a.var_parent != Some(id));
+                let after = t.tile.objects.len() + t.tile.attach_objects.len() + t.tile.spline_attachments.len();
+                if before != after {
+                    t.touch_content();
+                }
+            }
+        }
+        let planned_count = planned.len();
+        let doc = self.doc.as_mut().unwrap();
+        for (set, height_modes, light, heading, head) in planned {
+            let at = crate::signal_sets::Placement { junction: id, light, heading, head };
+            set.place(doc, Some(&mut self.history), at, height_modes);
+        }
+        let placed = doc.tiles.values().flat_map(|t| &t.tile.objects)
+            .filter(|o| o.var_parent == Some(id) && o.extra.len() == 1).count();
+        let missing_tiles = planned_count - placed;
+        skipped += missing_tiles;
+        self.history.commit();
+        log::info!("junction {id}: requested={} placed {placed} signal pair(s) ({} objects), skipped {skipped} (invalid light={}, missing head/pole tile={missing_tiles})",
+            points.len(), placed * 2, points.len() - planned_count);
+        Ok(CrossingSignalPlacement { requested: points.len(), placed, skipped })
     }
 
     /// After a save: the junction files of this map that nothing uses any more (not a tile,

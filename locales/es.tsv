@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	La banda mediana y la 
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Esta acera está al nivel de la calzada: la herramienta de bahía de autobús abrirá la bahía por fuera
 Contains a footway without an AI path	Contiene una acera sin ruta de IA
 Contains strips with a fixed height	Contiene bandas con una altura fija
+In multiplayer the host edits the map. Leave the session to place the signals.	En multijugador, el mapa lo edita el anfitrión. Sal de la sesión para colocar los semáforos.
+no signal positions are configured for this crossing	no hay posiciones de semáforo configuradas para este cruce
+Place signals	Colocar semáforos
+Signal positions	Posiciones de los semáforos
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Dónde está un cabezal de semáforo, en el marco del cruce. Se guarda junto al mapa, no en el objeto
+set id	id del conjunto
+The signal set to use (empty: the map's default)	El conjunto de semáforos a usar (vacío: el predeterminado del mapa)
+A signal	Un semáforo
+A signal head at the crossing's origin	Un cabezal de semáforo en el origen del cruce
+A signal where the picked path ends, facing out of the crossing	Un semáforo donde termina la vía seleccionada, hacia fuera del cruce
+Place signals as configured	Colocar semáforos según la configuración
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Elimina los cabezales y postes de semáforo de este cruce y colócalos donde indican las posiciones del editor de cruces
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Sustituir todos los objetos vinculados a este cruce mediante var_parent por los semáforos configurados (Deshacer los restaura)
+a signal's place is not a finite number	la posición de un semáforo no es un número finito
+a signal shows a light this crossing does not have	un semáforo muestra una luz que este cruce no tiene
+The object has no surface there: no signal was put down	El objeto no tiene superficie ahí: no se ha colocado ningún semáforo
+Click to place a signal	Haz clic para colocar un semáforo
+The signal is outside the object: its previous height was kept	El semáforo está fuera del objeto: se conservó su altura anterior

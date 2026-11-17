@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	중간 스트립과 �
 This footway is level with the roadway: the bus bay tool opens the bay outside it	이 보도는 차도와 같은 높이입니다: 버스 정차대 도구는 정차대를 바깥쪽에 만듭니다
 Contains a footway without an AI path	AI 경로가 없는 보도가 포함되어 있습니다
 Contains strips with a fixed height	고정 높이의 스트립이 포함되어 있습니다
+In multiplayer the host edits the map. Leave the session to place the signals.	멀티플레이에서는 호스트가 지도를 편집합니다. 신호등을 배치하려면 세션을 나가세요.
+no signal positions are configured for this crossing	이 교차로에는 신호등 위치가 설정되어 있지 않습니다
+Place signals	신호등 배치
+Signal positions	신호등 위치
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	교차로 좌표계에서 신호등 머리가 서는 곳. 객체가 아니라 지도 옆에 저장됩니다
+set id	세트 id
+The signal set to use (empty: the map's default)	사용할 신호등 세트 (비어 있음: 지도 기본값)
+A signal	신호등
+A signal head at the crossing's origin	교차로 원점의 신호등 머리
+A signal where the picked path ends, facing out of the crossing	선택한 경로가 끝나는 곳, 교차로 바깥쪽을 향한 신호등
+Place signals as configured	구성대로 신호등 배치
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	이 교차로의 신호등 머리와 기둥을 삭제하고 교차로 편집기의 위치에 배치
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	var_parent로 이 교차로에 연결된 모든 객체를 설정된 신호등으로 교체합니다 (실행 취소로 복원)
+a signal's place is not a finite number	신호등의 위치가 유한한 숫자가 아닙니다
+a signal shows a light this crossing does not have	신호등이 이 교차로에 없는 신호를 표시합니다
+The object has no surface there: no signal was put down	해당 위치에 오브젝트의 표면이 없어 신호등을 놓지 않았습니다
+Click to place a signal	클릭하여 신호등 배치
+The signal is outside the object: its previous height was kept	신호등이 오브젝트 밖에 있습니다: 이전 높이를 유지했습니다

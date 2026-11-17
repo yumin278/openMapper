@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	A középső sáv és 
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Ez a járda az úttest szintjén van: a buszöböl eszköz az öblöt rajta kívül nyitja meg
 Contains a footway without an AI path	MI-útvonal nélküli járdát tartalmaz
 Contains strips with a fixed height	Rögzített magasságú sávokat tartalmaz
+In multiplayer the host edits the map. Leave the session to place the signals.	Többjátékos módban a házigazda szerkeszti a térképet. Lépj ki a munkamenetből a jelzőlámpák elhelyezéséhez.
+no signal positions are configured for this crossing	ehhez a kereszteződéshez nincs beállítva jelzőlámpa-pozíció
+Place signals	Jelzőlámpák elhelyezése
+Signal positions	Jelzőlámpa-pozíciók
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Hol áll egy jelzőfej, a kereszteződés rendszerében. A térkép mellett tárolódik, nem az objektumban
+set id	készlet id
+The signal set to use (empty: the map's default)	A használandó jelzőlámpa-készlet (üres: a térkép alapértelmezettje)
+A signal	Egy jelzőlámpa
+A signal head at the crossing's origin	Egy jelzőfej a kereszteződés origójában
+A signal where the picked path ends, facing out of the crossing	Egy jelzőlámpa ott, ahol a kiválasztott út véget ér, a kereszteződésből kifelé
+Place signals as configured	Jelzőlámpák elhelyezése a konfiguráció szerint
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	A kereszteződés jelzőfejeinek és oszlopainak törlése, majd elhelyezésük a kereszteződés-szerkesztő pozíciói szerint
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	A kereszteződéshez var_parent kapcsolattal kötött összes objektum cseréje a beállított jelzőlámpákra (a Visszavonás helyreállítja őket)
+a signal's place is not a finite number	a jelző helye nem véges szám
+a signal shows a light this crossing does not have	a jelző olyan fényt mutat, amilyen ennek a kereszteződésnek nincs
+The object has no surface there: no signal was put down	Az objektumnak ott nincs felülete: nem került jelző elhelyezésre
+Click to place a signal	Kattintson egy jelzőlámpa elhelyezéséhez
+The signal is outside the object: its previous height was kept	A jelzőlámpa az objektumon kívül van: a korábbi magassága megmaradt

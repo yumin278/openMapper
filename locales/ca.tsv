@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	La mitjana i la vorera
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Aquesta vorera és a nivell de la calçada: l'eina de badia d'autobús obrirà la badia a l'exterior
 Contains a footway without an AI path	Conté una vorera sense camí d'IA
 Contains strips with a fixed height	Conté tires amb una alçada fixa
+In multiplayer the host edits the map. Leave the session to place the signals.	En multijugador, l'editor de mapes és l'amfitrió. Surt de la sessió per col·locar els semàfors.
+no signal positions are configured for this crossing	no s'ha configurat cap posició de semàfor per a aquest encreuament
+Place signals	Col·loca els semàfors
+Signal positions	Posicions dels semàfors
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	On hi ha un cap de semàfor, en el marc de l'encreuament. Es guarda al costat del mapa, no a l'objecte
+set id	id del conjunt
+The signal set to use (empty: the map's default)	El conjunt de semàfors (buit: el predeterminat del mapa)
+A signal	Un semàfor
+A signal head at the crossing's origin	Un cap de semàfor a l'origen de l'encreuament
+A signal where the picked path ends, facing out of the crossing	Un semàfor on acaba el camí seleccionat, cap enfora de l'encreuament
+Place signals as configured	Col·loca els semàfors segons la configuració
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Suprimeix els caps i pals de semàfor d'aquest encreuament i col·loca'ls on diuen les posicions de l'editor d'encreuaments
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Substitueix tots els objectes vinculats a aquest encreuament per var_parent pels semàfors configurats (Desfés els restaura)
+a signal's place is not a finite number	la posició d'un semàfor no és un nombre finit
+a signal shows a light this crossing does not have	un semàfor mostra un llum que aquest creuament no té
+The object has no surface there: no signal was put down	L'objecte no té superfície aquí: no s'ha col·locat cap semàfor
+Click to place a signal	Fes clic per col·locar un semàfor
+The signal is outside the object: its previous height was kept	El semàfor és fora de l’objecte: s’ha mantingut l’altura anterior

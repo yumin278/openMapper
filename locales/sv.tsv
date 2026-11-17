@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	Medelstrip och gångba
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Denna gångbana ligger i nivå med vägbanan: bussfickeverktyget lägger fickan utanför den
 Contains a footway without an AI path	Innehåller en gångbana utan AI-väg
 Contains strips with a fixed height	Innehåller remsor med fast höjd
+In multiplayer the host edits the map. Leave the session to place the signals.	I flerspelarläge redigerar värden kartan. Lämna sessionen för att placera signalerna.
+no signal positions are configured for this crossing	inga signalpositioner är konfigurerade för denna korsning
+Place signals	Placera signaler
+Signal positions	Signalpositioner
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Var ett signalhuvud står, i korsningens system. Sparas bredvid kartan, inte i objektet
+set id	set-id
+The signal set to use (empty: the map's default)	Signaluppsättningen att använda (tom: kartans standard)
+A signal	En signal
+A signal head at the crossing's origin	Ett signalhuvud vid korsningens origo
+A signal where the picked path ends, facing out of the crossing	En signal där den valda vägen slutar, ut från korsningen
+Place signals as configured	Placera signaler enligt konfigurationen
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Ta bort korsningens signalhuvuden och stolpar och placera dem enligt korsningsredigerarens positioner
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Ersätt alla objekt länkade till denna korsning via var_parent med de konfigurerade signalerna (Ångra återställer dem)
+a signal's place is not a finite number	en signals plats är inte ett ändligt tal
+a signal shows a light this crossing does not have	en signal visar ett ljus som den här korsningen inte har
+The object has no surface there: no signal was put down	Objektet har ingen yta där: ingen signal placerades
+Click to place a signal	Klicka för att placera en trafiksignal
+The signal is outside the object: its previous height was kept	Trafiksignalen är utanför objektet: den tidigare höjden behölls

@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	Сярэдняя па�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Гэты тратуар на адным узроўні з праезнай часткай: інструмент аўтобуснага кармана зробіць карман звонку яго
 Contains a footway without an AI path	Змяшчае тратуар без шляху ШІ
 Contains strips with a fixed height	Змяшчае палосы з зададзенай вышынёй
+In multiplayer the host edits the map. Leave the session to place the signals.	У сумеснай праўцы карту правіць хост. Выйдзіце з сесіі, каб расставіць светлафоры.
+no signal positions are configured for this crossing	для гэтага скрыжавання не зададзены пазіцыі светлафораў
+Place signals	Расставіць светлафоры
+Signal positions	Пазіцыі светлафораў
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Дзе стаіць светлафор, у сістэме скрыжавання. Захоўваецца побач з картай, не ў аб'екце
+set id	id набору
+The signal set to use (empty: the map's default)	Набор светлафора (пуста: па змаўчанні карты)
+A signal	Светлафор
+A signal head at the crossing's origin	Светлафор у пачатку каардынат скрыжавання
+A signal where the picked path ends, facing out of the crossing	Светлафор там, дзе канчаецца выбраны шлях, вонкі ад скрыжавання
+Place signals as configured	Расставіць светлафоры па канфігурацыі
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Выдаліць светлафоры і стойкі гэтага скрыжавання і расставіць іх па пазіцыях з рэдактара скрыжавання
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Замяніць усе аб'екты, звязаныя з гэтым скрыжаваннем праз var_parent, зададзенымі светлафорамі (адмена адновіць іх)
+a signal's place is not a finite number	месца святлафора не з'яўляецца канечным лікам
+a signal shows a light this crossing does not have	святлафор паказвае святло, якога няма ў гэтым скрыжаванні
+The object has no surface there: no signal was put down	У аб'екта там няма паверхні: святлафор не пастаўлены
+Click to place a signal	Націсніце, каб паставіць святлафор
+The signal is outside the object: its previous height was kept	Святлафор па-за аб’ектам: захавана ранейшая вышыня

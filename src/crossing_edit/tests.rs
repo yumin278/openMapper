@@ -219,6 +219,45 @@ fn removing_a_light_moves_the_paths_that_wait_at_it() {
     assert_eq!(c.stops[0][0], 1.0);
 }
 
+/// The hand-placed signals name a light of the crossing: one showing the light that goes goes
+/// with it, and the others move up, so none is left naming a light that is not there.
+#[test]
+fn removing_a_light_takes_its_signals_and_moves_the_others_up() {
+    let mut c = Crossing::default();
+    c.lights = vec![
+        TrafficLight { name: "A".into(), ..Default::default() },
+        TrafficLight { name: "B".into(), ..Default::default() },
+        TrafficLight { name: "C".into(), ..Default::default() },
+    ];
+    let at = |light: usize| SignalPoint { light, set: String::new(), x: 1.0, up: 2.0, fwd: 3.0, heading: 0.0 };
+    c.signals = vec![at(0), at(2), at(1), at(2)];
+    c.remove_light(1);
+    assert_eq!(c.signals.iter().map(|s| s.light).collect::<Vec<_>>(), vec![0, 1, 1], "the light that went took its signals; the rest moved up");
+}
+
+/// A signal the game could not use stops the save: a place that is not a number, or a light
+/// the crossing does not have.
+#[test]
+fn a_signal_off_the_program_or_off_the_numbers_is_refused() {
+    let mut c = lit(Some(20.0), &[(0, 10.0), (6, 10.0)]);
+    let ok = SignalPoint { light: 0, set: String::new(), x: 1.0, up: 2.0, fwd: 3.0, heading: 90.0 };
+    assert_eq!(c.why_signals_not(&[ok.clone()]), None);
+    let mut off = ok.clone();
+    off.light = 2;
+    let why = c.why_signals_not(&[ok.clone(), off]).expect("a light that is not there is refused");
+    assert!(why.starts_with("#1: "), "{why}");
+    let mut nan = ok.clone();
+    nan.heading = f32::NAN;
+    assert!(c.why_signals_not(&[nan]).is_some(), "a place that is not a number is refused");
+    let mut endless = ok;
+    endless.fwd = f32::INFINITY;
+    assert!(c.why_signals_not(&[endless]).is_some());
+    // (a crossing with no light has no signal either)
+    let mut none = c.clone();
+    none.lights.clear();
+    assert!(none.why_signals_not(&[SignalPoint { light: 0, ..Default::default() }]).is_some());
+}
+
 #[test]
 fn moving_a_path_renumbers_the_blocks() {
     let mut c = Crossing::default();
@@ -428,6 +467,16 @@ fn scratch_roots(name: &str) -> crate::install::Roots {
 /// nothing is written (nor the backup touched) when the text is the file's own.
 #[test]
 fn a_save_in_place_keeps_the_old_file_as_a_bak() {
+    /// The save the crossing editor makes of the `.sco` itself: the checked text and the file
+    /// as it stands kept as its `.bak`, in one transaction (as the editor's save is).
+    fn save_in_place(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing) -> anyhow::Result<bool> {
+        let prepared = prepare_sco(abs, text, original, crossing, true)?;
+        if prepared.bytes.is_none() {
+            return Ok(false);
+        }
+        crate::doc::safe::commit(&prepared.ops(abs))?;
+        Ok(true)
+    }
     let dir = std::env::temp_dir().join(format!("om-crossing-{}-inplace", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
@@ -441,19 +490,19 @@ fn a_save_in_place_keeps_the_old_file_as_a_bak() {
     let bak = bak_path(&abs);
     assert!(!bak.exists(), "no backup before a save");
 
-    assert!(write_in_place(&abs, &s.text(), &bytes, &s.crossing).unwrap(), "the file was written");
+    assert!(save_in_place(&abs, &s.text(), &bytes, &s.crossing).unwrap(), "the file was written");
     assert_eq!(std::fs::read(&bak).unwrap(), bytes, "the old file is the backup");
     assert_ne!(std::fs::read(&abs).unwrap(), bytes, "the file is the new text");
 
     // the same text again: nothing to write, and the backup is left as it was
     let now = std::fs::read(&abs).unwrap();
     let stamp = std::fs::metadata(&bak).unwrap().modified().unwrap();
-    assert!(!write_in_place(&abs, &s.text(), &now, &s.crossing).unwrap(), "nothing changed");
+    assert!(!save_in_place(&abs, &s.text(), &now, &s.crossing).unwrap(), "nothing changed");
     assert_eq!(std::fs::metadata(&bak).unwrap().modified().unwrap(), stamp, "the backup was not touched");
 
     // a second save with other text: the backup still holds the file from before the first
     s.crossing.paths[0].v[5] = 25.0;
-    assert!(write_in_place(&abs, &s.text(), &now, &s.crossing).unwrap(), "the file was written again");
+    assert!(save_in_place(&abs, &s.text(), &now, &s.crossing).unwrap(), "the file was written again");
     assert_eq!(std::fs::read(&bak).unwrap(), bytes, "the backup is still the original file");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -523,7 +572,7 @@ fn a_write_that_fails_its_check_leaves_the_file() {
     let s = Sheet::parse(SMALL);
     let mut wrong = s.crossing.clone();
     wrong.paths.clear();
-    assert!(write_checked(&abs, "[path]\n", SMALL.as_bytes(), &wrong).is_err());
+    assert!(prepare_sco(&abs, "[path]\n", SMALL.as_bytes(), &wrong, false).is_err());
     assert_eq!(std::fs::read_to_string(&abs).unwrap(), SMALL);
     assert_eq!(std::fs::read_dir(&roots.content).unwrap().count(), 1, "nothing left beside it");
     let _ = std::fs::remove_dir_all(roots.content.parent().unwrap());

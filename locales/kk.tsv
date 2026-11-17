@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	Орталық жол�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Бұл жаяу жүргінші жолы жүріс бөлігімен бірдей: автобус қалтасы құралы қалтаны оның сыртында ашады
 Contains a footway without an AI path	ЖИ жолы жоқ жаяу жүргінші жолын қамтиды
 Contains strips with a fixed height	Тұрақты биіктігі бар жолақтарды қамтиды
+In multiplayer the host edits the map. Leave the session to place the signals.	Көп ойыншылы режимде картаны хост өңдейді. Бағдаршамдарды қою үшін сессиядан шығыңыз.
+no signal positions are configured for this crossing	бұл қиылыс үшін бағдаршам орындары бапталмаған
+Place signals	Бағдаршамдарды қою
+Signal positions	Бағдаршам орындары
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Бағдаршам басы қиылыс жүйесінде қайда тұрады. Нысанда емес, картаның қасында сақталады
+set id	жиын id
+The signal set to use (empty: the map's default)	Қолданылатын бағдаршам жиыны (бос: картаның әдепкісі)
+A signal	Бағдаршам
+A signal head at the crossing's origin	Қиылыстың бас нүктесінде бағдаршам басы
+A signal where the picked path ends, facing out of the crossing	Таңдалған жолдың соңында, қиылыстан сыртқа қарай бағдаршам
+Place signals as configured	Бағдаршамдарды баптау бойынша қою
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Осы қиылыстың бағдаршам бастары мен тіректерін жойып, қиылыс редакторының орындарына қою
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Осы қиылысқа var_parent арқылы байланысқан барлық нысанды бапталған бағдаршамдармен ауыстыру (болдырмау оларды қалпына келтіреді)
+a signal's place is not a finite number	бағдаршамның орны шектеулі сан емес
+a signal shows a light this crossing does not have	бағдаршам бұл қиылыста жоқ жарықты көрсетеді
+The object has no surface there: no signal was put down	Нысанның сол жерде беті жоқ: бағдаршам қойылмады
+Click to place a signal	Бағдаршамды орналастыру үшін басыңыз
+The signal is outside the object: its previous height was kept	Бағдаршам нысаннан тыс жерде: бұрынғы биіктігі сақталды

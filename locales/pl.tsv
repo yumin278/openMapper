@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	Pas środkowy i chodni
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Ten chodnik jest na poziomie jezdni: narzędzie zatoki autobusowej otworzy zatokę na zewnątrz
 Contains a footway without an AI path	Zawiera chodnik bez ścieżki AI
 Contains strips with a fixed height	Zawiera paski o stałej wysokości
+In multiplayer the host edits the map. Leave the session to place the signals.	W trybie wieloosobowym mapę edytuje host. Opuść sesję, aby ustawić sygnalizatory.
+no signal positions are configured for this crossing	dla tego skrzyżowania nie skonfigurowano pozycji sygnalizatorów
+Place signals	Ustaw sygnalizatory
+Signal positions	Pozycje sygnalizatorów
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Gdzie stoi głowica sygnalizatora, w układzie skrzyżowania. Zapisane obok mapy, nie w obiekcie
+set id	id zestawu
+The signal set to use (empty: the map's default)	Zestaw sygnalizatorów do użycia (pusty: domyślny mapy)
+A signal	Sygnalizator
+A signal head at the crossing's origin	Głowica sygnalizatora w początku skrzyżowania
+A signal where the picked path ends, facing out of the crossing	Sygnalizator tam, gdzie kończy się wybrana droga, na zewnątrz skrzyżowania
+Place signals as configured	Ustaw sygnalizatory według konfiguracji
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Usuń głowice i słupy sygnalizatorów tego skrzyżowania i ustaw je według pozycji z edytora skrzyżowań
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Zastąp wszystkie obiekty połączone z tym skrzyżowaniem przez var_parent skonfigurowanymi sygnalizatorami (Cofnij je przywraca)
+a signal's place is not a finite number	pozycja sygnalizatora nie jest liczbą skończoną
+a signal shows a light this crossing does not have	sygnalizator pokazuje światło, którego to skrzyżowanie nie ma
+The object has no surface there: no signal was put down	Obiekt nie ma tam powierzchni: nie umieszczono sygnalizatora
+Click to place a signal	Kliknij, aby umieścić sygnalizator
+The signal is outside the object: its previous height was kept	Sygnalizator jest poza obiektem: zachowano poprzednią wysokość

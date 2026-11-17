@@ -2990,3 +2990,21 @@ The median and footway must not be lower than the roadway	De middenstreep en het
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Dit voetpad ligt gelijk met de rijbaan: de bushalfte-tool legt de halte erbuiten aan
 Contains a footway without an AI path	Bevat een voetpad zonder AI-pad
 Contains strips with a fixed height	Bevat stroken met een vaste hoogte
+In multiplayer the host edits the map. Leave the session to place the signals.	In multiplayer bewerkt de host de kaart. Verlaat de sessie om de verkeerslichten te plaatsen.
+no signal positions are configured for this crossing	er zijn geen seinposities ingesteld voor dit kruispunt
+Place signals	Seinen plaatsen
+Signal positions	Seinposities
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Waar een seinkop staat, in het stelsel van het kruispunt. Wordt naast de kaart opgeslagen, niet in het object
+set id	set-id
+The signal set to use (empty: the map's default)	De te gebruiken seinenset (leeg: standaard van de kaart)
+A signal	Een sein
+A signal head at the crossing's origin	Een seinkop op de oorsprong van het kruispunt
+A signal where the picked path ends, facing out of the crossing	Een sein waar het gekozen pad eindigt, uit het kruispunt
+Place signals as configured	Seinen plaatsen volgens de configuratie
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Verwijder de seinkoppen en palen van dit kruispunt en plaats ze volgens de posities van de kruispunt-editor
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Vervang alle via var_parent aan dit kruispunt gekoppelde objecten door de ingestelde seinen (Ongedaan maken herstelt ze)
+a signal's place is not a finite number	de positie van een sein is geen eindig getal
+a signal shows a light this crossing does not have	een sein toont een licht dat deze kruising niet heeft
+The object has no surface there: no signal was put down	Het object heeft daar geen oppervlak: er is geen sein geplaatst
+Click to place a signal	Klik om een verkeerslicht te plaatsen
+The signal is outside the object: its previous height was kept	Het verkeerslicht staat buiten het object: de vorige hoogte is behouden

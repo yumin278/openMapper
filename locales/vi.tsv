@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	Dải trung bình và 
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Vỉa hè này ngang bằng với lòng đường: công cụ vịnh xe buýt sẽ mở vịnh ở phía ngoài nó
 Contains a footway without an AI path	Chứa vỉa hè không có đường AI
 Contains strips with a fixed height	Chứa các dải có độ cao cố định
+In multiplayer the host edits the map. Leave the session to place the signals.	Ở chế độ nhiều người chơi, máy chủ chỉnh sửa bản đồ. Hãy rời phiên để đặt đèn tín hiệu.
+no signal positions are configured for this crossing	chưa cấu hình vị trí đèn tín hiệu cho giao lộ này
+Place signals	Đặt đèn tín hiệu
+Signal positions	Vị trí đèn tín hiệu
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Nơi đầu đèn tín hiệu đứng, trong hệ tọa độ của giao lộ. Được lưu cạnh bản đồ, không nằm trong đối tượng
+set id	id bộ
+The signal set to use (empty: the map's default)	Bộ đèn tín hiệu dùng (trống: mặc định của bản đồ)
+A signal	Một đèn tín hiệu
+A signal head at the crossing's origin	Đầu đèn tín hiệu tại gốc tọa độ của giao lộ
+A signal where the picked path ends, facing out of the crossing	Đèn tín hiệu ở nơi đường đã chọn kết thúc, hướng ra ngoài giao lộ
+Place signals as configured	Đặt đèn tín hiệu theo cấu hình
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Xóa đầu và cột đèn tín hiệu của giao lộ này rồi đặt theo vị trí của trình chỉnh sửa giao lộ
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Thay tất cả đối tượng liên kết với giao lộ này qua var_parent bằng đèn tín hiệu đã cấu hình (Hoàn tác sẽ khôi phục chúng)
+a signal's place is not a finite number	vị trí của đèn tín hiệu không phải là một số hữu hạn
+a signal shows a light this crossing does not have	đèn tín hiệu hiển thị ánh sáng mà ngã tư này không có
+The object has no surface there: no signal was put down	Đối tượng không có bề mặt ở đó: không đặt đèn tín hiệu
+Click to place a signal	Nhấp để đặt đèn tín hiệu
+The signal is outside the object: its previous height was kept	Đèn tín hiệu nằm ngoài đối tượng: đã giữ nguyên độ cao trước đó

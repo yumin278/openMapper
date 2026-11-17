@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	Median dan trotoar tid
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Trotoar ini sejajar dengan badan jalan: alat teluk bus akan membuka teluk di luarnya
 Contains a footway without an AI path	Mengandung trotoar tanpa jalur AI
 Contains strips with a fixed height	Mengandung strip dengan tinggi tetap
+In multiplayer the host edits the map. Leave the session to place the signals.	Dalam multipemain, host yang mengedit peta. Tinggalkan sesi untuk menempatkan lampu.
+no signal positions are configured for this crossing	tidak ada posisi lampu yang dikonfigurasi untuk persimpangan ini
+Place signals	Pasang lampu
+Signal positions	Posisi lampu
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Tempat kepala lampu berdiri, dalam kerangka persimpangan. Disimpan di samping peta, bukan di objek
+set id	id set
+The signal set to use (empty: the map's default)	Set lampu yang dipakai (kosong: bawaan peta)
+A signal	Sebuah lampu
+A signal head at the crossing's origin	Kepala lampu di titik asal persimpangan
+A signal where the picked path ends, facing out of the crossing	Lampu di tempat jalur terpilih berakhir, keluar dari persimpangan
+Place signals as configured	Pasang lampu sesuai konfigurasi
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Hapus kepala dan tiang lampu persimpangan ini, lalu pasang sesuai posisi dari editor persimpangan
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Ganti semua objek yang terhubung ke persimpangan ini melalui var_parent dengan lampu yang dikonfigurasi (Urungkan memulihkannya)
+a signal's place is not a finite number	tempat sinyal bukan bilangan berhingga
+a signal shows a light this crossing does not have	sinyal menampilkan cahaya yang tidak dimiliki persimpangan ini
+The object has no surface there: no signal was put down	Objek tidak memiliki permukaan di sana: tidak ada sinyal yang dipasang
+Click to place a signal	Klik untuk menempatkan lampu lalu lintas
+The signal is outside the object: its previous height was kept	Lampu lalu lintas berada di luar objek: ketinggian sebelumnya dipertahankan

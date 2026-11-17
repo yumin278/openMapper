@@ -108,6 +108,7 @@ pub fn snapshot(doc: &Document) -> Snapshot {
         descriptions: if doc.descriptions.dirty { doc.descriptions.clone() } else { Default::default() },
         groups: Vec::new(),
         signal_sets: Default::default(),
+        crossing_signals: Default::default(),
     };
     Snapshot { doc: copy, tiles: doc.tiles.keys().copied().collect(), epoch: *EPOCH.lock().unwrap_or_else(|e| e.into_inner()) }
 }
@@ -359,6 +360,7 @@ mod tests {
             descriptions: Default::default(),
             groups: Vec::new(),
             signal_sets: Default::default(),
+            crossing_signals: Default::default(),
         };
         doc.global.name = "M".into();
         for k in [(0, 0), (1, 0)] {

@@ -42,6 +42,7 @@ pub(crate) fn sample_map(roots: &Roots) -> Document {
         descriptions: Default::default(),
         groups: Vec::new(),
         signal_sets: Default::default(),
+        crossing_signals: Default::default(),
     };
     for k in [(0, 0), (1, 0), (0, -1)] {
         doc.add_tile(k);

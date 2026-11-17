@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	मध्य पट्
 This footway is level with the roadway: the bus bay tool opens the bay outside it	यह पैदल पथ सड़क के तल के बराबर है: बस बे टूल बे को इसके बाहर खोलेगा
 Contains a footway without an AI path	इसमें AI पाथ के बिना एक पैदल पथ है
 Contains strips with a fixed height	इसमें निश्चित ऊँचाई वाली पट्टियाँ हैं
+In multiplayer the host edits the map. Leave the session to place the signals.	मल्टीप्लेयर में मेज़बान नक़्शा संपादित करता है। सिग्नल लगाने के लिए सत्र छोड़ें।
+no signal positions are configured for this crossing	इस चौराहे के लिए कोई सिग्नल स्थिति कॉन्फ़िगर नहीं है
+Place signals	सिग्नल लगाएँ
+Signal positions	सिग्नल स्थितियाँ
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	चौराहे के निर्देशांक में सिग्नल हेड कहाँ खड़ा है। नक़्शे के पास सहेजा जाता है, ऑब्जेक्ट में नहीं
+set id	सेट id
+The signal set to use (empty: the map's default)	उपयोग किया जाने वाला सिग्नल सेट (खाली: नक़्शे का डिफ़ॉल्ट)
+A signal	एक सिग्नल
+A signal head at the crossing's origin	चौराहे के मूल बिंदु पर एक सिग्नल हेड
+A signal where the picked path ends, facing out of the crossing	चुने गए रास्ते के अंत में, चौराहे से बाहर की ओर एक सिग्नल
+Place signals as configured	कॉन्फ़िगरेशन के अनुसार सिग्नल लगाएँ
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	इस चौराहे के सिग्नल हेड और खंभे हटाएँ और उन्हें चौराहा संपादक की स्थितियों पर लगाएँ
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	इस चौराहे से var_parent द्वारा जुड़े सभी ऑब्जेक्ट को कॉन्फ़िगर किए गए सिग्नलों से बदलें (पूर्ववत करें उन्हें पुनर्स्थापित करता है)
+a signal's place is not a finite number	सिग्नल की जगह एक परिमित संख्या नहीं है
+a signal shows a light this crossing does not have	सिग्नल एक ऐसी लाइट दिखा रहा है जो इस चौराहे पर नहीं है
+The object has no surface there: no signal was put down	वहाँ वस्तु की कोई सतह नहीं है: कोई सिग्नल नहीं रखा गया
+Click to place a signal	सिग्नल लगाने के लिए क्लिक करें
+The signal is outside the object: its previous height was kept	सिग्नल वस्तु के बाहर है: उसकी पिछली ऊँचाई रखी गई

@@ -2989,3 +2989,21 @@ The median and footway must not be lower than the roadway	A faixa média e a pas
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Esta passadeira está ao nível da faixa de rodagem: a ferramenta de baia de autocarro abrirá a baia por fora
 Contains a footway without an AI path	Contém uma passadeira sem caminho de IA
 Contains strips with a fixed height	Contém faixas com altura fixa
+In multiplayer the host edits the map. Leave the session to place the signals.	Em multijogador, o mapa é editado pelo anfitrião. Saia da sessão para colocar os semáforos.
+no signal positions are configured for this crossing	não há posições de semáforo configuradas para este cruzamento
+Place signals	Colocar semáforos
+Signal positions	Posições dos semáforos
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Onde fica uma cabeça de semáforo, no sistema do cruzamento. Guardado ao lado do mapa, não no objeto
+set id	id do conjunto
+The signal set to use (empty: the map's default)	O conjunto de semáforos a usar (vazio: predefinição do mapa)
+A signal	Um semáforo
+A signal head at the crossing's origin	Uma cabeça de semáforo na origem do cruzamento
+A signal where the picked path ends, facing out of the crossing	Um semáforo onde termina o caminho escolhido, para fora do cruzamento
+Place signals as configured	Colocar semáforos conforme a configuração
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Eliminar as cabeças e postes de semáforo deste cruzamento e colocá-los nas posições do editor de cruzamentos
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Substituir todos os objetos ligados a este cruzamento por var_parent pelos semáforos configurados (Anular restaura-os)
+a signal's place is not a finite number	a posição de um semáforo não é um número finito
+a signal shows a light this crossing does not have	um semáforo mostra uma luz que este cruzamento não tem
+The object has no surface there: no signal was put down	O objeto não tem superfície aí: não foi colocado nenhum semáforo
+Click to place a signal	Clique para colocar um semáforo
+The signal is outside the object: its previous height was kept	O semáforo está fora do objeto: foi mantida a altura anterior

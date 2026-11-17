@@ -2985,3 +2985,21 @@ The median and footway must not be lower than the roadway	中央分隔带和人�
 This footway is level with the roadway: the bus bay tool opens the bay outside it	此人行道与路面同高：巴士停车湾工具会将停车湾开在它外侧
 Contains a footway without an AI path	包含无 AI 路径的人行道
 Contains strips with a fixed height	包含固定高度的条带
+In multiplayer the host edits the map. Leave the session to place the signals.	多人模式下由主机编辑地图。请离开会话以放置信号灯。
+no signal positions are configured for this crossing	此路口未配置信号灯位置
+Place signals	放置信号灯
+Signal positions	信号灯位置
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	信号灯头在路口坐标系中的位置。保存在地图旁，不在对象内
+set id	套件 id
+The signal set to use (empty: the map's default)	要使用的信号灯套件（空：地图默认）
+A signal	一个信号灯
+A signal head at the crossing's origin	路口原点处的信号灯头
+A signal where the picked path ends, facing out of the crossing	所选路径终点处、朝路口外侧的信号灯
+Place signals as configured	按配置放置信号灯
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	删除此路口的信号灯头和灯杆，并按路口编辑器的位置放置
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	用配置的信号灯替换所有通过 var_parent 链接至此路口的对象（可撤销恢复）
+a signal's place is not a finite number	信号的位置不是有限数值
+a signal shows a light this crossing does not have	信号显示了此路口没有的灯光
+The object has no surface there: no signal was put down	对象在该处没有表面：未放置信号
+Click to place a signal	点击放置信号灯
+The signal is outside the object: its previous height was kept	信号灯已移到物体外：保留原来的高度

@@ -2987,3 +2987,21 @@ The median and footway must not be lower than the roadway	Mittelstreifen und Geh
 This footway is level with the roadway: the bus bay tool opens the bay outside it	Dieser Gehweg liegt auf Höhe der Fahrbahn: das Bushaltebucht-Werkzeug legt die Bucht außerhalb davon an
 Contains a footway without an AI path	Enthält einen Gehweg ohne KI-Pfad
 Contains strips with a fixed height	Enthält Streifen mit fester Höhe
+In multiplayer the host edits the map. Leave the session to place the signals.	Im Mehrspieler bearbeitet der Host die Karte. Verlasse die Sitzung, um die Ampeln zu setzen.
+no signal positions are configured for this crossing	für diese Kreuzung sind keine Signalpositionen festgelegt
+Place signals	Signale setzen
+Signal positions	Signalpositionen
+Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Wo ein Signalkopf steht, im System der Kreuzung. Wird neben der Karte gespeichert, nicht im Objekt
+set id	Set-ID
+The signal set to use (empty: the map's default)	Der zu verwendende Signalsatz (leer: Standard der Karte)
+A signal	Ein Signal
+A signal head at the crossing's origin	Ein Signalkopf am Ursprung der Kreuzung
+A signal where the picked path ends, facing out of the crossing	Ein Signal dort, wo der gewählte Weg endet, von der Kreuzung weg
+Place signals as configured	Signale nach Konfiguration setzen
+Delete this crossing's signal heads and poles and put them where the crossing editor's signal positions say	Die Signalköpfe und -masten dieser Kreuzung löschen und sie an die Positionen des Kreuzungseditors setzen
+Replace all objects linked to this crossing by var_parent with the configured signals (Undo restores them)	Alle über var_parent mit dieser Kreuzung verknüpften Objekte durch die konfigurierten Signale ersetzen (Rückgängig stellt sie wieder her)
+a signal's place is not a finite number	die Position eines Signals ist keine endliche Zahl
+a signal shows a light this crossing does not have	ein Signal zeigt ein Licht, das diese Kreuzung nicht hat
+The object has no surface there: no signal was put down	Das Objekt hat dort keine Oberfläche: Es wurde kein Signal gesetzt
+Click to place a signal	Klicken, um eine Ampel zu platzieren
+The signal is outside the object: its previous height was kept	Die Ampel liegt außerhalb des Objekts: Die bisherige Höhe wurde beibehalten
