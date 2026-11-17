@@ -99,8 +99,8 @@ fn write_points_leaves_a_broken_or_unsupported_file_alone() {
 
 /// A content folder with a signal set (head with `[absheight]`, pole without) and two crossing
 /// `.sco`s - one with `[absheight]`, one without - each with a single-light program.
-fn placement_fixtures() -> (Roots, std::path::PathBuf) {
-    let roots = scratch("crossing-signals-place");
+fn placement_fixtures(name: &str) -> (Roots, std::path::PathBuf) {
+    let roots = scratch(&format!("crossing-signals-{name}"));
     let fix = roots.content.join("Sceneryobjects").join("Fixtures");
     std::fs::create_dir_all(&fix).unwrap();
     std::fs::write(fix.join("Head.sco"), "[absheight]\n").unwrap();
@@ -167,7 +167,7 @@ fn placed_head_z(roots: &Roots, map: &std::path::Path, assets: &Assets, rel: &st
 
 #[test]
 fn place_crossing_signals_sets_the_head_height_for_any_rotation_and_height_mode() {
-    let (roots, map) = placement_fixtures();
+    let (roots, map) = placement_fixtures("height");
     let assets = Assets::new(roots.omsi.clone(), roots.content.clone());
     for (rel, abs) in [("Sceneryobjects/Crossing/crossing_abs.sco", true), ("Sceneryobjects/Crossing/crossing_ground.sco", false)] {
         for rotation in [0.0, 17.3, 123.7, -46.2] {
@@ -182,7 +182,7 @@ fn place_crossing_signals_sets_the_head_height_for_any_rotation_and_height_mode(
 
 #[test]
 fn place_crossing_signals_does_not_duplicate_on_replay() {
-    let (roots, map) = placement_fixtures();
+    let (roots, map) = placement_fixtures("replay");
     let assets = Assets::new(roots.omsi.clone(), roots.content.clone());
     let rel = "Sceneryobjects/Crossing/crossing_abs.sco";
     let mut ed = crate::editor::Editor::default();
