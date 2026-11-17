@@ -531,7 +531,7 @@ pub struct Editor {
     /// open history step is closed (the next tick, which has the models).
     pending_rebuild: Vec<i64>,
     /// New options for a junction being made again, and roads to add to it as arms.
-    pending_options: std::collections::HashMap<i64, crate::junction::Options>,
+    pending_options: std::collections::HashMap<i64, (crate::junction::Options, bool)>,
     pending_arms: std::collections::HashMap<i64, Vec<crate::junction::Arm>>,
     /// A road being drawn from or into a junction plate (its IDCode, centre, radius).
     road_plate_start: Option<(i64, DVec3, f64)>,
@@ -10113,13 +10113,13 @@ impl Editor {
     }
 
     /// Change a junction's lights and crossings: it is made again with them.
-    pub fn set_junction_options(&mut self, id: i64, opts: crate::junction::Options) {
+    pub fn set_junction_options(&mut self, id: i64, opts: crate::junction::Options, explicit_rebuild: bool) {
         if self.doc.is_none() {
             return;
         }
         self.history.begin(tr("Edit junction", "Изменение перекрёстка"));
         self.junction_options.insert(id, opts.clone());
-        self.pending_options.insert(id, opts);
+        self.pending_options.insert(id, (opts, explicit_rebuild));
         self.pending_rebuild.push(id);
     }
 
@@ -10354,13 +10354,22 @@ impl Editor {
                 arms.push(a);
             }
         }
-        let opts = self.pending_options.remove(&id).unwrap_or_else(|| crate::junction::Options::read(&omsi_cfg::resolve_path(&content, &o.file)));
-        let pocket_paths = if is_bus_bay_junction(&o.file) {
-            let Some(paths) = crate::pocket::taper_path_indices(doc, assets, &mut arms) else {
+        let (opts, explicit_rebuild) = self.pending_options.remove(&id).unwrap_or_else(|| {
+            (crate::junction::Options::read(&omsi_cfg::resolve_path(&content, &o.file)), false)
+        });
+        let bus_bay = is_bus_bay_junction(&o.file);
+        let rebuild_bus_bay = bus_bay && explicit_rebuild;
+        let pocket_paths = if bus_bay {
+            if rebuild_bus_bay && arms.len() != 2 {
+                log::warn!("bus bay junction {id} ({}): found {} arms, expected two; kept the existing junction", o.file, arms.len());
+                return;
+            }
+            let paths = crate::pocket::taper_path_indices(doc, assets, &mut arms);
+            if paths.is_none() && !rebuild_bus_bay {
                 log::warn!("bus bay junction {id} ({}): could not identify the bay lanes; kept the existing junction", o.file);
                 return;
-            };
-            Some(paths)
+            }
+            paths
         } else {
             None
         };
@@ -10380,7 +10389,7 @@ impl Editor {
         };
         self.junction_options.remove(&id);
         match arms.len() {
-            n if n >= 3 || pocket_paths.is_some() => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), pocket_paths, ..Default::default() }) {
+            n if n >= 3 || bus_bay => match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, crate::junction::MakeEdit { history: Some(&mut self.history), pocket_paths, rebuild_bus_bay, ..Default::default() }) {
                 Ok(new) => {
                     remove(doc, &mut self.history);
                     if was_selected {
@@ -16291,6 +16300,7 @@ mod tests {
 
     include!("junction_snapshot_tests.rs");
     include!("junction_placement_tests.rs");
+    include!("junction_rebuild_tests.rs");
 
     /// Two road types made here, the second with a pocket lane, in a scratch content folder.
     fn pocket_fixture(tag: &str) -> (Assets, std::path::PathBuf, String, String) {

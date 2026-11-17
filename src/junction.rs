@@ -1316,6 +1316,8 @@ fn paint_zebra_stripes(mesh: &mut Mesh, zebras: &[(DVec2, f64, f64, f64)], z: f6
 pub(crate) struct MakeEdit<'a> {
     pub history: Option<&'a mut crate::history::History>,
     pub pocket_paths: Option<std::ops::Range<usize>>,
+    /// An explicitly rebuilt taper keeps its tag even when only ordinary paths can connect.
+    pub rebuild_bus_bay: bool,
     /// Conform the terrain before placing lights, extending at least this far from the centre.
     pub conform_min_reach: Option<f64>,
 }
@@ -1389,14 +1391,20 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     let (mut mesh, kerb_corners) = junction_mesh(&plate.arms, DVec3::ZERO, core_tex, ASPHALT_PERIOD, along);
     let kerb_lead = corner_leads(&kerb_corners);
     let zebra_arms: Vec<bool> = plate.arms.iter().map(|g| opts.crossing_at(g.out)).collect();
-    let bypass_bus = edit.pocket_paths.is_some() || files.iter().any(|f| f.to_lowercase().contains("_bay_"));
+    let bus_bay = edit.rebuild_bus_bay || edit.pocket_paths.is_some();
+    let bypass_bus = bus_bay || files.iter().any(|f| crate::pocket::is_bay_spline(f));
     let mut route_lanes = plate.lanes.clone();
     if bypass_bus { for lane in &mut route_lanes { lane.bus = false; } }
     let mut recs = paths(
         &route_lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
         &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
     );
-    anyhow::ensure!(edit.pocket_paths.is_none() || recs.iter().any(|p| p.pocket), "no path connects to the bus bay lanes");
+    let has_pocket_connection = recs.iter().any(|p| p.pocket);
+    if edit.rebuild_bus_bay {
+        anyhow::ensure!(recs.iter().any(|p| p.kind == 0), "no vehicle path connects the bus bay taper arms");
+    } else {
+        anyhow::ensure!(!bus_bay || has_pocket_connection, "no path connects to the bus bay lanes");
+    }
     // Maintain the asphalt height across the roadway, and join it to raised
     // sidewalks with short graded paths at either end.
     for (i, mid) in crossing_arms {
@@ -1476,7 +1484,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         (&x_text, &body, opts.line()).hash(&mut h);
         h.finish()
     };
-    let suffix = if edit.pocket_paths.is_some() { BUS_BAY_SUFFIX } else { "" };
+    let suffix = if bus_bay { BUS_BAY_SUFFIX } else { "" };
     let name = format!("junction_{hash:016x}{suffix}");
     let model_path = dir.join("model").join(format!("{name}.x"));
     let sco_path = dir.join(format!("{name}.sco"));
@@ -1499,6 +1507,9 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     let rules = junction_rules(&recs);
     t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], rules, ..Default::default() });
     t.touch_content();
+    if edit.rebuild_bus_bay && !has_pocket_connection {
+        log::warn!("bus bay junction {id} ({name}): rebuilt without bus-only path rules for {files:?}");
+    }
     // Establish the final terrain before storing the heights of ground-relative objects.
     if let Some(min_reach) = edit.conform_min_reach {
         let ends: Vec<_> = geo.iter().map(|g| g.end).collect();
