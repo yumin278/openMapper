@@ -16717,11 +16717,17 @@ mod tests {
             let abs = omsi_cfg::resolve_path(&content, &object.file);
             let paths = omsi_scenery::SceneryObject::load(&abs).unwrap().paths.len();
             let template = crate::crossing_config::CrossingConfig::load(&abs, paths).map(|c| c.rules).unwrap_or_default();
-            let kinds: Vec<(i32, &str)> = template.iter().map(|r| (r.path_index, r.kind.as_str())).collect();
-            assert!(!kinds.is_empty(), "{}: the bay's lanes are its template", object.file);
-            assert!(kinds.iter().all(|(_, k)| *k == "bus" || *k == "no_cars"), "{:?}", object.file);
-            let index = kinds[0].0;
-            assert!(kinds.iter().all(|(i, _)| *i == index), "{}: one path, buses only and no cars", object.file);
+            let mut by_index: std::collections::BTreeMap<i32, Vec<&str>> = std::collections::BTreeMap::new();
+            for r in &template {
+                by_index.entry(r.path_index).or_default().push(r.kind.as_str());
+            }
+            assert!(!by_index.is_empty(), "{}: the bay's lanes are its template", object.file);
+            for (index, kinds) in &by_index {
+                let mut kinds = kinds.clone();
+                kinds.sort_unstable();
+                assert_eq!(kinds, vec!["bus", "no_cars"], "{}: path {index} is buses only and no cars", object.file);
+                assert!((*index as usize) < paths, "{}: path {index} is inside the {paths} paths", object.file);
+            }
         }
         let expected: Vec<_> = splines.iter().map(|s| (s.id, s.rules.clone())).collect();
         crate::doc::save::save(doc).unwrap();

@@ -48,16 +48,20 @@ fn drawn_junctions_place_rules_on_the_baked_bus_routes() {
     }
     assert!(!inside, "last bus route must reach a declared bus lane");
     let check = |object: &omsi_map::MapObject, offset: usize| {
-        let sco = omsi_scenery::SceneryObject::load(&omsi_cfg::resolve_path(&content, &object.file)).unwrap();
-        let actual: Vec<_> = object.rules.iter().map(|r| (r.path_index as usize, r.kind.as_str())).collect();
-        let expected: Vec<_> = plate.bus_paths.iter().flat_map(|i| [(i + offset, "bus"), (i + offset, "no_cars")]).collect();
-        assert_eq!(actual, expected);
+        let abs = omsi_cfg::resolve_path(&content, &object.file);
+        let sco = omsi_scenery::SceneryObject::load(&abs).unwrap();
+        // (the plate's bus-only rules are kept beside its `.sco`, not in the object's rules)
+        assert!(object.rules.is_empty(), "{}: a junction object keeps no rules of its own", object.file);
+        let template = crate::crossing_config::CrossingConfig::load(&abs, sco.paths.len()).map(|c| c.rules).unwrap_or_default();
+        let actual: Vec<_> = template.iter().map(|r| (r.path_index as usize, r.kind.clone())).collect();
+        let expected: Vec<_> = plate.bus_paths.iter().flat_map(|i| [(i + offset, "bus".to_string()), (i + offset, "no_cars".to_string())]).collect();
+        assert_eq!(actual, expected, "{}", object.file);
         for (i, (seg, kind, direction)) in plate.lanes.iter().enumerate() {
             let p = &sco.paths[offset + i];
             assert_eq!((p.kind, p.direction), (*kind, *direction));
             assert!((p.start[0] as f64 - seg.start.x).abs() < 0.002);
             assert!((p.start[1] as f64 - seg.start.y).abs() < 0.002);
-            assert_eq!(object.rules.iter().any(|r| r.path_index as usize == offset + i), plate.bus_paths.contains(&i));
+            assert_eq!(template.iter().any(|r| r.path_index as usize == offset + i), plate.bus_paths.contains(&i));
         }
     };
     let mut doc = flat_map(1);
