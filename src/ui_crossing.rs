@@ -7310,8 +7310,8 @@ Main
         // Check rebind message
         let (msg1, bad1) = w.message.clone().unwrap();
         assert!(!bad1, "{msg1}");
-        let stem1 = std::path::Path::new(&copy1_rel.replace('\\', "/")).file_stem().unwrap().to_string_lossy();
-        assert!(msg1.contains(stem1.as_ref()), "rebind message mentions new name: {msg1}");
+        let stem1 = std::path::Path::new(&copy1_rel.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
+        assert!(msg1.contains(&stem1), "rebind message mentions new name: {msg1}");
 
         // Now w is open on Copy1. We save in Copy mode again without changing any content.
         w.save_mode = SaveMode::Copy;
