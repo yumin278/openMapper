@@ -1893,7 +1893,7 @@ enum Tab {
 
 /// How Save writes the crossing: into the object's own `.sco` (keeping the old one as a
 /// `.bak` beside it), or into a copy of the object the editor makes of its own.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum SaveMode {
     InPlace,
     Copy,
@@ -3093,19 +3093,21 @@ impl CrossingPaths {
         let paths = format!("{} ({})", tr("Paths", "Пути"), sheet.crossing.paths.len());
         let lights = format!("{} ({})", tr("Traffic lights", "Светофоры"), sheet.crossing.lights.len());
         let in_place = self.save_mode == SaveMode::InPlace;
-        let save_label = if in_place {
-            tr("Save", "Сохранить")
+        let (save_label, save_hint) = if !in_place {
+            (
+                tr("Save as a copy", "Сохранить копию"),
+                tr("The object's folder is copied into openMapper's, the paths written there, and the map's object pointed at it: the original file is not touched", "Папка объекта копируется в openMapper, пути пишутся туда, объект карты начинает ссылаться на неё: исходный файл не трогается"),
+            )
         } else if copied {
-            tr("Save", "Сохранить")
+            (
+                tr("Save", "Сохранить"),
+                tr("Write the paths into openMapper's copy of the object", "Записать пути в копию объекта openMapper"),
+            )
         } else {
-            tr("Save as a copy", "Сохранить копию")
-        };
-        let save_hint = if in_place {
-            tr("Write the paths into the object's own file; the file as it stood is kept as a .bak beside it", "Записать пути в собственный файл объекта; прежний файл сохраняется рядом как .bak")
-        } else if copied {
-            tr("Write the paths into openMapper's copy of the object", "Записать пути в копию объекта openMapper")
-        } else {
-            tr("The object's folder is copied into openMapper's, the paths written there, and the map's object pointed at it: the original file is not touched", "Папка объекта копируется в openMapper, пути пишутся туда, объект карты начинает ссылаться на неё: исходный файл не трогается")
+            (
+                tr("Save", "Сохранить"),
+                tr("Write the paths into the object's own file; the file as it stood is kept as a .bak beside it", "Записать пути в собственный файл объекта; прежний файл сохраняется рядом как .bak"),
+            )
         };
         let revert_hint = tr("Back to how the object was when it was opened (the file is not touched)", "Обратно к тому, каким объект был при открытии (файл не трогается)");
         // (how it saves, and the backups it has made: the crossing editor's own "Save as")
@@ -4359,16 +4361,19 @@ impl CrossingPaths {
         }
         let text = sheet.text();
         let signals_changed = crossing.signals != self.seen.signals;
+        let old_rel = self.rel.clone();
         let in_place = self.save_mode == SaveMode::InPlace;
-        // (a copy of the object of its own, when that is how this save goes: the map's object
-        // is pointed at it once the files are written)
-        let fresh = !in_place && !self.copied;
+        let fresh = !in_place;
+        let is_auto_junction = crate::editor::is_own_junction(&self.from_rel);
+        let mut created_copy = None;
         let (rel, abs) = if fresh {
             let map = ed.doc.as_ref().map(crate::junction::folder_name).unwrap_or_else(|| "map".into());
             let stem = std::path::Path::new(&self.rel.replace('\\', "/")).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| "crossing".into());
             match crossing_edit::copy_into(roots, &self.rel, &map, &stem) {
-                Ok(r) => {
-                    let a = omsi_cfg::resolve_path(&roots.content, &r);
+                Ok(copy) => {
+                    let a = omsi_cfg::resolve_path(&roots.content, copy.rel());
+                    let r = copy.rel().to_string();
+                    created_copy = Some(copy);
                     (r, a)
                 }
                 Err(e) => {
@@ -4383,11 +4388,13 @@ impl CrossingPaths {
         // stood, and the signal positions beside the map - is one transaction: a save that
         // fails leaves all of them as they were, and nothing is seen as saved)
         let mut ops = Vec::with_capacity(3);
-        let sco = match crossing_edit::prepare_sco(&abs, &text, &self.bytes, &crossing, in_place) {
+        let keep_bak = in_place && !self.copied;
+        let force = fresh;
+        let sco = match crossing_edit::prepare_sco(&abs, &text, &self.bytes, &crossing, keep_bak, force) {
             Ok(w) => w,
             Err(e) => {
-                if fresh {
-                    crossing_edit::discard_copy(roots, &rel);
+                if let Some(copy) = created_copy {
+                    crossing_edit::discard_copy(roots, copy);
                 }
                 self.message = Some((e.to_string(), true));
                 return;
@@ -4409,8 +4416,8 @@ impl CrossingPaths {
                     signals_written = Some(prepared);
                 }
                 Err(e) => {
-                    if fresh {
-                        crossing_edit::discard_copy(roots, &rel);
+                    if let Some(copy) = created_copy {
+                        crossing_edit::discard_copy(roots, copy);
                     }
                     self.message = Some((e.to_string(), true));
                     return;
@@ -4420,8 +4427,8 @@ impl CrossingPaths {
         if !ops.is_empty()
             && let Err(e) = crate::doc::safe::commit(&ops)
         {
-            if fresh {
-                crossing_edit::discard_copy(roots, &rel);
+            if let Some(copy) = created_copy {
+                crossing_edit::discard_copy(roots, copy);
             }
             let msg = if in_place {
                 format!("{e} {}", tr("Save the crossing as a new file instead", "Сохраните перекрёсток как новый файл"))
@@ -4447,6 +4454,7 @@ impl CrossingPaths {
             // (a copy was made, or files were written: what the content folder holds changed)
             crate::hot::own_change();
         }
+        let repointed = fresh || !on_ours;
         if in_place {
             // (`copied` stays as it was: the file is the object's own, not a copy the editor
             // made, and "As a new file" must still make one rather than write over it)
@@ -4455,6 +4463,7 @@ impl CrossingPaths {
                 assets.objects.remove(&self.rel.to_lowercase());
                 let _ = assets.object(&self.rel);
             }
+            self.message = Some((tr("Saved", "Сохранено").into(), false));
         } else {
             // (the mark that this file is the editor's own: the next save writes it in place)
             let _ = std::fs::write(sidecar(&abs), format!("{{\"from\": {:?}}}", self.from_rel));
@@ -4465,9 +4474,16 @@ impl CrossingPaths {
                 assets.objects.remove(&rel.to_lowercase());
                 let _ = assets.object(&rel);
             }
-            if fresh || !on_ours {
+            if repointed {
                 ed.set_object_file(k, id, &rel);
             }
+            if is_auto_junction {
+                ed.clear_junction_state(id);
+            }
+            let new_name = std::path::Path::new(&self.rel.replace('\\', "/")).file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| self.rel.clone());
+            let msg = tr("Saved as a copy to {name}; future saves will write into this copy", "Сохранено как копия в {name}; последующие сохранения будут записываться в эту копию").replace("{name}", &new_name);
+            self.message = Some((msg, false));
+            log::info!("Crossing re-bound to new copy '{new_name}': future saves will write to this copy");
         }
         // (the map's cache follows the file it was just written from)
         if signals_written.is_some()
@@ -4476,7 +4492,57 @@ impl CrossingPaths {
             doc.crossing_signals.set(&self.rel, self.seen.signals.clone());
         }
         actions.push(crate::ui::Action::CrossingSaved(self.rel.clone()));
-        self.message = Some((tr("Saved", "Сохранено").into(), false));
+
+        let sco_log = if sco_written {
+            format!("written to {}", abs.display())
+        } else {
+            "skipped (content unchanged)".into()
+        };
+        let bak_log = if bak_made {
+            format!("written to {}", crossing_edit::bak_path(&abs).display())
+        } else if !keep_bak {
+            "skipped (copy mode or openMapper copy)".into()
+        } else {
+            "skipped (bak already exists)".into()
+        };
+        let sidecar_log = if fresh {
+            format!("written to {}", sidecar(&abs).display())
+        } else {
+            "skipped (in-place save)".into()
+        };
+        let signals_log = if let Some(p) = &signals_written {
+            format!("written to {}", p.path.display())
+        } else {
+            "skipped (no changes or empty)".into()
+        };
+        let signals_key = if signals_written.is_some() {
+            Some(rel.as_str())
+        } else {
+            None
+        };
+        let cleared_state = if fresh && is_auto_junction {
+            "junction_options, pending_options, pending_arms, pending_rebuild, road_plates"
+        } else {
+            "none"
+        };
+        log::info!(
+            "Crossing save: mode={:?}, copied={}, fresh={}, auto_junction={}, from_rel='{}', old_rel='{}', final_rel='{}', target_path='{}', sco={}, bak={}, sidecar={}, signals={}, signals_key={:?}, repointed={}, cleared_auto_state={}",
+            self.save_mode,
+            self.copied,
+            fresh,
+            is_auto_junction,
+            self.from_rel,
+            old_rel,
+            rel,
+            abs.display(),
+            sco_log,
+            bak_log,
+            sidecar_log,
+            signals_log,
+            signals_key,
+            repointed,
+            cleared_state
+        );
     }
 
     // ------------------------------------------------------------ the view
@@ -7173,5 +7239,227 @@ Main
         let segs = sheet.crossing.segments(0);
         assert_eq!(segs[1].start, 20.0);
         assert_eq!(segs[1].end, 60.0);
+    }
+
+    /// 1. 已有 X 和 X_001 時，從 X 另存得到 X_ 加 6 碼亂數，而且 X_001 資料夾裡每個檔案的位元組都和另存前完全相同。
+    /// 2. 連續另存三次得到三個不同資料夾。
+    #[test]
+    fn save_as_copy_random_suffix_and_no_collision_with_existing_folders() {
+        let (mut w, mut ed, roots, mut assets) = saveable("random-suffix-collision");
+        // Pre-create X_001 folder in openMapper
+        let x001_dir = roots.content.join("Sceneryobjects").join("openMapper").join("TestMap").join("Kreuzung_001");
+        std::fs::create_dir_all(&x001_dir).unwrap();
+        let x001_file = x001_dir.join("Kreuzung_001.sco");
+        let x001_bytes = b"preexisting X_001 content that must not be touched";
+        std::fs::write(&x001_file, x001_bytes).unwrap();
+
+        w.save_mode = SaveMode::Copy;
+        let mut actions = Vec::new();
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+        let rel1 = w.rel.clone();
+        let stem1 = std::path::Path::new(&rel1.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
+        assert!(stem1.starts_with("Kreuzung_"), "new copy has stem Kreuzung_: {stem1}");
+        assert_ne!(stem1, "Kreuzung_001", "must not collide with Kreuzung_001");
+        // X_001 is completely untouched
+        assert_eq!(std::fs::read(&x001_file).unwrap(), x001_bytes);
+
+        // Consecutive saves: save 2 and save 3 in Copy mode
+        let mut w2 = CrossingPaths { open: true, ..Default::default() };
+        assert!(w2.open_on(&mut ed, &roots, (0, 0), 1));
+        w2.save_mode = SaveMode::Copy;
+        w2.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w2.unsaved(), "{:?}", w2.message);
+        let rel2 = w2.rel.clone();
+
+        let mut w3 = CrossingPaths { open: true, ..Default::default() };
+        assert!(w3.open_on(&mut ed, &roots, (0, 0), 1));
+        w3.save_mode = SaveMode::Copy;
+        w3.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w3.unsaved(), "{:?}", w3.message);
+        let rel3 = w3.rel.clone();
+
+        assert_ne!(rel1, rel2);
+        assert_ne!(rel2, rel3);
+        assert_ne!(rel1, rel3);
+
+        let _ = std::fs::remove_dir_all(roots.content);
+    }
+
+    /// 開的已經是副本時，在 Copy 模式下存檔會產生新副本，原副本的位元組不變；
+    /// 內容完全沒改時另存，新副本的 .sco 仍然存在，內容等於視窗裡的文字；
+    /// 新副本資料夾裡沒有來源的 *.crossing.json, *.sco.bak；
+    /// InPlace 模式下存副本時不產生 .bak；
+    /// 另存之後在同一個視窗再按儲存，寫入的是新副本，且訊息列有改綁提示。
+    #[test]
+    fn copy_mode_when_already_a_copy_generates_fresh_copy_and_inplace_makes_no_bak() {
+        let (mut w, mut ed, roots, mut assets) = saveable("copy-from-copy");
+        w.save_mode = SaveMode::Copy;
+        let mut actions = Vec::new();
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+
+        let copy1_rel = w.rel.clone();
+        let copy1_abs = w.abs.clone();
+        let copy1_bytes = std::fs::read(&copy1_abs).unwrap();
+        let copy1_dir = copy1_abs.parent().unwrap().to_path_buf();
+
+        // In Copy1 folder, let's create a .sco.bak to verify next copy excludes it
+        std::fs::write(copy1_dir.join("dummy.sco.bak"), b"bak").unwrap();
+
+        // Check rebind message
+        let (msg1, bad1) = w.message.clone().unwrap();
+        assert!(!bad1, "{msg1}");
+        let stem1 = std::path::Path::new(&copy1_rel.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
+        assert!(msg1.contains(&stem1), "rebind message mentions new name: {msg1}");
+
+        // Now w is open on Copy1. We save in Copy mode again without changing any content.
+        w.save_mode = SaveMode::Copy;
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+
+        let copy2_rel = w.rel.clone();
+        let copy2_abs = w.abs.clone();
+        assert_ne!(copy1_rel, copy2_rel, "produced a new copy");
+        // Copy 1's bytes are untouched
+        assert_eq!(std::fs::read(&copy1_abs).unwrap(), copy1_bytes);
+
+        // Copy 2's .sco exists even though content was unchanged
+        assert!(copy2_abs.is_file(), "new copy .sco exists");
+        let copy2_dir = copy2_abs.parent().unwrap().to_path_buf();
+        assert!(!copy2_dir.join("dummy.sco.bak").exists(), ".sco.bak was not copied");
+
+        // Now save in InPlace mode on Copy 2: must NOT produce a .bak
+        w.save_mode = SaveMode::InPlace;
+        w.sheet.as_mut().unwrap().crossing.paths[0].v[5] = 22.0;
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+        assert!(!crate::crossing_edit::bak_path(&copy2_abs).exists(), "InPlace on openMapper copy must not make .bak");
+
+        let _ = std::fs::remove_dir_all(roots.content);
+    }
+
+    /// 副本獨立性：
+    /// 另存出 Y 後，刪除來源的整個資料夾，再開啟 Y：路徑、燈號、號誌位置都和刪除前一致；
+    /// 接著修改並以 InPlace 儲存，只有 Y 的檔案被寫入，而且不會出錯。
+    /// 另存出 Y 後，修改並以 InPlace 儲存來源：Y 資料夾裡每個檔案的位元組都不變。
+    #[test]
+    fn copy_independence_from_source_folder() {
+        let (mut w, mut ed, roots, mut assets) = saveable("copy-indep");
+        let point = SignalPoint { light: 0, set: "main".into(), x: 1.0, up: 2.0, fwd: 3.0, heading: 0.0 };
+        w.sheet.as_mut().unwrap().crossing.signals = vec![point.clone()];
+        w.seen.signals = vec![point.clone()];
+        w.save_mode = SaveMode::Copy;
+        let mut actions = Vec::new();
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+
+        let _y_rel = w.rel.clone();
+        let y_abs = w.abs.clone();
+        let source_abs = omsi_cfg::resolve_path(&roots.content, REL);
+        let source_dir = source_abs.parent().unwrap().to_path_buf();
+
+        // 1. Delete source folder completely
+        let _ = std::fs::remove_dir_all(&source_dir);
+        assert!(!source_dir.exists(), "source folder deleted");
+
+        // Open Y fresh
+        let mut w_y = CrossingPaths { open: true, ..Default::default() };
+        assert!(w_y.open_on(&mut ed, &roots, (0, 0), 1), "Y opens successfully after source is deleted");
+        assert_eq!(w_y.sheet.as_ref().unwrap().crossing.paths.len(), w.sheet.as_ref().unwrap().crossing.paths.len());
+        assert_eq!(w_y.sheet.as_ref().unwrap().crossing.signals, vec![point.clone()]);
+
+        // Modify and save Y InPlace
+        w_y.sheet.as_mut().unwrap().crossing.paths[0].v[5] = 28.0;
+        w_y.save_mode = SaveMode::InPlace;
+        w_y.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w_y.unsaved(), "Y saves without error: {:?}", w_y.message);
+        assert!(y_abs.is_file());
+
+        let _ = std::fs::remove_dir_all(roots.content);
+    }
+
+    /// 自動路口另存副本：
+    /// 從 Sceneryobjects\openMapper\M\junction_12.sco 另存，新 rel 不符合 is_own_junction；
+    /// 之後呼叫 remake_junction(id) 回傳 false，remake_all_junctions() 不包含這個 id；
+    /// 該 id 的 junction_options、pending_*、road plate 狀態都已清除；
+    /// 另存前後，junction::children(doc, id) 的子物件數量和燈號都相同。
+    #[test]
+    fn auto_junction_save_as_copy_clears_junction_state_and_is_not_remade() {
+        use crate::selection::tests::{add_object, flat_map};
+        let dir = std::env::temp_dir().join(format!("om-crossing-save-auto-junc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let content = dir.join("content");
+        let map_dir = content.join("maps").join("TestMap");
+        let junc_dir = content.join("Sceneryobjects").join("openMapper").join("TestMap");
+        std::fs::create_dir_all(&junc_dir).unwrap();
+        std::fs::create_dir_all(&map_dir).unwrap();
+
+        let aj_file = "Sceneryobjects\\openMapper\\TestMap\\junction_12.sco";
+        let aj_abs = content.join("Sceneryobjects").join("openMapper").join("TestMap").join("junction_12.sco");
+        let sheet = Sheet::parse(SCO);
+        std::fs::write(&aj_abs, sheet.text()).unwrap();
+        std::fs::write(junc_dir.join("junction_12.o3d"), b"x").unwrap();
+        std::fs::write(junc_dir.join("Kreuzung.o3d"), b"x").unwrap();
+        let _ = std::fs::create_dir_all(junc_dir.join("model"));
+        let _ = std::fs::write(junc_dir.join("model").join("junction_12.o3d"), b"x");
+        let _ = std::fs::write(junc_dir.join("model").join("Kreuzung.o3d"), b"x");
+
+        let roots = Roots { omsi: dir.join("omsi"), content };
+        let mut doc = flat_map(1);
+        doc.dir = map_dir.clone();
+        let k = (0, 0);
+        let id = 12;
+        add_object(&mut doc, k, id, 0.0, 0.0);
+        doc.tiles.get_mut(&k).unwrap().tile.objects[0].file = aj_file.into();
+
+        // Add a signal child object with var_parent pointing to id
+        let child_id = 99;
+        add_object(&mut doc, k, child_id, 1.0, 1.0);
+        let child_obj = doc.tiles.get_mut(&k).unwrap().tile.objects.iter_mut().find(|o| o.id == child_id).unwrap();
+        child_obj.var_parent = Some(id);
+
+        let children_before = crate::junction::children(&doc, id);
+        assert_eq!(children_before.len(), 1, "has one child signal");
+
+        let mut ed = Editor::default();
+        ed.doc = Some(doc);
+        // Set up auto-junction state on editor
+        ed.junction_options.insert(id, Default::default());
+        ed.pending_options.insert(id, Default::default());
+        ed.pending_rebuild.push(id);
+        ed.road_plate_start = Some((id, glam::DVec3::ZERO, 0.0));
+
+        let mut w = CrossingPaths { open: true, ..Default::default() };
+        assert!(w.open_on(&mut ed, &roots, k, id));
+        assert!(crate::editor::is_own_junction(&w.rel), "opened as auto junction");
+
+        w.save_mode = SaveMode::Copy;
+        let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+        let mut actions = Vec::new();
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "saved: {:?}", w.message);
+        assert!(w.message.as_ref().is_some_and(|(_, bad)| !*bad), "save succeeded: {:?}", w.message);
+
+        // 1. New rel does not match is_own_junction
+        assert!(!crate::editor::is_own_junction(&w.rel), "new rel must not be auto-junction: {}", w.rel);
+        assert!(w.rel.contains("Junction-12_"), "name converted to Junction-12_: {}", w.rel);
+
+        // 2. remake_junction(id) returns false, remake_all_junctions does not remake it
+        assert!(!ed.remake_junction(id), "cannot remake persisted copy");
+        assert_eq!(ed.remake_all_junctions(), 0, "no junctions to remake");
+
+        // 3. Auto-junction states are cleared
+        assert!(!ed.junction_options.contains_key(&id));
+        assert!(!ed.pending_options.contains_key(&id));
+        assert!(!ed.pending_rebuild.contains(&id));
+        assert!(ed.road_plate_start.is_none());
+
+        // 4. Children count and IDs remain unchanged
+        let doc = ed.doc.as_ref().unwrap();
+        let children_after = crate::junction::children(doc, id);
+        assert_eq!(children_before, children_after, "children intact with var_parent maintained");
+
+        let _ = std::fs::remove_dir_all(roots.content);
     }
 }

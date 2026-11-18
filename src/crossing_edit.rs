@@ -1122,6 +1122,11 @@ fn named_files(text: &str, dir: &FsPath, depth: u32, out: &mut Vec<PathBuf>) {
     }
 }
 
+fn is_excluded_from_copy(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".crossing.json") || lower.ends_with(".sco.bak") || lower.ends_with(".crossing-check.sco")
+}
+
 fn copy_tree(from: &FsPath, to: &FsPath) -> anyhow::Result<()> {
     std::fs::create_dir_all(to)?;
     for e in std::fs::read_dir(from)? {
@@ -1129,11 +1134,95 @@ fn copy_tree(from: &FsPath, to: &FsPath) -> anyhow::Result<()> {
         let dst = to.join(e.file_name());
         if e.path().is_dir() {
             copy_tree(&e.path(), &dst)?;
-        } else if !dst.exists() {
+        } else if !is_excluded_from_copy(&e.file_name().to_string_lossy()) && !dst.exists() {
             std::fs::copy(e.path(), &dst).map_err(|err| anyhow::anyhow!("{}: {err}", e.path().display()))?;
         }
     }
     Ok(())
+}
+
+fn random_suffix_6() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let pid = std::process::id() as u128;
+
+    let mut x = (nanos ^ (pid << 48) ^ (count as u128).wrapping_mul(0x9E3779B97F4A7C15)) as u64;
+    x = x.wrapping_mul(0xbf58476d1ce4e5b9);
+    x ^= x >> 30;
+    x = x.wrapping_mul(0x94d049bb133111eb);
+    x ^= x >> 27;
+
+    const ALPHANUM: &[u8; 36] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    let mut chars = [0u8; 6];
+    let mut val = x;
+    for c in &mut chars {
+        *c = ALPHANUM[(val % 36) as usize];
+        val /= 36;
+    }
+    std::str::from_utf8(&chars).unwrap_or("000000").to_string()
+}
+
+/// The sidecar file beside a `.sco` where the crossing editor notes its source (`X.crossing.json`).
+pub fn sidecar(abs: &std::path::Path) -> std::path::PathBuf {
+    abs.with_extension("crossing.json")
+}
+
+/// Where a new crossing copy goes: `{stem}_{6-char random alphanumeric}`.
+/// The stem is always kept as-is (no suffix stripping).
+/// If source is an own auto junction, replace junction_ with Junction- in the stem.
+/// Checks up to 5 times for folder collisions.
+pub fn crossing_copy_rel(roots: &crate::install::Roots, source_rel: &str, map: &str, stem: &str) -> anyhow::Result<String> {
+    let is_auto = crate::editor::is_own_junction(source_rel);
+
+    let mut base = stem.to_string();
+    if is_auto {
+        if let Some(pos) = base.to_ascii_lowercase().find("junction_") {
+            base.replace_range(pos..pos + 9, "Junction-");
+        }
+    }
+    let base = crate::editable::safe_name(&base);
+    let map = crate::editable::safe_name(map);
+
+    for attempt in 1..=5 {
+        let rand_suf = random_suffix_6();
+        let n = format!("{base}_{rand_suf}");
+        let candidate_rel = format!("Sceneryobjects\\openMapper\\{map}\\{n}\\{n}.sco");
+        let folder = omsi_cfg::resolve_path(&roots.content, &format!("Sceneryobjects\\openMapper\\{map}\\{n}"));
+        if folder.exists() {
+            log::info!("crossing_copy_rel: attempt {attempt}/5 for '{n}' collided (folder exists)");
+            continue;
+        }
+        if crate::editor::is_own_junction(&candidate_rel) {
+            log::warn!("crossing_copy_rel: candidate '{candidate_rel}' still matched is_own_junction");
+            anyhow::bail!("crossing_copy_rel: candidate '{candidate_rel}' still matches is_own_junction");
+        }
+        log::info!("crossing_copy_rel: attempt {attempt}/5 picked '{n}' -> '{candidate_rel}'");
+        return Ok(candidate_rel);
+    }
+    anyhow::bail!("crossing_copy_rel: could not find an unused folder name after 5 attempts");
+}
+
+/// A copy created in openMapper's content folder, to be used or discarded.
+pub struct CreatedCopy {
+    rel: String,
+    dir: std::path::PathBuf,
+}
+
+impl CreatedCopy {
+    pub fn rel(&self) -> &str {
+        &self.rel
+    }
+
+    pub fn dir(&self) -> &std::path::Path {
+        &self.dir
+    }
 }
 
 /// Copy the object - its `.sco`, its model, its textures, its scripts - into
@@ -1142,7 +1231,7 @@ fn copy_tree(from: &FsPath, to: &FsPath) -> anyhow::Result<()> {
 /// to the file's own folder. A folder of its own comes whole. A folder it shares with other
 /// objects (openMapper's own junctions are flat files of the map's folder, where the copy
 /// itself goes) gives only the files this one names, and the textures.
-pub fn copy_into(roots: &crate::install::Roots, rel: &str, map: &str, name: &str) -> anyhow::Result<String> {
+pub fn copy_into(roots: &crate::install::Roots, rel: &str, map: &str, name: &str) -> anyhow::Result<CreatedCopy> {
     let from = find(roots, rel).ok_or_else(|| anyhow::anyhow!("{rel}: {}", crate::i18n::tr("file not found", "файл не найден")))?;
     let src = tidy(from.parent().unwrap_or(FsPath::new("")));
     let mut named = Vec::new();
@@ -1150,9 +1239,14 @@ pub fn copy_into(roots: &crate::install::Roots, rel: &str, map: &str, name: &str
     if let Some(out) = named.iter().find(|p| !p.starts_with(&src)) {
         anyhow::bail!("{}: {}", out.display(), crate::i18n::tr("the object names this file outside its own folder, which a copy would lose", "объект называет этот файл вне своей папки, копия его потеряет"));
     }
-    let new_rel = crate::editable::new_rel(roots, map, name);
+    let new_rel = crossing_copy_rel(roots, rel, map, name)?;
     let dst = omsi_cfg::resolve_path(&roots.content, &new_rel);
     let dst_dir = tidy(dst.parent().unwrap_or(FsPath::new("")));
+
+    if dst_dir.exists() || dst.exists() {
+        anyhow::bail!("{}: destination already exists", dst_dir.display());
+    }
+
     let others = std::fs::read_dir(&src)?.flatten().any(|e| {
         let p = e.path();
         p != from && p.is_file() && p.extension().is_some_and(|x| x.eq_ignore_ascii_case("sco"))
@@ -1161,6 +1255,9 @@ pub fn copy_into(roots: &crate::install::Roots, rel: &str, map: &str, name: &str
         if others || dst_dir.starts_with(&src) {
             std::fs::create_dir_all(&dst_dir)?;
             for f in &named {
+                if is_excluded_from_copy(&f.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()) {
+                    continue;
+                }
                 let to = dst_dir.join(f.strip_prefix(&src)?);
                 if let Some(parent) = to.parent() {
                     std::fs::create_dir_all(parent)?;
@@ -1177,7 +1274,7 @@ pub fn copy_into(roots: &crate::install::Roots, rel: &str, map: &str, name: &str
             // the original `.sco` copied along under its own name goes: this one is the object
             if from.file_name() != dst.file_name() {
                 if let Some(n) = from.file_name() {
-                    std::fs::remove_file(dst_dir.join(n))?;
+                    let _ = std::fs::remove_file(dst_dir.join(n));
                 }
             }
         }
@@ -1187,15 +1284,15 @@ pub fn copy_into(roots: &crate::install::Roots, rel: &str, map: &str, name: &str
         let _ = std::fs::remove_dir_all(&dst_dir);
         return Err(e);
     }
-    Ok(new_rel)
+    Ok(CreatedCopy { rel: new_rel, dir: dst_dir.to_path_buf() })
 }
 
 /// Take away a copy `copy_into` made, when it did not come to be used. Only ever one of
 /// openMapper's own.
-pub fn discard_copy(roots: &crate::install::Roots, rel: &str) {
-    let dst = omsi_cfg::resolve_path(&roots.content, rel);
+pub fn discard_copy(roots: &crate::install::Roots, copy: CreatedCopy) {
     let own = tidy(&omsi_cfg::resolve_path(&roots.content, "Sceneryobjects\\openMapper"));
-    if let Some(dir) = dst.parent().map(tidy).filter(|d| d.starts_with(&own) && *d != own) {
+    let dir = tidy(&copy.dir);
+    if dir.starts_with(&own) && dir != own {
         let _ = std::fs::remove_dir_all(dir);
     }
 }
@@ -1235,10 +1332,10 @@ impl ScoWrite {
 /// `keep_bak`, the file as it stands is kept as its `.bak` unless one is there already. Only
 /// the trial file is written, and it is taken away: the crossing editor puts the operations in
 /// the same transaction as the signal positions beside the map, so a save is all or nothing.
-pub fn prepare_sco(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing, keep_bak: bool) -> anyhow::Result<ScoWrite> {
+pub fn prepare_sco(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing, keep_bak: bool, force: bool) -> anyhow::Result<ScoWrite> {
     // (a file that is not there is written even when the text is the one it was copied from: a
     // copy under a name of its own has no `.sco` at all until this writes it)
-    if abs.is_file() && encode_like(text, original) == original {
+    if !force && abs.is_file() && encode_like(text, original) == original {
         return Ok(ScoWrite { bytes: None, bak: None });
     }
     // (checked beside the file first: a save that fails never touches what is there)

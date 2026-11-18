@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	No pegadas, número de rutas descono
 Rebuilding the junction replaces its rules with newly generated ones	Al reconstruir el cruce, sus reglas se sustituyen por las recién generadas
 It has no traffic rules to copy	No tiene reglas de tráfico que copiar
 The clipboard has no traffic rules	El portapapeles no contiene reglas de tráfico
+Saved as a copy to {name}; future saves will write into this copy	Guardado como copia en {name}; los próximos guardados se escribirán en esta copia

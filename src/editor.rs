@@ -529,19 +529,19 @@ pub struct Editor {
     last_mesh_click: Option<(crate::meshedit::Hit, Instant)>,
     /// openMapper's junctions whose arms changed: their plates are made again before the
     /// open history step is closed (the next tick, which has the models).
-    pending_rebuild: Vec<i64>,
+    pub(crate) pending_rebuild: Vec<i64>,
     /// New options for a junction being made again, and roads to add to it as arms.
-    pending_options: std::collections::HashMap<i64, (crate::junction::Options, bool)>,
-    pending_arms: std::collections::HashMap<i64, Vec<crate::junction::Arm>>,
+    pub(crate) pending_options: std::collections::HashMap<i64, (crate::junction::Options, bool)>,
+    pub(crate) pending_arms: std::collections::HashMap<i64, Vec<crate::junction::Arm>>,
     /// A road being drawn from or into a junction plate (its IDCode, centre, radius).
-    road_plate_start: Option<(i64, DVec3, f64)>,
-    road_plate_end: Option<(i64, DVec3, f64)>,
+    pub(crate) road_plate_start: Option<(i64, DVec3, f64)>,
+    pub(crate) road_plate_end: Option<(i64, DVec3, f64)>,
     /// Switches the track being drawn lays where it leaves or joins another track.
     switch_plans: Vec<crate::switches::Plan>,
     /// The turnouts the installation and the mods offer (filled when the library is read).
     pub switch_catalogue: Vec<crate::switches::Candidate>,
     /// A road end being dragged onto a plate.
-    reshape_plate: Option<(i64, DVec3, f64)>,
+    pub(crate) reshape_plate: Option<(i64, DVec3, f64)>,
     /// The options of junctions shown in the properties (read from their files).
     pub junction_options: std::collections::HashMap<i64, crate::junction::Options>,
     /// The first IDCode of this session: junction files numbered from it on were made now,
@@ -10265,6 +10265,13 @@ impl Editor {
         doc.object_mut(k, id).unwrap().file = file.clone();
         doc.tiles.get_mut(&k).unwrap().touch_content();
         self.history.commit();
+        self.clear_junction_state(id);
+        Ok(file)
+    }
+
+    /// Clear all auto-junction state (options, pending arms/rebuilds, road plates) for a junction ID
+    /// when it has been converted to an independent object.
+    pub fn clear_junction_state(&mut self, id: i64) {
         self.junction_options.remove(&id);
         self.pending_options.remove(&id);
         self.pending_arms.remove(&id);
@@ -10274,7 +10281,6 @@ impl Editor {
                 *plate = None;
             }
         }
-        Ok(file)
     }
 
     /// Place a crossing's hand-authored signal heads and poles (the map's

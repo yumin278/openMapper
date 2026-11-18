@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Hindi na-paste, hindi alam ang bilan
 Rebuilding the junction replaces its rules with newly generated ones	Kapag muling itinayo ang junction, papalitan ng bagong gawa ang mga patakaran nito
 It has no traffic rules to copy	Walang patakaran sa trapiko na makokopya
 The clipboard has no traffic rules	Walang patakaran sa trapiko sa clipboard
+Saved as a copy to {name}; future saves will write into this copy	Nai-save bilang kopya sa {name}; ang mga susunod na pag-save ay isusulat sa kopyang ito

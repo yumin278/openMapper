@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Қойылмады, жолдар с�
 Rebuilding the junction replaces its rules with newly generated ones	Қиылысты қайта құрғанда оның ережелері жаңадан жасалғандарға ауысады
 It has no traffic rules to copy	Көшіретін қозғалыс ережесі жоқ
 The clipboard has no traffic rules	Буферде қозғалыс ережелері жоқ
+Saved as a copy to {name}; future saves will write into this copy	{name} көшірмесі ретінде сақталды; келесі сақтаулар осы көшірмеге жазылады

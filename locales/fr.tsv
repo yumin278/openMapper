@@ -3018,3 +3018,4 @@ Not pasted, the number of paths is unknown:	Non collées, nombre de chemins inco
 Rebuilding the junction replaces its rules with newly generated ones	La reconstruction du carrefour remplace ses règles par celles qui sont régénérées
 It has no traffic rules to copy	Il n'a aucune règle de circulation à copier
 The clipboard has no traffic rules	Le presse-papiers ne contient aucune règle de circulation
+Saved as a copy to {name}; future saves will write into this copy	Enregistré sous forme de copie dans {name} ; les futurs enregistrements seront écrits dans cette copie

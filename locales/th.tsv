@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	ไม่ได้วาง ไม�
 Rebuilding the junction replaces its rules with newly generated ones	เมื่อสร้างทางแยกใหม่ กฎของทางแยกจะถูกแทนที่ด้วยกฎที่สร้างใหม่
 It has no traffic rules to copy	ไม่มีกฎจราจรให้คัดลอก
 The clipboard has no traffic rules	คลิปบอร์ดไม่มีกฎจราจร
+Saved as a copy to {name}; future saves will write into this copy	บันทึกเป็นสำเนาไปยัง {name} แล้ว การบันทึกในอนาคตจะเขียนลงในสำเนานี้

@@ -441,9 +441,10 @@ fn a_saved_copy_keeps_the_object_together() {
     let bytes = std::fs::read(&sco).unwrap();
     let mut s = sheet();
     s.crossing.paths[0].v[5] = 20.0;
-    let new_rel = copy_into(&roots, rel, "TestMap", "Kreuzung").unwrap();
+    let copy = copy_into(&roots, rel, "TestMap", "Kreuzung").unwrap();
+    let new_rel = copy.rel();
     assert!(new_rel.contains("openMapper"), "{new_rel}");
-    let abs = omsi_cfg::resolve_path(&roots.content, &new_rel);
+    let abs = omsi_cfg::resolve_path(&roots.content, new_rel);
     write(&abs, &s.text(), &bytes).unwrap();
     verify(&abs, &s.crossing).unwrap();
     // the model, the texture and the script came along
@@ -470,7 +471,7 @@ fn a_save_in_place_keeps_the_old_file_as_a_bak() {
     /// The save the crossing editor makes of the `.sco` itself: the checked text and the file
     /// as it stands kept as its `.bak`, in one transaction (as the editor's save is).
     fn save_in_place(abs: &FsPath, text: &str, original: &[u8], crossing: &Crossing) -> anyhow::Result<bool> {
-        let prepared = prepare_sco(abs, text, original, crossing, true)?;
+        let prepared = prepare_sco(abs, text, original, crossing, true, false)?;
         if prepared.bytes.is_none() {
             return Ok(false);
         }
@@ -540,8 +541,9 @@ fn a_flat_junction_is_not_copied_into_itself() {
     std::fs::write(map.join("model").join("plate.x"), b"x").unwrap();
     std::fs::write(map.join("model").join("other.x"), b"x").unwrap();
     std::fs::write(map.join("texture").join("a.png"), b"x").unwrap();
-    let rel = copy_into(&roots, "Sceneryobjects\\openMapper\\TestMap\\junction_1.sco", "TestMap", "junction_1").unwrap();
-    let dir = omsi_cfg::resolve_path(&roots.content, &rel).parent().unwrap().to_path_buf();
+    let copy = copy_into(&roots, "Sceneryobjects\\openMapper\\TestMap\\junction_1.sco", "TestMap", "junction_1").unwrap();
+    let rel = copy.rel();
+    let dir = omsi_cfg::resolve_path(&roots.content, rel).parent().unwrap().to_path_buf();
     assert!(dir.join("model").join("plate.x").is_file());
     assert!(dir.join("texture").join("a.png").is_file());
     assert!(!dir.join("model").join("other.x").exists(), "another object's model");
@@ -572,7 +574,7 @@ fn a_write_that_fails_its_check_leaves_the_file() {
     let s = Sheet::parse(SMALL);
     let mut wrong = s.crossing.clone();
     wrong.paths.clear();
-    assert!(prepare_sco(&abs, "[path]\n", SMALL.as_bytes(), &wrong, false).is_err());
+    assert!(prepare_sco(&abs, "[path]\n", SMALL.as_bytes(), &wrong, false, false).is_err());
     assert_eq!(std::fs::read_to_string(&abs).unwrap(), SMALL);
     assert_eq!(std::fs::read_dir(&roots.content).unwrap().count(), 1, "nothing left beside it");
     let _ = std::fs::remove_dir_all(roots.content.parent().unwrap());
@@ -759,4 +761,91 @@ fn the_timeline_lists_every_light_one_after_another() {
     assert_eq!(t.iter().map(|s| s.phase).collect::<Vec<_>>(), vec![0, 1, 0, 1]);
     // each light's run starts again at nought
     assert_eq!((t[2].start, t[2].end), (0.0, 10.0));
+}
+
+#[test]
+fn crossing_copy_rel_handles_stem_suffixes_and_auto_junctions() {
+    let roots = scratch_roots("copy_rel");
+    let content = &roots.content;
+    let base = content.join("Sceneryobjects").join("Test");
+    std::fs::create_dir_all(&base).unwrap();
+
+    // 1. Regular object (no .crossing.json) with underscore in name (cross_bridge)
+    let cross_bridge = base.join("cross_bridge.sco");
+    std::fs::write(&cross_bridge, SMALL).unwrap();
+    let rel1 = crossing_copy_rel(&roots, "Sceneryobjects\\Test\\cross_bridge.sco", "TestMap", "cross_bridge").unwrap();
+    let n1 = std::path::Path::new(&rel1.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
+    assert!(n1.starts_with("cross_bridge_"), "regular object preserves underscore: {n1}");
+
+    // 2. Editor copy with .crossing.json: new name appends a 6-char suffix to the full stem
+    let copy_dir = content.join("Sceneryobjects").join("openMapper").join("TestMap").join("X_k3f9a2");
+    std::fs::create_dir_all(&copy_dir).unwrap();
+    let copy_sco = copy_dir.join("X_k3f9a2.sco");
+    let copy_bytes = b"original copy bytes";
+    std::fs::write(&copy_sco, copy_bytes).unwrap();
+    std::fs::write(copy_dir.join("X_k3f9a2.crossing.json"), "{}").unwrap();
+    let rel2 = crossing_copy_rel(&roots, "Sceneryobjects\\openMapper\\TestMap\\X_k3f9a2\\X_k3f9a2.sco", "TestMap", "X_k3f9a2").unwrap();
+    let n2 = std::path::Path::new(&rel2.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
+    assert!(n2.starts_with("X_k3f9a2_"), "copy stem preserved with new suffix: {n2}");
+    assert_eq!(n2.len(), "X_k3f9a2".len() + 7, "stem + underscore + 6 chars: {n2}");
+    // Original copy's bytes must not be touched
+    assert_eq!(std::fs::read(&copy_sco).unwrap(), copy_bytes, "original copy unchanged");
+
+    // 3. Auto junction: junction_ converted to Junction-, !is_own_junction holds
+    let aj_rel = "Sceneryobjects\\openMapper\\TestMap\\junction_12.sco";
+    let rel3 = crossing_copy_rel(&roots, aj_rel, "TestMap", "junction_12").unwrap();
+    let n3 = std::path::Path::new(&rel3.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
+    assert!(n3.starts_with("Junction-12_"), "junction_ replaced with Junction-: {n3}");
+    assert!(!crate::editor::is_own_junction(&rel3), "new rel must not match is_own_junction: {rel3}");
+
+    // 4. Consecutive 3 calls get 3 distinct folder names
+    let r_a = crossing_copy_rel(&roots, "Sceneryobjects\\Test\\cross_bridge.sco", "TestMap", "cross_bridge").unwrap();
+    let r_b = crossing_copy_rel(&roots, "Sceneryobjects\\Test\\cross_bridge.sco", "TestMap", "cross_bridge").unwrap();
+    let r_c = crossing_copy_rel(&roots, "Sceneryobjects\\Test\\cross_bridge.sco", "TestMap", "cross_bridge").unwrap();
+    assert_ne!(r_a, r_b);
+    assert_ne!(r_b, r_c);
+    assert_ne!(r_a, r_c);
+
+    let _ = std::fs::remove_dir_all(roots.content.parent().unwrap());
+}
+
+#[test]
+fn copy_into_excludes_sidecar_and_bak_files() {
+    let roots = scratch_roots("copy_excludes");
+    let src = roots.content.join("Sceneryobjects").join("Test").join("SrcCrossing");
+    std::fs::create_dir_all(&src).unwrap();
+    let sco = src.join("SrcCrossing.sco");
+    std::fs::write(&sco, SMALL).unwrap();
+    std::fs::write(src.join("plate.x"), b"mesh").unwrap();
+    std::fs::write(src.join("SrcCrossing.crossing.json"), b"sidecar").unwrap();
+    std::fs::write(src.join("SrcCrossing.sco.bak"), b"backup").unwrap();
+    std::fs::write(src.join("SrcCrossing.crossing-check.sco"), b"check").unwrap();
+
+    let copy = copy_into(&roots, "Sceneryobjects\\Test\\SrcCrossing\\SrcCrossing.sco", "TestMap", "SrcCrossing").unwrap();
+    let dst_dir = copy.dir();
+    assert!(dst_dir.join("plate.x").is_file(), "mesh was copied");
+    assert!(!dst_dir.join("SrcCrossing.crossing.json").exists(), "crossing.json must not be copied");
+    assert!(!dst_dir.join("SrcCrossing.sco.bak").exists(), "sco.bak must not be copied");
+    assert!(!dst_dir.join("SrcCrossing.crossing-check.sco").exists(), "crossing-check.sco must not be copied");
+
+    let _ = std::fs::remove_dir_all(roots.content.parent().unwrap());
+}
+
+#[test]
+fn copy_into_rejects_already_existing_destination() {
+    let roots = scratch_roots("copy_exists");
+    let src = roots.content.join("Sceneryobjects").join("Test").join("Orig");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(src.join("Orig.sco"), SMALL).unwrap();
+    std::fs::write(src.join("plate.x"), b"mesh").unwrap();
+
+    let copy = copy_into(&roots, "Sceneryobjects\\Test\\Orig\\Orig.sco", "TestMap", "Orig").unwrap();
+    let dst_dir = copy.dir().to_path_buf();
+    assert!(dst_dir.is_dir());
+
+    // Discard copy deletes only this created copy:
+    discard_copy(&roots, copy);
+    assert!(!dst_dir.exists(), "discard_copy removed created copy dir");
+
+    let _ = std::fs::remove_dir_all(roots.content.parent().unwrap());
 }

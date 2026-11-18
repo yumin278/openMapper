@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	No enganxades, nombre de camins desc
 Rebuilding the junction replaces its rules with newly generated ones	En reconstruir el creuament, les seves regles se substitueixen per les regenerades
 It has no traffic rules to copy	No té regles de trànsit per copiar
 The clipboard has no traffic rules	El porta-retalls no conté regles de trànsit
+Saved as a copy to {name}; future saves will write into this copy	S'ha desat com a còpia a {name}; els propers desaments s'escriuran en aquesta còpia

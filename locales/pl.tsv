@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Nie wklejono, liczba ścieżek niezn
 Rebuilding the junction replaces its rules with newly generated ones	Przebudowa skrzyżowania zastąpi jego zasady nowo wygenerowanymi
 It has no traffic rules to copy	Nie ma zasad ruchu do skopiowania
 The clipboard has no traffic rules	Schowek nie zawiera zasad ruchu
+Saved as a copy to {name}; future saves will write into this copy	Zapisano jako kopię do {name}; przyszłe zapisy trafią do tej kopii

@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Non incollate, numero di percorsi sc
 Rebuilding the junction replaces its rules with newly generated ones	Ricostruendo l'incrocio, le sue regole vengono sostituite da quelle rigenerate
 It has no traffic rules to copy	Non ha regole di traffico da copiare
 The clipboard has no traffic rules	Gli appunti non contengono regole di traffico
+Saved as a copy to {name}; future saves will write into this copy	Salvato come copia in {name}; i salvataggi futuri verranno scritti in questa copia

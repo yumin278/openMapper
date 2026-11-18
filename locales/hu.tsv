@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Nem illesztve, az útvonalak száma 
 Rebuilding the junction replaces its rules with newly generated ones	A csomópont újjáépítése a szabályait újonnan létrehozottakra cseréli
 It has no traffic rules to copy	Nincs másolható közlekedési szabálya
 The clipboard has no traffic rules	A vágólapon nincsenek közlekedési szabályok
+Saved as a copy to {name}; future saves will write into this copy	Másolatként mentve ide: {name}; a későbbi mentések ebbe a másolatba íródnak

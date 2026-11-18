@@ -3018,3 +3018,4 @@ Not pasted, the number of paths is unknown:	Nicht eingefügt, Pfadanzahl unbekan
 Rebuilding the junction replaces its rules with newly generated ones	Beim Neuaufbau der Kreuzung werden ihre Regeln durch neu erzeugte ersetzt
 It has no traffic rules to copy	Es hat keine Verkehrsregeln zum Kopieren
 The clipboard has no traffic rules	Die Zwischenablage enthält keine Verkehrsregeln
+Saved as a copy to {name}; future saves will write into this copy	Als Kopie unter {name} gespeichert; künftige Speicherungen werden in diese Kopie geschrieben

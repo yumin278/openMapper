@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Không dán, chưa biết số đư�
 Rebuilding the junction replaces its rules with newly generated ones	Khi dựng lại giao lộ, quy tắc của nó sẽ bị thay bằng quy tắc mới tạo
 It has no traffic rules to copy	Không có quy tắc giao thông nào để sao chép
 The clipboard has no traffic rules	Bảng nhớ tạm không có quy tắc giao thông
+Saved as a copy to {name}; future saves will write into this copy	Đã lưu dưới dạng bản sao vào {name}; các lần lưu trong tương lai sẽ ghi vào bản sao này
