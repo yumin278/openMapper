@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	ऑब्जेक्ट के बगल में सहेजे गए नियम:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	उसके [kill_rule] रहते हैं, बाकी नियम टेम्पलेट के नियमों से बदल दिए जाते हैं, और ऐसे नियम जो उसके पास न हो ऐसा पथ बताते हैं, छोड़ दिए जाते हैं (पूर्ववत करें का एक चरण)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	चौराहे के निर्देशांक में सिग्नल हेड कहाँ खड़ा है। ऑब्जेक्ट के पास सहेजा जाता है, .sco में नहीं
+Paste from the clipboard (replaces the whole template)	क्लिपबोर्ड से पेस्ट करें (पूरा टेम्पलेट बदल देता है)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	टेम्पलेट का हर नियम मिटा दिया जाता है, और क्लिपबोर्ड के [rule] ब्लॉक उसकी जगह लेते हैं: वही पथ, प्रकार, मान और वाहन वर्ग, उसी क्रम में, उन्हीं पंक्तियों में जो ऑब्जेक्ट के गुणों में यातायात नियम कॉपी करें क्लिपबोर्ड पर रखता है। जो नियम ऐसा पथ बताता है जो इस चौराहे पर नहीं है, वह छोड़ दिया जाता है
+Nothing was pasted: the clipboard cannot be read	कुछ भी पेस्ट नहीं हुआ: क्लिपबोर्ड पढ़ा नहीं जा सकता
+Nothing was pasted: the clipboard does not hold [rule] blocks	कुछ भी पेस्ट नहीं हुआ: क्लिपबोर्ड में [rule] ब्लॉक नहीं हैं
+Pasted rules:	पेस्ट किए गए नियम:
+Skipped rules (this crossing has no such path):	छोड़े गए नियम (इस चौराहे पर ऐसा पथ नहीं है):

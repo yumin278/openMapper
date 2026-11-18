@@ -113,6 +113,39 @@ pub struct Asset {
     pub lanes: (u8, u8, u8),
 }
 
+/// Objects the editor wrote and the catalogue has not heard of yet: the content root they were
+/// written under, and their path in a map's own spelling (`Sceneryobjects\...`). The root is
+/// kept with each: a queue drained after another map (or another content folder) was opened
+/// would otherwise read an object of the same name from the wrong root.
+static WRITTEN: std::sync::Mutex<Vec<(std::path::PathBuf, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// Note an object the editor has just written under `root` (a junction, a bus bay's taper
+/// plate, a plate of a drawn junction): [`Library::refresh_pending`] reads it into the
+/// catalogue, since the hot reload takes the editor's own writes as already known.
+pub(crate) fn note_written(root: &Path, rel: &str) {
+    let mut queue = WRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+    if !queue.iter().any(|(known_root, known)| known_root == root && known.eq_ignore_ascii_case(rel)) {
+        queue.push((root.to_path_buf(), rel.to_string()));
+    }
+}
+
+/// Whether anything was noted for any roots. The frame asks this before taking a copy of the
+/// roots: most frames have nothing the editor wrote.
+pub(crate) fn has_written() -> bool {
+    !WRITTEN.lock().unwrap_or_else(|e| e.into_inner()).is_empty()
+}
+
+/// The entries [`note_written`] left for `roots`, taken out of the queue; entries noted under
+/// another content folder stay for the session that owns them.
+fn take_written(roots: &Roots) -> Vec<String> {
+    let mut queue = WRITTEN.lock().unwrap_or_else(|e| e.into_inner());
+    let (mine, others): (Vec<_>, Vec<_>) = std::mem::take(&mut *queue)
+        .into_iter()
+        .partition(|(root, _)| root == &roots.content || root == &roots.omsi);
+    *queue = others;
+    mine.into_iter().map(|(_, rel)| rel).collect()
+}
+
 /// Messages of the background scan.
 pub enum ScanMsg {
     Found(Vec<Asset>),
@@ -220,14 +253,23 @@ impl Library {
 
     /// Refresh one saved crossing without rescanning or reordering the catalogue.
     pub(crate) fn refresh_crossing(&mut self, roots: &Roots, rel: &str) {
-        let rel = rel.replace('/', "\\").to_lowercase();
+        // (the file is looked for in the spelling the map names it in: only the index key is
+        // folded to lower case. Folding the path too makes every refresh a case-insensitive
+        // directory lookup, and that lookup's cached listing can be older than the file - a
+        // junction written into a folder made a moment ago would then not be found at all)
+        let rel = rel.replace('/', "\\");
         let Some((root, path, from_content)) = [(&roots.content, true), (&roots.omsi, false)]
             .into_iter()
             .map(|(root, own)| (root, omsi_cfg::resolve_path(root, &rel), own))
             .find(|(_, path, _)| omsi_cfg::vfs::is_file(path))
-        else { return };
+        else {
+            log::warn!("catalogue: {rel}: not found in the content folder or the installation; not read again");
+            return;
+        };
         let Some(asset) = describe(root, &path, Kind::Object, from_content) else { return };
-        if let Some(&index) = self.index.get(&rel) {
+        log::info!("catalogue: {} read again from the {}", asset.rel, if from_content { "content folder" } else { "installation" });
+        let key = rel.to_lowercase();
+        if let Some(&index) = self.index.get(&key) {
             self.assets[index] = asset;
         } else {
             let index = self.assets.len();
@@ -235,6 +277,18 @@ impl Library {
             self.assets.push(asset);
         }
         self.rev += 1;
+    }
+
+    /// Read every object the editor wrote under these roots since the last call into the
+    /// catalogue, without a rescan: the hot reload does not report the editor's own writes, and
+    /// a full scan would sort the catalogue again under the browser's cache. Returns how many
+    /// were taken; what was written under another content folder stays queued for that one.
+    pub(crate) fn refresh_pending(&mut self, roots: &Roots) -> usize {
+        let written = take_written(roots);
+        for rel in &written {
+            self.refresh_crossing(roots, rel);
+        }
+        written.len()
     }
 
     pub fn find(&self, rel: &str) -> Option<&Asset> {

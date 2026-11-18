@@ -39,7 +39,10 @@ before the signals moved here hold only `{"from": "..."}`; that is read as `copy
 
 - **Crossing editor, Paths page.** `Signal positions` (below `Spline helpers`) and
   `Rule template` (below it). The template is set on every picked path at once - Ctrl+click
-  picks more than one - and `bus` brings `no_cars` with it.
+  picks more than one - and `bus` brings `no_cars` with it. The clipboard paste above the
+  picked-path controls replaces the entire template, even with no path picked. It uses
+  **Copy traffic rules** from object properties, ignores kill rules, drops missing paths,
+  and does not add `no_cars` to a pasted `bus` rule. Only Save writes the pasted template.
 - **Object panel.** `Place signals as configured` for a crossing with a light program and
   positions in its settings; `Apply rule template` for an object whose settings hold rules.
 - **Automatic junctions.** A junction writes the signal positions its arms need into the
@@ -78,5 +81,16 @@ not mean they have been performed.
 12. Put an invalid entry in a settings file, and make the file unwritable in turn: confirm
     the log names the file and the reason, unrelated files are untouched, and a failed save
     reports failure and stays unsaved.
+13. Without restarting, generate a junction with traffic lights and confirm **Place signals
+    as configured** appears. Save it as a copy twice and confirm the latest copy still offers
+    the signal and template actions. Repeat with a crossing stored only in the OMSI installation.
+14. Copy traffic rules from object properties, including a `bus` rule without `no_cars`.
+    In the crossing editor clear the path selection, expand **Rule template**, and paste.
+    Confirm it replaces all previous rules, preserves that unpaired `bus`, reports both kept
+    and skipped counts (including zero), and leaves the editor unsaved without changing files.
+15. Paste rules naming negative and out-of-range path numbers; confirm they are skipped and
+    counted. Undo restores the entire previous template, Redo restores the paste, and Revert
+    restores the saved state. Paste unrelated text and confirm the template stays unchanged
+    and an error is shown.
 
 Release builds and the full test suites run on GitHub Actions only.

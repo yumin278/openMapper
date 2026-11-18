@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Reglas guardadas junto al objeto:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Sus [kill_rule] se quedan, sus demás reglas se sustituyen por las de la plantilla y las reglas que nombran un carril que no tiene se omiten (un paso de Deshacer)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Dónde está un cabezal de semáforo, en el marco del cruce. Se guarda junto al objeto, no en el .sco
+Paste from the clipboard (replaces the whole template)	Pegar del portapapeles (sustituye toda la plantilla)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Se borra cada regla de la plantilla y los bloques [rule] del portapapeles ocupan su lugar: los mismos carriles, tipos, valores y clases de vehículos, en el mismo orden, en las mismas líneas que Copiar reglas de tráfico en las propiedades del objeto pone en el portapapeles. Una regla que nombra un carril que este cruce no tiene se omite
+Nothing was pasted: the clipboard cannot be read	No se pegó nada: el portapapeles no se puede leer
+Nothing was pasted: the clipboard does not hold [rule] blocks	No se pegó nada: el portapapeles no contiene bloques [rule]
+Pasted rules:	Reglas pegadas:
+Skipped rules (this crossing has no such path):	Reglas omitidas (este cruce no tiene ese carril):

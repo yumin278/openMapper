@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Regras guardadas ao lado do objeto:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	As suas [kill_rule] ficam, as outras regras são substituídas pelas do modelo, e as regras que nomeiam uma via que não tem são deixadas de fora (um passo de Anular)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Onde fica uma cabeça de semáforo, no sistema do cruzamento. Guardado ao lado do objeto, não no .sco
+Paste from the clipboard (replaces the whole template)	Colar da área de transferência (substitui todo o modelo)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Cada regra do modelo é apagada, e os blocos [rule] da área de transferência ocupam o seu lugar: as mesmas vias, tipos, valores e classes de veículos, na mesma ordem, nas mesmas linhas que Copiar regras de trânsito nas propriedades do objeto põe na área de transferência. Uma regra que nomeia uma via que este cruzamento não tem é deixada de fora
+Nothing was pasted: the clipboard cannot be read	Nada foi colado: a área de transferência não pode ser lida
+Nothing was pasted: the clipboard does not hold [rule] blocks	Nada foi colado: a área de transferência não tem blocos [rule]
+Pasted rules:	Regras coladas:
+Skipped rules (this crossing has no such path):	Regras deixadas de fora (este cruzamento não tem essa via):

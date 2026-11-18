@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Mga patakarang naka-save sa tabi ng object:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Nananatili ang [kill_rule] nito, pinapalitan ang iba pang patakaran ng sa template, at ang mga patakarang tumutukoy sa landas na wala ito ay nilalaktawan (isang hakbang ng I-undo)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Kung saan nakatayo ang ulo ng ilaw-trapiko, sa sistema ng sangandaan. Naka-save sa tabi ng object, hindi sa .sco
+Paste from the clipboard (replaces the whole template)	I-paste mula sa clipboard (pinapalitan ang buong template)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Binubura ang bawat patakaran ng template, at ang mga bloke ng [rule] sa clipboard ang pumapalit: parehong mga landas, uri, halaga at uri ng sasakyan, sa parehong pagkakasunod-sunod, sa parehong mga linyang inilalagay ng Kopyahin ang mga patakaran sa trapiko sa mga katangian ng bagay sa clipboard. Ang patakarang tumutukoy sa landas na wala sa sangandaang ito ay iniiwan
+Nothing was pasted: the clipboard cannot be read	Walang naipaste: hindi mabasa ang clipboard
+Nothing was pasted: the clipboard does not hold [rule] blocks	Walang naipaste: walang bloke ng [rule] sa clipboard
+Pasted rules:	Mga patakarang naipaste:
+Skipped rules (this crossing has no such path):	Mga patakarang iniiwan (wala sa sangandaang ito ang landas na iyon):

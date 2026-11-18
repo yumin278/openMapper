@@ -3040,3 +3040,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Правила, збережені поруч з об'єктом:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Його [kill_rule] лишаються, інші правила замінюються правилами шаблону, а правила, що називають шлях, якого він не має, відкидаються (один крок Скасувати)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Де стоїть голівка світлофора, у системі перехрестя. Зберігається поруч з об'єктом, не в .sco
+Paste from the clipboard (replaces the whole template)	Вставити з буфера обміну (замінює весь шаблон)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Кожне правило шаблону стирається, і його місце займають блоки [rule] з буфера обміну: ті самі шляхи, типи, значення й класи транспорту, у тому самому порядку, у тих самих рядках, які «Копіювати правила руху» у властивостях об'єкта кладе в буфер обміну. Правило, що називає шлях, якого в цього перехрестя немає, відкидається
+Nothing was pasted: the clipboard cannot be read	Нічого не вставлено: буфер обміну не читається
+Nothing was pasted: the clipboard does not hold [rule] blocks	Нічого не вставлено: у буфері обміну немає блоків [rule]
+Pasted rules:	Вставлено правил:
+Skipped rules (this crossing has no such path):	Відкинуто правил (у цього перехрестя немає такого шляху):

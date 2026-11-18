@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	オブジェクトの隣に保存されたルール：
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	その [kill_rule] は残り、ほかのルールはテンプレートのものに置き換えられ、持っていない経路を指定するルールは除外されます（元に戻す1回分）
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	信号灯器の位置（交差点の座標系）。.sco ではなくオブジェクトの隣に保存されます
+Paste from the clipboard (replaces the whole template)	クリップボードから貼り付け（テンプレート全体を置き換え）
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	テンプレートのルールはすべて消去され、クリップボードの [rule] ブロックがその場所に入ります。経路・種類・値・車両クラスはそのまま、順序も同じで、オブジェクトのプロパティにある「交通ルールをコピー」がクリップボードに置く行と同じ形式です。この交差点にない経路を指定したルールは除外されます
+Nothing was pasted: the clipboard cannot be read	何も貼り付けられませんでした：クリップボードを読み取れません
+Nothing was pasted: the clipboard does not hold [rule] blocks	何も貼り付けられませんでした：クリップボードに [rule] ブロックがありません
+Pasted rules:	貼り付けたルール数：
+Skipped rules (this crossing has no such path):	除外したルール数（この交差点にない経路）：

@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Regles desades al costat de l'objecte:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Les seves [kill_rule] es queden, la resta de regles se substitueixen per les de la plantilla i les regles que anomenen un camí que no té s'ometen (un pas de Desfés)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	On hi ha un cap de semàfor, en el marc de l'encreuament. Es guarda al costat de l'objecte, no dins del .sco
+Paste from the clipboard (replaces the whole template)	Enganxa del porta-retalls (substitueix tota la plantilla)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Cada regla de la plantilla s'esborra, i els blocs [rule] del porta-retalls ocupen el seu lloc: els mateixos camins, tipus, valors i classes de vehicles, en el mateix ordre, en les mateixes línies que Copia les regles de trànsit a les propietats de l'objecte posa al porta-retalls. Una regla que anomena un camí que aquesta cruïlla no té s'omet
+Nothing was pasted: the clipboard cannot be read	No s'ha enganxat res: el porta-retalls no es pot llegir
+Nothing was pasted: the clipboard does not hold [rule] blocks	No s'ha enganxat res: el porta-retalls no conté blocs [rule]
+Pasted rules:	Regles enganxades:
+Skipped rules (this crossing has no such path):	Regles omeses (aquesta cruïlla no té aquest camí):

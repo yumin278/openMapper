@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Reguły zapisane obok obiektu:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Jego [kill_rule] pozostają, pozostałe reguły zostają zastąpione przez reguły szablonu, a reguły wskazujące ścieżkę, której nie ma, są pomijane (jeden krok cofnięcia)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Gdzie stoi głowica sygnalizatora, w układzie skrzyżowania. Zapisywane obok obiektu, nie w .sco
+Paste from the clipboard (replaces the whole template)	Wklej ze schowka (zastępuje cały szablon)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Każda reguła szablonu jest usuwana, a jej miejsce zajmują bloki [rule] ze schowka: te same ścieżki, rodzaje, wartości i klasy pojazdów, w tej samej kolejności, w tych samych wierszach, które Kopiuj zasady ruchu we właściwościach obiektu wkłada do schowka. Reguła wskazująca ścieżkę, której to skrzyżowanie nie ma, jest pomijana
+Nothing was pasted: the clipboard cannot be read	Nic nie wklejono: schowka nie można odczytać
+Nothing was pasted: the clipboard does not hold [rule] blocks	Nic nie wklejono: schowek nie zawiera bloków [rule]
+Pasted rules:	Wklejone reguły:
+Skipped rules (this crossing has no such path):	Pominięte reguły (to skrzyżowanie nie ma takiej ścieżki):

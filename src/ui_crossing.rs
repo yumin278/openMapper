@@ -11,7 +11,7 @@ use glam::{DVec2, DVec3};
 
 use crate::assets::Assets;
 use crate::crossing_edit::{self, outward_flow, Crossing, Helper, Joint, Path, Sheet, TURN_LEFT, TURN_NONE, TURN_RIGHT};
-use crate::crossing_config::SignalPoint;
+use crate::crossing_config::{SignalPoint, TemplateRule};
 use crate::doc::Sel;
 use crate::editor::Editor;
 use crate::i18n::tr;
@@ -68,6 +68,14 @@ fn signal_heading(direction: DVec2, shift: bool) -> f32 {
 
 fn signal_log(n: usize, s: &SignalPoint, up: &str) {
     log::info!("crossing signal #{n}: light={} x={} fwd={} up={} heading={} up_status={up}", s.light, s.x, s.fwd, s.up, s.heading);
+}
+
+/// A rule template in one line, for the log: every rule, in the order the file has them.
+fn template_log(rules: &[TemplateRule]) -> String {
+    if rules.is_empty() {
+        return "(none)".to_string();
+    }
+    rules.iter().map(TemplateRule::describe).collect::<Vec<_>>().join("; ")
 }
 
 /// The end a click at `pos` takes: the nearest within [`GRAB`] pixels of it. The picked path's
@@ -2009,8 +2017,14 @@ impl CrossingPaths {
     /// Record the crossing as it was, before a change: what Ctrl+Z goes back to. Taking the
     /// record twice with nothing changed between adds nothing.
     pub fn push_undo(&mut self) {
-        let Some(sheet) = self.sheet.as_ref() else { return };
-        let before = sheet.crossing.clone();
+        let Some(before) = self.sheet.as_ref().map(|s| s.crossing.clone()) else { return };
+        self.record_undo(before);
+    }
+
+    /// Record `before` as the state Ctrl+Z goes back to. Taken with the crossing handed in
+    /// rather than read from `self`, so a change made while the window has the sheet taken out
+    /// (a paste into the rule template) is one step of its own the same way.
+    fn record_undo(&mut self, before: Crossing) {
         if self.undo.last() != Some(&before) {
             self.undo.push(before.clone());
             if self.undo.len() > 200 {
@@ -2705,6 +2719,17 @@ impl CrossingPaths {
         self.sheet.is_some()
     }
 
+    /// `Revert`: the crossing goes back to how it was when the window opened it. The file is
+    /// not touched - only Save writes - and the window is not unsaved any more.
+    fn revert(&mut self) {
+        if let Some(sheet) = self.sheet.as_mut() {
+            sheet.crossing = self.seen.clone();
+        }
+        self.forget_gestures();
+        self.fix_picks();
+        self.message = Some((tr("Back to how it was opened", "Обратно к состоянию при открытии").into(), false));
+    }
+
     /// Close the window and drop what is in it: the file stays as it was (nothing was written
     /// until Save). The next opening reads it again.
     fn discard(&mut self) {
@@ -3018,12 +3043,7 @@ impl CrossingPaths {
             }
         }
         if revert {
-            if let Some(sheet) = self.sheet.as_mut() {
-                sheet.crossing = self.seen.clone();
-            }
-            self.forget_gestures();
-            self.fix_picks();
-            self.message = Some((tr("Back to how it was opened", "Обратно к состоянию при открытии").into(), false));
+            self.revert();
         }
         if save {
             if let (Some(roots), Some(assets)) = (roots, assets.as_deref_mut()) {
@@ -3491,6 +3511,15 @@ impl CrossingPaths {
         let has_rules = !sheet.crossing.rule_template.is_empty();
         egui::CollapsingHeader::new(RichText::new(format!("{} ({})", tr("Rule template", "Шаблон правил"), sheet.crossing.rule_template.len())).strong()).id_salt("crossing rule template").default_open(has_rules).show(ui, |ui| {
             ui.label(RichText::new(tr("The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco", "Правила движения, которые выбранные пути дают объекту карты при применении шаблона. Для ИИ и игрока, считая от 0. Хранятся рядом с объектом, не в .sco")).small().color(DIM));
+            // (the whole crossing's template first: a paste replaces every rule it has, picked
+            // paths or not, so it is told before the paths are asked for)
+            if ui.button(icons::labelled(Icon::Paste, tr("Paste from the clipboard (replaces the whole template)", "Вставить из буфера обмена (заменяет весь шаблон)")))
+                .on_hover_text(tr("Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out", "Каждое правило шаблона стирается, и его место занимают блоки [rule] из буфера обмена: те же пути, типы, значения и классы машин, в том же порядке, в тех же строках, которые «Копировать правила» в свойствах объекта кладёт в буфер обмена. Правило, называющее путь, которого у перекрёстка нет, отбрасывается"))
+                .clicked()
+            {
+                self.paste_template_open(sheet);
+            }
+            ui.separator();
             if picked.is_empty() {
                 ui.label(RichText::new(tr("Pick a path first", "Сначала выберите путь")).small().color(DIM));
                 return;
@@ -3548,6 +3577,57 @@ impl CrossingPaths {
             // the file is only written on Save)
             let _ = changed;
         }
+    }
+
+    /// `Paste from the clipboard` on the rule template: the clipboard's `[rule]` blocks become
+    /// the crossing's whole template, replacing every rule it had. The text is the map file's
+    /// own rule lines (`rules_clip` moves them in and out), so what one object's paths carry can
+    /// be given to a crossing. Nothing is written to the file here: only Save writes.
+    fn paste_template_open(&mut self, sheet: &mut Sheet) {
+        match arboard::Clipboard::new().and_then(|mut c| c.get_text()) {
+            Ok(text) => {
+                self.paste_template_text(sheet, &text);
+            }
+            Err(e) => {
+                log::warn!("crossing rule template: the clipboard cannot be read: {e}");
+                self.message = Some((tr("Nothing was pasted: the clipboard cannot be read", "Ничего не вставлено: буфер обмена не читается").into(), true));
+            }
+        }
+    }
+
+    /// Put the rules in `text` in place of the whole template, if it is nothing but `[rule]`
+    /// blocks. False, with the template as it was and the window's message set, when it is any
+    /// other text. A rule naming a path this crossing does not have (a negative number, or one
+    /// past its last path) is left out and logged one by one, the rest are kept in the order
+    /// the clipboard had them. One step of Undo for the whole paste.
+    fn paste_template_text(&mut self, sheet: &mut Sheet, text: &str) -> bool {
+        let Some(rules) = crate::rules_clip::from_text(text) else {
+            log::info!("crossing rule template: paste refused: the clipboard text ({} char(s)) is not a run of [rule] blocks", text.chars().count());
+            self.message = Some((tr("Nothing was pasted: the clipboard does not hold [rule] blocks", "Ничего не вставлено: в буфере обмена нет блоков [rule]").into(), true));
+            return false;
+        };
+        log::info!("crossing rule template: paste: before: {}", template_log(&sheet.crossing.rule_template));
+        self.record_undo(sheet.crossing.clone());
+        let paths = sheet.crossing.paths.len();
+        let dropped = sheet.crossing.template_replace(rules.iter().map(TemplateRule::from_map_rule).collect());
+        log::info!("crossing rule template: paste: after: {}", template_log(&sheet.crossing.rule_template));
+        for r in &dropped {
+            if r.path_index < 0 {
+                log::warn!("crossing rule template: left out {}: a path number is negative", r.describe());
+            } else {
+                log::warn!("crossing rule template: left out {}: the crossing has {paths} path(s)", r.describe());
+            }
+        }
+        let pasted = sheet.crossing.rule_template.len();
+        // (both numbers are always said, the skipped one as 0 when nothing was skipped: a paste
+        // that says only what it kept reads as if nothing was left out)
+        let msg = [
+            format!("{} {pasted}", tr("Pasted rules:", "Вставлено правил:")),
+            format!("{} {}", tr("Skipped rules (this crossing has no such path):", "Отброшено правил (у перекрёстка нет такого пути):"), dropped.len()),
+        ]
+        .join(". ");
+        self.message = Some((msg, !dropped.is_empty()));
+        true
     }
 
     /// Put a signal head at `at` (the object's frame) facing `heading`: its height is the deck
@@ -7225,6 +7305,155 @@ Main
         let _ = std::fs::remove_dir_all(roots.content);
     }
 
+    // ------------------------------------------- the rule template, pasted whole from the clipboard
+
+    /// Put a clipboard text in place of the whole template, with the sheet handed in as the
+    /// window draws it (taken out of `self`).
+    fn paste(w: &mut CrossingPaths, text: &str) -> bool {
+        let mut sheet = w.sheet.take().expect("a crossing is open");
+        let done = w.paste_template_text(&mut sheet, text);
+        w.sheet = Some(sheet);
+        done
+    }
+
+    fn pasted_template(w: &CrossingPaths) -> Vec<TemplateRule> {
+        w.sheet.as_ref().expect("a crossing is open").crossing.rule_template.clone()
+    }
+
+    /// The template belongs to the crossing, not to the picked path: the whole of it can be
+    /// pasted with nothing picked, and a rule's vehicle class goes over as it was - a paste
+    /// adds no `no_cars` of its own.
+    #[test]
+    fn the_whole_template_is_pasted_with_no_path_picked() {
+        let mut w = opened(Tab::Paths);
+        w.selected = None;
+        w.multi.clear();
+        assert!(w.selection().is_empty(), "nothing is picked");
+        assert!(paste(&mut w, "[rule]\n0\nbus\n0\n0\n\n[rule]\n2\nspeedlimit\n30\n0\n"));
+        let t = pasted_template(&w);
+        assert_eq!(t.len(), 2, "{t:?}");
+        assert_eq!(t[0], TemplateRule { path_index: 0, kind: "bus".into(), value: 0.0, extra: 0.0 });
+        assert_eq!(t[1], TemplateRule { path_index: 2, kind: "speedlimit".into(), value: 30.0, extra: 0.0 });
+        assert!(!t.iter().any(|r| r.kind == "no_cars"), "a paste does not add no_cars: {t:?}");
+        assert!(w.unsaved(), "the paste is a change to save");
+        let (msg, bad) = w.message.clone().expect("the window says what it did");
+        assert!(!bad, "{msg}");
+        assert!(msg.contains('2'), "how many were pasted is said: {msg}");
+        assert!(msg.contains('0'), "and how many were skipped, 0 and all: {msg}");
+    }
+
+    /// Every rule the template had is cleared, not added to: the clipboard's rules are the
+    /// whole template afterwards, in the order they came.
+    #[test]
+    fn a_paste_replaces_every_rule_of_the_template() {
+        let mut w = opened(Tab::Paths);
+        w.sheet.as_mut().unwrap().crossing.rule_template = vec![
+            TemplateRule { path_index: 0, kind: "bus".into(), value: 0.0, extra: 0.0 },
+            TemplateRule { path_index: 1, kind: "priority".into(), value: 1.0, extra: 0.0 },
+        ];
+        assert!(paste(&mut w, "[rule]\n2\ntrafficdensity\n0.5\n4\n\n[rule]\n0\nno_cars\n0\n0\n"));
+        assert_eq!(
+            pasted_template(&w),
+            vec![
+                TemplateRule { path_index: 2, kind: "trafficdensity".into(), value: 0.5, extra: 4.0 },
+                TemplateRule { path_index: 0, kind: "no_cars".into(), value: 0.0, extra: 0.0 },
+            ],
+            "the rules that were there are gone, and the extra goes over as it is"
+        );
+    }
+
+    /// A rule naming a path the crossing does not have - a negative number, or one past its
+    /// last path - is left out one by one, and the message says how many were pasted and how
+    /// many were skipped, both numbers always.
+    #[test]
+    fn a_pasted_rule_with_no_such_path_is_left_out_and_counted() {
+        let mut w = opened(Tab::Paths);
+        let paths = w.sheet.as_ref().unwrap().crossing.paths.len();
+        assert_eq!(paths, 3, "the crossing of the tests has three paths");
+        assert!(paste(
+            &mut w,
+            "[rule]\n-1\nbus\n0\n0\n\n[rule]\n1\ntrafficdensity\n0.5\n0\n\n[rule]\n5\nno_cars\n0\n0\n\n[rule]\n9\nspeedlimit\n30\n0\n"
+        ));
+        assert_eq!(
+            pasted_template(&w),
+            vec![TemplateRule { path_index: 1, kind: "trafficdensity".into(), value: 0.5, extra: 0.0 }],
+            "the rules of the paths it has are kept in the order they came"
+        );
+        let (msg, bad) = w.message.clone().expect("the window says what it did");
+        assert!(msg.contains('1'), "one was pasted, and the message says so: {msg}");
+        assert!(msg.contains('3'), "three were skipped, and the message says so: {msg}");
+        assert!(bad, "a paste that skipped something is not all well: {msg}");
+    }
+
+    /// A clipboard of `[rule]` and `[kill_rule]` blocks mixed: only the `[rule]`s are pasted, a
+    /// `[kill_rule]` is read past rather than counted as a rule whose path is missing (its path
+    /// here is one the crossing does not even have), the vehicle class goes over as it was, and
+    /// a pasted `bus` brings no `no_cars` with it.
+    #[test]
+    fn a_paste_reads_past_kill_rules_and_keeps_the_vehicle_class() {
+        let mut w = opened(Tab::Paths);
+        assert!(paste(
+            &mut w,
+            "[rule]\n0\nbus\n0\n0\n\n[kill_rule]\n7\nspeedlimit\n30\n0\n\n[rule]\n2\ntrafficdensity\n0.5\n4\n"
+        ));
+        assert_eq!(
+            pasted_template(&w),
+            vec![
+                TemplateRule { path_index: 0, kind: "bus".into(), value: 0.0, extra: 0.0 },
+                TemplateRule { path_index: 2, kind: "trafficdensity".into(), value: 0.5, extra: 4.0 },
+            ],
+            "the kill_rule is not pasted, and the extra of the rule that is goes over as it is"
+        );
+        assert!(!pasted_template(&w).iter().any(|r| r.kind == "no_cars"), "a pasted bus adds no no_cars");
+        let (msg, bad) = w.message.clone().expect("the window says what it did");
+        assert!(msg.contains('2'), "two rules were pasted: {msg}");
+        assert!(msg.contains('0'), "the kill_rule is not a missing path: nothing was skipped, and the message says 0: {msg}");
+        assert!(!bad, "a paste with nothing skipped is all well: {msg}");
+    }
+
+    /// A clipboard that is not a run of `[rule]` blocks changes nothing at all: no rule is
+    /// touched, nothing is added to Undo, and the window says so.
+    #[test]
+    fn a_clipboard_that_is_not_rules_leaves_the_template_as_it_was() {
+        for text in ["", "hello there", "[object]\n0\nfoo.sco", "[rule]\n0\nbus\n0", "[rule]\nx\nbus\n0\n0", "[rule]\n0\nbus\n0\nnope", "[kill_rule]\n0\nbus\n0\n0\n"] {
+            let mut w = opened(Tab::Paths);
+            w.sheet.as_mut().unwrap().crossing.rule_template = vec![TemplateRule { path_index: 1, kind: "bus".into(), value: 0.0, extra: 0.0 }];
+            let before = pasted_template(&w);
+            w.seen.rule_template = before.clone();
+            let undo = w.undo.len();
+            assert!(!paste(&mut w, text), "{text:?} is not rules");
+            assert_eq!(pasted_template(&w), before, "{text:?}");
+            assert_eq!(w.undo.len(), undo, "{text:?}: there is nothing to undo");
+            assert!(!w.unsaved(), "{text:?}");
+            let (msg, bad) = w.message.clone().expect("the window says what it did");
+            assert!(bad, "{text:?}: {msg}");
+        }
+    }
+
+    /// The whole paste is one step of Undo: what was there comes back, and Ctrl+Y puts the
+    /// pasted template back. Revert drops it with everything else, and the file is only
+    /// written by Save.
+    #[test]
+    fn a_paste_is_one_step_of_undo_and_revert_drops_it() {
+        let mut w = opened(Tab::Paths);
+        let opened_with = pasted_template(&w);
+        assert!(paste(&mut w, "[rule]\n0\nbus\n0\n0\n\n[rule]\n1\nspeedlimit\n50\n0\n"));
+        let after = pasted_template(&w);
+        assert_eq!(after.len(), 2);
+        assert_eq!(w.undo.len(), 1, "the whole paste is one step");
+        assert!(w.redo.is_empty());
+        assert!(w.unsaved(), "the paste is a change to save");
+        assert!(w.undo(), "Ctrl+Z");
+        assert_eq!(pasted_template(&w), opened_with, "one step back is the template as it was");
+        assert!(!w.unsaved(), "and the window is as it was opened");
+        assert!(w.redo(), "Ctrl+Y");
+        assert_eq!(pasted_template(&w), after);
+        assert!(w.unsaved());
+        w.revert();
+        assert_eq!(pasted_template(&w), opened_with, "Revert drops the paste");
+        assert!(!w.unsaved(), "nothing to save any more");
+    }
+
     /// A signal is put where the object has a deck: with none under the point nothing is put
     /// down (a height guessed as 0 would be a signal in the ground), and the window says so.
     #[test]
@@ -7397,6 +7626,61 @@ Main
         w.save(&mut ed, &roots, &mut assets, &mut actions);
         assert!(!w.unsaved(), "{:?}", w.message);
         assert!(!crate::crossing_edit::bak_path(&copy2_abs).exists(), "InPlace on openMapper copy must not make .bak");
+
+        let _ = std::fs::remove_dir_all(roots.content);
+    }
+
+    /// 連續兩次「另存副本」之後，面板顯示的是最新那份副本自己的燈號位置與規則，
+    /// 不是來源或上一代副本的；地圖上的物件也指著最新副本。
+    /// 走真正的 `CrossingPaths::save` Copy 模式路徑（不是手造檔案），並用
+    /// `ui_edit` 面板共用的 `settings_counts`／`sco_light_program` 判斷，
+    /// 所以這兩代副本在 catalogue 還沒讀到時也看得到。
+    #[test]
+    fn two_generations_of_copies_show_the_newest_settings() {
+        let (mut w, mut ed, roots, mut assets) = saveable("two-generations");
+        // (the panels look the object's `.sco` up where the game does: content first)
+        ed.content_dir = Some(roots.content.clone());
+        ed.install_dir = Some(roots.omsi.clone());
+        let mut actions = Vec::new();
+
+        // the first copy: one signal and one rule of its own
+        {
+            let crossing = &mut w.sheet.as_mut().unwrap().crossing;
+            crossing.signals = vec![SignalPoint { light: 0, set: String::new(), x: 1.0, up: 0.0, fwd: 2.0, heading: 0.0 }];
+            crossing.rule_template = vec![TemplateRule { path_index: 0, kind: "bus".into(), value: 0.0, extra: 0.0 }];
+        }
+        w.save_mode = SaveMode::Copy;
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+        let copy1_rel = w.rel.clone();
+        assert_ne!(copy1_rel, REL, "the first save made a copy");
+        assert_eq!(crate::ui_edit::settings_counts(&ed, &copy1_rel), Some((1, 1)), "the first copy's own settings");
+
+        // the second copy, saved from the first in Copy mode: another signal and another rule
+        {
+            let crossing = &mut w.sheet.as_mut().unwrap().crossing;
+            crossing.signals.push(SignalPoint { light: 0, set: String::new(), x: -1.0, up: 0.0, fwd: -2.0, heading: 90.0 });
+            crossing.rule_template = vec![TemplateRule { path_index: 1, kind: "speedlimit".into(), value: 30.0, extra: 0.0 }];
+        }
+        w.save_mode = SaveMode::Copy;
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "{:?}", w.message);
+        let copy2_rel = w.rel.clone();
+        assert_ne!(copy2_rel, copy1_rel, "the second save made a newer copy");
+
+        // (the map's object is the newest copy, and the panel reads that object's file)
+        let file = ed.doc.as_ref().unwrap().object((0, 0), 1).unwrap().file.clone();
+        assert_eq!(file.to_lowercase(), copy2_rel.to_lowercase(), "the map points at the newest copy");
+        assert_eq!(crate::ui_edit::settings_counts(&ed, &file), Some((2, 1)), "the newest copy's settings, not the first's");
+        // (the first copy keeps its own: nothing of it was written over)
+        assert_eq!(crate::ui_edit::settings_counts(&ed, &copy1_rel), Some((1, 1)));
+
+        // (the catalogue has not read either copy yet: the panel still offers the newest one's
+        // signals, reading its `.sco` as it stands, so the button is there without a restart)
+        let lib = Library::default();
+        assert!(lib.find(&copy2_rel).is_none(), "the catalogue has not read the new copy");
+        assert!(crate::ui_edit::sco_light_program(&ed, &lib, &copy2_rel), "the newest copy runs the light program");
+        assert!(lib.find(&copy1_rel).is_none());
 
         let _ = std::fs::remove_dir_all(roots.content);
     }

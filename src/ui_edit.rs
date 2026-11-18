@@ -1219,11 +1219,30 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64,
     }
 }
 
-/// Where an object's own settings file is, when the map's content folder is known.
-fn settings_path(ed: &Editor, file: &str) -> Option<std::path::PathBuf> {
+/// The object's own `.sco`: the content folder's copy first and the installation's after it,
+/// as the game searches them. The settings beside it are found from this, so the file a panel
+/// reads is the one beside the object it shows, whichever root that object came from.
+fn sco_path(ed: &Editor, file: &str) -> Option<std::path::PathBuf> {
     let doc = ed.doc.as_ref()?;
-    let content = ed.content_dir.as_deref().or(doc.content_root.as_deref())?;
-    Some(crate::crossing_config::path_for(&omsi_cfg::resolve_path(content, file)))
+    let content = ed.content_dir.as_deref().or(doc.content_root.as_deref());
+    crate::editable::sco_path_in(content, ed.install_dir.as_deref(), file)
+}
+
+/// How many signal heads and template rules are kept beside the object's `.sco`: the one place
+/// the panels take their counts from, so what is offered for an object and what is applied to
+/// it are read from the same file.
+pub(crate) fn settings_counts(ed: &Editor, file: &str) -> Option<(usize, usize)> {
+    Some(crate::crossing_config::CrossingConfig::counts(&sco_path(ed, file)?))
+}
+
+/// Whether the object runs a traffic light program: what the catalogue read of it, or - for an
+/// object the catalogue has not seen yet, one written a moment ago - the `.sco` itself, cached
+/// by its size and time.
+pub(crate) fn sco_light_program(ed: &Editor, lib: &Library, file: &str) -> bool {
+    if let Some(a) = lib.find(&file.replace('/', "\\")) {
+        return a.light_program;
+    }
+    sco_path(ed, file).map(|abs| crate::crossing_config::sco_has_traffic_lights(&abs)).unwrap_or(false)
 }
 
 /// Whether any selected object has template rules kept beside its `.sco`.
@@ -1235,7 +1254,7 @@ fn any_template(ed: &Editor) -> bool {
             Sel::Object(k, id) => crate::selection::any_object(doc, k, id).map(|o| o.file.clone()),
             _ => None,
         })
-        .any(|file| settings_path(ed, &file).map(|abs| crate::crossing_config::CrossingConfig::counts(&abs).1 > 0).unwrap_or(false))
+        .any(|file| settings_counts(ed, &file).map(|(_, rules)| rules > 0).unwrap_or(false))
 }
 
 /// The "place the configured signal heads" of a crossing object whose `.sco` has its own
@@ -1244,12 +1263,11 @@ fn any_template(ed: &Editor) -> bool {
 pub fn crossing_signal_section(ui: &mut egui::Ui, ed: &Editor, lib: &Library, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
     let Some(o) = doc.object(k, id) else { return };
-    let light_program = lib.find(&o.file.replace('/', "\\")).map(|a| a.light_program).unwrap_or(false);
-    if !light_program {
+    if !sco_light_program(ed, lib, &o.file) {
         return;
     }
-    let Some(abs) = settings_path(ed, &o.file) else { return };
-    if crate::crossing_config::CrossingConfig::counts(&abs).0 == 0 {
+    let Some((signals, _)) = settings_counts(ed, &o.file) else { return };
+    if signals == 0 {
         return;
     }
     section(ui, tr("Traffic lights", "Светофоры"));
@@ -1268,8 +1286,7 @@ pub fn crossing_signal_section(ui: &mut egui::Ui, ed: &Editor, lib: &Library, k:
 pub fn rule_template_section(ui: &mut egui::Ui, ed: &Editor, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
     let Some(o) = doc.object(k, id) else { return };
-    let Some(abs) = settings_path(ed, &o.file) else { return };
-    let (_, rules) = crate::crossing_config::CrossingConfig::counts(&abs);
+    let Some((_, rules)) = settings_counts(ed, &o.file) else { return };
     if rules == 0 {
         return;
     }
@@ -1491,3 +1508,7 @@ mod tests {
         assert!(rules.iter().any(|r| r.kind == "no_cars" && r.path_index == 2));
     }
 }
+
+#[cfg(test)]
+#[path = "ui_edit_tests.rs"]
+mod panel_tests;

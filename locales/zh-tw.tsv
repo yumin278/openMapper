@@ -3041,3 +3041,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	儲存在物件旁的規則：
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	其 [kill_rule] 保留，其他規則由模板的規則取代，指定它沒有的路徑的規則被略過（一次復原）
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	號誌頭在路口坐標系中的位置。儲存在物件旁，不寫入 .sco
+Paste from the clipboard (replaces the whole template)	從剪貼簿貼上（取代整個模板）
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	模板的所有規則都會被清空，改由剪貼簿中的 [rule] 區塊取代：路徑、種類、數值與車輛類別原樣保留，次序也相同，與物件屬性中的「複製交通規則」放進剪貼簿的列格式一致。指定此路口沒有的路徑的規則會被略過
+Nothing was pasted: the clipboard cannot be read	未貼上任何內容：無法讀取剪貼簿
+Nothing was pasted: the clipboard does not hold [rule] blocks	未貼上任何內容：剪貼簿中沒有 [rule] 區塊
+Pasted rules:	已貼上的規則數：
+Skipped rules (this crossing has no such path):	已略過的規則數（此路口沒有該路徑）：

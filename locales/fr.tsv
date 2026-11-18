@@ -3040,3 +3040,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Règles enregistrées à côté de l'objet :
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Ses [kill_rule] restent, ses autres règles sont remplacées par celles du modèle, et les règles nommant une voie qu'il n'a pas sont écartées (un pas d'Annuler)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Où se tient une tête de feu, dans le repère du carrefour. Enregistré à côté de l'objet, pas dans le .sco
+Paste from the clipboard (replaces the whole template)	Coller depuis le presse-papiers (remplace tout le modèle)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Chaque règle du modèle est effacée, et les blocs [rule] du presse-papiers prennent sa place : les mêmes voies, genres, valeurs et classes de véhicules, dans le même ordre, dans les mêmes lignes que Copier les règles de circulation dans les propriétés de l'objet met dans le presse-papiers. Une règle qui nomme une voie que ce carrefour n'a pas est ignorée
+Nothing was pasted: the clipboard cannot be read	Rien n'a été collé : le presse-papiers est illisible
+Nothing was pasted: the clipboard does not hold [rule] blocks	Rien n'a été collé : le presse-papiers ne contient pas de blocs [rule]
+Pasted rules:	Règles collées :
+Skipped rules (this crossing has no such path):	Règles ignorées (ce carrefour n'a pas cette voie) :

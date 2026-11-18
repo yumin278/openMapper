@@ -677,6 +677,9 @@ pub struct Editor {
     /// openOMSI's content folder (junction objects are written there) and the asphalt
     /// texture of their plates.
     pub content_dir: Option<std::path::PathBuf>,
+    /// OMSI 2's installation, searched after the content folder for an object's own files
+    /// (the `.sco` and the settings beside it).
+    pub install_dir: Option<std::path::PathBuf>,
     pub asphalt: Option<std::path::PathBuf>,
     pub road_snap: Option<Anchor>,
     road_snap_file: Option<String>,
@@ -915,6 +918,7 @@ impl Default for Editor {
             keep_drawing: false,
             road_styles: Default::default(),
             content_dir: None,
+            install_dir: None,
             asphalt: None,
             road_snap: None,
             road_snap_file: None,

@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Az objektum mellett tárolt szabályok:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	A [kill_rule] szabályai megmaradnak, a többi szabálya a sablonéval helyettesítődik, és az olyan szabályok, amelyek olyan sávot neveznek meg, amelyik nincs, kimaradnak (egy visszavonási lépés)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Hol áll egy jelzőfej, a kereszteződés rendszerében. Az objektum mellett tárolódik, nem a .sco-ban
+Paste from the clipboard (replaces the whole template)	Beillesztés a vágólapról (a teljes sablont lecseréli)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	A sablon minden szabálya törlődik, és a vágólapon lévő [rule] blokkok lépnek a helyükre: ugyanazok a sávok, fajták, értékek és járműosztályok, ugyanabban a sorrendben, ugyanazokban a sorokban, amelyeket a Közlekedési szabályok másolása az objektum tulajdonságai között a vágólapra tesz. Az a szabály, amely olyan sávot nevez meg, amely ezen a kereszteződésen nincs, kimarad
+Nothing was pasted: the clipboard cannot be read	Semmi nem lett beillesztve: a vágólap nem olvasható
+Nothing was pasted: the clipboard does not hold [rule] blocks	Semmi nem lett beillesztve: a vágólapon nincsenek [rule] blokkok
+Pasted rules:	Beillesztett szabályok:
+Skipped rules (this crossing has no such path):	Kihagyott szabályok (ezen a kereszteződésen nincs ilyen sáv):

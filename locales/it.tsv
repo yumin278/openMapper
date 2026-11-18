@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Regole salvate accanto all'oggetto:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Le sue [kill_rule] restano, le altre sue regole vengono sostituite da quelle del modello e le regole che nominano una corsia che non ha vengono tralasciate (un passo di Annulla)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Dove sta una testa di semaforo, nel sistema dell'incrocio. Salvato accanto all'oggetto, non nel .sco
+Paste from the clipboard (replaces the whole template)	Incolla dagli appunti (sostituisce tutto il modello)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Ogni regola del modello viene cancellata, e i blocchi [rule] degli appunti prendono il suo posto: le stesse corsie, tipi, valori e classi di veicoli, nello stesso ordine, nelle stesse righe che Copia regole di traffico nelle proprietà dell'oggetto mette negli appunti. Una regola che nomina una corsia che questo incrocio non ha viene tralasciata
+Nothing was pasted: the clipboard cannot be read	Non è stato incollato nulla: gli appunti non sono leggibili
+Nothing was pasted: the clipboard does not hold [rule] blocks	Non è stato incollato nulla: gli appunti non contengono blocchi [rule]
+Pasted rules:	Regole incollate:
+Skipped rules (this crossing has no such path):	Regole tralasciate (questo incrocio non ha quella corsia):

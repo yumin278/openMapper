@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	객체 옆에 저장된 규칙:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule]은 그대로 남고 다른 규칙은 템플릿의 규칙으로 교체되며, 자신에게 없는 경로를 가리키는 규칙은 빠집니다(실행 취소 한 단계)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	교차로 좌표계에서 신호등 머리가 서는 곳. 객체 옆에 저장되며 .sco 안에는 들어가지 않습니다
+Paste from the clipboard (replaces the whole template)	클립보드에서 붙여넣기(템플릿 전체를 바꿉니다)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	템플릿의 모든 규칙이 지워지고 클립보드의 [rule] 블록이 그 자리를 차지합니다. 같은 경로, 종류, 값, 차량 클래스가 같은 순서로 들어가며, 개체 속성의 교통 규칙 복사가 클립보드에 넣는 줄과 같은 형식입니다. 이 교차로에 없는 경로를 가리키는 규칙은 제외됩니다
+Nothing was pasted: the clipboard cannot be read	붙여넣지 못했습니다: 클립보드를 읽을 수 없습니다
+Nothing was pasted: the clipboard does not hold [rule] blocks	붙여넣지 못했습니다: 클립보드에 [rule] 블록이 없습니다
+Pasted rules:	붙여넣은 규칙 수:
+Skipped rules (this crossing has no such path):	제외한 규칙 수(이 교차로에 없는 경로):

@@ -3040,3 +3040,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Neben dem Objekt gespeicherte Regeln:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Seine [kill_rule] bleiben, seine anderen Regeln werden durch die der Vorlage ersetzt, und Regeln, die einen Pfad nennen, den es nicht hat, entfallen (ein Schritt Rückgängig)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Wo ein Signalkopf steht, im Koordinatensystem der Kreuzung. Neben dem Objekt gespeichert, nicht in der .sco
+Paste from the clipboard (replaces the whole template)	Aus der Zwischenablage einfügen (ersetzt die ganze Regelvorlage)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Jede Regel der Vorlage wird gelöscht, und die [rule]-Blöcke aus der Zwischenablage treten an ihre Stelle: dieselben Pfade, Arten, Werte und Fahrzeugklassen, in derselben Reihenfolge, in denselben Zeilen, die Verkehrsregeln kopieren in den Eigenschaften des Objekts in die Zwischenablage legt. Eine Regel, die einen Pfad nennt, den diese Kreuzung nicht hat, wird weggelassen
+Nothing was pasted: the clipboard cannot be read	Nichts eingefügt: die Zwischenablage ist nicht lesbar
+Nothing was pasted: the clipboard does not hold [rule] blocks	Nichts eingefügt: die Zwischenablage enthält keine [rule]-Blöcke
+Pasted rules:	Eingefügte Regeln:
+Skipped rules (this crossing has no such path):	Weggelassene Regeln (diese Kreuzung hat keinen solchen Pfad):

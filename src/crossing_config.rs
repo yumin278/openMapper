@@ -30,8 +30,24 @@ use glam::DVec3;
 use serde::{Deserialize, Serialize};
 
 /// The file beside `abs`'s `.sco` that holds the crossing's settings.
+///
+/// `abs` is the object's `.sco`. This is the one place a `.sco` becomes its settings file: the
+/// readers below take the `.sco` and turn it over once, so a caller that already holds an
+/// `X.crossing.json` would have it turned over twice (`X.crossing.crossing.json`).
 pub fn path_for(abs: &Path) -> PathBuf {
     abs.with_extension("crossing.json")
+}
+
+/// The settings file [`path_for`] names, for a path a reader was given: a reader takes the
+/// object's `.sco`, never the settings file itself. A caller that passes the settings file
+/// gets a warning (so a release build says what went wrong) and, in a debug build, a failure
+/// that names the mistake where it is made.
+fn settings_of(abs: &Path) -> PathBuf {
+    if abs.file_name().map(|f| f.to_string_lossy().to_ascii_lowercase().ends_with(".crossing.json")).unwrap_or(false) {
+        log::warn!("crossing settings {}: a settings file, not the object's .sco beside it", abs.display());
+        debug_assert!(false, "readers take the object's .sco, not the settings file: {}", abs.display());
+    }
+    path_for(abs)
 }
 
 /// One signal the user put down: the light of the crossing's own program it shows, the signal
@@ -140,7 +156,7 @@ impl CrossingConfig {
     /// there is no file, or it cannot be read; both are logged, and every entry that could not
     /// be used is logged and left out.
     pub fn load(abs: &Path, paths: usize) -> Option<CrossingConfig> {
-        let path = path_for(abs);
+        let path = settings_of(abs);
         let bytes = match std::fs::read(&path) {
             Ok(b) => b,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -166,12 +182,13 @@ impl CrossingConfig {
         parse_config(&path, root, paths, true)
     }
 
-    /// Whether the settings at `abs` are exactly these signals and rules. Silent, and cheap:
-    /// the junction makers ask this while naming an object file, so two plates of one shape
-    /// share a file only when their settings are the same. A file with no settings holds none;
-    /// one that cannot be read matches nothing (its own file is left alone).
+    /// Whether the settings beside the object whose `.sco` is `abs` are exactly these signals
+    /// and rules. Silent, and cheap: the junction makers ask this while naming an object file,
+    /// so two plates of one shape share a file only when their settings are the same. A file
+    /// with no settings holds none; one that cannot be read matches nothing (its own file is
+    /// left alone).
     pub fn same(abs: &Path, paths: usize, signals: &[SignalPoint], rules: &[TemplateRule]) -> bool {
-        let path = path_for(abs);
+        let path = settings_of(abs);
         let Some(bytes) = std::fs::read(&path).ok() else {
             return signals.is_empty() && rules.is_empty();
         };
@@ -182,11 +199,12 @@ impl CrossingConfig {
         config.signals.as_slice() == signals && config.rules.as_slice() == rules
     }
 
-    /// How many signal heads and how many template rules the object's settings hold, for a
-    /// panel that asks every frame whether there is anything to offer. Silent, and cached
-    /// against the file's size and time: a file edited elsewhere is read again.
+    /// How many signal heads and how many template rules the settings beside the object whose
+    /// `.sco` is `abs` hold, for a panel that asks every frame whether there is anything to
+    /// offer. Silent, and cached against the file's size and time: a file edited elsewhere is
+    /// read again.
     pub fn counts(abs: &Path) -> (usize, usize) {
-        let path = path_for(abs);
+        let path = settings_of(abs);
         let Ok(meta) = std::fs::metadata(&path) else { return (0, 0) };
         let stamp = (meta.len(), meta.modified().ok());
         {
@@ -237,6 +255,39 @@ impl CrossingConfig {
 /// again when its size or time changes.
 fn counts_cache() -> &'static std::sync::Mutex<std::collections::HashMap<PathBuf, ((u64, Option<std::time::SystemTime>), (usize, usize))>> {
     static CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<PathBuf, ((u64, Option<std::time::SystemTime>), (usize, usize))>>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Whether the object whose `.sco` is `abs` runs a traffic light program of its own
+/// (`[traffic_light]`s): the catalogue knows this for every object it has read, but an object
+/// written a moment ago is not in it until the next scan. Read from the file then, and cached
+/// against its size and time, as [`CrossingConfig::counts`] is: a panel asks every frame.
+pub fn sco_has_traffic_lights(abs: &Path) -> bool {
+    let Ok(meta) = std::fs::metadata(abs) else { return false };
+    let stamp = (meta.len(), meta.modified().ok());
+    {
+        let cache = lights_cache().lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(hit) = cache.get(abs) {
+            if hit.0 == stamp {
+                return hit.1;
+            }
+        }
+    }
+    let lights = match omsi_scenery::SceneryObject::load(abs) {
+        Ok(sco) => !sco.traffic_lights.is_empty(),
+        Err(e) => {
+            log::warn!("crossing signals {}: {e}; read as having no light program", abs.display());
+            false
+        }
+    };
+    lights_cache().lock().unwrap_or_else(|e| e.into_inner()).insert(abs.to_path_buf(), (stamp, lights));
+    lights
+}
+
+/// The last answer [`sco_has_traffic_lights`] gave for each `.sco`, with the stamp of the file
+/// it came from.
+fn lights_cache() -> &'static std::sync::Mutex<std::collections::HashMap<PathBuf, ((u64, Option<std::time::SystemTime>), bool)>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<PathBuf, ((u64, Option<std::time::SystemTime>), bool)>>> = std::sync::OnceLock::new();
     CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
 }
 
@@ -378,9 +429,10 @@ impl PreparedConfig {
     }
 }
 
-/// Build the whole file from `cfg`, without writing anything. Every signal and template rule
-/// must be usable: a place or a number a finite one, a rule naming a path the object has.
-/// Nothing but `version` is an empty file; one that is there is then removed.
+/// Build the whole file from `cfg`, without writing anything: `abs` is the object's `.sco`, and
+/// the file is the `X.crossing.json` beside it. Every signal and template rule must be usable: a
+/// place or a number a finite one, a rule naming a path the object has. Nothing but `version` is
+/// an empty file; one that is there is then removed.
 pub fn prepare(abs: &Path, cfg: &CrossingConfig, paths: usize) -> anyhow::Result<PreparedConfig> {
     let path = path_for(abs);
     for (index, point) in cfg.signals.iter().enumerate() {
@@ -415,8 +467,8 @@ pub fn prepare(abs: &Path, cfg: &CrossingConfig, paths: usize) -> anyhow::Result
     Ok(PreparedConfig { path, bytes, remove, before, after })
 }
 
-/// Write an object's settings beside its `.sco`: atomically, and only once everything in them
-/// can be used. `paths` is how many `[path]`s the object has.
+/// Write an object's settings beside its `.sco` (`abs`), atomically, and only once everything in
+/// them can be used. `paths` is how many `[path]`s the object has.
 pub fn write(abs: &Path, cfg: &CrossingConfig, paths: usize) -> anyhow::Result<()> {
     let prepared = prepare(abs, cfg, paths)?;
     if !prepared.writes() {

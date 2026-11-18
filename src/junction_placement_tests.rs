@@ -75,6 +75,10 @@ fn drawn_junctions_place_rules_on_the_baked_bus_routes() {
     check(object, 0);
 
     let roots = crate::install::Roots { omsi: dir.join("omsi"), content: content.clone() };
+    // (the plate a drawing puts on the map is in the catalogue at once, without a rescan)
+    let mut lib = crate::library::Library::default();
+    assert!(lib.refresh_pending(&roots) > 0, "the placed plate is queued for the catalogue");
+    assert!(lib.find(&object.file).is_some(), "the plate placed on the map is in the catalogue");
     let baked = crate::cjunction::bake(&roots, &layout, &mut assets, true).unwrap();
     layout.baked = Some(baked.clone());
     let mut doc = flat_map(1);

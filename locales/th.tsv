@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	กฎที่บันทึกไว้ข้างวัตถุ:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule] ของมันคงอยู่ กฎอื่น ๆ ถูกแทนที่ด้วยของเทมเพลต และกฎที่อ้างถึงเส้นทางที่มันไม่มีจะถูกข้ามไป (หนึ่งขั้นตอนเลิกทำ)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	ตำแหน่งที่หัวสัญญาณไฟตั้งอยู่ ในระบบพิกัดของทางแยก บันทึกไว้ข้างวัตถุ ไม่ได้อยู่ใน .sco
+Paste from the clipboard (replaces the whole template)	วางจากคลิปบอร์ด (แทนเทมเพลตทั้งหมด)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	กฎทุกข้อของเทมเพลตจะถูกล้าง และบล็อก [rule] จากคลิปบอร์ดจะเข้ามาแทน: เส้นทาง ชนิด ค่า และประเภทยานพาหนะเดิม ในลำดับเดิม ในบรรทัดเดียวกับที่ คัดลอกกฎจราจร ในคุณสมบัติของวัตถุวางไว้บนคลิปบอร์ด กฎที่อ้างถึงเส้นทางที่ทางแยกนี้ไม่มีจะถูกตัดออก
+Nothing was pasted: the clipboard cannot be read	ไม่มีอะไรถูกวาง: อ่านคลิปบอร์ดไม่ได้
+Nothing was pasted: the clipboard does not hold [rule] blocks	ไม่มีอะไรถูกวาง: คลิปบอร์ดไม่มีบล็อก [rule]
+Pasted rules:	จำนวนกฎที่วาง:
+Skipped rules (this crossing has no such path):	จำนวนกฎที่ตัดออก (ทางแยกนี้ไม่มีเส้นทางนั้น):

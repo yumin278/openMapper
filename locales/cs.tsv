@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Pravidla uložená vedle objektu:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Jeho [kill_rule] zůstanou, ostatní pravidla se nahradí pravidly šablony a pravidla uvádějící cestu, kterou nemá, se vynechají (jeden krok zpět)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Kde stojí hlava semaforu, v soustavě křižovatky. Ukládá se vedle objektu, ne do .sco
+Paste from the clipboard (replaces the whole template)	Vložit ze schránky (nahradí celou šablonu)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Každé pravidlo šablony se smaže a na jeho místo nastoupí bloky [rule] ze schránky: stejné cesty, druhy, hodnoty a třídy vozidel, ve stejném pořadí, ve stejných řádcích, které Kopírovat dopravní pravidla ve vlastnostech objektu vloží do schránky. Pravidlo, které uvádí cestu, kterou tato křižovatka nemá, se vynechá
+Nothing was pasted: the clipboard cannot be read	Nic nebylo vloženo: schránku nelze přečíst
+Nothing was pasted: the clipboard does not hold [rule] blocks	Nic nebylo vloženo: schránka neobsahuje bloky [rule]
+Pasted rules:	Vložená pravidla:
+Skipped rules (this crossing has no such path):	Vynechaná pravidla (tato křižovatka takovou cestu nemá):

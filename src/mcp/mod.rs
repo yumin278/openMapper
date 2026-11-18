@@ -179,6 +179,7 @@ impl Server {
         let assets = Assets::new(roots.omsi.clone(), roots.content.clone());
         let mut ed = Editor::default();
         ed.content_dir = Some(roots.content.clone());
+        ed.install_dir = Some(roots.omsi.clone());
         ed.road_styles = crate::road_maker::Styles::load(&roots.content);
         ed.asphalt = crate::junction::asphalt_texture(&roots.omsi);
         Server { roots, cfg: None, ed, assets, lib, tt: crate::ui_timetable::TimetableUi::new(), allow_edit, warmed: false, in_batch: false }
@@ -415,6 +416,11 @@ impl Server {
             std::thread::sleep(Duration::from_millis(20));
         }
         self.lib.poll();
+        // (what the editor wrote - junctions, a bus bay's taper plates, a plate of a drawing -
+        // is read without a rescan, as the window does each frame)
+        if crate::library::has_written() {
+            self.lib.refresh_pending(&self.roots);
+        }
     }
 
     /// The models asked for are read and the editor has done what waited for them.

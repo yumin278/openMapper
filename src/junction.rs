@@ -1525,6 +1525,8 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     }
     // (the signal positions and the rule template live beside the `.sco`)
     crate::crossing_config::write(&sco_path, &config, recs.len())?;
+    // (the catalogue reads it at once: its panels work without a rescan or a restart)
+    crate::library::note_written(content, &rel);
     for (i, s) in signals.iter().enumerate() {
         log::info!(
             "junction {id} signal {i}: light={} local=({}, {}, {}) heading={} world_xy=({:.3}, {:.3})",
@@ -1813,7 +1815,10 @@ impl Plate {
         }
         crate::crossing_config::write(&sco_path, &config, self.lanes.len())?;
         crate::hot::own_change();
-        Ok(format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco"))
+        let rel = format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco");
+        // (the catalogue reads it at once: its panels work without a rescan or a restart)
+        crate::library::note_written(content, &rel);
+        Ok(rel)
     }
 }
 

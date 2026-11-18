@@ -397,6 +397,7 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
     if let Some(abs) = crate::editable::sco_path(roots, &rel) {
         crate::crossing_config::write(&abs, &crate::crossing_config::CrossingConfig::of(None, Vec::new(), template), paths)?;
     }
+    crate::library::note_written(&roots.content, &rel);
     Ok(rel)
 }
 

@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Aturan yang disimpan di samping objek:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule]-nya tetap, aturan lainnya diganti dengan milik templat, dan aturan yang menyebut lajur yang tidak dimilikinya ditinggalkan (satu langkah Urungkan)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Tempat kepala lampu berdiri, dalam kerangka persimpangan. Disimpan di samping objek, bukan di .sco
+Paste from the clipboard (replaces the whole template)	Tempel dari papan klip (mengganti seluruh templat)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Setiap aturan templat dihapus, dan blok [rule] dari papan klip menggantikannya: lajur, jenis, nilai, dan kelas kendaraan yang sama, dalam urutan yang sama, dalam baris yang sama dengan Salin aturan lalu lintas di properti objek menaruhnya di papan klip. Aturan yang menyebut lajur yang tidak dimiliki persimpangan ini dilewati
+Nothing was pasted: the clipboard cannot be read	Tidak ada yang ditempel: papan klip tidak dapat dibaca
+Nothing was pasted: the clipboard does not hold [rule] blocks	Tidak ada yang ditempel: papan klip tidak berisi blok [rule]
+Pasted rules:	Aturan ditempel:
+Skipped rules (this crossing has no such path):	Aturan dilewati (persimpangan ini tidak punya lajur itu):

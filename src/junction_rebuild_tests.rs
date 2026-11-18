@@ -32,6 +32,13 @@ fn a_manual_junction_rebuild_keeps_the_bus_bay_taper_without_unresolved_rules() 
     assert!(is_bus_bay_junction(&exit.file));
     assert!(!template_of(&content, &exit.file).is_empty(), "the bay's rules are its template");
 
+    // (the plates the pocket wrote are read into the catalogue without a rescan: their own
+    // settings are offered as soon as they are on the map)
+    let roots = crate::install::Roots { omsi: dir.join("omsi"), content: content.clone() };
+    let mut lib = crate::library::Library::default();
+    assert!(lib.refresh_pending(&roots) >= 1, "the plates the pocket wrote are queued for the catalogue");
+    assert!(tile.objects.iter().all(|o| lib.find(&o.file).is_some()), "every plate the pocket wrote is in it");
+
     let road = |name: &str, lanes_fwd, lanes_back, lane_width| crate::road_maker::RoadSpec {
         name: name.into(), lanes_fwd, lanes_back, lane_width,
         roadway_tex: dir.join("asph.png"), footway_tex: dir.join("side.png"),

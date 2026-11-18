@@ -183,3 +183,33 @@ fn a_template_rule_becomes_a_map_rule_without_a_kill_flag() {
     assert_eq!((m.path_index, m.kind.as_str(), m.value, m.extra, m.kill), (3, "no_cars", 1.5, 2.0, false));
     assert_eq!(TemplateRule::from_map_rule(&m), r);
 }
+
+/// A reader takes the object's `.sco`, never the settings file: handed `X.crossing.json` it
+/// warns (a release build says what went wrong) and, in a debug build, fails where the mistake
+/// is made instead of quietly reading `X.crossing.crossing.json`.
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "readers take the object's .sco")]
+fn counts_refuses_the_settings_file_for_the_sco() {
+    let (dir, sco) = scratch("json-path-counts");
+    write(&sco, &CrossingConfig::of(None, vec![point(0, 0.0)], Vec::new()), 2).unwrap();
+    let settings = path_for(&sco);
+    assert!(settings.is_file(), "a real settings file, as a caller could hand one in");
+    // (the check is made on the path itself: the directory can go before the call, so the
+    // panic leaves no scratch folder behind)
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = CrossingConfig::counts(&settings);
+}
+
+/// [`counts_refuses_the_settings_file_for_the_sco`] for the other reader.
+#[cfg(debug_assertions)]
+#[test]
+#[should_panic(expected = "readers take the object's .sco")]
+fn load_refuses_the_settings_file_for_the_sco() {
+    let (dir, sco) = scratch("json-path-load");
+    write(&sco, &CrossingConfig::of(None, vec![point(0, 0.0)], Vec::new()), 2).unwrap();
+    let settings = path_for(&sco);
+    assert!(settings.is_file(), "a real settings file, as a caller could hand one in");
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = CrossingConfig::load(&settings, 2);
+}

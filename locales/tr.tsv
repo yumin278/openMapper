@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Nesnenin yanında saklanan kurallar:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule] kuralları kalır, diğer kuralları şablonunkilerle değiştirilir ve sahip olmadığı bir yolu belirten kurallar dışarıda bırakılır (bir Geri al adımı)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Kavşağın koordinat sisteminde bir sinyal başlığının durduğu yer. Nesnenin yanında saklanır, .sco içinde değil
+Paste from the clipboard (replaces the whole template)	Panodan yapıştır (tüm şablonun yerine geçer)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Şablonun her kuralı silinir ve panodaki [rule] blokları onun yerine geçer: aynı yollar, türler, değerler ve araç sınıfları, aynı sırayla, nesne özelliklerindeki Trafik kurallarını kopyala öğesinin panoya koyduğu satırların aynısıyla. Bu kavşakta olmayan bir yolu belirten kural atlanır
+Nothing was pasted: the clipboard cannot be read	Hiçbir şey yapıştırılmadı: pano okunamıyor
+Nothing was pasted: the clipboard does not hold [rule] blocks	Hiçbir şey yapıştırılmadı: panoda [rule] bloğu yok
+Pasted rules:	Yapıştırılan kural:
+Skipped rules (this crossing has no such path):	Atlanan kural (bu kavşakta o yol yok):

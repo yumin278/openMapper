@@ -231,6 +231,22 @@ fn a_bus_template_rule_brings_no_cars_with_it() {
 }
 
 #[test]
+fn a_paste_puts_the_rules_in_place_of_the_whole_template_and_leaves_out_the_paths_it_lacks() {
+    let mut c = with_paths(3);
+    c.rule_template = vec![rule(0, "bus", 0.0), rule(2, "priority", 1.0)];
+    let pasted = vec![rule(-1, "bus", 0.0), rule(1, "trafficdensity", 0.5), rule(3, "no_cars", 0.0), rule(0, "speedlimit", 30.0)];
+    let dropped = c.template_replace(pasted);
+    assert_eq!(c.rule_template, vec![rule(1, "trafficdensity", 0.5), rule(0, "speedlimit", 30.0)], "the rules that were there are gone, in the order pasted");
+    assert_eq!(dropped, vec![rule(-1, "bus", 0.0), rule(3, "no_cars", 0.0)], "a negative path, and one past the last path, are returned in the order they came");
+    assert_eq!(c.template_have(&[0], "no_cars"), (0, None), "a pasted bus brings no no_cars of its own: only what the clipboard had is there");
+    // (a paste of nothing the crossing has empties it, as a paste of no rules would)
+    assert_eq!(c.template_replace(vec![rule(7, "bus", 0.0)]), vec![rule(7, "bus", 0.0)]);
+    assert!(c.rule_template.is_empty());
+    let mut empty = with_paths(0);
+    assert_eq!(empty.template_replace(vec![rule(0, "bus", 0.0)]), vec![rule(0, "bus", 0.0)], "a crossing with no paths has no rule either");
+}
+
+#[test]
 fn a_template_value_is_set_on_every_picked_path_that_has_it() {
     let mut c = with_paths(3);
     c.template_add(&[0, 1], "speedlimit", 50.0);

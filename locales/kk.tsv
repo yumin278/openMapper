@@ -3042,3 +3042,9 @@ Each selected object takes the rules kept beside its own .sco: its [kill_rule]s 
 Rules kept beside the object:	Нысанның жанында сақталған ережелер:
 Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Оның [kill_rule] қалады, басқа ережелері үлгінің ережелерімен ауыстырылады, ал өзінде жоқ жолды атайтын ережелер ескерілмейді (Болдырмаудың бір қадамы)
 Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Бағдаршам басы қиылыс жүйесінде қайда тұрады. Нысанның қасында сақталады, .sco ішінде емес
+Paste from the clipboard (replaces the whole template)	Буферден қою (бүкіл үлгіні алмастырады)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Үлгінің әр ережесі жойылады, ал буфердегі [rule] блоктары оның орнына келеді: сол жолдар, түрлер, мәндер және көлік сыныптары, сол ретпен, нысан қасиеттеріндегі Қозғалыс ережелерін көшіру буферге салатын жолдардың дәл өзіндей. Осы айқаста жоқ жолды атайтын ереже тасталып қалады
+Nothing was pasted: the clipboard cannot be read	Ештеңе қойылмады: буфер оқылмайды
+Nothing was pasted: the clipboard does not hold [rule] blocks	Ештеңе қойылмады: буферде [rule] блоктары жоқ
+Pasted rules:	Қойылған ережелер:
+Skipped rules (this crossing has no such path):	Тасталған ережелер (бұл айқаста ондай жол жоқ):
