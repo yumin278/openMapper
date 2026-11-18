@@ -3021,3 +3021,4 @@ Not pasted, the number of paths is unknown:	Niet geplakt, aantal paden onbekend:
 Rebuilding the junction replaces its rules with newly generated ones	Bij het opnieuw opbouwen van het kruispunt worden de regels vervangen door nieuw gegenereerde
 It has no traffic rules to copy	Het heeft geen verkeersregels om te kopiëren
 The clipboard has no traffic rules	Het klembord bevat geen verkeersregels
+Saved as a copy to {name}; future saves will write into this copy	Opgeslagen als kopie naar {name}; toekomstige opslagbewerkingen worden naar deze kopie geschreven

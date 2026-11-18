@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Inte inklistrade, antalet banor okä
 Rebuilding the junction replaces its rules with newly generated ones	När korsningen byggs om ersätts dess regler av nygenererade
 It has no traffic rules to copy	Det har inga trafikregler att kopiera
 The clipboard has no traffic rules	Urklipp innehåller inga trafikregler
+Saved as a copy to {name}; future saves will write into this copy	Sparad som kopia till {name}; framtida sparningar skrivs till denna kopia

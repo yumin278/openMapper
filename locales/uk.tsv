@@ -3018,3 +3018,4 @@ Not pasted, the number of paths is unknown:	Не вставлено, кільк�
 Rebuilding the junction replaces its rules with newly generated ones	Під час перебудови перехрестя його правила замінять новостворені
 It has no traffic rules to copy	У нього немає правил руху для копіювання
 The clipboard has no traffic rules	У буфері обміну немає правил руху
+Saved as a copy to {name}; future saves will write into this copy	Збережено як копію в {name}; наступні збереження записуватимуться в цю копію

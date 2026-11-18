@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Yapıştırılmadı, yol sayısı bi
 Rebuilding the junction replaces its rules with newly generated ones	Kavşak yeniden kurulunca kuralları yeni üretilenlerle değişir
 It has no traffic rules to copy	Kopyalanacak trafik kuralı yok
 The clipboard has no traffic rules	Panoda trafik kuralı yok
+Saved as a copy to {name}; future saves will write into this copy	{name} konumuna kopya olarak kaydedildi; gelecekteki kaydetmeler bu kopyaya yazılacak

@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Nevloženo, počet cest neznámý:
 Rebuilding the junction replaces its rules with newly generated ones	Přestavba křižovatky nahradí její pravidla nově vytvořenými
 It has no traffic rules to copy	Nemá žádná dopravní pravidla ke zkopírování
 The clipboard has no traffic rules	Schránka neobsahuje dopravní pravidla
+Saved as a copy to {name}; future saves will write into this copy	Uloženo jako kopie do {name}; budoucí uložení se zapíší do této kopie

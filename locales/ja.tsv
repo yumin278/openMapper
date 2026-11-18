@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	貼り付けなし（経路数が不
 Rebuilding the junction replaces its rules with newly generated ones	交差点を再構築すると、そのルールは新しく生成されたものに置き換わります
 It has no traffic rules to copy	コピーできる交通ルールがありません
 The clipboard has no traffic rules	クリップボードに交通ルールがありません
+Saved as a copy to {name}; future saves will write into this copy	{name} にコピーとして保存されました。今後の保存はこのコピーに書き込まれます

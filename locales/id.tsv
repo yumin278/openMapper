@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Tidak ditempel, jumlah jalur tidak d
 Rebuilding the junction replaces its rules with newly generated ones	Membangun ulang persimpangan mengganti aturannya dengan yang baru dibuat
 It has no traffic rules to copy	Tidak ada aturan lalu lintas untuk disalin
 The clipboard has no traffic rules	Papan klip tidak berisi aturan lalu lintas
+Saved as a copy to {name}; future saves will write into this copy	Disimpan sebagai salinan ke {name}; penyimpanan berikutnya akan ditulis ke salinan ini

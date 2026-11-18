@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	붙여넣지 않음(경로 수를 �
 Rebuilding the junction replaces its rules with newly generated ones	교차로를 다시 만들면 규칙이 새로 생성된 규칙으로 바뀝니다
 It has no traffic rules to copy	복사할 교통 규칙이 없습니다
 The clipboard has no traffic rules	클립보드에 교통 규칙이 없습니다
+Saved as a copy to {name}; future saves will write into this copy	{name}에 사본으로 저장되었습니다. 이후 저장은 이 사본에 기록됩니다

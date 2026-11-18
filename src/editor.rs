@@ -10265,6 +10265,13 @@ impl Editor {
         doc.object_mut(k, id).unwrap().file = file.clone();
         doc.tiles.get_mut(&k).unwrap().touch_content();
         self.history.commit();
+        self.clear_junction_state(id);
+        Ok(file)
+    }
+
+    /// Clear all auto-junction state (options, pending arms/rebuilds, road plates) for a junction ID
+    /// when it has been converted to an independent object.
+    pub fn clear_junction_state(&mut self, id: i64) {
         self.junction_options.remove(&id);
         self.pending_options.remove(&id);
         self.pending_arms.remove(&id);
@@ -10274,7 +10281,6 @@ impl Editor {
                 *plate = None;
             }
         }
-        Ok(file)
     }
 
     /// Place a crossing's hand-authored signal heads and poles (the map's

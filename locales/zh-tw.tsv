@@ -3019,3 +3019,4 @@ Not pasted, the number of paths is unknown:	未貼上，路徑數目不明：
 Rebuilding the junction replaces its rules with newly generated ones	重建路口後，其規則會被重新產生的規則取代
 It has no traffic rules to copy	它沒有可複製的交通規則
 The clipboard has no traffic rules	剪貼簿中沒有交通規則
+Saved as a copy to {name}; future saves will write into this copy	已另存為 {name}，之後的儲存會寫入這個副本

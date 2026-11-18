@@ -3020,3 +3020,4 @@ Not pasted, the number of paths is unknown:	Não coladas, número de caminhos de
 Rebuilding the junction replaces its rules with newly generated ones	Ao reconstruir o cruzamento, as suas regras são substituídas pelas recém-geradas
 It has no traffic rules to copy	Não tem regras de trânsito para copiar
 The clipboard has no traffic rules	A área de transferência não tem regras de trânsito
+Saved as a copy to {name}; future saves will write into this copy	Guardado como cópia em {name}; as gravações futuras serão escritas nesta cópia
