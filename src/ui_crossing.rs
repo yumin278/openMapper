@@ -1893,7 +1893,7 @@ enum Tab {
 
 /// How Save writes the crossing: into the object's own `.sco` (keeping the old one as a
 /// `.bak` beside it), or into a copy of the object the editor makes of its own.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum SaveMode {
     InPlace,
     Copy,

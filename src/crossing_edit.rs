@@ -1187,6 +1187,11 @@ fn random_suffix_6() -> String {
     std::str::from_utf8(&chars).unwrap_or("000000").to_string()
 }
 
+/// The sidecar file beside a `.sco` where the crossing editor notes its source (`X.crossing.json`).
+pub fn sidecar(abs: &std::path::Path) -> std::path::PathBuf {
+    abs.with_extension("crossing.json")
+}
+
 /// Where a new crossing copy goes: {stem}_{6-char random alphanumeric}.
 /// Only strip copy suffixes (_[a-z0-9]{6} or _[0-9]{3}) if source has a .crossing.json beside it.
 /// If source is an own auto junction, replace junction_ with Junction- in the stem.
