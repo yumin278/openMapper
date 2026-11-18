@@ -7354,7 +7354,7 @@ Main
         w.save(&mut ed, &roots, &mut assets, &mut actions);
         assert!(!w.unsaved(), "{:?}", w.message);
 
-        let y_rel = w.rel.clone();
+        let _y_rel = w.rel.clone();
         let y_abs = w.abs.clone();
         let source_abs = omsi_cfg::resolve_path(&roots.content, REL);
         let source_dir = source_abs.parent().unwrap().to_path_buf();
@@ -7426,7 +7426,7 @@ Main
         ed.junction_options.insert(id, Default::default());
         ed.pending_options.insert(id, Default::default());
         ed.pending_rebuild.push(id);
-        ed.road_plate_start = Some((id, glam::Vec3::ZERO, 0.0));
+        ed.road_plate_start = Some((id, glam::DVec3::ZERO, 0.0));
 
         let mut w = CrossingPaths { open: true, ..Default::default() };
         assert!(w.open_on(&mut ed, &roots, k, id));
