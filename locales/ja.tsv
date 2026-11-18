@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	この停留
 Click a stop on the map to insert it before {stop} (Esc to cancel)	マップ上の停留所をクリックして「{stop}」の前に挿入（Esc でキャンセル）
 That stop is already next to the insertion point.	この停留所はすでに挿入位置の隣にあります。
 Insert stop before	この停留所の前に挿入
-Place signal heads and poles	信号灯器と支柱を設置
 Paint stripes on selected crossings	選択した横断歩道に白線を描画
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	ソース頂点が選択されました。スナップする対象の頂点をクリックします (Shift: 水平のみ、Esc: キャンセル)
 Aim at a vertex of the selected object	選択したオブジェクトの頂点を狙う
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	この交差点には信号位置が設定されていません
 Place signals	信号を配置
 Signal positions	信号位置
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	交差点の座標系で信号ヘッドが立つ位置。オブジェクトではなくマップの隣に保存されます
 set id	セット id
 The signal set to use (empty: the map's default)	使用する信号セット（空：マップの既定）
 A signal	信号
@@ -3021,3 +3019,26 @@ Rebuilding the junction replaces its rules with newly generated ones	交差点�
 It has no traffic rules to copy	コピーできる交通ルールがありません
 The clipboard has no traffic rules	クリップボードに交通ルールがありません
 Saved as a copy to {name}; future saves will write into this copy	{name} にコピーとして保存されました。今後の保存はこのコピーに書き込まれます
+In multiplayer the host edits the map. Leave the session to change the rules.	マルチプレイではホストがマップを編集します。ルールを変えるにはセッションを退出してください。
+a rule's number is not a finite one	ルールの数値が有限ではありません
+a template rule names a path this crossing does not have	テンプレートのルールが、この交差点にない経路を指定しています
+a template rule names no kind	テンプレートのルールが種類を指定していません
+Select one or more objects to apply their rule template	ルールテンプレートを適用するオブジェクトを1つ以上選択してください
+No selected object has a rule template	選択したオブジェクトにルールテンプレートがありません
+Skipped:	スキップ：
+Apply rule template	ルールテンプレートを適用
+Rule template applied to:	ルールテンプレートの適用先：
+Skipped, no rule template:	スキップ（ルールテンプレートなし）：
+configured signal position(s) none of which can be used; nothing was changed	設定された信号灯器の位置のいずれも使用できません。何も変更されていません
+Rule template	ルールテンプレート
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	この交差点のテンプレートを適用したとき、選んだ経路がマップオブジェクトに与える交通ルールです。AI とプレイヤー用に 0 から数えます。オブジェクトの隣に保存され、.sco には入りません
+Pick a path first	先に経路を選んでください
+all, mixed values	すべて、値が異なる
+all	すべて
+mixed	混在
+Take it off the picked paths	選んだ経路から外す
+Give it to every picked path that lacks it	持っていない選んだ経路すべてに与える
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	選択した各オブジェクトは、自分の .sco の隣に保存されたルールを引き継ぎます。その [kill_rule] は残り、ほかのルールは置き換えられ、持っていない経路を指定するルールは除外されます（元に戻す1回分）
+Rules kept beside the object:	オブジェクトの隣に保存されたルール：
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	その [kill_rule] は残り、ほかのルールはテンプレートのものに置き換えられ、持っていない経路を指定するルールは除外されます（元に戻す1回分）
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	信号灯器の位置（交差点の座標系）。.sco ではなくオブジェクトの隣に保存されます

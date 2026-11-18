@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Insereix aba
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Trieu al mapa una parada per inserir-la abans de «{stop}» (Esc per cancel·lar)
 That stop is already next to the insertion point.	Aquesta parada ja és al costat del punt d’inserció.
 Insert stop before	Insereix una parada abans
-Place signal heads and poles	Col·loca els caps i els pals dels semàfors
 Paint stripes on selected crossings	Pinta les franges als passos seleccionats
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Vèrtex font escollit. Feu clic a un vèrtex objectiu per ajustar-lo (Maj: només horitzontal, Esc: cancel·la)
 Aim at a vertex of the selected object	Apunta a un vèrtex de l'objecte seleccionat
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	E
 no signal positions are configured for this crossing	no s'ha configurat cap posició de semàfor per a aquest encreuament
 Place signals	Col·loca els semàfors
 Signal positions	Posicions dels semàfors
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	On hi ha un cap de semàfor, en el marc de l'encreuament. Es guarda al costat del mapa, no a l'objecte
 set id	id del conjunt
 The signal set to use (empty: the map's default)	El conjunt de semàfors (buit: el predeterminat del mapa)
 A signal	Un semàfor
@@ -3021,3 +3019,26 @@ Rebuilding the junction replaces its rules with newly generated ones	En reconstr
 It has no traffic rules to copy	No té regles de trànsit per copiar
 The clipboard has no traffic rules	El porta-retalls no conté regles de trànsit
 Saved as a copy to {name}; future saves will write into this copy	S'ha desat com a còpia a {name}; els propers desaments s'escriuran en aquesta còpia
+In multiplayer the host edits the map. Leave the session to change the rules.	En edició compartida, l'amfitrió edita el mapa. Surt de la sessió per canviar les regles.
+a rule's number is not a finite one	el número d'una regla no és finit
+a template rule names a path this crossing does not have	una regla de la plantilla anomena un camí que aquesta cruïlla no té
+a template rule names no kind	una regla de la plantilla no anomena cap tipus
+Select one or more objects to apply their rule template	Selecciona un o més objectes per aplicar la seva plantilla de regles
+No selected object has a rule template	Cap objecte seleccionat no té plantilla de regles
+Skipped:	Omesos:
+Apply rule template	Aplica la plantilla de regles
+Rule template applied to:	Plantilla de regles aplicada a:
+Skipped, no rule template:	Omesos, sense plantilla de regles:
+configured signal position(s) none of which can be used; nothing was changed	posicions de semàfor configurades, cap de les quals es pot fer servir; no s'ha canviat res
+Rule template	Plantilla de regles
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Les regles de trànsit que els camins triats donen a un objecte del mapa quan s'aplica la plantilla d'aquesta cruïlla. Per a la IA i el jugador, comptant des de 0. Es desen al costat de l'objecte, no dins del .sco
+Pick a path first	Tria primer un camí
+all, mixed values	tots, valors diferents
+all	tots
+mixed	mixt
+Take it off the picked paths	Treu-ho dels camins triats
+Give it to every picked path that lacks it	Dona-ho a cada camí triat que no ho tingui
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Cada objecte seleccionat pren les regles desades al costat del seu propi .sco: les seves [kill_rule] es queden, la resta de regles se substitueixen i les regles que anomenen un camí que no té s'ometen (un pas de Desfés)
+Rules kept beside the object:	Regles desades al costat de l'objecte:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Les seves [kill_rule] es queden, la resta de regles se substitueixen per les de la plantilla i les regles que anomenen un camí que no té s'ometen (un pas de Desfés)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	On hi ha un cap de semàfor, en el marc de l'encreuament. Es guarda al costat de l'objecte, no dins del .sco

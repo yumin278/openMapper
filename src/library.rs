@@ -220,7 +220,7 @@ impl Library {
 
     /// Refresh one saved crossing without rescanning or reordering the catalogue.
     pub(crate) fn refresh_crossing(&mut self, roots: &Roots, rel: &str) {
-        let rel = crate::crossing_signals::key(rel);
+        let rel = rel.replace('/', "\\").to_lowercase();
         let Some((root, path, from_content)) = [(&roots.content, true), (&roots.omsi, false)]
             .into_iter()
             .map(|(root, own)| (root, omsi_cfg::resolve_path(root, &rel), own))

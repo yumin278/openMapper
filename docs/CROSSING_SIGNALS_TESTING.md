@@ -1,70 +1,82 @@
-# Manual crossing signal positions
+# Crossing settings: signal positions and rule templates
 
-This feature uses only positions entered by the user. It does not derive positions from
-road arms, lane widths, driving side or kerbs. The automatic junction generation path
-remains separate.
+A crossing object keeps its own settings beside its `.sco`, in `<stem>.crossing.json`. They
+are written by the crossing editor and read where they are needed; nothing is derived from
+road arms, lane widths, driving side or kerbs, and the automatic junction path never reads
+them to place anything by itself.
 
-## Configuration
-
-The active map stores positions in `openMapper/crossing_signals.json`:
+## The file
 
 ```json
 {
   "version": 1,
-  "crossings": {
-    "sceneryobjects\\example\\crossing.sco": [
-      {"light": 0, "set": "", "x": 3.0, "up": 0.4, "fwd": -2.0, "heading": 123.7}
-    ]
-  }
+  "copy": { "from": "Sceneryobjects\\...\\Kreuzung.sco" },
+  "signals": [
+    { "light": 0, "set": "", "x": 3.0, "up": 0.4, "fwd": -2.0, "heading": 123.7 }
+  ],
+  "rule_template": [
+    { "path_index": 0, "kind": "bus", "value": 0, "extra": 0 }
+  ]
 }
 ```
 
-Coordinates are local to the crossing: x right, fwd forward, up above its origin.
-`light` is a zero-based index into its traffic-light program. An empty `set` uses the
-map's signal-set default. The map-level file applies to all instances of that `.sco`;
-it is not per map-object ID.
+- `copy` is there only when the crossing editor made the object a copy; its `from` is the
+  file it was copied from. That is what makes later saves write in place, `.bak` and all.
+- `signals` are the hand-placed signal heads: `light` is a zero-based index into the
+  crossing's own traffic-light program, `set` an empty string for the map's default signal
+  set, and `x`/`fwd`/`up` are in the crossing's frame (x right, fwd forward, up above its
+  origin); `heading` is relative to the object's own heading.
+- `rule_template` is the traffic rules a map object takes when the template is applied. It
+  never holds a `[kill_rule]`.
+- `signals`, `rule_template` and `copy` are left out when they say nothing; a file with
+  nothing but `version` is not written, and one that is there is removed.
 
-Placement follows the configured yaw-only transform: local x/fwd rotate by the map
-object's heading; up is added to its origin world z, independently of terrain under each
-lamp. It does not infer pitch/bank compensation or road-edge placement.
+A file whose `version` is not the integer 1, or that is not JSON this version reads, is left
+alone rather than written over. Keys this version does not know are kept. Old copies made
+before the signals moved here hold only `{"from": "..."}`; that is read as `copy`.
+
+## Where it is used
+
+- **Crossing editor, Paths page.** `Signal positions` (below `Spline helpers`) and
+  `Rule template` (below it). The template is set on every picked path at once - Ctrl+click
+  picks more than one - and `bus` brings `no_cars` with it.
+- **Object panel.** `Place signals as configured` for a crossing with a light program and
+  positions in its settings; `Apply rule template` for an object whose settings hold rules.
+- **Automatic junctions.** A junction writes the signal positions its arms need into the
+  settings beside the plate (no head is put on the map), and a bus bay junction writes the
+  bus-only rules of its own lanes there too.
 
 ## Windows acceptance checklist
 
-These checks require the actual application. Automated or headless test success alone
-does not mean they have been performed.
+These checks require the actual application. Automated or headless test success alone does
+not mean they have been performed.
 
-1. Open an original crossing with its own traffic-light program in the crossing editor.
-   On the Paths page expand **Signal positions**, below **Spline helpers**.
-2. Add a point using **A signal** and one using **At the picked end**. Confirm the latter
-   takes the path's end position and heading, and both sample the local model surface
-   for their initial up value. No point should appear without a user action.
-3. Edit light, set ID, x/f/h and heading. Check unnamed light programs show `(no name)`.
-   Verify the coloured circles, four-metre heading lines and light labels in 2D. Frame
-   the view after moving a point well outside the original crossing.
-4. Change only a signal position, Save, close and reopen. Confirm the JSON contains the
-   change even when the `.sco` text itself did not change. Confirm a second crossing's
-   entry is unchanged.
-5. Exercise Undo/Redo, Revert and the unsaved-close dialog on position-only edits.
-6. Save as a new object file. Confirm positions are stored under the new `.sco` key and
-   the source entry is preserved.
-7. Select a crossing instance on the map and use the independent **Place signals as
-   configured** section. Verify this works with original and persisted crossings, not
-   only openMapper-generated `junction_` objects.
-8. Repeat placement. Confirm there is only one configured set of heads/poles, and Undo
-   restores the previous children as one operation. Placement replaces all records
-   whose `var_parent` is this crossing, not only recognised lamp models.
-9. Repeat at a non-right-angle rotation and on steep terrain, for both absolute-height
-   and terrain-relative crossings. The head world height must be crossing origin world
-   height + configured up + signal-set head height, within 1 cm. Test signal heads and
-   poles with different height modes as well.
-10. Save the map and reopen it. Confirm signal extra values and `var_parent` links remain.
-    Check the log for local/world coordinates, height modes and accurate placement/skip
-    counts.
-11. Generate an ordinary automatic junction with physical signals enabled. Confirm its
-    original signal placement is unchanged; no table or manual points are required.
-12. Try a malformed configuration and an unwritable destination. Confirm diagnostics
-    identify the file and cause, no unrelated configuration is replaced, and failed
-    saves do not report success or clear unsaved state.
+1. Open a crossing with its own traffic-light program in the crossing editor. On the Paths
+   page expand **Signal positions** and **Rule template**.
+2. Pick three paths (Ctrl+click), add **Buses only** in the template. Confirm six rows
+   appear (three paths, `bus` and `no_cars`), then remove it and confirm all six go.
+3. Pick one of the three and remove it: the row reads `some 2/3`. Add it again: `all`.
+4. Move a path up and down, insert and delete one. Confirm the template follows the paths,
+   and a deleted path's rules are gone.
+5. Save. Confirm `<stem>.crossing.json` holds the template, the object's `.sco` is written
+   as before, and a second crossing's settings are untouched.
+6. With two objects of different `.sco`s selected, press **Apply rule template**. Confirm
+   each gets its own template, its `[kill_rule]`s stay, other rules are replaced, and one
+   Undo puts both back.
+7. **Save as a copy** and confirm the new object's settings name the source in `copy.from`,
+   hold the same signals and template, and the source's file and settings are unchanged.
+8. Edit an old copy made before this change (only `{"from": ...}`): it is still a copy, and
+   the next save writes the current form.
+9. Open an automatic junction with traffic lights. Confirm it puts no signal head on the map
+   and its settings hold one position per lit arm. Press **Place signals as configured** and
+   confirm each head stands where the old generator put it (within 1 cm).
+10. Rebuild that junction and confirm the settings are replaced with the new positions;
+    delete the junction files and confirm its settings go with them.
+11. Make a bus bay. Confirm the taper junctions keep no rules of their own, their settings
+    hold `bus` and `no_cars` for the bay's lanes, and the road's own rules moved past the
+    inserted lanes without gaining any.
+12. Put an invalid entry in a settings file, and make the file unwritable in turn: confirm
+    the log names the file and the reason, unrelated files are untouched, and a failed save
+    reports failure and stays unsaved.
 
-Release builds and full test suites run on GitHub Actions only. Before pushing, run the
-permitted local debug check, filtered tests and translation check.
+Release builds and the full test suites run on GitHub Actions only.

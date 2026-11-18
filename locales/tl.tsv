@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Isingit bago
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Pumili ng hintuan sa mapa para isingit bago sa “{stop}” (Esc para kanselahin)
 That stop is already next to the insertion point.	Katabi na ng pagsisingitan ang hintuang iyon.
 Insert stop before	Isingit ang hintuan bago rito
-Place signal heads and poles	Maglagay ng mga ulo at poste ng ilaw-trapiko
 Paint stripes on selected crossings	Gumuhit ng mga guhit sa mga napiling tawiran
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Pinili ang source vertex. I-click ang isang target na vertex para i-snap (Shift: pahalang lang, Esc: kanselahin)
 Aim at a vertex of the selected object	Layunin ang isang vertex ng napiling bagay
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	S
 no signal positions are configured for this crossing	walang naka-configure na posisyon ng ilaw-trapiko para sa sangandaan na ito
 Place signals	Ilagay ang mga ilaw-trapiko
 Signal positions	Mga posisyon ng ilaw-trapiko
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Kung saan nakatayo ang ulo ng ilaw-trapiko, sa sistema ng sangandaan. Nai-save sa tabi ng mapa, hindi sa bagay
 set id	id ng set
 The signal set to use (empty: the map's default)	Ang set ng ilaw-trapiko na gagamitin (walang laman: default ng mapa)
 A signal	Isang ilaw-trapiko
@@ -3021,3 +3019,26 @@ Rebuilding the junction replaces its rules with newly generated ones	Kapag mulin
 It has no traffic rules to copy	Walang patakaran sa trapiko na makokopya
 The clipboard has no traffic rules	Walang patakaran sa trapiko sa clipboard
 Saved as a copy to {name}; future saves will write into this copy	Nai-save bilang kopya sa {name}; ang mga susunod na pag-save ay isusulat sa kopyang ito
+In multiplayer the host edits the map. Leave the session to change the rules.	Sa pinagsamang pag-edit, ang host ang nag-e-edit ng mapa. Lumabas sa session para baguhin ang mga patakaran.
+a rule's number is not a finite one	ang numero ng isang patakaran ay hindi may hangganan
+a template rule names a path this crossing does not have	may patakaran ng template na tumutukoy sa landas na wala sa sangandaang ito
+a template rule names no kind	may patakaran ng template na hindi tumutukoy ng uri
+Select one or more objects to apply their rule template	Pumili ng isa o higit pang object para ilapat ang template ng patakaran nila
+No selected object has a rule template	Walang piniling object na may template ng patakaran
+Skipped:	Nilaktawan:
+Apply rule template	Ilapat ang template ng patakaran
+Rule template applied to:	Nailapat ang template ng patakaran sa:
+Skipped, no rule template:	Nilaktawan, walang template ng patakaran:
+configured signal position(s) none of which can be used; nothing was changed	naka-configure na posisyon ng senyas na wala ni isa na magagamit; walang nabago
+Rule template	Template ng patakaran
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Ang mga patakaran sa trapiko na ibinibigay ng mga piniling landas sa isang object ng mapa kapag inilapat ang template ng sangandaang ito. Para sa AI at sa player, binibilang mula 0. Naka-save sa tabi ng object, hindi sa .sco
+Pick a path first	Pumili muna ng landas
+all, mixed values	lahat, magkaibang halaga
+all	lahat
+mixed	halo
+Take it off the picked paths	Alisin ito sa mga piniling landas
+Give it to every picked path that lacks it	Ibigay ito sa bawat piniling landas na wala nito
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Kinukuha ng bawat piniling object ang mga patakarang naka-save sa tabi ng sarili nitong .sco: nananatili ang [kill_rule] nito, pinapalitan ang iba pang patakaran, at ang mga patakarang tumutukoy sa landas na wala ito ay nilalaktawan (isang hakbang ng I-undo)
+Rules kept beside the object:	Mga patakarang naka-save sa tabi ng object:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Nananatili ang [kill_rule] nito, pinapalitan ang iba pang patakaran ng sa template, at ang mga patakarang tumutukoy sa landas na wala ito ay nilalaktawan (isang hakbang ng I-undo)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Kung saan nakatayo ang ulo ng ilaw-trapiko, sa sistema ng sangandaan. Naka-save sa tabi ng object, hindi sa .sco

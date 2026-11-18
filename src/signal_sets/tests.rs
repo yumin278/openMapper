@@ -112,10 +112,13 @@ fn junction_signal_sets_old_sco_uses_the_open_maps_default() {
     let second = roots.content.join("maps").join("second");
     write_config(&first, &config("first", &[fixture("first")]));
     write_config(&second, &config("second", &[fixture("second")]));
-    let old = "openMapper junction: lights=1 main=30 side=20 crossings= helpers=omsi";
+    // (the signal set an older junction named in its `.sco` is read past: the settings beside
+    // the object choose one, and an empty one is the map's default)
+    let old = "openMapper junction: lights=1 heads=1 sig=missing main=30 side=20 crossings= helpers=omsi";
     let opts = crate::junction::Options::parse(old);
     println!("Old SCO:\n{old}\nParsed: {opts:?}");
-    assert!(opts.signal_set.is_empty());
+    assert!(opts.lights);
+    let set = String::new();
 
     let mut ed = crate::editor::Editor::default();
     ed.content_dir = Some(roots.content.clone());
@@ -124,17 +127,14 @@ fn junction_signal_sets_old_sco_uses_the_open_maps_default() {
         doc.dir = dir.clone();
         ed.open(doc);
         let sets = &ed.doc.as_ref().unwrap().signal_sets;
-        assert_eq!(report(sets, &opts.signal_set), expected);
+        assert_eq!(report(sets, &set), expected);
         assert_eq!(report(sets, "first"), expected);
     }
     // Reopening the map replaces the current configuration even when its file was removed.
     std::fs::remove_file(config_path(&second)).unwrap();
     let doc = ed.doc.take().unwrap();
     ed.open(doc);
-    assert_eq!(
-        report(&ed.doc.as_ref().unwrap().signal_sets, &opts.signal_set),
-        "mc_small"
-    );
+    assert_eq!(report(&ed.doc.as_ref().unwrap().signal_sets, &set), "mc_small");
     let _ = std::fs::remove_dir_all(&roots.content);
 }
 

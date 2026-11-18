@@ -2811,7 +2811,6 @@ Insert before: click a stop on the map to insert it before this one	Insérer ava
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Choisissez un arrêt sur la carte pour l’insérer avant « {stop} » (Échap pour annuler)
 That stop is already next to the insertion point.	Cet arrêt est déjà à côté du point d’insertion.
 Insert stop before	Insérer un arrêt avant celui-ci
-Place signal heads and poles	Placer les têtes et les mâts des feux
 Paint stripes on selected crossings	Peindre les bandes sur les passages sélectionnés
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Sommet source choisi. Cliquez sur un sommet cible à capturer (Maj : horizontal uniquement, Échap : annuler)
 Aim at a vertex of the selected object	Viser un sommet de l'objet sélectionné
@@ -2992,7 +2991,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	E
 no signal positions are configured for this crossing	aucune position de feu n'est configurée pour ce carrefour
 Place signals	Placer les feux
 Signal positions	Positions des feux
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Où se tient une tête de feu, dans le repère du carrefour. Enregistré à côté de la carte, pas dans l'objet
 set id	id du jeu
 The signal set to use (empty: the map's default)	Le jeu de feux à utiliser (vide : défaut de la carte)
 A signal	Un feu
@@ -3019,3 +3017,26 @@ Rebuilding the junction replaces its rules with newly generated ones	La reconstr
 It has no traffic rules to copy	Il n'a aucune règle de circulation à copier
 The clipboard has no traffic rules	Le presse-papiers ne contient aucune règle de circulation
 Saved as a copy to {name}; future saves will write into this copy	Enregistré sous forme de copie dans {name} ; les futurs enregistrements seront écrits dans cette copie
+In multiplayer the host edits the map. Leave the session to change the rules.	En édition partagée, c'est l'hôte qui modifie la carte. Quittez la session pour changer les règles.
+a rule's number is not a finite one	le numéro d'une règle n'est pas fini
+a template rule names a path this crossing does not have	une règle du modèle nomme une voie que ce carrefour n'a pas
+a template rule names no kind	une règle du modèle ne nomme aucun type
+Select one or more objects to apply their rule template	Sélectionnez un ou plusieurs objets pour appliquer leur modèle de règles
+No selected object has a rule template	Aucun objet sélectionné n'a de modèle de règles
+Skipped:	Ignorés :
+Apply rule template	Appliquer le modèle de règles
+Rule template applied to:	Modèle de règles appliqué à :
+Skipped, no rule template:	Ignorés, pas de modèle de règles :
+configured signal position(s) none of which can be used; nothing was changed	positions de feu configurées dont aucune ne peut servir ; rien n'a été modifié
+Rule template	Modèle de règles
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Les règles de circulation que les voies choisies donnent à un objet de la carte quand le modèle de ce carrefour est appliqué. Pour l'IA et le joueur, numérotées depuis 0. Enregistrées à côté de l'objet, pas dans le .sco
+Pick a path first	Choisissez d'abord une voie
+all, mixed values	toutes, valeurs différentes
+all	toutes
+mixed	mixte
+Take it off the picked paths	L'enlever des voies choisies
+Give it to every picked path that lacks it	Le donner à chaque voie choisie qui ne l'a pas
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Chaque objet sélectionné reprend les règles enregistrées à côté de son propre .sco : ses [kill_rule] restent, ses autres règles sont remplacées, et les règles nommant une voie qu'il n'a pas sont écartées (un pas d'Annuler)
+Rules kept beside the object:	Règles enregistrées à côté de l'objet :
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Ses [kill_rule] restent, ses autres règles sont remplacées par celles du modèle, et les règles nommant une voie qu'il n'a pas sont écartées (un pas d'Annuler)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Où se tient une tête de feu, dans le repère du carrefour. Enregistré à côté de l'objet, pas dans le .sco

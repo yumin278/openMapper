@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Insertar ant
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Elige una parada en el mapa para insertarla antes de «{stop}» (Esc para cancelar)
 That stop is already next to the insertion point.	Esa parada ya está junto al punto de inserción.
 Insert stop before	Insertar una parada antes
-Place signal heads and poles	Colocar cabezales y postes de semáforo
 Paint stripes on selected crossings	Pintar franjas en los pasos seleccionados
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Vértice de origen elegido. Haga clic en un vértice de destino para ajustar (Shift: solo horizontal, Esc: cancelar)
 Aim at a vertex of the selected object	Apunta a un vértice del objeto seleccionado.
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	E
 no signal positions are configured for this crossing	no hay posiciones de semáforo configuradas para este cruce
 Place signals	Colocar semáforos
 Signal positions	Posiciones de los semáforos
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Dónde está un cabezal de semáforo, en el marco del cruce. Se guarda junto al mapa, no en el objeto
 set id	id del conjunto
 The signal set to use (empty: the map's default)	El conjunto de semáforos a usar (vacío: el predeterminado del mapa)
 A signal	Un semáforo
@@ -3021,3 +3019,26 @@ Rebuilding the junction replaces its rules with newly generated ones	Al reconstr
 It has no traffic rules to copy	No tiene reglas de tráfico que copiar
 The clipboard has no traffic rules	El portapapeles no contiene reglas de tráfico
 Saved as a copy to {name}; future saves will write into this copy	Guardado como copia en {name}; los próximos guardados se escribirán en esta copia
+In multiplayer the host edits the map. Leave the session to change the rules.	En edición compartida, el anfitrión edita el mapa. Sal de la sesión para cambiar las reglas.
+a rule's number is not a finite one	el número de una regla no es finito
+a template rule names a path this crossing does not have	una regla de la plantilla nombra un carril que este cruce no tiene
+a template rule names no kind	una regla de la plantilla no nombra ningún tipo
+Select one or more objects to apply their rule template	Selecciona uno o varios objetos para aplicar su plantilla de reglas
+No selected object has a rule template	Ningún objeto seleccionado tiene plantilla de reglas
+Skipped:	Omitidos:
+Apply rule template	Aplicar plantilla de reglas
+Rule template applied to:	Plantilla de reglas aplicada a:
+Skipped, no rule template:	Omitidos, sin plantilla de reglas:
+configured signal position(s) none of which can be used; nothing was changed	posiciones de semáforo configuradas, ninguna de las cuales se puede usar; no se cambió nada
+Rule template	Plantilla de reglas
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Las reglas de tráfico que los carriles elegidos dan a un objeto del mapa al aplicar la plantilla de este cruce. Para la IA y el jugador, contando desde 0. Se guardan junto al objeto, no en el .sco
+Pick a path first	Elige primero un carril
+all, mixed values	todos, valores distintos
+all	todos
+mixed	mixto
+Take it off the picked paths	Quitarlo de los carriles elegidos
+Give it to every picked path that lacks it	Dárselo a cada carril elegido que no lo tenga
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Cada objeto seleccionado toma las reglas guardadas junto a su propio .sco: sus [kill_rule] se quedan, sus demás reglas se sustituyen y las reglas que nombran un carril que no tiene se omiten (un paso de Deshacer)
+Rules kept beside the object:	Reglas guardadas junto al objeto:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Sus [kill_rule] se quedan, sus demás reglas se sustituyen por las de la plantilla y las reglas que nombran un carril que no tiene se omiten (un paso de Deshacer)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Dónde está un cabezal de semáforo, en el marco del cruce. Se guarda junto al objeto, no en el .sco

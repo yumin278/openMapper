@@ -383,13 +383,20 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
     src.extra = extra_lines(&cut, &|f| models.get(&f.to_lowercase()).cloned());
     let preceding_paths = src.extra.lines().filter(|line| line.trim() == "[path]").count();
     let indices: Vec<_> = plate_bus_paths.into_iter().map(|i| i + preceding_paths).collect();
-    src.extra.push_str(&crate::junction::bus_path_metadata(&indices));
+    // (the plate's own lanes are the bus bay's: buses only, and no cars. That is a rule of the
+    // object that goes on the map, so it is kept beside this one as its template rather than
+    // written into the `.sco` or into a comment line)
+    let template = crate::crossing_config::bus_template_rules(&indices);
     src.extra.push_str(&plate_paths);
     for (name, path) in &textures {
         let _ = name;
         crate::junction::copy_texture(path, &dir.join("texture"));
     }
     crate::editable::save(roots, &rel, &src)?;
+    let paths = preceding_paths + plate_path_count;
+    if let Some(abs) = crate::editable::sco_path(roots, &rel) {
+        crate::crossing_config::write(&abs, &crate::crossing_config::CrossingConfig::of(None, Vec::new(), template), paths)?;
+    }
     Ok(rel)
 }
 

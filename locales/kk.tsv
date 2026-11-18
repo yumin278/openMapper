@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Алдына
 Click a stop on the map to insert it before {stop} (Esc to cancel)	«{stop}» алдына кірістіру үшін картадан аялдама таңдаңыз (Esc — бас тарту)
 That stop is already next to the insertion point.	Бұл аялдама кірістіру орнына іргелес тұр.
 Insert stop before	Аялдаманы алдына кірістіру
-Place signal heads and poles	Бағдаршамдар мен тіректерді орнату
 Paint stripes on selected crossings	Таңдалған өткелдерге жолақтар салу
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Таңдалған бастапқы шың. Кесу үшін мақсатты шыңды басыңыз (Shift: тек көлденең, Esc: бас тарту)
 Aim at a vertex of the selected object	Таңдалған нысанның шыңына бағыттаңыз
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	бұл қиылыс үшін бағдаршам орындары бапталмаған
 Place signals	Бағдаршамдарды қою
 Signal positions	Бағдаршам орындары
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Бағдаршам басы қиылыс жүйесінде қайда тұрады. Нысанда емес, картаның қасында сақталады
 set id	жиын id
 The signal set to use (empty: the map's default)	Қолданылатын бағдаршам жиыны (бос: картаның әдепкісі)
 A signal	Бағдаршам
@@ -3021,3 +3019,26 @@ Rebuilding the junction replaces its rules with newly generated ones	Қиылы�
 It has no traffic rules to copy	Көшіретін қозғалыс ережесі жоқ
 The clipboard has no traffic rules	Буферде қозғалыс ережелері жоқ
 Saved as a copy to {name}; future saves will write into this copy	{name} көшірмесі ретінде сақталды; келесі сақтаулар осы көшірмеге жазылады
+In multiplayer the host edits the map. Leave the session to change the rules.	Бірлескен өңдеуде картаны хост өңдейді. Ережелерді өзгерту үшін сессиядан шығыңыз.
+a rule's number is not a finite one	ереженің нөмірі шекті емес
+a template rule names a path this crossing does not have	үлгі ережесі осы айқаста жоқ жолды атайды
+a template rule names no kind	үлгі ережесі түрін атамайды
+Select one or more objects to apply their rule template	Олардың ереже үлгісін қолдану үшін бір немесе бірнеше нысанды таңдаңыз
+No selected object has a rule template	Таңдалған нысандардың ешқайсысында ереже үлгісі жоқ
+Skipped:	Өткізілді:
+Apply rule template	Ереже үлгісін қолдану
+Rule template applied to:	Ереже үлгісі қолданылды:
+Skipped, no rule template:	Өткізілді, ереже үлгісі жоқ:
+configured signal position(s) none of which can be used; nothing was changed	бапталған бағдаршам орындарының ешқайсысын пайдалануға болмайды; ештеңе өзгертілмеді
+Rule template	Ереже үлгісі
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Осы айқастың үлгісі қолданылғанда таңдалған жолдар карта нысанына беретін қозғалыс ережелері. ЖИ және ойыншы үшін 0-ден бастап саналады. Нысанның жанында сақталады, .sco ішінде емес
+Pick a path first	Алдымен жолды таңдаңыз
+all, mixed values	барлығы, әртүрлі мәндер
+all	барлығы
+mixed	аралас
+Take it off the picked paths	Таңдалған жолдардан алу
+Give it to every picked path that lacks it	Ол жоқ әрбір таңдалған жолға беру
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Әрбір таңдалған нысан өзінің .sco жанында сақталған ережелерді қабылдайды: оның [kill_rule] қалады, басқа ережелері ауыстырылады, ал өзінде жоқ жолды атайтын ережелер ескерілмейді (Болдырмаудың бір қадамы)
+Rules kept beside the object:	Нысанның жанында сақталған ережелер:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Оның [kill_rule] қалады, басқа ережелері үлгінің ережелерімен ауыстырылады, ал өзінде жоқ жолды атайтын ережелер ескерілмейді (Болдырмаудың бір қадамы)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Бағдаршам басы қиылыс жүйесінде қайда тұрады. Нысанның қасында сақталады, .sco ішінде емес

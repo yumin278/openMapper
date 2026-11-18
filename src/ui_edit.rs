@@ -324,6 +324,15 @@ pub fn group_properties(ui: &mut egui::Ui, ed: &mut Editor, lib: &Library, paren
             }
         }
         ui.add_space(6.0);
+        // the rule templates of the selected objects (each takes its own)
+        if any_template(ed) {
+            if ui.button(icons::labelled(Icon::Junction, tr("Apply rule template", "Применить шаблон правил")))
+                .on_hover_text(tr("Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)", "Каждый выделенный объект берёт правила, сохранённые рядом с его .sco: его [kill_rule] остаются, остальные правила заменяются, а правила с путём, которого у него нет, отбрасываются (один шаг отмены)"))
+                .clicked()
+            {
+                actions.push(crate::ui::Action::ApplyRuleTemplate);
+            }
+        }
         // a group: its name, and undoing it; else making one
         match ed.selected_group() {
             Some(g) => {
@@ -1154,13 +1163,6 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64,
             apply = true;
         }
         if new.lights {
-            if check(ui, &mut new.light_objects, tr("Place signal heads and poles", "Установить светофоры и стойки")).changed() {
-                apply = true;
-            }
-            if let Some(doc) = ed.doc.as_ref() {
-                let (set, _) = doc.signal_sets.resolve(&opts.signal_set);
-                ui.label(RichText::new(format!("{} ({})", set.name, set.id)).small().color(TEXT_DIM));
-            }
             if arms.len() < 3 {
                 ui.label(RichText::new(tr("Lights need three roads or more", "Светофорам нужно не меньше трёх дорог")).small().color(TEXT_DIM));
             }
@@ -1217,8 +1219,27 @@ pub fn junction_section(ui: &mut egui::Ui, ed: &mut Editor, k: TileKey, id: i64,
     }
 }
 
+/// Where an object's own settings file is, when the map's content folder is known.
+fn settings_path(ed: &Editor, file: &str) -> Option<std::path::PathBuf> {
+    let doc = ed.doc.as_ref()?;
+    let content = ed.content_dir.as_deref().or(doc.content_root.as_deref())?;
+    Some(crate::crossing_config::path_for(&omsi_cfg::resolve_path(content, file)))
+}
+
+/// Whether any selected object has template rules kept beside its `.sco`.
+fn any_template(ed: &Editor) -> bool {
+    let Some(doc) = ed.doc.as_ref() else { return false };
+    ed.selection()
+        .into_iter()
+        .filter_map(|s| match s {
+            Sel::Object(k, id) => crate::selection::any_object(doc, k, id).map(|o| o.file.clone()),
+            _ => None,
+        })
+        .any(|file| settings_path(ed, &file).map(|abs| crate::crossing_config::CrossingConfig::counts(&abs).1 > 0).unwrap_or(false))
+}
+
 /// The "place the configured signal heads" of a crossing object whose `.sco` has its own
-/// traffic light program and an entry in the map's `crossing_signals.json`. Kept apart from
+/// traffic light program and whose settings beside it hold signal positions. Kept apart from
 /// [`junction_section`]: this works for any crossing, not only openMapper's own junctions.
 pub fn crossing_signal_section(ui: &mut egui::Ui, ed: &Editor, lib: &Library, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
     let Some(doc) = ed.doc.as_ref() else { return };
@@ -1227,8 +1248,8 @@ pub fn crossing_signal_section(ui: &mut egui::Ui, ed: &Editor, lib: &Library, k:
     if !light_program {
         return;
     }
-    let in_table = doc.crossing_signals.points(&o.file).is_some();
-    if !in_table {
+    let Some(abs) = settings_path(ed, &o.file) else { return };
+    if crate::crossing_config::CrossingConfig::counts(&abs).0 == 0 {
         return;
     }
     section(ui, tr("Traffic lights", "Светофоры"));
@@ -1238,6 +1259,28 @@ pub fn crossing_signal_section(ui: &mut egui::Ui, ed: &Editor, lib: &Library, k:
             .clicked()
         {
             actions.push(crate::ui::Action::PlaceCrossingSignals(k, id));
+        }
+    });
+}
+
+/// The rules an object takes when its own template is applied: kept beside its `.sco`, shown
+/// where there are some, applied with one button (each selected object takes its own).
+pub fn rule_template_section(ui: &mut egui::Ui, ed: &Editor, k: TileKey, id: i64, actions: &mut Vec<crate::ui::Action>) {
+    let Some(doc) = ed.doc.as_ref() else { return };
+    let Some(o) = doc.object(k, id) else { return };
+    let Some(abs) = settings_path(ed, &o.file) else { return };
+    let (_, rules) = crate::crossing_config::CrossingConfig::counts(&abs);
+    if rules == 0 {
+        return;
+    }
+    section(ui, tr("Rule template", "Шаблон правил"));
+    egui::Frame::new().inner_margin(Margin::same(8)).show(ui, |ui| {
+        ui.label(RichText::new(format!("{} {rules}", tr("Rules kept beside the object:", "Правил сохранено рядом с объектом:"))).small().color(TEXT_DIM));
+        if ui.button(icons::labelled(Icon::Junction, tr("Apply rule template", "Применить шаблон правил")))
+            .on_hover_text(tr("Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)", "Его [kill_rule] остаются, остальные правила заменяются правилами шаблона, а правила с путём, которого у него нет, отбрасываются (один шаг отмены)"))
+            .clicked()
+        {
+            actions.push(crate::ui::Action::ApplyRuleTemplate);
         }
     });
 }

@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Vložit pře
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Klikněte na mapě na zastávku, kterou chcete vložit před „{stop}“ (Esc zruší výběr)
 That stop is already next to the insertion point.	Tato zastávka už sousedí s místem vložení.
 Insert stop before	Vložit zastávku před tuto
-Place signal heads and poles	Umístit návěstidla a sloupky
 Paint stripes on selected crossings	Vykreslit pruhy na vybraných přechodech
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Zvolený zdrojový vertex. Klikněte na cílový vrchol, který chcete přichytit (Shift: pouze horizontální, Esc: zrušení)
 Aim at a vertex of the selected object	Zamiřte na vrchol vybraného objektu
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	P
 no signal positions are configured for this crossing	pro tento křižovatku nejsou nastaveny pozice semaforů
 Place signals	Rozmístit semafory
 Signal positions	Pozice semaforů
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Kde stojí hlava semaforu, v soustavě křižovatky. Ukládá se vedle mapy, ne do objektu
 set id	id sady
 The signal set to use (empty: the map's default)	Sada semaforu (prázdné: výchozí mapy)
 A signal	Semafory
@@ -3021,3 +3019,26 @@ Rebuilding the junction replaces its rules with newly generated ones	Přestavba 
 It has no traffic rules to copy	Nemá žádná dopravní pravidla ke zkopírování
 The clipboard has no traffic rules	Schránka neobsahuje dopravní pravidla
 Saved as a copy to {name}; future saves will write into this copy	Uloženo jako kopie do {name}; budoucí uložení se zapíší do této kopie
+In multiplayer the host edits the map. Leave the session to change the rules.	Při společné úpravě mapu upravuje hostitel. Ukončete relaci, abyste změnili pravidla.
+a rule's number is not a finite one	číslo pravidla není konečné
+a template rule names a path this crossing does not have	pravidlo šablony uvádí cestu, kterou tato křižovatka nemá
+a template rule names no kind	pravidlo šablony neuvádí druh
+Select one or more objects to apply their rule template	Vyberte jeden nebo více objektů a použijte jejich šablonu pravidel
+No selected object has a rule template	Žádný vybraný objekt nemá šablonu pravidel
+Skipped:	Přeskočeno:
+Apply rule template	Použít šablonu pravidel
+Rule template applied to:	Šablona pravidel použita na:
+Skipped, no rule template:	Přeskočeno, bez šablony pravidel:
+configured signal position(s) none of which can be used; nothing was changed	nastavených pozic návěstidel, z nichž žádnou nelze použít; nic se nezměnilo
+Rule template	Šablona pravidel
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Dopravní pravidla, která vybrané cesty dají objektu mapy při použití šablony této křižovatky. Pro AI a hráče, počítáno od 0. Ukládají se vedle objektu, ne do .sco
+Pick a path first	Nejprve vyberte cestu
+all, mixed values	všechny, různé hodnoty
+all	všechny
+mixed	smíšené
+Take it off the picked paths	Odebrat z vybraných cest
+Give it to every picked path that lacks it	Přidat každé vybrané cestě, které chybí
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Každý vybraný objekt převezme pravidla uložená vedle jeho vlastního .sco: jeho [kill_rule] zůstanou, ostatní pravidla se nahradí a pravidla uvádějící cestu, kterou nemá, se vynechají (jeden krok zpět)
+Rules kept beside the object:	Pravidla uložená vedle objektu:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Jeho [kill_rule] zůstanou, ostatní pravidla se nahradí pravidly šablony a pravidla uvádějící cestu, kterou nemá, se vynechají (jeden krok zpět)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Kde stojí hlava semaforu, v soustavě křižovatky. Ukládá se vedle objektu, ne do .sco

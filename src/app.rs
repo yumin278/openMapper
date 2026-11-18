@@ -1752,6 +1752,15 @@ impl App {
                     self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
                 }
             }
+            Action::ApplyRuleTemplate => {
+                if self.collab.is_guest() {
+                    self.ed.error(tr("In multiplayer the host edits the map. Leave the session to change the rules.", "В совместной правке карту правит хост. Выйдите из сессии, чтобы изменить правила."));
+                } else if let Some(assets) = self.assets.as_ref() {
+                    self.ed.apply_rule_template(assets);
+                } else {
+                    self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
+                }
+            }
             Action::CrossingPaths => {
                 // (its copy of the object would be on this disk only, and the map's others would get a path they lack)
                 if self.collab.is_guest() {

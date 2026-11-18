@@ -27,7 +27,7 @@ mod icon;
 mod geo;
 mod gizmo;
 mod crossing_edit;
-mod crossing_signals;
+mod crossing_config;
 mod editable;
 mod ed_cjunction;
 mod editor;
