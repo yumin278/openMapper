@@ -7258,7 +7258,7 @@ Main
         w.save(&mut ed, &roots, &mut assets, &mut actions);
         assert!(!w.unsaved(), "{:?}", w.message);
         let rel1 = w.rel.clone();
-        let stem1 = std::path::Path::new(&rel1).file_stem().unwrap().to_string_lossy().to_string();
+        let stem1 = std::path::Path::new(&rel1.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
         assert!(stem1.starts_with("Kreuzung_"), "new copy has stem Kreuzung_: {stem1}");
         assert_ne!(stem1, "Kreuzung_001", "must not collide with Kreuzung_001");
         // X_001 is completely untouched
@@ -7310,7 +7310,7 @@ Main
         // Check rebind message
         let (msg1, bad1) = w.message.clone().unwrap();
         assert!(!bad1, "{msg1}");
-        let stem1 = std::path::Path::new(&copy1_rel).file_stem().unwrap().to_string_lossy();
+        let stem1 = std::path::Path::new(&copy1_rel.replace('\\', "/")).file_stem().unwrap().to_string_lossy();
         assert!(msg1.contains(stem1.as_ref()), "rebind message mentions new name: {msg1}");
 
         // Now w is open on Copy1. We save in Copy mode again without changing any content.
@@ -7400,8 +7400,10 @@ Main
         let sheet = Sheet::parse(SCO);
         std::fs::write(&aj_abs, sheet.text()).unwrap();
         std::fs::write(junc_dir.join("junction_12.o3d"), b"x").unwrap();
+        std::fs::write(junc_dir.join("Kreuzung.o3d"), b"x").unwrap();
         let _ = std::fs::create_dir_all(junc_dir.join("model"));
         let _ = std::fs::write(junc_dir.join("model").join("junction_12.o3d"), b"x");
+        let _ = std::fs::write(junc_dir.join("model").join("Kreuzung.o3d"), b"x");
 
         let roots = Roots { omsi: dir.join("omsi"), content };
         let mut doc = flat_map(1);
@@ -7437,6 +7439,7 @@ Main
         let mut actions = Vec::new();
         w.save(&mut ed, &roots, &mut assets, &mut actions);
         assert!(!w.unsaved(), "saved: {:?}", w.message);
+        assert!(w.message.as_ref().is_some_and(|(_, bad)| !*bad), "save succeeded: {:?}", w.message);
 
         // 1. New rel does not match is_own_junction
         assert!(!crate::editor::is_own_junction(&w.rel), "new rel must not be auto-junction: {}", w.rel);

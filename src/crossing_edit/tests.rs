@@ -774,7 +774,7 @@ fn crossing_copy_rel_handles_stem_suffixes_and_auto_junctions() {
     let cross_bridge = base.join("cross_bridge.sco");
     std::fs::write(&cross_bridge, SMALL).unwrap();
     let rel1 = crossing_copy_rel(&roots, "Sceneryobjects\\Test\\cross_bridge.sco", "TestMap", "cross_bridge").unwrap();
-    let n1 = std::path::Path::new(&rel1).file_stem().unwrap().to_string_lossy();
+    let n1 = std::path::Path::new(&rel1.replace('\\', "/")).file_stem().unwrap().to_string_lossy();
     assert!(n1.starts_with("cross_bridge_"), "regular object preserves underscore: {n1}");
 
     // 2. Editor copy with .crossing.json: suffix like _k3f9a2 or _001 stripped
@@ -784,14 +784,14 @@ fn crossing_copy_rel_handles_stem_suffixes_and_auto_junctions() {
     std::fs::write(&copy_sco, SMALL).unwrap();
     std::fs::write(copy_dir.join("X_k3f9a2.crossing.json"), "{}").unwrap();
     let rel2 = crossing_copy_rel(&roots, "Sceneryobjects\\openMapper\\TestMap\\X_k3f9a2\\X_k3f9a2.sco", "TestMap", "X_k3f9a2").unwrap();
-    let n2 = std::path::Path::new(&rel2).file_stem().unwrap().to_string_lossy();
+    let n2 = std::path::Path::new(&rel2.replace('\\', "/")).file_stem().unwrap().to_string_lossy();
     assert!(n2.starts_with("X_"), "stripped suffix from editor copy: {n2}");
     assert_eq!(n2.chars().filter(|&c| c == '_').count(), 1, "only single suffix segment: {n2}");
 
     // 3. Auto junction: junction_ converted to Junction-, !is_own_junction holds
     let aj_rel = "Sceneryobjects\\openMapper\\TestMap\\junction_12.sco";
     let rel3 = crossing_copy_rel(&roots, aj_rel, "TestMap", "junction_12").unwrap();
-    let n3 = std::path::Path::new(&rel3).file_stem().unwrap().to_string_lossy();
+    let n3 = std::path::Path::new(&rel3.replace('\\', "/")).file_stem().unwrap().to_string_lossy();
     assert!(n3.starts_with("Junction-12_"), "junction_ replaced with Junction-: {n3}");
     assert!(!crate::editor::is_own_junction(&rel3), "new rel must not match is_own_junction: {rel3}");
 
