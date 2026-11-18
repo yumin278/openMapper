@@ -1141,24 +1141,6 @@ fn copy_tree(from: &FsPath, to: &FsPath) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn strip_copy_suffix(s: &str) -> &str {
-    // Check for _[a-z0-9]{6}
-    if s.len() >= 7 {
-        let (prefix, tail) = s.split_at(s.len() - 7);
-        if tail.starts_with('_') && tail[1..].chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
-            return prefix;
-        }
-    }
-    // Check for _[0-9]{3}
-    if s.len() >= 4 {
-        let (prefix, tail) = s.split_at(s.len() - 4);
-        if tail.starts_with('_') && tail[1..].chars().all(|c| c.is_ascii_digit()) {
-            return prefix;
-        }
-    }
-    s
-}
-
 fn random_suffix_6() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -1192,21 +1174,14 @@ pub fn sidecar(abs: &std::path::Path) -> std::path::PathBuf {
     abs.with_extension("crossing.json")
 }
 
-/// Where a new crossing copy goes: {stem}_{6-char random alphanumeric}.
-/// Only strip copy suffixes (_[a-z0-9]{6} or _[0-9]{3}) if source has a .crossing.json beside it.
+/// Where a new crossing copy goes: `{stem}_{6-char random alphanumeric}`.
+/// The stem is always kept as-is (no suffix stripping).
 /// If source is an own auto junction, replace junction_ with Junction- in the stem.
 /// Checks up to 5 times for folder collisions.
 pub fn crossing_copy_rel(roots: &crate::install::Roots, source_rel: &str, map: &str, stem: &str) -> anyhow::Result<String> {
-    let from_opt = find(roots, source_rel);
-    let is_copy = from_opt.as_ref().map(|p| sidecar(p).is_file()).unwrap_or(false)
-        || omsi_cfg::resolve_path(&roots.content, source_rel).with_extension("crossing.json").is_file();
     let is_auto = crate::editor::is_own_junction(source_rel);
 
-    let mut base = if is_copy {
-        strip_copy_suffix(stem).to_string()
-    } else {
-        stem.to_string()
-    };
+    let mut base = stem.to_string();
     if is_auto {
         if let Some(pos) = base.to_ascii_lowercase().find("junction_") {
             base.replace_range(pos..pos + 9, "Junction-");

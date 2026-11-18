@@ -777,16 +777,19 @@ fn crossing_copy_rel_handles_stem_suffixes_and_auto_junctions() {
     let n1 = std::path::Path::new(&rel1.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
     assert!(n1.starts_with("cross_bridge_"), "regular object preserves underscore: {n1}");
 
-    // 2. Editor copy with .crossing.json: suffix like _k3f9a2 or _001 stripped
+    // 2. Editor copy with .crossing.json: new name appends a 6-char suffix to the full stem
     let copy_dir = content.join("Sceneryobjects").join("openMapper").join("TestMap").join("X_k3f9a2");
     std::fs::create_dir_all(&copy_dir).unwrap();
     let copy_sco = copy_dir.join("X_k3f9a2.sco");
-    std::fs::write(&copy_sco, SMALL).unwrap();
+    let copy_bytes = b"original copy bytes";
+    std::fs::write(&copy_sco, copy_bytes).unwrap();
     std::fs::write(copy_dir.join("X_k3f9a2.crossing.json"), "{}").unwrap();
     let rel2 = crossing_copy_rel(&roots, "Sceneryobjects\\openMapper\\TestMap\\X_k3f9a2\\X_k3f9a2.sco", "TestMap", "X_k3f9a2").unwrap();
     let n2 = std::path::Path::new(&rel2.replace('\\', "/")).file_stem().unwrap().to_string_lossy().to_string();
-    assert!(n2.starts_with("X_"), "stripped suffix from editor copy: {n2}");
-    assert_eq!(n2.chars().filter(|&c| c == '_').count(), 1, "only single suffix segment: {n2}");
+    assert!(n2.starts_with("X_k3f9a2_"), "copy stem preserved with new suffix: {n2}");
+    assert_eq!(n2.len(), "X_k3f9a2".len() + 7, "stem + underscore + 6 chars: {n2}");
+    // Original copy's bytes must not be touched
+    assert_eq!(std::fs::read(&copy_sco).unwrap(), copy_bytes, "original copy unchanged");
 
     // 3. Auto junction: junction_ converted to Junction-, !is_own_junction holds
     let aj_rel = "Sceneryobjects\\openMapper\\TestMap\\junction_12.sco";
