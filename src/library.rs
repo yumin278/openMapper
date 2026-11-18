@@ -113,6 +113,27 @@ pub struct Asset {
     pub lanes: (u8, u8, u8),
 }
 
+/// The root a `.sco` found for a map's path actually lies under, with whether that root is the
+/// content folder (else the installation). A lookup can answer with a file under another root
+/// than the one asked - a copy under a higher-priority content root, or the installation for
+/// what the content folder lacks - so the root a catalogue entry is named by is the one that
+/// *holds* the file, the longest of these roots being the one (the content folder often sits
+/// inside the installation). None when the file lies under neither.
+fn owner_of<'a>(path: &Path, roots: &'a Roots) -> Option<(&'a Path, bool)> {
+    let mut best: Option<(&'a Path, bool)> = None;
+    for (root, from_content) in [(&roots.content, true), (&roots.omsi, false)] {
+        if !path.starts_with(root) {
+            continue;
+        }
+        // (roots can be nested - the content folder inside the installation, or the other way
+        // round: the one that holds the file is the longer of the two)
+        if best.is_none_or(|(found, _)| root.components().count() > found.components().count()) {
+            best = Some((root.as_path(), from_content));
+        }
+    }
+    best
+}
+
 /// Objects the editor wrote and the catalogue has not heard of yet: the content root they were
 /// written under, and their path in a map's own spelling (`Sceneryobjects\...`). The root is
 /// kept with each: a queue drained after another map (or another content folder) was opened
@@ -251,22 +272,39 @@ impl Library {
         self.rev += 1;
     }
 
-    /// Refresh one saved crossing without rescanning or reordering the catalogue.
-    pub(crate) fn refresh_crossing(&mut self, roots: &Roots, rel: &str) {
+    /// Refresh one saved crossing without rescanning or reordering the catalogue. True when the
+    /// catalogue now holds it.
+    pub(crate) fn refresh_crossing(&mut self, roots: &Roots, rel: &str) -> bool {
         // (the file is looked for in the spelling the map names it in: only the index key is
         // folded to lower case. Folding the path too makes every refresh a case-insensitive
         // directory lookup, and that lookup's cached listing can be older than the file - a
         // junction written into a folder made a moment ago would then not be found at all)
         let rel = rel.replace('/', "\\");
-        let Some((root, path, from_content)) = [(&roots.content, true), (&roots.omsi, false)]
+        let Some(path) = [&roots.content, &roots.omsi]
             .into_iter()
-            .map(|(root, own)| (root, omsi_cfg::resolve_path(root, &rel), own))
-            .find(|(_, path, _)| omsi_cfg::vfs::is_file(path))
+            .map(|root| omsi_cfg::resolve_path(root, &rel))
+            .find(|path| omsi_cfg::vfs::is_file(path))
         else {
             log::warn!("catalogue: {rel}: not found in the content folder or the installation; not read again");
-            return;
+            return false;
         };
-        let Some(asset) = describe(root, &path, Kind::Object, from_content) else { return };
+        // (the root that answered is not always the root that was asked: the game's lookup
+        // mirrors a path onto the other content roots, so the entry is named by the root that
+        // actually holds the file. Taking the asked root would leave `describe` with a path it
+        // cannot strip a prefix from, and the object would silently never reach the catalogue)
+        let Some((root, from_content)) = owner_of(&path, roots) else {
+            log::warn!(
+                "catalogue: {rel}: {} is under neither the content folder ({}) nor the installation ({}); not read again",
+                path.display(),
+                roots.content.display(),
+                roots.omsi.display()
+            );
+            return false;
+        };
+        let Some(asset) = describe(root, &path, Kind::Object, from_content) else {
+            log::warn!("catalogue: {rel}: {} cannot be read as an object; not read again", path.display());
+            return false;
+        };
         log::info!("catalogue: {} read again from the {}", asset.rel, if from_content { "content folder" } else { "installation" });
         let key = rel.to_lowercase();
         if let Some(&index) = self.index.get(&key) {
@@ -277,18 +315,27 @@ impl Library {
             self.assets.push(asset);
         }
         self.rev += 1;
+        true
     }
 
     /// Read every object the editor wrote under these roots since the last call into the
     /// catalogue, without a rescan: the hot reload does not report the editor's own writes, and
     /// a full scan would sort the catalogue again under the browser's cache. Returns how many
-    /// were taken; what was written under another content folder stays queued for that one.
+    /// were actually read (each failure is logged by [`Self::refresh_crossing`]); what was
+    /// written under another content folder stays queued for that one, and nothing is retried.
     pub(crate) fn refresh_pending(&mut self, roots: &Roots) -> usize {
         let written = take_written(roots);
+        let total = written.len();
+        let mut read = 0;
         for rel in &written {
-            self.refresh_crossing(roots, rel);
+            if self.refresh_crossing(roots, rel) {
+                read += 1;
+            }
         }
-        written.len()
+        if read < total {
+            log::warn!("catalogue: {} of {total} object(s) the editor wrote could not be read again", total - read);
+        }
+        read
     }
 
     pub fn find(&self, rel: &str) -> Option<&Asset> {
@@ -513,4 +560,41 @@ fn describe(root: &Path, path: &Path, kind: Kind, from_content: bool) -> Option<
     }
     a.haystack = format!("{} {} {} {}", a.name, rel, groups, folder).to_lowercase();
     Some(a)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn roots(content: &str, omsi: &str) -> Roots {
+        Roots { content: content.into(), omsi: omsi.into() }
+    }
+
+    /// A file is owned by the root it lies under, not by the root a lookup was asked of: a
+    /// mirrored answer (the installation's copy for what the content folder lacks, or a copy
+    /// under a higher-priority content root) still has to be named from its own root, or
+    /// `describe` cannot strip a prefix and the object never reaches the catalogue. The two
+    /// checks below are the layouts openOMSI runs in, without registering either as a global
+    /// content root (which other tests would then see).
+    #[test]
+    fn a_file_belongs_to_the_root_that_holds_it() {
+        // (the content folder inside the installation: the longer prefix is the content one)
+        let nested = roots("/game/content", "/game");
+        let (root, from_content) = owner_of(Path::new("/game/content/Sceneryobjects/A/x.sco"), &nested).expect("the content folder holds it");
+        assert_eq!(root, Path::new("/game/content"), "the content folder's copy is the content folder's");
+        assert!(from_content);
+        let (root, from_content) = owner_of(Path::new("/game/Sceneryobjects/A/x.sco"), &nested).expect("the installation holds it");
+        assert_eq!(root, Path::new("/game"), "the installation's copy is the installation's");
+        assert!(!from_content);
+        // (the content folder a folder of its own)
+        let apart = roots("/home/u/.openomsi/content", "/games/OMSI 2");
+        let (root, from_content) = owner_of(Path::new("/home/u/.openomsi/content/Sceneryobjects/A/x.sco"), &apart).expect("the content folder holds it");
+        assert_eq!(root, Path::new("/home/u/.openomsi/content"));
+        assert!(from_content);
+        let (root, from_content) = owner_of(Path::new("/games/OMSI 2/Sceneryobjects/A/x.sco"), &apart).expect("the installation holds it");
+        assert_eq!(root, Path::new("/games/OMSI 2"));
+        assert!(!from_content);
+        // (under neither: nothing the catalogue can name it by)
+        assert!(owner_of(Path::new("/elsewhere/x.sco"), &apart).is_none());
+    }
 }

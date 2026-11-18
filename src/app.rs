@@ -1733,8 +1733,11 @@ impl App {
                     match self.ed.persist_junction(roots, k, id) {
                         Ok(file) => {
                             // (read into the catalogue at once: it is a new object, and its
-                            // panels work without a rescan or a restart)
-                            self.lib.refresh_crossing(roots, &file);
+                            // panels work without a rescan or a restart. The reason it could
+                            // not be read is logged by the catalogue itself)
+                            if !self.lib.refresh_crossing(roots, &file) {
+                                log::warn!("persisted junction {file}: the catalogue does not hold it yet");
+                            }
                             self.ed.toast(format!("{} {file}", tr("Saved:", "Сохранено:")));
                         }
                         Err(e) => self.ed.error(format!("{}: {e:#}", tr("Could not save (the changes are still here, nothing is lost)", "Не удалось сохранить (изменения остались здесь, ничего не потеряно)"))),

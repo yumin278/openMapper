@@ -741,24 +741,12 @@ impl Crossing {
         }
     }
 
-    /// Put `rules` in place of the whole template, as pasting the clipboard's rules does: what
-    /// was there is cleared, and these take its place as they are. No `[kill_rule]` is part of a
-    /// template (the clipboard's are read past), and `bus` brings no `no_cars` here - the
-    /// template is exactly what was pasted. A rule naming a path this crossing does not have is
-    /// left out and returned, in the order it came, so the window can say how many were skipped.
-    pub fn template_replace(&mut self, rules: Vec<TemplateRule>) -> Vec<TemplateRule> {
+    /// `rules` split into the ones that name a path this crossing has and the ones that do not,
+    /// each in the order it came. A paste keeps the first as the whole template and reports the
+    /// second; nothing is added to them, so a `bus` brings no `no_cars` here.
+    pub fn template_keep(&self, rules: Vec<TemplateRule>) -> (Vec<TemplateRule>, Vec<TemplateRule>) {
         let paths = self.paths.len();
-        let mut kept = Vec::with_capacity(rules.len());
-        let mut dropped = Vec::new();
-        for r in rules {
-            if r.path_index < 0 || r.path_index as usize >= paths {
-                dropped.push(r);
-            } else {
-                kept.push(r);
-            }
-        }
-        self.rule_template = kept;
-        dropped
+        rules.into_iter().partition(|r| r.path_index >= 0 && (r.path_index as usize) < paths)
     }
 
     /// Take rule `kind` off every one of `paths`. Off with `bus` goes `no_cars` too.

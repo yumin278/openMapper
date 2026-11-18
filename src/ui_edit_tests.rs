@@ -252,3 +252,26 @@ fn an_object_persisted_into_the_installation_is_read_there() {
     let _ = std::fs::remove_dir_all(&roots.content);
     let _ = std::fs::remove_dir_all(&roots.omsi);
 }
+
+/// openOMSI's own layout has the content folder *inside* the installation. An object only the
+/// installation has must then still be named from the installation: the catalogue entry's path
+/// is its path relative to the root that holds it, and the content folder is not that root.
+#[test]
+fn an_object_only_the_installation_has_is_named_by_the_installation() {
+    let dir = std::env::temp_dir().join(format!("openmapper-test-ui-edit-nested-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let install = dir.join("OMSI 2");
+    let content = install.join("content");
+    std::fs::create_dir_all(&content).unwrap();
+    let roots = Roots { omsi: install.clone(), content };
+    let rel = "Sceneryobjects\\Test\\FromInstall.sco";
+    write_sco(&roots.omsi, rel, LIT_SCO);
+
+    let mut lib = Library::default();
+    assert!(lib.refresh_crossing(&roots, rel), "the installation's copy is read");
+    let asset = lib.find(rel).expect("the installation's copy is in the catalogue");
+    assert!(asset.light_program);
+    assert!(!asset.from_content, "named from the installation, not from the content folder inside it");
+    assert!(asset.rel.eq_ignore_ascii_case(rel), "its path is relative to the installation: {}", asset.rel);
+    let _ = std::fs::remove_dir_all(&dir);
+}

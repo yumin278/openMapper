@@ -3599,7 +3599,9 @@ impl CrossingPaths {
     /// blocks. False, with the template as it was and the window's message set, when it is any
     /// other text. A rule naming a path this crossing does not have (a negative number, or one
     /// past its last path) is left out and logged one by one, the rest are kept in the order
-    /// the clipboard had them. One step of Undo for the whole paste.
+    /// the clipboard had them. One step of Undo for the whole paste - none at all when the
+    /// template it makes is the one the crossing already has, which is no change and leaves
+    /// Ctrl+Y's steps alone. The message says what was pasted either way.
     fn paste_template_text(&mut self, sheet: &mut Sheet, text: &str) -> bool {
         let Some(rules) = crate::rules_clip::from_text(text) else {
             log::info!("crossing rule template: paste refused: the clipboard text ({} char(s)) is not a run of [rule] blocks", text.chars().count());
@@ -3607,9 +3609,16 @@ impl CrossingPaths {
             return false;
         };
         log::info!("crossing rule template: paste: before: {}", template_log(&sheet.crossing.rule_template));
-        self.record_undo(sheet.crossing.clone());
         let paths = sheet.crossing.paths.len();
-        let dropped = sheet.crossing.template_replace(rules.iter().map(TemplateRule::from_map_rule).collect());
+        let (kept, dropped) = sheet.crossing.template_keep(rules.iter().map(TemplateRule::from_map_rule).collect());
+        // (the template the crossing already has, pasted over itself, is no change: no step is
+        // recorded, so Ctrl+Z has nothing for it and what Ctrl+Y still has to put back stays)
+        if kept != sheet.crossing.rule_template {
+            self.record_undo(sheet.crossing.clone());
+            sheet.crossing.rule_template = kept;
+        } else {
+            log::info!("crossing rule template: paste: the template is already these rules: nothing changed, no undo step");
+        }
         log::info!("crossing rule template: paste: after: {}", template_log(&sheet.crossing.rule_template));
         for r in &dropped {
             if r.path_index < 0 {
@@ -7452,6 +7461,34 @@ Main
         w.revert();
         assert_eq!(pasted_template(&w), opened_with, "Revert drops the paste");
         assert!(!w.unsaved(), "nothing to save any more");
+    }
+
+    /// Pasting the template the crossing already has is no change: no undo step is recorded for
+    /// it, and the steps Ctrl+Y still has to put back stay. The window still says what the
+    /// clipboard held, and what it left out.
+    #[test]
+    fn a_paste_of_the_template_it_already_has_keeps_undo_and_redo() {
+        let mut w = opened(Tab::Paths);
+        let first = "[rule]\n0\nbus\n0\n0\n";
+        let second = "[rule]\n0\nbus\n0\n0\n\n[rule]\n1\nspeedlimit\n50\n0\n";
+        assert!(paste(&mut w, first));
+        assert!(paste(&mut w, second));
+        assert_eq!(pasted_template(&w).len(), 2);
+        assert!(w.undo(), "back to the first template");
+        let (undo, redo) = (w.undo.len(), w.redo.len());
+        assert_eq!((undo, redo), (1, 1), "a step to go back, and one to take again");
+        let before = pasted_template(&w);
+        // (the very template it has now: nothing changes, so nothing is recorded)
+        assert!(paste(&mut w, first));
+        assert_eq!(pasted_template(&w), before, "the template is as it was");
+        assert_eq!((w.undo.len(), w.redo.len()), (undo, redo), "no step was added, and the redo is still there");
+        let (msg, bad) = w.message.clone().expect("the window says what it did");
+        assert!(!bad, "{msg}");
+        assert!(msg.contains('1'), "what the clipboard held is still said: {msg}");
+        assert!(msg.contains('0'), "and that nothing was skipped: {msg}");
+        // (and Ctrl+Y still takes the second template back)
+        assert!(w.redo());
+        assert_eq!(pasted_template(&w).len(), 2);
     }
 
     /// A signal is put where the object has a deck: with none under the point nothing is put
