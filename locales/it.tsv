@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Inserisci pr
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Scegli sulla mappa una fermata da inserire prima di «{stop}» (Esc per annullare)
 That stop is already next to the insertion point.	Questa fermata è già accanto al punto di inserimento.
 Insert stop before	Inserisci una fermata prima di questa
-Place signal heads and poles	Posiziona lanterne semaforiche e pali
 Paint stripes on selected crossings	Dipingi le strisce sugli attraversamenti selezionati
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Vertice sorgente scelto. Fare clic su un vertice di destinazione per eseguire lo snap (Shift: solo orizzontale, Esc: annulla)
 Aim at a vertex of the selected object	Puntare su un vertice dell'oggetto selezionato
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	I
 no signal positions are configured for this crossing	nessuna posizione dei semafori configurata per questo incrocio
 Place signals	Posiziona i semafori
 Signal positions	Posizioni dei semafori
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Dove sta una testa di semaforo, nel sistema dell'incrocio. Salvato accanto alla mappa, non nell'oggetto
 set id	id del set
 The signal set to use (empty: the map's default)	Il set di semafori da usare (vuoto: predefinito della mappa)
 A signal	Un semaforo
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Ricostruend
 It has no traffic rules to copy	Non ha regole di traffico da copiare
 The clipboard has no traffic rules	Gli appunti non contengono regole di traffico
 Saved as a copy to {name}; future saves will write into this copy	Salvato come copia in {name}; i salvataggi futuri verranno scritti in questa copia
+In multiplayer the host edits the map. Leave the session to change the rules.	In modifica condivisa la mappa la modifica l'host. Esci dalla sessione per cambiare le regole.
+a rule's number is not a finite one	il numero di una regola non è finito
+a template rule names a path this crossing does not have	una regola del modello nomina una corsia che questo incrocio non ha
+a template rule names no kind	una regola del modello non nomina alcun tipo
+Select one or more objects to apply their rule template	Seleziona uno o più oggetti per applicare il loro modello di regole
+No selected object has a rule template	Nessun oggetto selezionato ha un modello di regole
+Skipped:	Saltati:
+Apply rule template	Applica modello di regole
+Rule template applied to:	Modello di regole applicato a:
+Skipped, no rule template:	Saltati, nessun modello di regole:
+configured signal position(s) none of which can be used; nothing was changed	posizioni dei semafori configurate, nessuna delle quali è utilizzabile; non è stato modificato nulla
+Rule template	Modello di regole
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Le regole di traffico che le corsie scelte danno a un oggetto della mappa quando si applica il modello di questo incrocio. Per l'IA e il giocatore, contate da 0. Salvate accanto all'oggetto, non nel .sco
+Pick a path first	Prima scegli una corsia
+all, mixed values	tutte, valori diversi
+all	tutte
+mixed	misto
+Take it off the picked paths	Toglilo dalle corsie scelte
+Give it to every picked path that lacks it	Dallo a ogni corsia scelta che non lo ha
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Ogni oggetto selezionato prende le regole salvate accanto al proprio .sco: le sue [kill_rule] restano, le altre sue regole vengono sostituite e le regole che nominano una corsia che non ha vengono tralasciate (un passo di Annulla)
+Rules kept beside the object:	Regole salvate accanto all'oggetto:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Le sue [kill_rule] restano, le altre sue regole vengono sostituite da quelle del modello e le regole che nominano una corsia che non ha vengono tralasciate (un passo di Annulla)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Dove sta una testa di semaforo, nel sistema dell'incrocio. Salvato accanto all'oggetto, non nel .sco
+Paste from the clipboard (replaces the whole template)	Incolla dagli appunti (sostituisce tutto il modello)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Ogni regola del modello viene cancellata, e i blocchi [rule] degli appunti prendono il suo posto: le stesse corsie, tipi, valori e classi di veicoli, nello stesso ordine, nelle stesse righe che Copia regole di traffico nelle proprietà dell'oggetto mette negli appunti. Una regola che nomina una corsia che questo incrocio non ha viene tralasciata
+Nothing was pasted: the clipboard cannot be read	Non è stato incollato nulla: gli appunti non sono leggibili
+Nothing was pasted: the clipboard does not hold [rule] blocks	Non è stato incollato nulla: gli appunti non contengono blocchi [rule]
+Pasted rules:	Regole incollate:
+Skipped rules (this crossing has no such path):	Regole tralasciate (questo incrocio non ha quella corsia):

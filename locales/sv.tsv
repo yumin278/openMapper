@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Infoga före
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Välj en hållplats på kartan för att infoga den före ”{stop}” (Esc för att avbryta)
 That stop is already next to the insertion point.	Hållplatsen ligger redan intill infogningspunkten.
 Insert stop before	Infoga hållplats före denna
-Place signal heads and poles	Placera signalhuvuden och stolpar
 Paint stripes on selected crossings	Måla ränder på valda övergångsställen
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Källa vertex vald. Klicka på en målpunkt för att fästa (Shift: endast horisontell, Esc: avbryt)
 Aim at a vertex of the selected object	Sikta på ett hörn av det valda objektet
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	I
 no signal positions are configured for this crossing	inga signalpositioner är konfigurerade för denna korsning
 Place signals	Placera signaler
 Signal positions	Signalpositioner
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Var ett signalhuvud står, i korsningens system. Sparas bredvid kartan, inte i objektet
 set id	set-id
 The signal set to use (empty: the map's default)	Signaluppsättningen att använda (tom: kartans standard)
 A signal	En signal
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	När korsni
 It has no traffic rules to copy	Det har inga trafikregler att kopiera
 The clipboard has no traffic rules	Urklipp innehåller inga trafikregler
 Saved as a copy to {name}; future saves will write into this copy	Sparad som kopia till {name}; framtida sparningar skrivs till denna kopia
+In multiplayer the host edits the map. Leave the session to change the rules.	Vid gemensam redigering redigerar värden kartan. Lämna sessionen för att ändra reglerna.
+a rule's number is not a finite one	numret på en regel är inte ändligt
+a template rule names a path this crossing does not have	en regel i mallen namnger ett fält som den här korsningen inte har
+a template rule names no kind	en regel i mallen namnger ingen typ
+Select one or more objects to apply their rule template	Välj ett eller flera objekt för att tillämpa deras regelmall
+No selected object has a rule template	Inget valt objekt har en regelmall
+Skipped:	Överhoppade:
+Apply rule template	Tillämpa regelmall
+Rule template applied to:	Regelmall tillämpad på:
+Skipped, no rule template:	Överhoppade, ingen regelmall:
+configured signal position(s) none of which can be used; nothing was changed	konfigurerade signalpositioner, varav ingen kan användas; ingenting ändrades
+Rule template	Regelmall
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Trafikreglerna som de valda fälten ger ett kartobjekt när den här korsningens mall tillämpas. För AI:n och spelaren, räknat från 0. Sparas bredvid objektet, inte i .sco
+Pick a path first	Välj ett fält först
+all, mixed values	alla, olika värden
+all	alla
+mixed	blandat
+Take it off the picked paths	Ta bort det från de valda fälten
+Give it to every picked path that lacks it	Ge det till varje valt fält som saknar det
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Varje valt objekt tar reglerna som sparas bredvid dess egen .sco: dess [kill_rule] blir kvar, dess andra regler ersätts, och regler som namnger ett fält det inte har lämnas utanför (ett steg Ångra)
+Rules kept beside the object:	Regler som sparas bredvid objektet:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Dess [kill_rule] blir kvar, dess andra regler ersätts av mallens, och regler som namnger ett fält det inte har lämnas utanför (ett steg Ångra)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Var ett signalhuvud står, i korsningens system. Sparas bredvid objektet, inte i .sco
+Paste from the clipboard (replaces the whole template)	Klistra in från urklipp (ersätter hela mallen)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Varje regel i mallen rensas, och [rule]-blocken i urklipp tar dess plats: samma fält, slag, värden och fordonsklasser, i samma ordning, i samma rader som Kopiera trafikregler bland objektets egenskaper lägger i urklipp. En regel som namnger ett fält som den här korsningen inte har utelämnas
+Nothing was pasted: the clipboard cannot be read	Inget klistrades in: urklipp kan inte läsas
+Nothing was pasted: the clipboard does not hold [rule] blocks	Inget klistrades in: urklipp innehåller inga [rule]-block
+Pasted rules:	Inklistrade regler:
+Skipped rules (this crossing has no such path):	Utelämnade regler (den här korsningen har inget sådant fält):

@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	पहले
 Click a stop on the map to insert it before {stop} (Esc to cancel)	नक्शे पर किसी स्टॉप को चुनकर उसे “{stop}” से पहले जोड़ें (रद्द करने के लिए Esc)
 That stop is already next to the insertion point.	यह स्टॉप पहले से ही जोड़ने की जगह के पास है।
 Insert stop before	इससे पहले स्टॉप जोड़ें
-Place signal heads and poles	सिग्नल हेड और खंभे लगाएँ
 Paint stripes on selected crossings	चुने गए पैदल पारपथों पर पट्टियाँ बनाएँ
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	स्रोत शीर्ष चुना गया. स्नैप करने के लिए लक्ष्य शीर्ष पर क्लिक करें (शिफ्ट: केवल क्षैतिज, Esc: रद्द करें)
 Aim at a vertex of the selected object	चयनित वस्तु के शीर्ष पर निशाना लगाओ
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	इस चौराहे के लिए कोई सिग्नल स्थिति कॉन्फ़िगर नहीं है
 Place signals	सिग्नल लगाएँ
 Signal positions	सिग्नल स्थितियाँ
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	चौराहे के निर्देशांक में सिग्नल हेड कहाँ खड़ा है। नक़्शे के पास सहेजा जाता है, ऑब्जेक्ट में नहीं
 set id	सेट id
 The signal set to use (empty: the map's default)	उपयोग किया जाने वाला सिग्नल सेट (खाली: नक़्शे का डिफ़ॉल्ट)
 A signal	एक सिग्नल
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	चौर�
 It has no traffic rules to copy	कॉपी करने के लिए कोई यातायात नियम नहीं है
 The clipboard has no traffic rules	क्लिपबोर्ड में कोई यातायात नियम नहीं है
 Saved as a copy to {name}; future saves will write into this copy	{name} में प्रतिलिपि के रूप में सहेजा गया; भविष्य के सहेज इसी प्रतिलिपि में लिखे जाएंगे
+In multiplayer the host edits the map. Leave the session to change the rules.	साझा संपादन में नक्शा होस्ट संपादित करता है। नियम बदलने के लिए सत्र छोड़ें।
+a rule's number is not a finite one	किसी नियम की संख्या परिमित नहीं है
+a template rule names a path this crossing does not have	टेम्पलेट का कोई नियम ऐसा पथ बताता है जो इस चौराहे पर नहीं है
+a template rule names no kind	टेम्पलेट का कोई नियम कोई प्रकार नहीं बताता
+Select one or more objects to apply their rule template	उनके नियम टेम्पलेट लागू करने के लिए एक या अधिक ऑब्जेक्ट चुनें
+No selected object has a rule template	किसी चुने हुए ऑब्जेक्ट का नियम टेम्पलेट नहीं है
+Skipped:	छोड़े गए:
+Apply rule template	नियम टेम्पलेट लागू करें
+Rule template applied to:	नियम टेम्पलेट इन पर लागू हुआ:
+Skipped, no rule template:	छोड़े गए, कोई नियम टेम्पलेट नहीं:
+configured signal position(s) none of which can be used; nothing was changed	कॉन्फ़िगर की गई सिग्नल स्थितियाँ, जिनमें से कोई भी इस्तेमाल नहीं हो सकती; कुछ नहीं बदला गया
+Rule template	नियम टेम्पलेट
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	जब इस चौराहे का टेम्पलेट लागू होता है, तब चुने गए पथ किसी नक्शा ऑब्जेक्ट को जो यातायात नियम देते हैं। AI और खिलाड़ी के लिए, 0 से गिनकर। ऑब्जेक्ट के बगल में सहेजे जाते हैं, .sco में नहीं
+Pick a path first	पहले एक पथ चुनें
+all, mixed values	सभी, अलग-अलग मान
+all	सभी
+mixed	मिश्रित
+Take it off the picked paths	चुने गए पथों से हटाएँ
+Give it to every picked path that lacks it	जिस चुने हुए पथ में यह नहीं है, उसे यह दें
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	हर चुना हुआ ऑब्जेक्ट अपने ही .sco के बगल में सहेजे गए नियम लेता है: उसके [kill_rule] रहते हैं, बाकी नियम बदल दिए जाते हैं, और ऐसे नियम जो उसके पास न हो ऐसा पथ बताते हैं, छोड़ दिए जाते हैं (पूर्ववत करें का एक चरण)
+Rules kept beside the object:	ऑब्जेक्ट के बगल में सहेजे गए नियम:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	उसके [kill_rule] रहते हैं, बाकी नियम टेम्पलेट के नियमों से बदल दिए जाते हैं, और ऐसे नियम जो उसके पास न हो ऐसा पथ बताते हैं, छोड़ दिए जाते हैं (पूर्ववत करें का एक चरण)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	चौराहे के निर्देशांक में सिग्नल हेड कहाँ खड़ा है। ऑब्जेक्ट के पास सहेजा जाता है, .sco में नहीं
+Paste from the clipboard (replaces the whole template)	क्लिपबोर्ड से पेस्ट करें (पूरा टेम्पलेट बदल देता है)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	टेम्पलेट का हर नियम मिटा दिया जाता है, और क्लिपबोर्ड के [rule] ब्लॉक उसकी जगह लेते हैं: वही पथ, प्रकार, मान और वाहन वर्ग, उसी क्रम में, उन्हीं पंक्तियों में जो ऑब्जेक्ट के गुणों में यातायात नियम कॉपी करें क्लिपबोर्ड पर रखता है। जो नियम ऐसा पथ बताता है जो इस चौराहे पर नहीं है, वह छोड़ दिया जाता है
+Nothing was pasted: the clipboard cannot be read	कुछ भी पेस्ट नहीं हुआ: क्लिपबोर्ड पढ़ा नहीं जा सकता
+Nothing was pasted: the clipboard does not hold [rule] blocks	कुछ भी पेस्ट नहीं हुआ: क्लिपबोर्ड में [rule] ब्लॉक नहीं हैं
+Pasted rules:	पेस्ट किए गए नियम:
+Skipped rules (this crossing has no such path):	छोड़े गए नियम (इस चौराहे पर ऐसा पथ नहीं है):

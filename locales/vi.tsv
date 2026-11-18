@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Chèn trư�
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Chọn một điểm dừng trên bản đồ để chèn trước “{stop}” (Esc để hủy)
 That stop is already next to the insertion point.	Điểm dừng đó đã nằm ngay cạnh vị trí chèn.
 Insert stop before	Chèn điểm dừng trước điểm này
-Place signal heads and poles	Đặt cụm đèn và cột tín hiệu giao thông
 Paint stripes on selected crossings	Kẻ vạch trên các lối sang đường đã chọn
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Đỉnh nguồn được chọn. Bấm vào một đỉnh mục tiêu để chụp (Shift: chỉ theo chiều ngang, Esc: hủy)
 Aim at a vertex of the selected object	Nhắm vào một đỉnh của đối tượng đã chọn
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	chưa cấu hình vị trí đèn tín hiệu cho giao lộ này
 Place signals	Đặt đèn tín hiệu
 Signal positions	Vị trí đèn tín hiệu
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Nơi đầu đèn tín hiệu đứng, trong hệ tọa độ của giao lộ. Được lưu cạnh bản đồ, không nằm trong đối tượng
 set id	id bộ
 The signal set to use (empty: the map's default)	Bộ đèn tín hiệu dùng (trống: mặc định của bản đồ)
 A signal	Một đèn tín hiệu
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Khi dựng 
 It has no traffic rules to copy	Không có quy tắc giao thông nào để sao chép
 The clipboard has no traffic rules	Bảng nhớ tạm không có quy tắc giao thông
 Saved as a copy to {name}; future saves will write into this copy	Đã lưu dưới dạng bản sao vào {name}; các lần lưu trong tương lai sẽ ghi vào bản sao này
+In multiplayer the host edits the map. Leave the session to change the rules.	Khi chỉnh sửa chung, máy chủ chỉnh sửa bản đồ. Hãy rời phiên để đổi quy tắc.
+a rule's number is not a finite one	số của một quy tắc không phải là số hữu hạn
+a template rule names a path this crossing does not have	một quy tắc của mẫu gọi tên một đường mà giao lộ này không có
+a template rule names no kind	một quy tắc của mẫu không gọi tên loại nào
+Select one or more objects to apply their rule template	Chọn một hoặc nhiều đối tượng để áp dụng mẫu quy tắc của chúng
+No selected object has a rule template	Không đối tượng nào được chọn có mẫu quy tắc
+Skipped:	Đã bỏ qua:
+Apply rule template	Áp dụng mẫu quy tắc
+Rule template applied to:	Đã áp dụng mẫu quy tắc cho:
+Skipped, no rule template:	Đã bỏ qua, không có mẫu quy tắc:
+configured signal position(s) none of which can be used; nothing was changed	các vị trí đèn tín hiệu đã cấu hình mà không vị trí nào dùng được; không có gì bị thay đổi
+Rule template	Mẫu quy tắc
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Các quy tắc giao thông mà những đường đã chọn mang lại cho một đối tượng trên bản đồ khi áp dụng mẫu của giao lộ này. Cho AI và người chơi, đếm từ 0. Được lưu bên cạnh đối tượng, không nằm trong .sco
+Pick a path first	Hãy chọn một đường trước
+all, mixed values	tất cả, giá trị khác nhau
+all	tất cả
+mixed	hỗn hợp
+Take it off the picked paths	Bỏ nó khỏi những đường đã chọn
+Give it to every picked path that lacks it	Trao nó cho mọi đường đã chọn còn thiếu nó
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Mỗi đối tượng được chọn nhận các quy tắc được lưu bên cạnh .sco của chính nó: các [kill_rule] của nó được giữ, các quy tắc khác bị thay thế, và những quy tắc gọi tên một đường mà nó không có sẽ bị bỏ ra (một bước Hoàn tác)
+Rules kept beside the object:	Các quy tắc được lưu bên cạnh đối tượng:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Các [kill_rule] của nó được giữ, các quy tắc khác được thay bằng quy tắc của mẫu, và những quy tắc gọi tên một đường mà nó không có sẽ bị bỏ ra (một bước Hoàn tác)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Nơi đầu đèn tín hiệu đứng, trong hệ tọa độ của giao lộ. Được lưu bên cạnh đối tượng, không nằm trong .sco
+Paste from the clipboard (replaces the whole template)	Dán từ bảng nhớ tạm (thay toàn bộ mẫu)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Mọi quy tắc của mẫu bị xoá, và các khối [rule] trong bảng nhớ tạm thay vào chỗ đó: cùng các làn, loại, giá trị và hạng phương tiện, theo cùng thứ tự, trong cùng những dòng mà Sao chép quy tắc giao thông trong thuộc tính của đối tượng đặt vào bảng nhớ tạm. Quy tắc gọi tên một làn mà giao lộ này không có sẽ bị bỏ
+Nothing was pasted: the clipboard cannot be read	Không dán được gì: không đọc được bảng nhớ tạm
+Nothing was pasted: the clipboard does not hold [rule] blocks	Không dán được gì: bảng nhớ tạm không có khối [rule]
+Pasted rules:	Số quy tắc đã dán:
+Skipped rules (this crossing has no such path):	Số quy tắc bị bỏ (giao lộ này không có làn đó):

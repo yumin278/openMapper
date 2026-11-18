@@ -1,3 +1,9 @@
+fn template_of(content: &std::path::Path, rel: &str) -> Vec<crate::crossing_config::TemplateRule> {
+    let abs = omsi_cfg::resolve_path(content, rel);
+    let paths = omsi_scenery::SceneryObject::load(&abs).map(|s| s.paths.len()).unwrap_or(0);
+    crate::crossing_config::CrossingConfig::load(&abs, paths).map(|c| c.rules).unwrap_or_default()
+}
+
 #[test]
 fn a_manual_junction_rebuild_keeps_the_bus_bay_taper_without_unresolved_rules() {
     let (mut assets, dir, plain, _) = pocket_fixture("manual-taper-rebuild");
@@ -24,7 +30,14 @@ fn a_manual_junction_rebuild_keeps_the_bus_bay_taper_without_unresolved_rules() 
     let outside = tile.splines.iter().find(|s| !s.deleted && s.pos[1] > exit.pos[1]).unwrap().id;
     let bay = tile.splines.iter().find(|s| !s.deleted && crate::pocket::is_bay_spline(&s.file)).unwrap().clone();
     assert!(is_bus_bay_junction(&exit.file));
-    assert!(!exit.rules.is_empty());
+    assert!(!template_of(&content, &exit.file).is_empty(), "the bay's rules are its template");
+
+    // (the plates the pocket wrote are read into the catalogue without a rescan: their own
+    // settings are offered as soon as they are on the map)
+    let roots = crate::install::Roots { omsi: dir.join("omsi"), content: content.clone() };
+    let mut lib = crate::library::Library::default();
+    assert!(lib.refresh_pending(&roots) >= 1, "the plates the pocket wrote are queued for the catalogue");
+    assert!(tile.objects.iter().all(|o| lib.find(&o.file).is_some()), "every plate the pocket wrote is in it");
 
     let road = |name: &str, lanes_fwd, lanes_back, lane_width| crate::road_maker::RoadSpec {
         name: name.into(), lanes_fwd, lanes_back, lane_width,
@@ -71,7 +84,9 @@ fn a_manual_junction_rebuild_keeps_the_bus_bay_taper_without_unresolved_rules() 
         assert_ne!(mesh_text(&exit.file), mesh_text(&rebuilt.file), "{file}: mesh must fit the changed road width");
         let sco = omsi_scenery::SceneryObject::load(&after_path).unwrap();
         assert!(sco.paths.iter().any(|p| p.kind == 0), "{file}: vehicle paths must survive");
-        assert_eq!(!rebuilt.rules.is_empty(), restricted, "{file}");
+        // (the bay's bus-only rules are kept beside the object, not in its own rules)
+        assert!(rebuilt.rules.is_empty(), "{file}");
+        assert_eq!(!template_of(&content, &rebuilt.file).is_empty(), restricted, "{file}");
         exit = rebuilt.clone();
     }
     std::fs::remove_dir_all(dir).unwrap();

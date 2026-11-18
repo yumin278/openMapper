@@ -677,6 +677,9 @@ pub struct Editor {
     /// openOMSI's content folder (junction objects are written there) and the asphalt
     /// texture of their plates.
     pub content_dir: Option<std::path::PathBuf>,
+    /// OMSI 2's installation, searched after the content folder for an object's own files
+    /// (the `.sco` and the settings beside it).
+    pub install_dir: Option<std::path::PathBuf>,
     pub asphalt: Option<std::path::PathBuf>,
     pub road_snap: Option<Anchor>,
     road_snap_file: Option<String>,
@@ -915,6 +918,7 @@ impl Default for Editor {
             keep_drawing: false,
             road_styles: Default::default(),
             content_dir: None,
+            install_dir: None,
             asphalt: None,
             road_snap: None,
             road_snap_file: None,
@@ -1589,7 +1593,6 @@ impl Editor {
         if let Some(content) = self.content_dir.as_deref() {
             doc.signal_sets.reload(&doc.dir, content);
         }
-        doc.crossing_signals.reload(&doc.dir);
         self.doc = Some(doc);
     }
 
@@ -9792,6 +9795,97 @@ impl Editor {
         targets > 0
     }
 
+    /// How many `[path]`s an object's own `.sco` has, read as the crossing editor reads it.
+    fn object_path_count(abs: &std::path::Path) -> Option<usize> {
+        let bytes = std::fs::read(abs).ok()?;
+        let text = omsi_cfg::decode_text(&bytes);
+        Some(crate::crossing_edit::Sheet::parse(&text).crossing.paths.len())
+    }
+
+    /// Apply each selected object's own rule template (its `X.crossing.json`) to it: its
+    /// `[kill_rule]`s stay, every other rule is replaced by the template's, and a template rule
+    /// naming a path the object does not have is left out. One undo step for all of them.
+    pub fn apply_rule_template(&mut self, assets: &Assets) -> bool {
+        let objects: Vec<(TileKey, i64)> = self
+            .selection()
+            .into_iter()
+            .filter_map(|s| match s {
+                Sel::Object(k, id) => Some((k, id)),
+                _ => None,
+            })
+            .collect();
+        if objects.is_empty() {
+            self.error(tr("Select one or more objects to apply their rule template", "Выделите один или несколько объектов, чтобы применить их шаблон правил"));
+            return false;
+        }
+        let Some(doc) = self.doc.as_ref() else { return false };
+        let mut plans: Vec<(TileKey, i64, String, usize, Vec<crate::crossing_config::TemplateRule>)> = Vec::new();
+        let mut without = 0usize;
+        let mut unreadable = 0usize;
+        for (k, id) in &objects {
+            let Some(o) = selection::any_object(doc, *k, *id) else { continue };
+            let file = o.file.clone();
+            let abs = assets.resolve(&file);
+            let Some(paths) = Self::object_path_count(&abs) else {
+                log::warn!("rule template of {file}: the object could not be read; skipped");
+                unreadable += 1;
+                continue;
+            };
+            match crate::crossing_config::CrossingConfig::load(&abs, paths) {
+                Some(cfg) if !cfg.rules.is_empty() => plans.push((*k, *id, file, paths, cfg.rules)),
+                _ => {
+                    log::info!("rule template of {file}: none configured; skipped");
+                    without += 1;
+                }
+            }
+        }
+        if plans.is_empty() {
+            let mut text = vec![tr("No selected object has a rule template", "Ни у одного выделенного объекта нет шаблона правил").to_string()];
+            if without + unreadable > 0 {
+                text.push(format!("{} {}", tr("Skipped:", "Пропущено:"), without + unreadable));
+            }
+            self.error(text.join(". "));
+            return false;
+        }
+        log::info!("rule templates: applying to {} object(s), {without} without one, {unreadable} unreadable", plans.len());
+        self.history.begin(tr("Apply rule template", "Применить шаблон правил"));
+        let Some(doc) = self.doc.as_mut() else { return false };
+        let (mut targets, mut written, mut dropped) = (0usize, 0usize, 0usize);
+        for (k, id, file, paths, rules) in plans {
+            let Some(o) = selection::any_object(doc, k, id) else { continue };
+            let old = o.rules.clone();
+            let clip: Vec<omsi_map::MapRule> = rules.iter().map(crate::crossing_config::TemplateRule::to_map_rule).collect();
+            let p = crate::rules_clip::paste(&old, &clip, paths);
+            log::info!("rule template of {file} ({paths} paths) before: {}", crate::rules_clip::describe_all(&old));
+            log::info!("rule template of {file} after: {}", crate::rules_clip::describe_all(&p.after));
+            for r in &p.dropped {
+                log::info!("template rule dropped, path {} is beyond the {paths} paths of {file}: {}", r.path_index, crate::rules_clip::describe(r));
+            }
+            self.history.touch_tile(doc, k);
+            if let Some(o) = selection::any_object_mut(doc, k, id) {
+                o.rules = p.after;
+            }
+            if let Some(t) = doc.tiles.get_mut(&k) {
+                t.touch_content();
+            }
+            targets += 1;
+            written += p.written;
+            dropped += p.dropped.len();
+        }
+        self.history.commit();
+        let mut text = vec![format!("{} {targets}", tr("Rule template applied to:", "Шаблон правил применён к:"))];
+        text.push(format!("{} {written}", tr("Rules written:", "Записано правил:")));
+        if dropped > 0 {
+            text.push(format!("{} {dropped}", tr("Dropped, path number beyond the target:", "Отброшено, номер пути за пределами цели:")));
+        }
+        if without + unreadable > 0 {
+            text.push(format!("{} {}", tr("Skipped, no rule template:", "Пропущено, нет шаблона правил:"), without + unreadable));
+        }
+        let text = text.join(". ");
+        self.toast(text);
+        targets > 0
+    }
+
     /// An object of the map made one of the type `file` (the crossing editor's copy), in one
     /// step of the history.
     pub fn set_object_file(&mut self, k: TileKey, id: i64, file: &str) {
@@ -10283,8 +10377,8 @@ impl Editor {
         }
     }
 
-    /// Place a crossing's hand-authored signal heads and poles (the map's
-    /// `crossing_signals.json`), deleting the crossing's own signal objects first. One undo step.
+    /// Place a crossing's hand-placed signal heads and poles (its own `X.crossing.json` beside
+    /// the `.sco`), deleting the crossing's own signal objects first. One undo step.
     pub fn place_crossing_signals(&mut self, assets: &Assets, k: TileKey, id: i64) -> anyhow::Result<CrossingSignalPlacement> {
         let Some(doc) = self.doc.as_ref() else {
             anyhow::bail!("{}", tr("Open a map", "Открыть карту"));
@@ -10293,17 +10387,21 @@ impl Editor {
             anyhow::bail!("{}", tr("select an object first", "сначала выделите объект"));
         };
         let rel = o.file.clone();
-        let Some(points) = doc.crossing_signals.points(&rel).map(|v| v.to_vec()) else {
-            anyhow::bail!("{}", tr("no signal positions are configured for this crossing", "для этого перекрёстка не заданы позиции светофоров"));
-        };
-        // (the crossing's own height mode and light count, from its .sco)
+        // (the crossing's own height mode, path count and light count, from its .sco; its
+        // settings - the signal heads the user put down - from beside it)
         let sco_path = assets.resolve(&rel);
         let sco = omsi_scenery::SceneryObject::load(&sco_path)
             .map_err(|e| anyhow::anyhow!("{}: {e}", sco_path.display()))?;
         let junction_abs = sco.absolute_height();
         let light_count = sco.traffic_lights.len();
         anyhow::ensure!(light_count > 0, "{}: no traffic-light program", sco_path.display());
-        let config_path = doc.dir.join("openMapper").join(crate::crossing_signals::FILE_NAME);
+        let config_path = crate::crossing_config::path_for(&sco_path);
+        let points = crate::crossing_config::CrossingConfig::load(&sco_path, sco.paths.len())
+            .map(|c| c.signals)
+            .unwrap_or_default();
+        if points.is_empty() {
+            anyhow::bail!("{}", tr("no signal positions are configured for this crossing", "для этого перекрёстка не заданы позиции светофоров"));
+        }
 
         // (the crossing's world origin and height; its turn is the clockwise heading of `rot`)
         let org = tile_origin(k);
@@ -10335,6 +10433,15 @@ impl Editor {
                 p.light, set.id, p.x, p.up, p.fwd
             );
             planned.push((set, height_modes, p.light, heading, head));
+        }
+        // (nothing usable is not "put nothing down": the crossing keeps the heads it has)
+        if planned.is_empty() {
+            anyhow::bail!(
+                "{}: {} {}",
+                config_path.display(),
+                points.len(),
+                tr("configured signal position(s) none of which can be used; nothing was changed", "заданных позиций светофоров, ни одну использовать нельзя; ничего не изменено")
+            );
         }
 
         // (drop the crossing's own signal objects, then put the new ones in: one step)
@@ -10888,7 +10995,7 @@ impl Editor {
         self.history.touch_global(doc);
         let result = crate::pocket::cut_out(doc, k, id, from, from + stretch).and_then(|cut| {
             let mut inner = crate::pocket::retype(doc, &cut, &cfg, 0.0)?;
-            crate::pocket::set_bay_lane_rules(doc, &inner, pocket_paths.clone());
+            crate::pocket::shift_rules_for_bay(doc, &inner, pocket_paths.clone());
             // (one piece where the stretch's pieces make one curve: the taper needs length)
             let mut i = 0;
             while i + 1 < inner.len() {
@@ -11110,7 +11217,6 @@ fn style_options(doc: &Document, styles: &crate::road_maker::Styles, arms: &[cra
     let lights = st.iter().any(|s| s.lights);
     let mut o = crate::junction::Options {
         lights,
-        light_objects: lights,
         corner_walks: st.iter().all(|s| s.corner_walks),
         ..Default::default()
     };
@@ -16554,7 +16660,7 @@ mod tests {
     }
 
     #[test]
-    fn a_bus_pocket_with_taper_junctions_restricts_each_middle_spline() {
+    fn a_bus_pocket_with_taper_junctions_moves_the_roads_rules_past_the_bay() {
         let (_, dir, plain, _) = pocket_fixture("spline-rules");
         let content = dir.join("content");
         let path = omsi_cfg::resolve_path(&content, &plain);
@@ -16603,13 +16709,29 @@ mod tests {
         assert_eq!(tile.objects.iter().filter(|o| o.file.contains("junction_")).count(), 2);
         assert_eq!(splines[0].rules, [road_rule(2, 30.0), road_rule(4, 20.0)]);
         assert_eq!(splines[3].rules, [road_rule(2, 40.0), road_rule(4, 20.0)]);
+        // (the road's own rules move past the bay's lanes, and no rule is added to the road:
+        // what closes the bay's lanes to cars is the junction object's template)
         for (spline, speed) in splines[1..3].iter().zip([30.0, 40.0]) {
             assert!(spline.file.contains("_bay_"));
-            assert_eq!(spline.rules, [
-                road_rule(2, speed), road_rule(5, 20.0),
-                omsi_map::MapRule { path_index: 4, kind: "bus".into(), ..Default::default() },
-                omsi_map::MapRule { path_index: 4, kind: "no_cars".into(), ..Default::default() },
-            ]);
+            assert_eq!(spline.rules, [road_rule(2, speed), road_rule(5, 20.0)]);
+        }
+        let tapered: Vec<&omsi_map::MapObject> = tile.objects.iter().filter(|o| o.file.contains("junction_")).collect();
+        for object in &tapered {
+            assert!(object.rules.is_empty(), "{}: a junction object keeps no rules of its own", object.file);
+            let abs = omsi_cfg::resolve_path(&content, &object.file);
+            let paths = omsi_scenery::SceneryObject::load(&abs).unwrap().paths.len();
+            let template = crate::crossing_config::CrossingConfig::load(&abs, paths).map(|c| c.rules).unwrap_or_default();
+            let mut by_index: std::collections::BTreeMap<i32, Vec<&str>> = std::collections::BTreeMap::new();
+            for r in &template {
+                by_index.entry(r.path_index).or_default().push(r.kind.as_str());
+            }
+            assert!(!by_index.is_empty(), "{}: the bay's lanes are its template", object.file);
+            for (index, kinds) in &by_index {
+                let mut kinds = kinds.clone();
+                kinds.sort_unstable();
+                assert_eq!(kinds, vec!["bus", "no_cars"], "{}: path {index} is buses only and no cars", object.file);
+                assert!((*index as usize) < paths, "{}: path {index} is inside the {paths} paths", object.file);
+            }
         }
         let expected: Vec<_> = splines.iter().map(|s| (s.id, s.rules.clone())).collect();
         crate::doc::save::save(doc).unwrap();
@@ -16685,11 +16807,16 @@ mod tests {
 
             let doc = ed.doc.as_mut().unwrap();
             let tile = &doc.tiles[&(0, 0)].tile;
-            let expected_bay_rules: Vec<_> = (4..if both { 6 } else { 5 }).flat_map(|path_index| {
-                ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
-                    path_index, kind: kind.into(), ..Default::default()
-                })
-            }).collect();
+            let template_rules = |rel: &str| -> Vec<(i32, String)> {
+                let abs = omsi_cfg::resolve_path(&content, rel);
+                let paths = omsi_scenery::SceneryObject::load(&abs).unwrap().paths.len();
+                crate::crossing_config::CrossingConfig::load(&abs, paths)
+                    .map(|c| c.rules)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|r| (r.path_index, r.kind))
+                    .collect()
+            };
             let bay: Vec<_> = tile.splines.iter().filter(|s| !s.deleted && s.file.contains("_bay_")).collect();
             assert_eq!(bay.len(), 1);
             let mut before_bay = bay[0].clone();
@@ -16698,7 +16825,9 @@ mod tests {
             crate::doc::save::spline(&mut before, &before_bay);
             crate::doc::save::spline(&mut after, bay[0]);
             println!("Heading {heading}, both sides {both}, bay spline\nBefore:\n{before}\nAfter:\n{after}");
-            assert_eq!(bay[0].rules, expected_bay_rules);
+            // (the bay's own lanes get no rule of the road's: what closes them to cars is the
+            // template kept beside the junction object)
+            assert!(bay[0].rules.is_empty(), "{:?}", bay[0].rules);
             assert!(tile.splines.iter().filter(|s| !s.deleted && s.file == plain).all(|s| s.rules.is_empty()));
             let bay_id = bay[0].id;
             let mut plates = tile.objects.iter().filter(|o| o.file.contains("junction_")).collect::<Vec<_>>();
@@ -16709,18 +16838,11 @@ mod tests {
                 assert!(is_bus_bay_junction(&plate.file), "{}", plate.file);
                 let path = omsi_cfg::resolve_path(&content, &plate.file);
                 let sco = omsi_cfg::vfs::read_text(&path).unwrap();
-                let mut before = String::new();
-                let mut after = String::new();
-                let mut plain = plate.clone();
-                plain.rules.clear();
-                crate::doc::save::object(&mut before, &plain, false);
-                crate::doc::save::object(&mut after, plate, false);
-                println!("Heading {heading}, plate {}\n{sco}\nBefore:\n{before}\nAfter:\n{after}", plate.id);
+                println!("Heading {heading}, plate {}\n{sco}", plate.id);
+                assert!(plate.rules.is_empty(), "{}: a junction object keeps no rules of its own", plate.file);
                 let indices: &[i32] = if both { &[0, 1, 4, 5] } else { &single_indices };
-                let expected: Vec<_> = indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
-                    path_index: index, kind: kind.into(), ..Default::default()
-                })).collect();
-                assert_eq!(plate.rules, expected);
+                let expected: Vec<(i32, String)> = indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| (index, kind.to_string()))).collect();
+                assert_eq!(template_rules(&plate.file), expected);
             }
             let expected = tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>();
             crate::doc::save::save(doc).unwrap();
@@ -16729,9 +16851,10 @@ mod tests {
             let mut reloaded = Document::load(&roots, &cfg, |_| {}).unwrap();
             let tile = &mut reloaded.tiles.get_mut(&(0, 0)).unwrap().tile;
             assert_eq!(tile.objects.iter().map(|o| (o.id, o.rules.clone())).collect::<Vec<_>>(), expected);
-            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+            assert!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules.is_empty());
 
-            // The rebuilt object must compute the rules from the arms even if its old rules are gone.
+            // (a rebuild takes the bus-only rules from the settings, not from the object's rules:
+            // clearing them changes nothing)
             for object in &mut tile.objects {
                 object.rules.clear();
             }
@@ -16757,7 +16880,7 @@ mod tests {
                 assert_eq!(&object.rules, rules);
             }
             assert_eq!(tile.splines.iter().filter(|s| !s.deleted).count(), 3);
-            assert_eq!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules, expected_bay_rules);
+            assert!(tile.splines.iter().find(|s| s.id == bay_id).unwrap().rules.is_empty());
             ed.undo();
             let tile = &ed.doc.as_ref().unwrap().tiles[&(0, 0)].tile;
             let mut after_undo = String::new();
@@ -16791,6 +16914,10 @@ mod tests {
         assert_eq!(objects.len(), 1);
         assert!(objects[0].rules.is_empty());
         assert!(!is_bus_bay_junction(&objects[0].file));
+        let abs = omsi_cfg::resolve_path(&content, &objects[0].file);
+        let paths = omsi_scenery::SceneryObject::load(&abs).unwrap().paths.len();
+        let template = crate::crossing_config::CrossingConfig::load(&abs, paths).map(|c| c.rules).unwrap_or_default();
+        assert!(template.is_empty(), "an ordinary adapter has no bus-only template");
         let mut ed = Editor::default();
         ed.open(doc);
         assert_eq!(ed.remake_all_junctions(), 1);
@@ -17567,6 +17694,69 @@ mod tests {
         // Z should remain 0 because shift keeps horizontal only
         assert!((o.pos[2] - 0.0).abs() < 1e-4);
         assert!((o.rot[0] - 270.0).abs() < 1e-4);
+    }
+
+    /// Each selected object takes the rules kept beside its own `.sco`: its `[kill_rule]`s
+    /// stay, its other rules are replaced, and two objects with different templates get
+    /// theirs - all in one step of undo.
+    #[test]
+    fn applying_a_rule_template_replaces_rules_keeps_kill_rules_and_undoes_in_one_step() {
+        use crate::crossing_config::{CrossingConfig, TemplateRule};
+        use crate::selection::tests::{add_object, flat_map};
+        let roots = crate::doc::tests::scratch("rule-template-apply");
+        let content = roots.content.clone();
+        let sco_dir = content.join("Sceneryobjects").join("Crossings");
+        std::fs::create_dir_all(&sco_dir).unwrap();
+        let write_sco = |name: &str, paths: usize| -> String {
+            let mut text = String::from("[friendlyname]\nX\n\n");
+            for _ in 0..paths {
+                text.push_str("[path]\n0\n0\n0\n0\n0\n10\n0\n0\n0\n3\n0\n0\n\n");
+            }
+            std::fs::write(sco_dir.join(format!("{name}.sco")), &text).unwrap();
+            format!("Sceneryobjects\\Crossings\\{name}.sco")
+        };
+        let a = write_sco("A", 3);
+        let b = write_sco("B", 2);
+        let rule = |path_index: i32, kind: &str, value: f64| TemplateRule { path_index, kind: kind.into(), value, extra: 0.0 };
+        crate::crossing_config::write(&omsi_cfg::resolve_path(&content, &a), &CrossingConfig::of(None, Vec::new(), vec![rule(0, "bus", 0.0), rule(1, "no_cars", 0.0), rule(2, "speedlimit", 30.0)]), 3).unwrap();
+        crate::crossing_config::write(&omsi_cfg::resolve_path(&content, &b), &CrossingConfig::of(None, Vec::new(), vec![rule(1, "bus", 0.0), rule(1, "no_cars", 0.0)]), 2).unwrap();
+        let assets = Assets::new(roots.omsi.clone(), content.clone());
+        let mut doc = flat_map(1);
+        doc.dir = content.join("maps").join("Rules");
+        let k = (0, 0);
+        add_object(&mut doc, k, 1, 0.0, 0.0);
+        add_object(&mut doc, k, 2, 10.0, 0.0);
+        {
+            let t = &mut doc.tiles.get_mut(&k).unwrap().tile;
+            t.objects[0].file = a.clone();
+            t.objects[0].rules = vec![
+                omsi_map::MapRule { path_index: 0, kind: "speedlimit".into(), value: 70.0, ..Default::default() },
+                omsi_map::MapRule { path_index: 0, kind: "speedlimit".into(), value: 30.0, kill: true, ..Default::default() },
+            ];
+            t.objects[1].file = b.clone();
+            t.objects[1].rules = vec![omsi_map::MapRule { path_index: 0, kind: "trucks".into(), value: 0.0, ..Default::default() }];
+        }
+        let mut ed = Editor::default();
+        ed.content_dir = Some(content.clone());
+        ed.open(doc);
+        ed.set_selection(vec![Sel::Object(k, 1), Sel::Object(k, 2)]);
+        assert!(ed.apply_rule_template(&assets), "{:?}", ed.selection());
+        let doc = ed.doc.as_ref().unwrap();
+        let a_after: Vec<(i32, String, bool)> = doc.object(k, 1).unwrap().rules.iter().map(|r| (r.path_index, r.kind.clone(), r.kill)).collect();
+        assert_eq!(
+            a_after,
+            vec![(0, "speedlimit".into(), true), (0, "bus".into(), false), (1, "no_cars".into(), false), (2, "speedlimit".into(), false)],
+            "A's own rule is gone, its kill rule stays, and its template is written"
+        );
+        let b_after: Vec<(i32, String)> = doc.object(k, 2).unwrap().rules.iter().map(|r| (r.path_index, r.kind.clone())).collect();
+        assert_eq!(b_after, vec![(1, "bus".into()), (1, "no_cars".into())], "B takes its own template, not A's");
+        // (one step back puts both as they were)
+        ed.undo();
+        let doc = ed.doc.as_ref().unwrap();
+        assert_eq!(doc.object(k, 1).unwrap().rules.len(), 2);
+        assert_eq!(doc.object(k, 2).unwrap().rules.len(), 1);
+        assert_eq!(doc.object(k, 2).unwrap().rules[0].kind, "trucks");
+        let _ = std::fs::remove_dir_all(&roots.content);
     }
 }
 

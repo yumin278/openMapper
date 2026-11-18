@@ -562,22 +562,30 @@ pub fn taper_path_indices(doc: &Document, assets: &mut crate::assets::Assets, ar
     Some(paths)
 }
 
-/// Preserve existing rules on their original paths and restrict the newly inserted bay lanes.
-pub fn set_bay_lane_rules(doc: &mut Document, splines: &[(TileKey, i64)], paths: std::ops::Range<usize>) {
+/// Move a road's own rules past the lanes a bay inserts: every rule naming a path from
+/// `paths.start` on moves up by the bay's lane count, so it still names the lane it was set
+/// on. The bay's own lanes are left without rules: what closes them to cars is the rule
+/// template kept beside the junction object's `.sco`, not the road's own rules.
+pub fn shift_rules_for_bay(doc: &mut Document, splines: &[(TileKey, i64)], paths: std::ops::Range<usize>) {
     let first = paths.start as i32;
     let added = paths.len() as i32;
+    if added <= 0 {
+        return;
+    }
     for &(key, id) in splines {
         let Some(tile) = doc.tiles.get_mut(&key) else { continue };
         let Some(spline) = tile.tile.splines.iter_mut().find(|s| s.id == id && !s.deleted) else { continue };
+        let mut moved = 0;
         for rule in &mut spline.rules {
             if rule.path_index >= first {
                 rule.path_index = rule.path_index.saturating_add(added);
+                moved += 1;
             }
         }
-        spline.rules.extend((first..first + added).flat_map(|path_index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
-            path_index, kind: kind.into(), ..Default::default()
-        })));
-        tile.touch_content();
+        if moved > 0 {
+            log::info!("bus bay: {moved} rule(s) of spline {id} moved up by {added} for the bay's lanes from path {first}");
+            tile.touch_content();
+        }
     }
 }
 

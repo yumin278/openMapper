@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Уставі
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Выберыце прыпынак на карце, каб уставіць яго перад «{stop}» (Esc — скасаваць)
 That stop is already next to the insertion point.	Гэты прыпынак ужо побач з месцам устаўкі.
 Insert stop before	Уставіць прыпынак перад гэтым
-Place signal heads and poles	Усталёўваць святлафоры і апоры
 Paint stripes on selected crossings	Маляваць палосы на выбраных пераходах
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Выбрана зыходная вяршыня. Пстрыкніце мэтавую вяршыню для прывязкі (Shift: толькі па гарызанталі, Esc: адмена)
 Aim at a vertex of the selected object	Нацэліцеся на вяршыню абранага аб'екта
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	для гэтага скрыжавання не зададзены пазіцыі светлафораў
 Place signals	Расставіць светлафоры
 Signal positions	Пазіцыі светлафораў
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Дзе стаіць светлафор, у сістэме скрыжавання. Захоўваецца побач з картай, не ў аб'екце
 set id	id набору
 The signal set to use (empty: the map's default)	Набор светлафора (пуста: па змаўчанні карты)
 A signal	Светлафор
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Пры пе
 It has no traffic rules to copy	У яго няма правілаў руху для капіравання
 The clipboard has no traffic rules	У буферы абмену няма правілаў руху
 Saved as a copy to {name}; future saves will write into this copy	Захавана як копія ў {name}; наступныя захаванні будуць запісвацца ў гэтую копію
+In multiplayer the host edits the map. Leave the session to change the rules.	Пры сумесным рэдагаванні карту рэдагуе хост. Выйдзіце з сесіі, каб змяніць правілы.
+a rule's number is not a finite one	нумар правіла не з'яўляецца канечным
+a template rule names a path this crossing does not have	правіла шаблона называе шлях, якога ў гэтага скрыжавання няма
+a template rule names no kind	правіла шаблона не называе віду
+Select one or more objects to apply their rule template	Выберыце адзін або некалькі аб'ектаў, каб прымяніць іх шаблон правіл
+No selected object has a rule template	Ні ў аднаго выбранага аб'екта няма шаблона правіл
+Skipped:	Прапушчана:
+Apply rule template	Прымяніць шаблон правіл
+Rule template applied to:	Шаблон правіл прымянілі да:
+Skipped, no rule template:	Прапушчана, няма шаблона правіл:
+configured signal position(s) none of which can be used; nothing was changed	зададзеных пазіцый святлафораў, ні адну з якіх нельга выкарыстаць; нічога не зменена
+Rule template	Шаблон правіл
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Правілы руху, якія выбраныя шляхі даюць аб'екту карты пры прымяненні шаблона гэтага скрыжавання. Для ШІ і гульца, лічачы ад 0. Захоўваюцца побач з аб'ектам, не ў .sco
+Pick a path first	Спачатку абярыце шлях
+all, mixed values	усе, розныя значэнні
+all	усе
+mixed	змешана
+Take it off the picked paths	Зняць з выбраных шляхоў
+Give it to every picked path that lacks it	Даць кожнаму выбранаму шляху, у якога яго няма
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Кожны выбраны аб'ект бярэ правілы, захаваныя побач з яго ўласным .sco: яго [kill_rule] застаюцца, астатнія правілы замяняюцца, а правілы, якія называюць шлях, якога ў яго няма, адкідваюцца (адзін крок Адрабіць)
+Rules kept beside the object:	Правілы, захаваныя побач з аб'ектам:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Яго [kill_rule] застаюцца, астатнія правілы замяняюцца правіламі шаблона, а правілы, якія называюць шлях, якога ў яго няма, адкідваюцца (адзін крок Адрабіць)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Дзе стаіць светлафор, у сістэме скрыжавання. Захоўваецца побач з аб'ектам, не ў .sco
+Paste from the clipboard (replaces the whole template)	Уставіць з буфера абмену (замяняе ўвесь шаблон)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Кожнае правіла шаблона выдаляецца, і на яго месца ўстаюць блокі [rule] з буфера абмену: тыя ж шляхі, тыпы, значэнні і класы транспарту, у тым жа парадку, у тых жа радках, якія «Капіраваць правілы руху» ва ўласцівасцях аб'екта кладзе ў буфер абмену. Правіла, якое называе шлях, якога ў гэтага скрыжавання няма, адкідаецца
+Nothing was pasted: the clipboard cannot be read	Нічога не ўстаўлена: буфер абмену не чытаецца
+Nothing was pasted: the clipboard does not hold [rule] blocks	Нічога не ўстаўлена: у буферы абмену няма блокаў [rule]
+Pasted rules:	Устаўлена правіл:
+Skipped rules (this crossing has no such path):	Адкінута правіл (у гэтага скрыжавання няма такога шляху):

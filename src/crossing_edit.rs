@@ -16,7 +16,7 @@ use std::path::{Path as FsPath, PathBuf};
 use glam::{DVec2, DVec3};
 use omsi_scenery::{TrafficLight, TrafficLightPhase};
 
-use crate::crossing_signals::SignalPoint;
+use crate::crossing_config::{SignalPoint, TemplateRule};
 
 /// No turn signal.
 pub const TURN_NONE: i32 = 0;
@@ -542,10 +542,14 @@ pub struct Crossing {
     pub helpers: Vec<Helper>,
     /// Signal heads the user put down by hand (kept beside the map, not in the `.sco`).
     pub signals: Vec<SignalPoint>,
+    /// The traffic rules a map object gets when this crossing's template is applied (kept
+    /// beside the map too, and never written into the `.sco`).
+    pub rule_template: Vec<TemplateRule>,
 }
 
 impl Crossing {
-    /// Remove path `i`; the later paths move up and what names them follows.
+    /// Remove path `i`; the later paths move up and what names them follows - the template's
+    /// rules too, so a rule never ends up on another path. The removed path's rules go with it.
     pub fn remove_path(&mut self, i: usize) {
         if i >= self.paths.len() {
             return;
@@ -560,9 +564,27 @@ impl Crossing {
                 }
             }
         }
+        let gone: Vec<TemplateRule> = self.rule_template.iter().filter(|r| r.path_index == n).cloned().collect();
+        if !gone.is_empty() {
+            log::info!(
+                "crossing: path {i} removed with {} template rule(s): {}",
+                gone.len(),
+                gone.iter().map(TemplateRule::describe).collect::<Vec<_>>().join("; ")
+            );
+        }
+        self.rule_template.retain_mut(|r| {
+            if r.path_index == n {
+                return false;
+            }
+            if r.path_index > n {
+                r.path_index -= 1;
+            }
+            true
+        });
     }
 
-    /// Move path `from` to `to`, renumbering the `[blockpath]`s that name paths.
+    /// Move path `from` to `to`, renumbering the `[blockpath]`s and the template's rules that
+    /// name paths.
     pub fn move_path(&mut self, from: usize, to: usize) {
         let len = self.paths.len();
         if from == to || from >= len || to >= len {
@@ -591,6 +613,147 @@ impl Crossing {
                     (i != to || k as usize != to).then_some((k, *b))
                 })
                 .collect();
+        }
+        self.rule_template = self
+            .rule_template
+            .iter()
+            .filter_map(|r| {
+                let mut r = r.clone();
+                r.path_index = map(r.path_index)?;
+                Some(r)
+            })
+            .collect();
+    }
+
+    /// Put `extra` in after path `index`; the template's rules that name later paths follow.
+    pub fn insert_paths_after(&mut self, index: usize, extra: Vec<Path>) {
+        if extra.is_empty() || index >= self.paths.len() {
+            return;
+        }
+        let n = extra.len() as i32;
+        let at = index as i32 + 1;
+        for p in self.paths.iter_mut() {
+            for (a, _) in &mut p.blocks {
+                if *a >= at {
+                    *a += n;
+                }
+            }
+        }
+        for r in &mut self.rule_template {
+            if r.path_index >= at {
+                r.path_index += n;
+            }
+        }
+        for (k, p) in extra.into_iter().enumerate() {
+            self.paths.insert(index + 1 + k, p);
+        }
+    }
+
+    /// Take `count` paths out after `from` (not including `from`): the template's rules that
+    /// named them go, and the later ones move down.
+    pub fn drop_paths(&mut self, from: usize, count: usize) {
+        if count == 0 || from >= self.paths.len() {
+            return;
+        }
+        let to = (from + count).min(self.paths.len());
+        let (from_i, to_i) = (from as i32, to as i32);
+        self.paths.drain(from..to);
+        for p in self.paths.iter_mut() {
+            p.blocks.retain(|(a, _)| *a < from_i || *a >= to_i);
+            for (a, _) in &mut p.blocks {
+                if *a >= to_i {
+                    *a -= count as i32;
+                }
+            }
+        }
+        self.rule_template.retain(|r| r.path_index < from_i || r.path_index >= to_i);
+        for r in &mut self.rule_template {
+            if r.path_index >= to_i {
+                r.path_index -= count as i32;
+            }
+        }
+    }
+
+    /// Add `p` at the end; a copy of path `copy_from` brings that path's template rules with it.
+    pub fn append_path(&mut self, p: Path, copy_from: Option<usize>) {
+        let at = self.paths.len() as i32;
+        self.paths.push(p);
+        if let Some(from) = copy_from.filter(|i| (*i as i32) < at) {
+            let from = from as i32;
+            let copied: Vec<TemplateRule> = self.rule_template.iter().filter(|r| r.path_index == from).cloned().collect();
+            for r in copied {
+                let mut r = r;
+                r.path_index = at;
+                self.rule_template.push(r);
+            }
+        }
+    }
+
+    /// How many of `paths` have rule `kind`, and the value they all share (None when they do
+    /// not share one, or none has it).
+    pub fn template_have(&self, paths: &[usize], kind: &str) -> (usize, Option<f64>) {
+        let mut have = 0;
+        let mut value: Option<f64> = None;
+        let mut mixed = false;
+        for &i in paths {
+            let found: Vec<&TemplateRule> = self.rule_template.iter().filter(|r| r.path_index == i as i32 && r.kind == kind).collect();
+            if found.is_empty() {
+                continue;
+            }
+            have += 1;
+            for r in found {
+                match value {
+                    None => value = Some(r.value),
+                    Some(v) if (v - r.value).abs() > 1e-9 => mixed = true,
+                    Some(_) => {}
+                }
+            }
+        }
+        (have, if mixed { None } else { value })
+    }
+
+    /// Give every one of `paths` that lacks rule `kind` it, at `value`. `bus` brings `no_cars`
+    /// with it, as OMSI 2's own editor writes them: "buses only" needs both.
+    pub fn template_add(&mut self, paths: &[usize], kind: &str, value: f64) {
+        for &i in paths {
+            let at = i as i32;
+            // (`bus` brings `no_cars` with it; a slice of the borrowed `kind` must outlive the
+            // loop, so both are bound here rather than built in the `if`)
+            let both = ["bus", "no_cars"];
+            let one = [kind];
+            let kinds: &[&str] = if kind == "bus" { &both } else { &one };
+            for k in kinds {
+                if !self.rule_template.iter().any(|r| r.path_index == at && r.kind == *k) {
+                    self.rule_template.push(TemplateRule { path_index: at, kind: (*k).into(), value: if *k == "bus" || *k == "no_cars" { 0.0 } else { value }, extra: 0.0 });
+                }
+            }
+        }
+    }
+
+    /// Set the value of rule `kind` on every one of `paths` that has it.
+    pub fn template_set(&mut self, paths: &[usize], kind: &str, value: f64) {
+        for &i in paths {
+            for r in &mut self.rule_template {
+                if r.path_index == i as i32 && r.kind == kind {
+                    r.value = value;
+                }
+            }
+        }
+    }
+
+    /// `rules` split into the ones that name a path this crossing has and the ones that do not,
+    /// each in the order it came. A paste keeps the first as the whole template and reports the
+    /// second; nothing is added to them, so a `bus` brings no `no_cars` here.
+    pub fn template_keep(&self, rules: Vec<TemplateRule>) -> (Vec<TemplateRule>, Vec<TemplateRule>) {
+        let paths = self.paths.len();
+        rules.into_iter().partition(|r| r.path_index >= 0 && (r.path_index as usize) < paths)
+    }
+
+    /// Take rule `kind` off every one of `paths`. Off with `bus` goes `no_cars` too.
+    pub fn template_remove(&mut self, paths: &[usize], kind: &str) {
+        for &i in paths {
+            let at = i as i32;
+            self.rule_template.retain(|r| !(r.path_index == at && (r.kind == kind || (kind == "bus" && r.kind == "no_cars"))));
         }
     }
 
@@ -646,6 +809,32 @@ impl Crossing {
                 return Some(format!(
                     "#{n}: {}",
                     crate::i18n::tr("a signal shows a light this crossing does not have", "светофор показывает свет, которого у перекрёстка нет")
+                ));
+            }
+        }
+        None
+    }
+
+    /// Why this template cannot be saved, if it cannot: every number finite, every rule naming
+    /// a path the crossing has, and every kind a word. None when it is all right.
+    pub fn why_template_not(&self) -> Option<String> {
+        for (n, r) in self.rule_template.iter().enumerate() {
+            if !r.value.is_finite() || !r.extra.is_finite() {
+                return Some(format!(
+                    "#{n}: {}",
+                    crate::i18n::tr("a rule's number is not a finite one", "число правила — не конечное")
+                ));
+            }
+            if r.path_index < 0 || r.path_index as usize >= self.paths.len() {
+                return Some(format!(
+                    "#{n}: {}",
+                    crate::i18n::tr("a template rule names a path this crossing does not have", "правило шаблона называет путь, которого у перекрёстка нет")
+                ));
+            }
+            if r.kind.trim().is_empty() || r.kind.contains(char::is_whitespace) {
+                return Some(format!(
+                    "#{n}: {}",
+                    crate::i18n::tr("a template rule names no kind", "правило шаблона не называет вид")
                 ));
             }
         }
@@ -1167,11 +1356,6 @@ fn random_suffix_6() -> String {
         val /= 36;
     }
     std::str::from_utf8(&chars).unwrap_or("000000").to_string()
-}
-
-/// The sidecar file beside a `.sco` where the crossing editor notes its source (`X.crossing.json`).
-pub fn sidecar(abs: &std::path::Path) -> std::path::PathBuf {
-    abs.with_extension("crossing.json")
 }
 
 /// Where a new crossing copy goes: `{stem}_{6-char random alphanumeric}`.

@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	앞에 삽�
 Click a stop on the map to insert it before {stop} (Esc to cancel)	지도에서 정류장을 클릭하여 ‘{stop}’ 앞에 삽입하세요(Esc로 취소)
 That stop is already next to the insertion point.	해당 정류장은 이미 삽입 위치 바로 옆에 있습니다.
 Insert stop before	이 정류장 앞에 삽입
-Place signal heads and poles	신호등과 지주 배치
 Paint stripes on selected crossings	선택한 횡단보도에 줄무늬 그리기
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	소스 정점이 선택되었습니다. 스냅할 대상 정점을 클릭합니다(Shift: 가로만, Esc: 취소).
 Aim at a vertex of the selected object	선택한 개체의 꼭지점을 겨냥합니다.
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	이 교차로에는 신호등 위치가 설정되어 있지 않습니다
 Place signals	신호등 배치
 Signal positions	신호등 위치
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	교차로 좌표계에서 신호등 머리가 서는 곳. 객체가 아니라 지도 옆에 저장됩니다
 set id	세트 id
 The signal set to use (empty: the map's default)	사용할 신호등 세트 (비어 있음: 지도 기본값)
 A signal	신호등
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	교차로�
 It has no traffic rules to copy	복사할 교통 규칙이 없습니다
 The clipboard has no traffic rules	클립보드에 교통 규칙이 없습니다
 Saved as a copy to {name}; future saves will write into this copy	{name}에 사본으로 저장되었습니다. 이후 저장은 이 사본에 기록됩니다
+In multiplayer the host edits the map. Leave the session to change the rules.	공동 편집에서는 호스트가 지도를 편집합니다. 규칙을 바꾸려면 세션에서 나가세요.
+a rule's number is not a finite one	규칙의 숫자가 유한하지 않습니다
+a template rule names a path this crossing does not have	템플릿 규칙이 이 교차로에 없는 경로를 가리킵니다
+a template rule names no kind	템플릿 규칙이 종류를 가리키지 않습니다
+Select one or more objects to apply their rule template	규칙 템플릿을 적용할 객체를 하나 이상 선택하세요
+No selected object has a rule template	선택한 객체에 규칙 템플릿이 없습니다
+Skipped:	건너뜀:
+Apply rule template	규칙 템플릿 적용
+Rule template applied to:	규칙 템플릿 적용 대상:
+Skipped, no rule template:	건너뜀, 규칙 템플릿 없음:
+configured signal position(s) none of which can be used; nothing was changed	설정된 신호등 위치 중 사용할 수 있는 것이 없습니다. 아무것도 변경되지 않았습니다
+Rule template	규칙 템플릿
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	이 교차로의 템플릿을 적용할 때 선택한 경로가 지도 객체에 주는 교통 규칙입니다. AI와 플레이어의 경우 0부터 셉니다. 객체 옆에 저장되며 .sco 안에는 들어가지 않습니다
+Pick a path first	먼저 경로를 선택하세요
+all, mixed values	모두, 값이 다름
+all	모두
+mixed	혼합
+Take it off the picked paths	선택한 경로에서 빼기
+Give it to every picked path that lacks it	그것이 없는 선택한 경로 모두에 주기
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	선택한 각 객체는 자기 .sco 옆에 저장된 규칙을 가져옵니다. [kill_rule]은 그대로 남고 다른 규칙은 교체되며, 자신에게 없는 경로를 가리키는 규칙은 빠집니다(실행 취소 한 단계)
+Rules kept beside the object:	객체 옆에 저장된 규칙:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule]은 그대로 남고 다른 규칙은 템플릿의 규칙으로 교체되며, 자신에게 없는 경로를 가리키는 규칙은 빠집니다(실행 취소 한 단계)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	교차로 좌표계에서 신호등 머리가 서는 곳. 객체 옆에 저장되며 .sco 안에는 들어가지 않습니다
+Paste from the clipboard (replaces the whole template)	클립보드에서 붙여넣기(템플릿 전체를 바꿉니다)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	템플릿의 모든 규칙이 지워지고 클립보드의 [rule] 블록이 그 자리를 차지합니다. 같은 경로, 종류, 값, 차량 클래스가 같은 순서로 들어가며, 개체 속성의 교통 규칙 복사가 클립보드에 넣는 줄과 같은 형식입니다. 이 교차로에 없는 경로를 가리키는 규칙은 제외됩니다
+Nothing was pasted: the clipboard cannot be read	붙여넣지 못했습니다: 클립보드를 읽을 수 없습니다
+Nothing was pasted: the clipboard does not hold [rule] blocks	붙여넣지 못했습니다: 클립보드에 [rule] 블록이 없습니다
+Pasted rules:	붙여넣은 규칙 수:
+Skipped rules (this crossing has no such path):	제외한 규칙 수(이 교차로에 없는 경로):

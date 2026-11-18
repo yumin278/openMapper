@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	แทรก
 Click a stop on the map to insert it before {stop} (Esc to cancel)	คลิกป้ายหยุดรถบนแผนที่เพื่อแทรกก่อน “{stop}” (Esc เพื่อยกเลิก)
 That stop is already next to the insertion point.	ป้ายหยุดรถนั้นอยู่ติดกับตำแหน่งที่จะแทรกอยู่แล้ว
 Insert stop before	แทรกป้ายหยุดรถก่อนป้ายนี้
-Place signal heads and poles	วางหัวสัญญาณไฟจราจรและเสา
 Paint stripes on selected crossings	วาดแถบสีบนทางข้ามที่เลือก
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	เลือกจุดยอดต้นทางแล้ว คลิกจุดยอดเป้าหมายเพื่อสแนป (Shift: แนวนอนเท่านั้น Esc: ยกเลิก)
 Aim at a vertex of the selected object	เล็งไปที่จุดยอดของวัตถุที่เลือก
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	ยังไม่ได้กำหนดตำแหน่งสัญญาณไฟสำหรับทางแยกนี้
 Place signals	วางสัญญาณไฟ
 Signal positions	ตำแหน่งสัญญาณไฟ
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	ตำแหน่งที่หัวสัญญาณไฟตั้งอยู่ ในระบบพิกัดของทางแยก บันทึกข้างแผนที่ ไม่ใช่ในวัตถุ
 set id	id ชุด
 The signal set to use (empty: the map's default)	ชุดสัญญาณไฟที่จะใช้ (ว่าง: ค่าเริ่มต้นของแผนที่)
 A signal	สัญญาณไฟ
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	เมื�
 It has no traffic rules to copy	ไม่มีกฎจราจรให้คัดลอก
 The clipboard has no traffic rules	คลิปบอร์ดไม่มีกฎจราจร
 Saved as a copy to {name}; future saves will write into this copy	บันทึกเป็นสำเนาไปยัง {name} แล้ว การบันทึกในอนาคตจะเขียนลงในสำเนานี้
+In multiplayer the host edits the map. Leave the session to change the rules.	ในการแก้ไขร่วมกัน โฮสต์เป็นผู้แก้ไขแผนที่ ออกจากเซสชันเพื่อเปลี่ยนกฎ
+a rule's number is not a finite one	หมายเลขของกฎไม่ใช่จำนวนจำกัด
+a template rule names a path this crossing does not have	กฎของเทมเพลตอ้างถึงเส้นทางที่ทางแยกนี้ไม่มี
+a template rule names no kind	กฎของเทมเพลตไม่ได้ระบุชนิด
+Select one or more objects to apply their rule template	เลือกวัตถุหนึ่งรายการขึ้นไปเพื่อใช้เทมเพลตกฎของวัตถุนั้น
+No selected object has a rule template	ไม่มีวัตถุที่เลือกไว้มีเทมเพลตกฎ
+Skipped:	ข้าม:
+Apply rule template	ใช้เทมเพลตกฎ
+Rule template applied to:	ใช้เทมเพลตกฎกับ:
+Skipped, no rule template:	ข้าม ไม่มีเทมเพลตกฎ:
+configured signal position(s) none of which can be used; nothing was changed	ตำแหน่งสัญญาณไฟที่ตั้งไว้ ซึ่งไม่มีตำแหน่งใดใช้ได้เลย ไม่มีการเปลี่ยนแปลงใด ๆ
+Rule template	เทมเพลตกฎ
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	กฎจราจรที่เส้นทางที่เลือกมอบให้วัตถุบนแผนที่เมื่อใช้เทมเพลตของทางแยกนี้ สำหรับ AI และผู้เล่น นับจาก 0 บันทึกไว้ข้างวัตถุ ไม่ได้อยู่ใน .sco
+Pick a path first	เลือกเส้นทางก่อน
+all, mixed values	ทั้งหมด ค่าต่างกัน
+all	ทั้งหมด
+mixed	ผสม
+Take it off the picked paths	เอาออกจากเส้นทางที่เลือก
+Give it to every picked path that lacks it	ให้กับทุกเส้นทางที่เลือกซึ่งยังไม่มี
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	วัตถุที่เลือกแต่ละชิ้นจะใช้กฎที่บันทึกไว้ข้าง .sco ของตนเอง: [kill_rule] ของมันคงอยู่ กฎอื่น ๆ ถูกแทนที่ และกฎที่อ้างถึงเส้นทางที่มันไม่มีจะถูกข้ามไป (หนึ่งขั้นตอนเลิกทำ)
+Rules kept beside the object:	กฎที่บันทึกไว้ข้างวัตถุ:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule] ของมันคงอยู่ กฎอื่น ๆ ถูกแทนที่ด้วยของเทมเพลต และกฎที่อ้างถึงเส้นทางที่มันไม่มีจะถูกข้ามไป (หนึ่งขั้นตอนเลิกทำ)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	ตำแหน่งที่หัวสัญญาณไฟตั้งอยู่ ในระบบพิกัดของทางแยก บันทึกไว้ข้างวัตถุ ไม่ได้อยู่ใน .sco
+Paste from the clipboard (replaces the whole template)	วางจากคลิปบอร์ด (แทนเทมเพลตทั้งหมด)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	กฎทุกข้อของเทมเพลตจะถูกล้าง และบล็อก [rule] จากคลิปบอร์ดจะเข้ามาแทน: เส้นทาง ชนิด ค่า และประเภทยานพาหนะเดิม ในลำดับเดิม ในบรรทัดเดียวกับที่ คัดลอกกฎจราจร ในคุณสมบัติของวัตถุวางไว้บนคลิปบอร์ด กฎที่อ้างถึงเส้นทางที่ทางแยกนี้ไม่มีจะถูกตัดออก
+Nothing was pasted: the clipboard cannot be read	ไม่มีอะไรถูกวาง: อ่านคลิปบอร์ดไม่ได้
+Nothing was pasted: the clipboard does not hold [rule] blocks	ไม่มีอะไรถูกวาง: คลิปบอร์ดไม่มีบล็อก [rule]
+Pasted rules:	จำนวนกฎที่วาง:
+Skipped rules (this crossing has no such path):	จำนวนกฎที่ตัดออก (ทางแยกนี้ไม่มีเส้นทางนั้น):

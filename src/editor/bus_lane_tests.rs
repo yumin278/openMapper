@@ -296,7 +296,7 @@ fn pocket_tool_preserves_maker_bus_paths_and_bays_on_one_and_both_sides() {
                 for i in added.clone() {
                     assert_eq!(bay.def.paths[i].kind, 0);
                 }
-                let expected: Vec<_> = original_indices.iter().copied().chain(added).collect();
+                let expected: Vec<_> = original_indices.iter().copied().collect();
                 for &index in &expected {
                     assert_eq!(bay.def.paths[index].kind, 0);
                     for kind in ["bus", "no_cars"] {
@@ -314,10 +314,12 @@ fn pocket_tool_preserves_maker_bus_paths_and_bays_on_one_and_both_sides() {
                         );
                     }
                 }
+                // (the bay's own lanes are left without a rule of the road's: what closes them
+                // to cars is the junction object's template)
                 assert_eq!(
                     spline.rules.len(),
                     expected.len() * 2,
-                    "no rules drift to other paths"
+                    "no rules drift to other paths, and none is added"
                 );
                 println!(
                     "pocket compatibility: left_bay={left_bay}, both={both}, original_bus_paths={:?}, original_bay_paths={:?}, new_bay_paths={first}..{}, rules={:?}",

@@ -2811,7 +2811,6 @@ Insert before: click a stop on the map to insert it before this one	Встави
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Виберіть зупинку на мапі, щоб вставити її перед «{stop}» (Esc — скасувати)
 That stop is already next to the insertion point.	Ця зупинка вже поруч із місцем вставлення.
 Insert stop before	Вставити зупинку перед цією
-Place signal heads and poles	Установити світлофори та опори
 Paint stripes on selected crossings	Намалювати смуги на вибраних переходах
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Вибрана вихідна вершина. Клацніть цільову вершину, щоб зробити прив’язку (Shift: лише горизонтально, Esc: скасувати)
 Aim at a vertex of the selected object	Наведіть приціл у вершину вибраного об'єкта
@@ -2992,7 +2991,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	для цього перехрестя не задано позиції світлофорів
 Place signals	Розставити світлофори
 Signal positions	Позиції світлофорів
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Де стоїть голівка світлофора, у системі перехрестя. Зберігається поруч із картою, не в об'єкті
 set id	id набору
 The signal set to use (empty: the map's default)	Набір світлофора (порожньо: типовий карти)
 A signal	Світлофор
@@ -3019,3 +3017,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Під ча
 It has no traffic rules to copy	У нього немає правил руху для копіювання
 The clipboard has no traffic rules	У буфері обміну немає правил руху
 Saved as a copy to {name}; future saves will write into this copy	Збережено як копію в {name}; наступні збереження записуватимуться в цю копію
+In multiplayer the host edits the map. Leave the session to change the rules.	У спільному редагуванні карту редагує хост. Вийдіть із сесії, щоб змінити правила.
+a rule's number is not a finite one	номер правила не є скінченним
+a template rule names a path this crossing does not have	правило шаблону називає шлях, якого в цього перехрестя немає
+a template rule names no kind	правило шаблону не називає виду
+Select one or more objects to apply their rule template	Виберіть один або кілька об'єктів, щоб застосувати їхній шаблон правил
+No selected object has a rule template	Жоден вибраний об'єкт не має шаблону правил
+Skipped:	Пропущено:
+Apply rule template	Застосувати шаблон правил
+Rule template applied to:	Шаблон правил застосовано до:
+Skipped, no rule template:	Пропущено, немає шаблону правил:
+configured signal position(s) none of which can be used; nothing was changed	налаштованих позицій світлофорів, жодну з яких не можна використати; нічого не змінено
+Rule template	Шаблон правил
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Правила руху, які вибрані шляхи дають об'єкту карти, коли застосовано шаблон цього перехрестя. Для ШІ та гравця, рахуючи від 0. Зберігаються поруч з об'єктом, не в .sco
+Pick a path first	Спершу виберіть шлях
+all, mixed values	усі, різні значення
+all	усі
+mixed	змішано
+Take it off the picked paths	Зняти з вибраних шляхів
+Give it to every picked path that lacks it	Дати кожному вибраному шляху, який його не має
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Кожен вибраний об'єкт бере правила, збережені поруч з його власним .sco: його [kill_rule] лишаються, інші правила замінюються, а правила, що називають шлях, якого він не має, відкидаються (один крок Скасувати)
+Rules kept beside the object:	Правила, збережені поруч з об'єктом:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Його [kill_rule] лишаються, інші правила замінюються правилами шаблону, а правила, що називають шлях, якого він не має, відкидаються (один крок Скасувати)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Де стоїть голівка світлофора, у системі перехрестя. Зберігається поруч з об'єктом, не в .sco
+Paste from the clipboard (replaces the whole template)	Вставити з буфера обміну (замінює весь шаблон)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Кожне правило шаблону стирається, і його місце займають блоки [rule] з буфера обміну: ті самі шляхи, типи, значення й класи транспорту, у тому самому порядку, у тих самих рядках, які «Копіювати правила руху» у властивостях об'єкта кладе в буфер обміну. Правило, що називає шлях, якого в цього перехрестя немає, відкидається
+Nothing was pasted: the clipboard cannot be read	Нічого не вставлено: буфер обміну не читається
+Nothing was pasted: the clipboard does not hold [rule] blocks	Нічого не вставлено: у буфері обміну немає блоків [rule]
+Pasted rules:	Вставлено правил:
+Skipped rules (this crossing has no such path):	Відкинуто правил (у цього перехрестя немає такого шляху):

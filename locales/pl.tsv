@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Wstaw przed:
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Kliknij przystanek na mapie, aby wstawić go przed „{stop}” (Esc anuluje)
 That stop is already next to the insertion point.	Ten przystanek już sąsiaduje z miejscem wstawienia.
 Insert stop before	Wstaw przystanek przed tym
-Place signal heads and poles	Ustaw sygnalizatory i słupy
 Paint stripes on selected crossings	Maluj pasy na wybranych przejściach
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Wybrano wierzchołek źródłowy. Kliknij docelowy wierzchołek, aby go przyciągnąć (Shift: tylko w poziomie, Esc: anuluj)
 Aim at a vertex of the selected object	Wyceluj w wierzchołek wybranego obiektu
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	W
 no signal positions are configured for this crossing	dla tego skrzyżowania nie skonfigurowano pozycji sygnalizatorów
 Place signals	Ustaw sygnalizatory
 Signal positions	Pozycje sygnalizatorów
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Gdzie stoi głowica sygnalizatora, w układzie skrzyżowania. Zapisane obok mapy, nie w obiekcie
 set id	id zestawu
 The signal set to use (empty: the map's default)	Zestaw sygnalizatorów do użycia (pusty: domyślny mapy)
 A signal	Sygnalizator
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Przebudowa 
 It has no traffic rules to copy	Nie ma zasad ruchu do skopiowania
 The clipboard has no traffic rules	Schowek nie zawiera zasad ruchu
 Saved as a copy to {name}; future saves will write into this copy	Zapisano jako kopię do {name}; przyszłe zapisy trafią do tej kopii
+In multiplayer the host edits the map. Leave the session to change the rules.	We wspólnej edycji mapę edytuje host. Opuść sesję, aby zmienić reguły.
+a rule's number is not a finite one	numer reguły nie jest skończony
+a template rule names a path this crossing does not have	reguła szablonu wskazuje ścieżkę, której to skrzyżowanie nie ma
+a template rule names no kind	reguła szablonu nie wskazuje rodzaju
+Select one or more objects to apply their rule template	Zaznacz jeden lub więcej obiektów, aby zastosować ich szablon reguł
+No selected object has a rule template	Żaden zaznaczony obiekt nie ma szablonu reguł
+Skipped:	Pominięto:
+Apply rule template	Zastosuj szablon reguł
+Rule template applied to:	Zastosowano szablon reguł do:
+Skipped, no rule template:	Pominięto, brak szablonu reguł:
+configured signal position(s) none of which can be used; nothing was changed	skonfigurowanych pozycji sygnalizatorów, z których żadnej nie można użyć; nic nie zmieniono
+Rule template	Szablon reguł
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Reguły ruchu, które wybrane ścieżki dają obiektowi mapy po zastosowaniu szablonu tego skrzyżowania. Dla AI i gracza, liczone od 0. Zapisywane obok obiektu, nie w .sco
+Pick a path first	Najpierw wybierz ścieżkę
+all, mixed values	wszystkie, różne wartości
+all	wszystkie
+mixed	mieszane
+Take it off the picked paths	Usuń z wybranych ścieżek
+Give it to every picked path that lacks it	Dodaj każdej wybranej ścieżce, której go brakuje
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Każdy zaznaczony obiekt przejmuje reguły zapisane obok jego własnego .sco: jego [kill_rule] pozostają, pozostałe reguły zostają zastąpione, a reguły wskazujące ścieżkę, której nie ma, są pomijane (jeden krok cofnięcia)
+Rules kept beside the object:	Reguły zapisane obok obiektu:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Jego [kill_rule] pozostają, pozostałe reguły zostają zastąpione przez reguły szablonu, a reguły wskazujące ścieżkę, której nie ma, są pomijane (jeden krok cofnięcia)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Gdzie stoi głowica sygnalizatora, w układzie skrzyżowania. Zapisywane obok obiektu, nie w .sco
+Paste from the clipboard (replaces the whole template)	Wklej ze schowka (zastępuje cały szablon)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Każda reguła szablonu jest usuwana, a jej miejsce zajmują bloki [rule] ze schowka: te same ścieżki, rodzaje, wartości i klasy pojazdów, w tej samej kolejności, w tych samych wierszach, które Kopiuj zasady ruchu we właściwościach obiektu wkłada do schowka. Reguła wskazująca ścieżkę, której to skrzyżowanie nie ma, jest pomijana
+Nothing was pasted: the clipboard cannot be read	Nic nie wklejono: schowka nie można odczytać
+Nothing was pasted: the clipboard does not hold [rule] blocks	Nic nie wklejono: schowek nie zawiera bloków [rule]
+Pasted rules:	Wklejone reguły:
+Skipped rules (this crossing has no such path):	Pominięte reguły (to skrzyżowanie nie ma takiej ścieżki):

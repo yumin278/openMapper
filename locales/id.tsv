@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Sisipkan seb
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Pilih halte di peta untuk disisipkan sebelum “{stop}” (Esc untuk membatalkan)
 That stop is already next to the insertion point.	Halte itu sudah berada di sebelah titik penyisipan.
 Insert stop before	Sisipkan halte sebelumnya
-Place signal heads and poles	Pasang kepala dan tiang lampu lalu lintas
 Paint stripes on selected crossings	Beri garis pada penyeberangan yang dipilih
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Titik sumber dipilih. Klik titik sasaran yang akan diambil (Shift: horizontal saja, Esc: batal)
 Aim at a vertex of the selected object	Arahkan ke titik puncak objek yang dipilih
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	D
 no signal positions are configured for this crossing	tidak ada posisi lampu yang dikonfigurasi untuk persimpangan ini
 Place signals	Pasang lampu
 Signal positions	Posisi lampu
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Tempat kepala lampu berdiri, dalam kerangka persimpangan. Disimpan di samping peta, bukan di objek
 set id	id set
 The signal set to use (empty: the map's default)	Set lampu yang dipakai (kosong: bawaan peta)
 A signal	Sebuah lampu
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Membangun u
 It has no traffic rules to copy	Tidak ada aturan lalu lintas untuk disalin
 The clipboard has no traffic rules	Papan klip tidak berisi aturan lalu lintas
 Saved as a copy to {name}; future saves will write into this copy	Disimpan sebagai salinan ke {name}; penyimpanan berikutnya akan ditulis ke salinan ini
+In multiplayer the host edits the map. Leave the session to change the rules.	Dalam penyuntingan bersama, host yang menyunting peta. Keluar dari sesi untuk mengubah aturan.
+a rule's number is not a finite one	nomor sebuah aturan bukan bilangan berhingga
+a template rule names a path this crossing does not have	sebuah aturan templat menyebut lajur yang tidak dimiliki persimpangan ini
+a template rule names no kind	sebuah aturan templat tidak menyebut jenis
+Select one or more objects to apply their rule template	Pilih satu atau beberapa objek untuk menerapkan templat aturannya
+No selected object has a rule template	Tidak ada objek terpilih yang punya templat aturan
+Skipped:	Dilewati:
+Apply rule template	Terapkan templat aturan
+Rule template applied to:	Templat aturan diterapkan ke:
+Skipped, no rule template:	Dilewati, tanpa templat aturan:
+configured signal position(s) none of which can be used; nothing was changed	posisi sinyal terkonfigurasi yang tidak satu pun dapat dipakai; tidak ada yang diubah
+Rule template	Templat aturan
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Aturan lalu lintas yang diberikan lajur terpilih kepada objek peta saat templat persimpangan ini diterapkan. Untuk AI dan pemain, dihitung dari 0. Disimpan di samping objek, bukan di .sco
+Pick a path first	Pilih lajur dulu
+all, mixed values	semua, nilai berbeda
+all	semua
+mixed	campuran
+Take it off the picked paths	Hapus dari lajur terpilih
+Give it to every picked path that lacks it	Berikan ke setiap lajur terpilih yang belum punya
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Setiap objek terpilih mengambil aturan yang disimpan di samping .sco-nya sendiri: [kill_rule]-nya tetap, aturan lainnya diganti, dan aturan yang menyebut lajur yang tidak dimilikinya ditinggalkan (satu langkah Urungkan)
+Rules kept beside the object:	Aturan yang disimpan di samping objek:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule]-nya tetap, aturan lainnya diganti dengan milik templat, dan aturan yang menyebut lajur yang tidak dimilikinya ditinggalkan (satu langkah Urungkan)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Tempat kepala lampu berdiri, dalam kerangka persimpangan. Disimpan di samping objek, bukan di .sco
+Paste from the clipboard (replaces the whole template)	Tempel dari papan klip (mengganti seluruh templat)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Setiap aturan templat dihapus, dan blok [rule] dari papan klip menggantikannya: lajur, jenis, nilai, dan kelas kendaraan yang sama, dalam urutan yang sama, dalam baris yang sama dengan Salin aturan lalu lintas di properti objek menaruhnya di papan klip. Aturan yang menyebut lajur yang tidak dimiliki persimpangan ini dilewati
+Nothing was pasted: the clipboard cannot be read	Tidak ada yang ditempel: papan klip tidak dapat dibaca
+Nothing was pasted: the clipboard does not hold [rule] blocks	Tidak ada yang ditempel: papan klip tidak berisi blok [rule]
+Pasted rules:	Aturan ditempel:
+Skipped rules (this crossing has no such path):	Aturan dilewati (persimpangan ini tidak punya lajur itu):

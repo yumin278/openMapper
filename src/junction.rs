@@ -145,33 +145,11 @@ struct PathRec {
     bus: bool,
 }
 
-fn junction_rules(recs: &[PathRec]) -> Vec<omsi_map::MapRule> {
-    recs.iter().enumerate().filter(|(_, p)| p.pocket || p.bus).flat_map(|(index, _)| {
-        ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
-            path_index: index as i32, kind: kind.into(), ..Default::default()
-        })
-    }).collect()
-}
-
-const BUS_PATHS_TAG: &str = "openMapper bus paths:";
-
-pub(crate) fn bus_path_metadata(indices: &[usize]) -> String {
-    if indices.is_empty() { return String::new(); }
-    format!("{BUS_PATHS_TAG} {}\n\n", indices.iter().map(usize::to_string).collect::<Vec<_>>().join(","))
-}
-
-pub(crate) fn bus_path_rules(indices: &[usize]) -> Vec<omsi_map::MapRule> {
-    indices.iter().flat_map(|&index| ["bus", "no_cars"].map(|kind| omsi_map::MapRule {
-        path_index: index as i32, kind: kind.into(), ..Default::default()
-    })).collect()
-}
-
-pub(crate) fn read_bus_path_rules(path: &Path) -> Vec<omsi_map::MapRule> {
-    let Ok(text) = omsi_cfg::vfs::read_text(path) else { return Vec::new() };
-    let indices: Vec<usize> = text.lines().find_map(|line| line.trim().strip_prefix(BUS_PATHS_TAG))
-        .map(|s| s.trim().split(',').filter_map(|s| s.trim().parse().ok()).collect())
-        .unwrap_or_default();
-    bus_path_rules(&indices)
+/// The bus-only rules of a junction's own paths, as the template kept beside its `.sco`: the
+/// paths that belong to a bus pocket, and the ones a bay's traffic runs on.
+fn junction_template(recs: &[PathRec]) -> Vec<crate::crossing_config::TemplateRule> {
+    let indices: Vec<usize> = recs.iter().enumerate().filter(|(_, p)| p.pocket || p.bus).map(|(index, _)| index).collect();
+    crate::crossing_config::bus_template_rules(&indices)
 }
 
 /// What a junction has besides its roads: traffic lights (a plan of two phases, the main
@@ -180,8 +158,6 @@ pub(crate) fn read_bus_path_rules(path: &Path) -> Vec<omsi_map::MapRule> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Options {
     pub lights: bool,
-    /// Also place physical signal heads and poles (the traffic light program runs without them).
-    pub light_objects: bool,
     /// Green for the main road and for the side roads (s).
     pub main_green: f64,
     pub side_green: f64,
@@ -191,13 +167,11 @@ pub struct Options {
     pub zebra_texture: bool,
     /// Whether the junction generates AI footway paths around its corners.
     pub corner_walks: bool,
-    /// Empty to use the map's default combination.
-    pub signal_set: String,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Options { lights: false, light_objects: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), zebra_texture: true, corner_walks: true, signal_set: String::new() }
+        Options { lights: false, main_green: 30.0, side_green: 20.0, crossings: Vec::new(), zebra_texture: true, corner_walks: true }
     }
 }
 
@@ -206,31 +180,31 @@ const OPTIONS_TAG: &str = "openMapper junction:";
 impl Options {
     fn line(&self) -> String {
         let c: Vec<String> = self.crossings.iter().map(|h| format!("{h:.1}")).collect();
-        // (helpers=omsi: its spline helpers are in OMSI's order, x height forward)
-        format!("{OPTIONS_TAG} lights={} heads={} main={:.0} side={:.0} crossings={} zebra_tex={} walks={} helpers=omsi sig={}", self.lights as i32, self.light_objects as i32, self.main_green, self.side_green, c.join(","), self.zebra_texture as i32, self.corner_walks as i32, self.signal_set)
+        // (helpers=omsi: its spline helpers are in OMSI's order, x height forward. `heads` and
+        // `sig` are written as they always were - a junction places no head itself now, and the
+        // signal set comes from the settings beside the `.sco` - so the files of the junctions
+        // already on maps read the same; both are read past.)
+        format!("{OPTIONS_TAG} lights={} heads=0 main={:.0} side={:.0} crossings={} zebra_tex={} walks={} helpers=omsi sig=", self.lights as i32, self.main_green, self.side_green, c.join(","), self.zebra_texture as i32, self.corner_walks as i32)
     }
 
-    /// The options written in a junction's `.sco` text (defaults when none are).
+    /// The options written in a junction's `.sco` text (defaults when none are). `heads=` and
+    /// `sig=` of older junctions are read past: the heads they named are the settings beside
+    /// the `.sco` now.
     pub fn parse(sco: &str) -> Options {
         let mut o = Options::default();
         let Some(line) = sco.lines().find(|l| l.trim_start().starts_with(OPTIONS_TAG)) else { return o };
-        let mut heads = None;
         for kv in line.trim_start()[OPTIONS_TAG.len()..].split_whitespace() {
             let Some((k, v)) = kv.split_once('=') else { continue };
             match k {
                 "lights" => o.lights = v == "1",
-                "heads" => heads = match v { "0" => Some(false), "1" => Some(true), _ => heads },
                 "main" => o.main_green = v.parse().unwrap_or(o.main_green),
                 "side" => o.side_green = v.parse().unwrap_or(o.side_green),
                 "crossings" => o.crossings = v.split(',').filter_map(|x| x.parse().ok()).collect(),
                 "zebra_tex" => o.zebra_texture = match v { "0" => false, "1" => true, _ => o.zebra_texture },
                 "walks" => o.corner_walks = match v { "0" => false, "1" => true, _ => o.corner_walks },
-                "sig" => o.signal_set = v.to_owned(),
                 _ => {}
             }
         }
-        // Saved integration junctions placed signal models whenever lights were enabled.
-        o.light_objects = heads.unwrap_or(o.lights);
         o
     }
 
@@ -1352,6 +1326,32 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     for (n, i) in plate.order.iter().enumerate() {
         light_of[*i] = plate_lights[n];
     }
+    // (where each head stands, in the plate's own frame: the settings beside the `.sco` say
+    // it, and nothing is put on the map here. The place is the one OMSI's own editor would
+    // put a head at - beside the lane its traffic comes in on, one metre back from the arm's
+    // end - worked out from the roads in the world and turned into the plate's frame)
+    let rot = roads::norm_deg(plate.turn);
+    let left_hand = doc.global.left_hand_traffic;
+    let mut signals = Vec::new();
+    if opts.lights && light_of.iter().any(Option::is_some) {
+        for (i, g) in geo.iter().enumerate() {
+            let Some(light) = light_of[i] else { continue };
+            if !lanes.iter().any(|l| l.arm == i && l.kind == 0 && l.incoming) {
+                continue;
+            }
+            let side = if left_hand { roads::right(g.out) * (g.right_w + 1.2) } else { -roads::right(g.out) * (g.left_w + 1.2) };
+            let world = g.end.truncate() + side - roads::dir(g.out) * 1.0;
+            let local = crate::selection::turn_point(world - centre.truncate(), DVec2::ZERO, -rot);
+            signals.push(crate::crossing_config::SignalPoint {
+                light,
+                set: String::new(),
+                x: local.x as f32,
+                up: (g.end.z + g.road_z - centre.z) as f32,
+                fwd: local.y as f32,
+                heading: roads::norm_deg(g.out - rot) as f32,
+            });
+        }
+    }
     // Project the two sidewalk lanes on each marked arm to its mid section.
     let mut walk_joins = Vec::<WalkJoin>::new();
     let mut zebras: Vec<(DVec2, f64, f64, f64)> = Vec::new();
@@ -1465,6 +1465,7 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     // (the plate is written from what it is made of, in its own frame: junctions that come out
     // the same share one object file, one model and one set of textures, so the game loads and
     // draws it once. Named by what is in it)
+    let template = junction_template(&recs);
     let x_text = mesh_x(&mesh, &names);
     let mut body = String::new();
     if plate_lights.iter().any(|l| l.is_some()) {
@@ -1485,7 +1486,12 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         h.finish()
     };
     let suffix = if bus_bay { BUS_BAY_SUFFIX } else { "" };
-    let name = format!("junction_{hash:016x}{suffix}");
+    let base = format!("junction_{hash:016x}");
+    // (the signal positions and the template live beside the `.sco`: two junctions that come out
+    // the same share an object file only when they share those too, or the second takes a name of
+    // its own)
+    let config = crate::crossing_config::CrossingConfig::of(None, signals.clone(), template);
+    let name = free_name(&dir, &base, suffix, recs.len(), &config);
     let model_path = dir.join("model").join(format!("{name}.x"));
     let sco_path = dir.join(format!("{name}.sco"));
     if !(model_path.is_file() && sco_path.is_file()) {
@@ -1503,12 +1509,13 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         history.touch_tile(doc, k);
     }
     let rel = format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco");
+    // (the bay's own paths and the pocket connection get bus-only rules from the settings
+    // beside the object, so a map object's rules stay for what a user sets on it)
     let t = doc.tiles.get_mut(&k).ok_or_else(|| anyhow::anyhow!("no tile"))?;
-    let rules = junction_rules(&recs);
-    t.tile.objects.push(MapObject { file: rel, id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [roads::norm_deg(plate.turn), 0.0, 0.0], rules, ..Default::default() });
+    t.tile.objects.push(MapObject { file: rel.clone(), id, pos: [centre.x - org.x, centre.y - org.y, centre.z], rot: [rot, 0.0, 0.0], ..Default::default() });
     t.touch_content();
     if edit.rebuild_bus_bay && !has_pocket_connection {
-        log::warn!("bus bay junction {id} ({name}): rebuilt without bus-only path rules for {files:?}");
+        log::warn!("bus bay junction {id} ({name}): rebuilt without bus-only template rules for {files:?}");
     }
     // Establish the final terrain before storing the heights of ground-relative objects.
     if let Some(min_reach) = edit.conform_min_reach {
@@ -1516,26 +1523,40 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
         let reach = reach(doc, assets, centre, arms).max(min_reach);
         crate::editor::conform_disc(doc, centre, reach, &ends);
     }
-    if opts.light_objects && light_of.iter().any(Option::is_some) {
-        let (set, reason) = doc.signal_sets.resolve(&opts.signal_set);
-        log::info!("junction {id} signal set: requested={:?}, used={:?}, reason={reason}", opts.signal_set, set.id);
-        let set = set.clone();
-        let height_modes = set.height_modes(assets);
-        let left_hand = doc.global.left_hand_traffic;
-        for (i, g) in geo.iter().enumerate() {
-            let Some(light) = light_of[i] else { continue };
-            if !lanes.iter().any(|l| l.arm == i && l.kind == 0 && l.incoming) {
-                continue;
-            }
-            // (traffic coming in keeps to the left of the way out where it keeps right)
-            let side = if left_hand { roads::right(g.out) * (g.right_w + 1.2) } else { -roads::right(g.out) * (g.left_w + 1.2) };
-            let p = g.end.truncate() + side - roads::dir(g.out) * 1.0;
-            let head = p.extend(g.end.z + g.road_z + set.head_height);
-            let at = crate::signal_sets::Placement { junction: id, light, heading: g.out, head };
-            set.place(doc, edit.history.as_deref_mut(), at, height_modes);
-        }
+    // (the signal positions and the rule template live beside the `.sco`)
+    crate::crossing_config::write(&sco_path, &config, recs.len())?;
+    // (the catalogue reads it at once: its panels work without a rescan or a restart)
+    crate::library::note_written(content, &rel);
+    for (i, s) in signals.iter().enumerate() {
+        log::info!(
+            "junction {id} signal {i}: light={} local=({}, {}, {}) heading={} world_xy=({:.3}, {:.3})",
+            s.light,
+            s.x,
+            s.up,
+            s.fwd,
+            s.heading,
+            centre.x + crate::selection::turn_point(DVec2::new(s.x as f64, s.fwd as f64), DVec2::ZERO, rot).x,
+            centre.y + crate::selection::turn_point(DVec2::new(s.x as f64, s.fwd as f64), DVec2::ZERO, rot).y
+        );
     }
     Ok(id)
+}
+
+/// The name an object file of this shape takes: `base` with `suffix`, or `base-2`, `base-3`…
+/// when a file of that name holds other settings. Two plates of one shape share a file; their
+/// settings must be the same for it to be theirs. The suffix stays at the end (a bus bay's
+/// object is known by it).
+fn free_name(dir: &Path, base: &str, suffix: &str, paths: usize, config: &crate::crossing_config::CrossingConfig) -> String {
+    let mut name = format!("{base}{suffix}");
+    let mut n = 1usize;
+    loop {
+        let sco = dir.join(format!("{name}.sco"));
+        if !sco.is_file() || crate::crossing_config::CrossingConfig::same(&sco, paths, &config.signals, &config.rules) {
+            return name;
+        }
+        n += 1;
+        name = format!("{base}-{n}{suffix}");
+    }
 }
 
 /// The folder a map's junction objects are written in (`Sceneryobjects\openMapper\<folder>`
@@ -1565,6 +1586,9 @@ pub fn persist(roots: &crate::install::Roots, file: &str, map: &str, id: i64) ->
     let sco_bytes = read(&source)?;
     let source_dir = source.parent().context("junction source directory")?;
     let sco = omsi_scenery::SceneryObject::parse(&omsi_cfg::CfgFile::from_bytes(&source, &sco_bytes));
+    // (what stands beside the generated object - its signal positions and its rule template -
+    // goes with it; the copy is not a copy of the crossing editor's, so it names no source)
+    let source_config = crate::crossing_config::CrossingConfig::load(&source, sco.paths.len());
     let [mesh] = sco.model.meshes.as_slice() else {
         anyhow::bail!("Expected one generated junction mesh: {}", source.display());
     };
@@ -1627,6 +1651,11 @@ pub fn persist(roots: &crate::install::Roots, file: &str, map: &str, id: i64) ->
             std::fs::write(&dest, read(&source)?).with_context(|| dest.display().to_string())?;
         }
         crate::doc::safe::write_atomic(&dir.join(&name), &sco_bytes)?;
+        let config = match &source_config {
+            Some(c) => crate::crossing_config::CrossingConfig::of(None, c.signals.clone(), c.rules.clone()),
+            None => crate::crossing_config::CrossingConfig::default(),
+        };
+        crate::crossing_config::write(&dir.join(&name), &config, sco.paths.len())?;
         Ok(())
     })();
     if let Err(e) = result {
@@ -1754,7 +1783,8 @@ impl Plate {
     }
 
     /// Written as a scenery object of its own (`Sceneryobjects\openMapper\<folder>\junction_<hash>.sco`)
-    /// for a drawing put on the map: its relative path.
+    /// for a drawing put on the map: its relative path. The bus-only rules of its own paths go
+    /// into the settings beside it, not into the object's rules.
     pub fn write_object(&self, content: &Path, folder: &str) -> anyhow::Result<String> {
         let dir = object_dir(content, folder)?;
         let tex_dir = dir.join("texture");
@@ -1767,21 +1797,28 @@ impl Plate {
             names.push(export_texture(p, &tex_dir));
         }
         let x_text = mesh_x(&self.mesh, &names);
+        let template = crate::crossing_config::bus_template_rules(&self.bus_paths);
         let hash = {
             use std::hash::{Hash, Hasher};
             let mut h = std::collections::hash_map::DefaultHasher::new();
             (&x_text, &self.paths).hash(&mut h);
             h.finish()
         };
-        let name = format!("junction_{hash:016x}");
+        let base = format!("junction_{hash:016x}");
+        let config = crate::crossing_config::CrossingConfig::of(None, Vec::new(), template);
+        let name = free_name(&dir, &base, "", self.lanes.len(), &config);
         let (model_path, sco_path) = (dir.join("model").join(format!("{name}.x")), dir.join(format!("{name}.sco")));
         if !(model_path.is_file() && sco_path.is_file()) {
             std::fs::write(&model_path, &x_text)?;
             let sco = format!("{}\n\n[friendlyname]\nJunction {}\n\n[groups]\n1\nopenMapper\n\n[surface]\n\n[absheight]\n\n[mesh]\n{name}.x\n\n{}", Options::default().line(), &format!("{hash:016x}")[..6], self.paths);
             std::fs::write(&sco_path, omsi_cfg::encode_text(&sco.replace('\n', "\r\n")))?;
         }
+        crate::crossing_config::write(&sco_path, &config, self.lanes.len())?;
         crate::hot::own_change();
-        Ok(format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco"))
+        let rel = format!("Sceneryobjects\\openMapper\\{folder}\\{name}.sco");
+        // (the catalogue reads it at once: its panels work without a rescan or a restart)
+        crate::library::note_written(content, &rel);
+        Ok(rel)
     }
 }
 
@@ -1807,6 +1844,8 @@ pub fn remove_unused(dir: &Path, folder: &str, used: &std::collections::HashSet<
         let stem = &name[..name.len() - 4];
         let _ = std::fs::remove_file(e.path());
         let _ = std::fs::remove_file(dir.join("model").join(format!("{stem}.x")));
+        // (the settings beside it: its signal positions and its rule template)
+        let _ = std::fs::remove_file(crate::crossing_config::path_for(&e.path()));
         n += 1;
     }
     if n > 0 {
@@ -1902,23 +1941,27 @@ pub fn asphalt_texture(omsi: &Path) -> Option<PathBuf> {
 mod tests {
     #[test]
     fn options_are_read_back_from_the_line_written() {
-        let o = Options { lights: true, light_objects: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], zebra_texture: false, corner_walks: false, signal_set: "mc-small_2".into() };
+        let o = Options { lights: true, main_green: 42.0, side_green: 17.0, crossings: vec![90.0, 270.5], zebra_texture: false, corner_walks: false };
         let text = format!("{}\r\n\r\n[friendlyname]\r\nJunction 1\r\n", o.line());
         let back = Options::parse(&text);
         println!("Options before writing: {o:?}\nSCO:\n{text}Parsed: {back:?}");
         assert_eq!(back, o, "all junction options must round-trip through .sco");
         assert_eq!((back.main_green, back.side_green), (42.0, 17.0));
         assert!(back.crossing_at(91.0) && back.crossing_at(270.0) && !back.crossing_at(0.0));
-        assert!(back.light_objects);
         assert!(!back.zebra_texture);
         assert!(!Options::parse(&text).corner_walks);
         let legacy = "openMapper junction: lights=1 main=42 side=17 crossings=90.0,270.5 helpers=omsi";
         let legacy_options = Options::parse(legacy);
         assert!(legacy_options.corner_walks, "old .sco without walks= must retain corner paths");
-        assert!(legacy_options.light_objects, "older integration junctions with lights=1 placed signal models");
         assert!(legacy_options.zebra_texture, "old .sco without zebra_tex= must keep zebra stripes");
-        assert!(!Options::default().light_objects);
-        assert!(Options::default().zebra_texture);
+        // (the heads and the signal set of older junctions are read past: heads stand where
+        // the settings beside the `.sco` say)
+        let with_heads = "openMapper junction: lights=1 heads=1 main=30 side=20 crossings= zebra_tex=1 walks=1 helpers=omsi sig=mc-small_2";
+        let parsed = Options::parse(with_heads);
+        assert!(parsed.lights);
+        assert_eq!((parsed.main_green, parsed.side_green), (30.0, 20.0));
+        assert!(parsed.crossings.is_empty() && parsed.corner_walks && parsed.zebra_texture);
+        assert_eq!(Options::parse(with_heads).line(), Options::parse(&Options::parse(with_heads).line()).line());
         assert_eq!(Options::parse("[friendlyname]\nx"), Options::default());
         println!("OPTIONS ROUND TRIP: {} => {:?}", o.line(), back);
         println!("LEGACY: {legacy} => corner_walks={}", Options::parse(legacy).corner_walks);
@@ -2214,7 +2257,7 @@ mod tests {
     }
 
     #[test]
-    fn bus_route_rules_cover_each_segment_only_once() {
+    fn bus_route_template_rules_cover_each_segment_only_once() {
         let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
         let mut lanes = Vec::new();
         for out in [0.0, 90.0, 180.0, 270.0] {
@@ -2223,7 +2266,7 @@ mod tests {
             lanes.extend(arm);
         }
         let recs = paths(&lanes, DVec3::ZERO, &[None; 4], &[], false, &[], &[], &[], false);
-        let rules = junction_rules(&recs);
+        let rules = junction_template(&recs);
         assert!(recs.iter().any(|p| p.bus));
         assert!(recs.iter().any(|p| !p.bus));
         for (i, rec) in recs.iter().enumerate() {
@@ -2233,15 +2276,21 @@ mod tests {
     }
 
     #[test]
-    fn baked_bus_path_metadata_restores_object_rules() {
-        let dir = std::env::temp_dir().join(format!("openmapper-bus-metadata-{}", std::process::id()));
+    fn a_baked_junctions_bus_paths_are_its_template_not_a_comment_line() {
+        let dir = std::env::temp_dir().join(format!("openmapper-bus-template-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("junction.sco");
-        let text = format!("[path]\n...\n\n{}[path]\n...\n", bus_path_metadata(&[3, 7]));
-        std::fs::write(&file, text).unwrap();
-        let rules = read_bus_path_rules(&file);
-        assert_eq!(rules.iter().map(|r| (r.path_index, r.kind.as_str())).collect::<Vec<_>>(),
-            vec![(3, "bus"), (3, "no_cars"), (7, "bus"), (7, "no_cars")]);
+        std::fs::write(&file, "[path]\n...\n\n[path]\n...\n").unwrap();
+        let template = crate::crossing_config::bus_template_rules(&[0, 1]);
+        crate::crossing_config::write(&file, &crate::crossing_config::CrossingConfig::of(None, Vec::new(), template), 2).unwrap();
+        let back = crate::crossing_config::CrossingConfig::load(&file, 2).unwrap();
+        assert_eq!(
+            back.rules.iter().map(|r| (r.path_index, r.kind.as_str())).collect::<Vec<_>>(),
+            vec![(0, "bus"), (0, "no_cars"), (1, "bus"), (1, "no_cars")]
+        );
+        // (the `.sco` itself keeps no note of them)
+        let text = std::fs::read_to_string(&file).unwrap();
+        assert!(!text.contains("openMapper bus paths:"));
         std::fs::remove_dir_all(dir).unwrap();
     }
 
@@ -2548,15 +2597,28 @@ mod tests {
             crate::selection::tests::add_spline(&mut doc, k, id, p.x, p.y, out, 20.0, 0, 0);
             Arm { key: k, id, at_end: false }
         }).collect();
-        let opts = Options { lights: true, light_objects: true, crossings: vec![0.0], ..Default::default() };
+        let opts = Options { lights: true, crossings: vec![0.0], ..Default::default() };
         let id = make_with(&mut doc, &mut assets, &roots.content, Some(&asphalt), centre, &arms, &opts, MakeEdit::default()).unwrap();
         let original = doc.object(k, id).unwrap().clone();
+        // (signal heads stand beside the plate, linked to it by var_parent; two of them in the
+        // next tile, so a save a folder away has to keep the links)
+        for (child, file, extra) in [(9001, "Head.sco", vec!["1".to_string()]), (9002, "Pole.sco", Vec::new())] {
+            doc.tiles.get_mut(&signal_tile).unwrap().tile.objects.push(MapObject {
+                file: format!("Sceneryobjects\\Fixture\\{file}"),
+                id: child,
+                pos: [10.0, 10.0, 0.0],
+                flag: extra.len() as i32,
+                extra,
+                var_parent: Some(id),
+                ..Default::default()
+            });
+        }
         let shared_id = doc.new_id();
         doc.tiles.get_mut(&k).unwrap().tile.objects.push(MapObject { id: shared_id, pos: [100.0, 200.0, 1.0], ..original.clone() });
         let before = [k, signal_tile].map(|key| tile_text(&doc.tiles[&key].tile));
         let next_id = doc.global.next_id_code;
         let signals = children(&doc, id);
-        assert_eq!(signals.len(), 6);
+        assert_eq!(signals.len(), 2);
         assert!(signals.iter().any(|(key, _)| *key == signal_tile));
         assert!(signals.iter().any(|&(key, id)| doc.object(key, id).unwrap().extra == ["1"]));
 
@@ -2624,77 +2686,112 @@ mod tests {
         let stock = crate::assets::load_object(&target, &roots.omsi, &roots.content).unwrap();
         assert!(!stock.parts.is_empty() && !stock.helpers.is_empty());
         assert!(stock.parts.iter().flat_map(|p| &p.materials).all(|m| m.texture.as_ref().is_some_and(|p| p.starts_with(target_dir))));
+        // (its settings went with it: the same signal positions, and no note of a source)
+        let source_paths = omsi_scenery::SceneryObject::load(&source).unwrap().paths.len();
+        let source_settings = crate::crossing_config::CrossingConfig::load(&source, source_paths).unwrap();
+        assert_eq!(source_settings.signals.len(), 3, "the junction's own signal positions");
+        let target_settings = crate::crossing_config::CrossingConfig::load(&target, source_paths).unwrap();
+        assert_eq!(target_settings.signals, source_settings.signals);
+        assert!(target_settings.rules.is_empty());
+        assert!(target_settings.copy_from.is_none(), "a persisted junction is not a copy");
         ed.open(reloaded);
         assert_eq!(ed.remake_all_junctions(), 1); // Only the other instance remains automatic.
         std::fs::remove_dir_all(&roots.content).unwrap();
     }
 
+    /// The signal positions a junction writes beside its `.sco` take the world places the
+    /// heads stood at before - for either side of the road, and however the junction is turned
+    /// - and the junction itself puts no head on the map.
     #[test]
-    fn junction_signal_placement_uses_the_arm_road_height_after_conforming_ground() {
-        let roots = crate::doc::tests::scratch("junction-signal-road-height");
-        let content = &roots.content;
-        let mut doc = crate::selection::tests::flat_map(1);
-        doc.dir = content.join("maps").join("signals");
-        let sco_dir = content.join("Sceneryobjects").join("Fixture");
-        std::fs::create_dir_all(&sco_dir).unwrap();
-        std::fs::write(sco_dir.join("Head.sco"), "[trafficlight]\n").unwrap();
-        std::fs::write(sco_dir.join("Pole.sco"), "[friendlyname]\nPole\n").unwrap();
-        let config_dir = doc.dir.join("openMapper");
-        std::fs::create_dir_all(&config_dir).unwrap();
-        let config = r#"{"version":1,"default":"fixture","sets":[{"id":"fixture","name":"Fixture","head":"Sceneryobjects/Fixture/Head.sco","pole":"Sceneryobjects/Fixture/Pole.sco","head_height":2.55,"pole_offset":[0.0,-0.47,-2.55]}]}"#;
-        std::fs::write(config_dir.join("signal_sets.json"), config).unwrap();
-        doc.signal_sets.reload(&doc.dir, content);
-        let mut assets = Assets::new(roots.omsi.clone(), content.clone());
-        let mut road = test_road();
-        for point in &mut road.def.profiles[0].points {
-            point.z = 0.25;
-        }
-        for path in &mut road.def.paths {
-            path.start[2] = 0.25;
-        }
-        assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(road)));
+    fn junction_signal_positions_place_the_heads_where_they_used_to_stand() {
+        use crate::editor::Editor;
+        for left_hand in [false, true] {
+            for turn in [0.0, 37.0, 180.0] {
+                let roots = crate::doc::tests::scratch(&format!("junction-signal-place-{left_hand}-{turn}"));
+                let content = &roots.content;
+                let mut doc = crate::selection::tests::flat_map(1);
+                doc.dir = content.join("maps").join("signals");
+                doc.global.left_hand_traffic = left_hand;
+                let sco_dir = content.join("Sceneryobjects").join("Fixture");
+                std::fs::create_dir_all(&sco_dir).unwrap();
+                std::fs::write(sco_dir.join("Head.sco"), "[trafficlight]\n").unwrap();
+                std::fs::write(sco_dir.join("Pole.sco"), "[friendlyname]\nPole\n").unwrap();
+                let config_dir = doc.dir.join("openMapper");
+                std::fs::create_dir_all(&config_dir).unwrap();
+                let config = r#"{"version":1,"default":"fixture","sets":[{"id":"fixture","name":"Fixture","head":"Sceneryobjects/Fixture/Head.sco","pole":"Sceneryobjects/Fixture/Pole.sco","head_height":2.55,"pole_offset":[0.0,-0.47,-2.55]}]}"#;
+                std::fs::write(config_dir.join("signal_sets.json"), config).unwrap();
+                doc.signal_sets.reload(&doc.dir, content);
+                let mut assets = Assets::new(roots.omsi.clone(), content.clone());
+                let mut road = test_road();
+                for point in &mut road.def.profiles[0].points {
+                    point.z = 0.25;
+                }
+                for path in &mut road.def.paths {
+                    path.start[2] = 0.25;
+                }
+                assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(road)));
 
-        let centre = DVec3::new(100.0, 100.0, 10.0);
-        let arms: Vec<_> = [(0.0, 11.0), (90.0, 12.0), (270.0, 13.0)].into_iter().enumerate().map(|(i, (heading, z))| {
-            let p = centre.truncate() + roads::dir(heading) * 10.0;
-            let id = i as i64 + 1;
-            doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(omsi_map::MapSpline {
-                id, file: "Splines\\road.sli".into(), pos: p.extend(z).to_array(), heading, length: 20.0,
-                ..Default::default()
-            });
-            Arm { key: (0, 0), id, at_end: false }
-        }).collect();
-        let opts = Options::parse("openMapper junction: lights=1 main=30 side=20 crossings= helpers=omsi");
-        let edit = MakeEdit { conform_min_reach: Some(20.0), ..Default::default() };
-        let junction = make_with(&mut doc, &mut assets, content, None, centre, &arms, &opts, edit).unwrap();
-        println!("Config: {config}\nOptions: {}", opts.line());
-        let children = children(&doc, junction);
-        assert_eq!(children.len(), 6);
-        for (key, id) in children {
-            let child = doc.object(key, id).unwrap();
-            let world = doc.object_world(key, child, false);
-            let heading = child.rot[0];
-            let arm_z = match heading as i32 { 0 => 11.0, 90 => 12.0, 270 => 13.0, _ => panic!("{heading}") };
-            let ground = doc.ground(world.truncate());
-            let is_head = child.file.ends_with("Head.sco");
-            let head_xy = match heading as i32 {
-                0 => DVec2::new(94.8, 109.0),
-                90 => DVec2::new(109.0, 105.2),
-                270 => DVec2::new(91.0, 94.8),
-                _ => panic!("{heading}"),
-            };
-            let road_z = arm_z + 0.25;
-            let (before, expected) = if is_head {
-                let head = head_xy.extend(road_z + 2.55);
-                (head, head)
-            } else {
-                let forward = roads::dir(heading) * 0.47;
-                ((head_xy + forward).extend(road_z), (head_xy - forward).extend(road_z))
-            };
-            println!("heading={heading} arm_z={arm_z} profile_z=0.25 ground={ground} before={before:?} after={world:?} expected={expected:?} tile={key:?} object={child:?}");
-            assert!((world - expected).length() < 1e-9);
+                let centre = DVec3::new(100.0, 100.0, 10.0);
+                let arms: Vec<_> = [(0.0, 11.0), (90.0, 12.0), (270.0, 13.0)].into_iter().enumerate().map(|(i, (heading, z))| {
+                    let heading = roads::norm_deg(heading + turn);
+                    let p = centre.truncate() + roads::dir(heading) * 10.0;
+                    let id = i as i64 + 1;
+                    doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines.push(omsi_map::MapSpline {
+                        id, file: "Splines\\road.sli".into(), pos: p.extend(z).to_array(), heading, length: 20.0,
+                        ..Default::default()
+                    });
+                    Arm { key: (0, 0), id, at_end: false }
+                }).collect();
+                // (the places the heads stood at, worked out as the old placement did)
+                let geo: Vec<ArmGeo> = arms.iter().map(|a| arm_geometry(&doc, &mut assets, a).unwrap()).collect();
+                let (_, lanes) = arm_ends(&doc, &mut assets, &arms, None).unwrap();
+                let expected: Vec<DVec3> = geo
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, g)| {
+                        let incoming = lanes.iter().any(|l| l.arm == i && l.kind == 0 && l.incoming);
+                        incoming.then(|| {
+                            let side = if left_hand { roads::right(g.out) * (g.right_w + 1.2) } else { -roads::right(g.out) * (g.left_w + 1.2) };
+                            let p = g.end.truncate() + side - roads::dir(g.out) * 1.0;
+                            p.extend(g.end.z + g.road_z + 2.55)
+                        })
+                    })
+                    .collect();
+                assert_eq!(expected.len(), 3, "every arm has an incoming lane");
+
+                let opts = Options::parse("openMapper junction: lights=1 main=30 side=20 crossings= helpers=omsi");
+                let edit = MakeEdit { conform_min_reach: Some(20.0), ..Default::default() };
+                let junction = make_with(&mut doc, &mut assets, content, None, centre, &arms, &opts, edit).unwrap();
+                println!("left_hand={left_hand} turn={turn} config: {config}\nOptions: {}", opts.line());
+                assert!(children(&doc, junction).is_empty(), "the junction puts no head on the map");
+                let object = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == junction).unwrap().clone();
+                let abs = omsi_cfg::resolve_path(content, &object.file);
+                let paths = omsi_scenery::SceneryObject::load(&abs).unwrap().paths.len();
+                let settings = crate::crossing_config::CrossingConfig::load(&abs, paths).unwrap();
+                assert_eq!(settings.signals.len(), 3, "one signal for each arm with a light");
+
+                // (placed as the object panel's action places them: one head per position)
+                let mut ed = Editor::default();
+                ed.content_dir = Some(content.clone());
+                ed.open(doc);
+                let report = ed.place_crossing_signals(&assets, (0, 0), junction).unwrap();
+                assert_eq!((report.requested, report.placed), (3, 3));
+                let doc = ed.doc.as_ref().unwrap();
+                let mut placed: Vec<DVec3> = children(doc, junction)
+                    .into_iter()
+                    .filter_map(|(k, id)| {
+                        let o = doc.object(k, id)?;
+                        (o.extra.len() == 1).then(|| doc.object_world(k, o, false))
+                    })
+                    .collect();
+                assert_eq!(placed.len(), expected.len());
+                for want in &expected {
+                    let i = placed.iter().position(|p| (*p - *want).length() < 0.01).unwrap_or_else(|| panic!("no head within 1 cm of {want:?}; placed {placed:?}"));
+                    placed.remove(i);
+                }
+                let _ = std::fs::remove_dir_all(content);
+            }
         }
-        let _ = std::fs::remove_dir_all(content);
     }
 
     /// The same roads meeting at the same angles make one object, wherever the junction lies, whichever
@@ -3283,10 +3380,10 @@ mod tests {
         }
     }
 
-    /// Signal phases and pedestrian paths must work without any generated signal
-    /// objects or white stripe polygons. The two switches are independent.
+    /// Signal positions and pedestrian paths must work without any generated signal objects or
+    /// white stripe polygons. The two switches are independent.
     #[test]
-    fn junction_light_objects_and_zebra_texture_are_independent() {
+    fn junction_signal_positions_and_zebra_texture_are_independent() {
         let roots = crate::doc::tests::scratch("junction-optional-visuals");
         let content = roots.content.clone();
         std::fs::create_dir_all(content.join("Sceneryobjects")).unwrap();
@@ -3305,13 +3402,13 @@ mod tests {
             arms.push(Arm { key: (0, 0), id, at_end: false });
         }
         let mut reference_paths: Option<String> = None;
-        for (light_objects, zebra_texture) in [(false, true), (true, true), (false, false), (true, false)] {
+        for zebra_texture in [true, false] {
             let opts = Options {
-                lights: true, light_objects, zebra_texture,
+                lights: true, zebra_texture,
                 crossings: vec![0.0, 180.0], ..Default::default()
             };
             let id = make_with(&mut doc, &mut assets, &content, None, centre, &arms, &opts, MakeEdit::default()).unwrap();
-            let junction = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap();
+            let junction = doc.tiles[&(0, 0)].tile.objects.iter().find(|o| o.id == id).unwrap().clone();
             let sco_path = omsi_cfg::resolve_path(&content, &junction.file);
             let sco = omsi_cfg::decode_text(&std::fs::read(&sco_path).unwrap());
             assert_eq!(Options::parse(&sco), opts);
@@ -3325,26 +3422,11 @@ mod tests {
             } else {
                 reference_paths = Some(suffix);
             }
-            let kids = children(&doc, id);
-            assert_eq!(kids.len(), if light_objects { 8 } else { 0 });
-            if light_objects {
-                let mut heads = 0;
-                let mut poles = 0;
-                for (key, child_id) in kids {
-                    let o = doc.object(key, child_id).unwrap();
-                    if o.file.eq_ignore_ascii_case(r"Sceneryobjects\Verkehrszeichen_MC\Ampel_Kfz_1.sco") {
-                        heads += 1;
-                        assert_eq!(o.flag, 1);
-                    } else if o.file.eq_ignore_ascii_case(r"Sceneryobjects\Verkehrszeichen_MC\Mast_Ampel_klein_1.sco") {
-                        poles += 1;
-                        assert_eq!(o.flag, 0);
-                    } else {
-                        panic!("unexpected junction child: {}", o.file);
-                    }
-                    assert_eq!(o.var_parent, Some(id));
-                }
-                assert_eq!((heads, poles), (4, 4));
-            }
+            // (the heads stand where the settings beside the plate say; none is put on the map)
+            assert!(children(&doc, id).is_empty(), "the junction puts no head on the map itself");
+            let path_count = omsi_scenery::SceneryObject::load(&sco_path).unwrap().paths.len();
+            let settings = crate::crossing_config::CrossingConfig::load(&sco_path, path_count).unwrap();
+            assert_eq!(settings.signals.len(), 4, "one signal for each arm");
             let model_path = sco_path.parent().unwrap().join("model")
                 .join(format!("{}.x", sco_path.file_stem().unwrap().to_string_lossy()));
             let model = std::fs::read_to_string(model_path).unwrap();

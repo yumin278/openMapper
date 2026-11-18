@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Ervoor invoe
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Klik op een halte op de kaart om die vóór ‘{stop}’ in te voegen (Esc om te annuleren)
 That stop is already next to the insertion point.	Die halte staat al naast het invoegpunt.
 Insert stop before	Halte ervoor invoegen
-Place signal heads and poles	Verkeerslichten en palen plaatsen
 Paint stripes on selected crossings	Strepen tekenen op geselecteerde oversteekplaatsen
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Bronpunt gekozen. Klik op een doelhoekpunt om te snappen (Shift: alleen horizontaal, Esc: annuleren)
 Aim at a vertex of the selected object	Richt op een hoekpunt van het geselecteerde object
@@ -2995,7 +2994,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	I
 no signal positions are configured for this crossing	er zijn geen seinposities ingesteld voor dit kruispunt
 Place signals	Seinen plaatsen
 Signal positions	Seinposities
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Waar een seinkop staat, in het stelsel van het kruispunt. Wordt naast de kaart opgeslagen, niet in het object
 set id	set-id
 The signal set to use (empty: the map's default)	De te gebruiken seinenset (leeg: standaard van de kaart)
 A signal	Een sein
@@ -3022,3 +3020,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Bij het opn
 It has no traffic rules to copy	Het heeft geen verkeersregels om te kopiëren
 The clipboard has no traffic rules	Het klembord bevat geen verkeersregels
 Saved as a copy to {name}; future saves will write into this copy	Opgeslagen als kopie naar {name}; toekomstige opslagbewerkingen worden naar deze kopie geschreven
+In multiplayer the host edits the map. Leave the session to change the rules.	In multiplayer bewerkt de host de kaart. Verlaat de sessie om de regels te wijzigen.
+a rule's number is not a finite one	het nummer van een regel is niet eindig
+a template rule names a path this crossing does not have	een regel van het sjabloon noemt een pad dat dit kruispunt niet heeft
+a template rule names no kind	een regel van het sjabloon noemt geen soort
+Select one or more objects to apply their rule template	Selecteer een of meer objecten om hun regelsjabloon toe te passen
+No selected object has a rule template	Geen geselecteerd object heeft een regelsjabloon
+Skipped:	Overgeslagen:
+Apply rule template	Regelsjabloon toepassen
+Rule template applied to:	Regelsjabloon toegepast op:
+Skipped, no rule template:	Overgeslagen, geen regelsjabloon:
+configured signal position(s) none of which can be used; nothing was changed	geconfigureerde seinposities waarvan geen enkele bruikbaar is; er is niets gewijzigd
+Rule template	Regelsjabloon
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	De verkeersregels die de gekozen paden een kaartobject geven wanneer het sjabloon van dit kruispunt wordt toegepast. Voor de AI en de speler, geteld vanaf 0. Bewaard naast het object, niet in de .sco
+Pick a path first	Kies eerst een pad
+all, mixed values	alle, verschillende waarden
+all	alle
+mixed	gemengd
+Take it off the picked paths	Van de gekozen paden halen
+Give it to every picked path that lacks it	Aan elk gekozen pad geven dat het mist
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Elk geselecteerd object neemt de regels die naast zijn eigen .sco bewaard zijn: zijn [kill_rule]s blijven, zijn andere regels worden vervangen, en regels die een pad noemen dat het niet heeft vervallen (één stap Ongedaan maken)
+Rules kept beside the object:	Regels bewaard naast het object:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	Zijn [kill_rule]s blijven, zijn andere regels worden vervangen door die van het sjabloon, en regels die een pad noemen dat het niet heeft vervallen (één stap Ongedaan maken)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Waar een seinkop staat, in het stelsel van het kruispunt. Wordt naast het object opgeslagen, niet in de .sco
+Paste from the clipboard (replaces the whole template)	Vanaf het klembord plakken (vervangt het hele regelsjabloon)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Elke regel van het sjabloon wordt gewist, en de [rule]-blokken op het klembord komen ervoor in de plaats: dezelfde paden, soorten, waarden en voertuigklassen, in dezelfde volgorde, in dezelfde regels die Verkeersregels kopiëren bij de eigenschappen van het object op het klembord zet. Een regel die een pad noemt dat dit kruispunt niet heeft, wordt weggelaten
+Nothing was pasted: the clipboard cannot be read	Er is niets geplakt: het klembord is niet leesbaar
+Nothing was pasted: the clipboard does not hold [rule] blocks	Er is niets geplakt: het klembord bevat geen [rule]-blokken
+Pasted rules:	Geplakte regels:
+Skipped rules (this crossing has no such path):	Weggelaten regels (dit kruispunt heeft dat pad niet):

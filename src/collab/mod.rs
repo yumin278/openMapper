@@ -463,7 +463,6 @@ fn placeholder() -> Document {
         descriptions: Default::default(),
         groups: Vec::new(),
         signal_sets: Default::default(),
-        crossing_signals: Default::default(),
     }
 }
 

@@ -2809,7 +2809,6 @@ Insert before: click a stop on the map to insert it before this one	插入到此
 Click a stop on the map to insert it before {stop} (Esc to cancel)	在地图上选择站点，将其插入到“{stop}”之前（Esc 取消）
 That stop is already next to the insertion point.	该站点已与插入位置相邻。
 Insert stop before	插入到此站之前
-Place signal heads and poles	放置信号灯头和灯杆
 Paint stripes on selected crossings	在选定的人行横道上绘制条纹
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	已选择来源顶点。点击目标顶点以吸附（Shift：仅水平，Esc：取消）
 Aim at a vertex of the selected object	对准所选对象的顶点
@@ -2990,7 +2989,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	此路口未配置信号灯位置
 Place signals	放置信号灯
 Signal positions	信号灯位置
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	信号灯头在路口坐标系中的位置。保存在地图旁，不在对象内
 set id	套件 id
 The signal set to use (empty: the map's default)	要使用的信号灯套件（空：地图默认）
 A signal	一个信号灯
@@ -3017,3 +3015,32 @@ Rebuilding the junction replaces its rules with newly generated ones	重建路�
 It has no traffic rules to copy	它没有可复制的交通规则
 The clipboard has no traffic rules	剪贴板中没有交通规则
 Saved as a copy to {name}; future saves will write into this copy	已另存为 {name}，之后的保存会写入此副本
+In multiplayer the host edits the map. Leave the session to change the rules.	多人编辑时由主机编辑地图。请离开会话再更改规则。
+a rule's number is not a finite one	某条规则的数值不是有限值
+a template rule names a path this crossing does not have	模板中某条规则指定的路径该路口没有
+a template rule names no kind	模板中某条规则未指定类型
+Select one or more objects to apply their rule template	请选择一个或多个物体以应用它们的规则模板
+No selected object has a rule template	所选物体都没有规则模板
+Skipped:	已跳过：
+Apply rule template	应用规则模板
+Rule template applied to:	规则模板已应用到：
+Skipped, no rule template:	已跳过（没有规则模板）：
+configured signal position(s) none of which can be used; nothing was changed	配置的信号灯位置无一可用；未做任何更改
+Rule template	规则模板
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	应用此路口的模板时，所选路径赋予地图物体的交通规则。对 AI 和玩家，从 0 开始计数。保存在物体旁边，不写入 .sco
+Pick a path first	请先选择一条路径
+all, mixed values	全部，数值不一
+all	全部
+mixed	混合
+Take it off the picked paths	从所选路径中移除
+Give it to every picked path that lacks it	赋予每条缺少它的所选路径
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	每个所选物体采用保存在其自身 .sco 旁边的规则：它的 [kill_rule] 保留，其他规则被替换，指定它没有的路径的规则被略去（一次撤销）
+Rules kept beside the object:	保存在物体旁边的规则：
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	它的 [kill_rule] 保留，其他规则由模板的规则替换，指定它没有的路径的规则被略去（一次撤销）
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	信号灯头在路口坐标系中的位置。保存在对象旁，不写入 .sco
+Paste from the clipboard (replaces the whole template)	从剪贴板粘贴（替换整个模板）
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	模板中的所有规则都会被清除，由剪贴板中的 [rule] 块取而代之：路径、种类、数值和车辆类别都保持原样，顺序也相同，与物件属性中的「复制交通规则」放进剪贴板的行格式一致。指定该路口没有的路径的规则会被丢弃
+Nothing was pasted: the clipboard cannot be read	未粘贴任何内容：无法读取剪贴板
+Nothing was pasted: the clipboard does not hold [rule] blocks	未粘贴任何内容：剪贴板中没有 [rule] 块
+Pasted rules:	已粘贴的规则数：
+Skipped rules (this crossing has no such path):	已跳过的规则数（该路口没有此路径）：

@@ -112,7 +112,6 @@ pub(crate) fn prepare_save(doc: &Document) -> SaveJob {
         descriptions: doc.descriptions.clone(),
         groups: Vec::new(),
         signal_sets: Default::default(),
-        crossing_signals: Default::default(),
     };
     SaveJob { doc: copy, known: doc.tiles.keys().copied().collect(), stamp }
 }
@@ -295,11 +294,11 @@ pub(crate) fn file_of(doc: &Document, k: TileKey) -> String {
 pub(crate) fn copy_missing(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for e in std::fs::read_dir(src)?.flatten() {
-        // The signal presets and the hand-placed signal positions in a map's openMapper
-        // directory are user-authored: they are not copied with the map.
+        // The signal presets in a map's openMapper directory are user-authored: they are not
+        // copied with the map. (A crossing's own settings live beside its `.sco` and are
+        // ordinary files of the object they belong to.)
         if src.file_name().is_some_and(|name| name.eq_ignore_ascii_case("openMapper"))
-            && (e.file_name().eq_ignore_ascii_case(crate::signal_sets::FILE_NAME)
-                || e.file_name().eq_ignore_ascii_case(crate::crossing_signals::FILE_NAME))
+            && e.file_name().eq_ignore_ascii_case(crate::signal_sets::FILE_NAME)
         {
             continue;
         }

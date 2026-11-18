@@ -344,6 +344,7 @@ impl App {
         self.ui.recent_assets = self.prefs.recent_assets.clone();
         self.scan_textures(&roots);
         self.ed.content_dir = Some(roots.content.clone());
+        self.ed.install_dir = Some(roots.omsi.clone());
         self.ed.road_styles = crate::road_maker::Styles::load(&roots.content);
         self.ed.asphalt = crate::junction::asphalt_texture(&roots.omsi);
         self.recover = crate::doc::autosave::pending(&roots.content);
@@ -1731,7 +1732,12 @@ impl App {
                 } else if let Some(roots) = &self.roots {
                     match self.ed.persist_junction(roots, k, id) {
                         Ok(file) => {
-                            self.lib.start_scan(roots);
+                            // (read into the catalogue at once: it is a new object, and its
+                            // panels work without a rescan or a restart. The reason it could
+                            // not be read is logged by the catalogue itself)
+                            if !self.lib.refresh_crossing(roots, &file) {
+                                log::warn!("persisted junction {file}: the catalogue does not hold it yet");
+                            }
                             self.ed.toast(format!("{} {file}", tr("Saved:", "Сохранено:")));
                         }
                         Err(e) => self.ed.error(format!("{}: {e:#}", tr("Could not save (the changes are still here, nothing is lost)", "Не удалось сохранить (изменения остались здесь, ничего не потеряно)"))),
@@ -1748,6 +1754,15 @@ impl App {
                         Ok(report) => self.ed.toast(format!("{}: {}/{}", tr("Traffic lights", "Светофоры"), report.placed, report.requested)),
                         Err(e) => self.ed.error(e.to_string()),
                     }
+                } else {
+                    self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
+                }
+            }
+            Action::ApplyRuleTemplate => {
+                if self.collab.is_guest() {
+                    self.ed.error(tr("In multiplayer the host edits the map. Leave the session to change the rules.", "В совместной правке карту правит хост. Выйдите из сессии, чтобы изменить правила."));
+                } else if let Some(assets) = self.assets.as_ref() {
+                    self.ed.apply_rule_template(assets);
                 } else {
                     self.ed.toast(tr("Choose the OMSI installation first", "Сначала укажите установку OMSI"));
                 }
@@ -2842,6 +2857,18 @@ impl App {
             a.poll();
         }
         self.lib.poll();
+        // (objects the editor wrote - junctions of its own, bus bays' taper plates, plates of a
+        // drawn junction - are read into the catalogue without a rescan, before the window is
+        // built: the hot reload takes the editor's own writes as already known, and a full scan
+        // would sort the whole catalogue again under the browser's cache)
+        if crate::library::has_written() {
+            if let Some(roots) = self.roots.clone() {
+                let read = self.lib.refresh_pending(&roots);
+                if read > 0 {
+                    log::info!("catalogue: {read} object(s) the editor wrote read again");
+                }
+            }
+        }
         // (what a press on the selection does: OMSI 2's and Blender's key sets move it with G
         // alone, so a press there only picks, as it does in those editors)
         self.ed.press_drags = Preset::of(&self.prefs.keys_set, self.prefs.omsi_controls) == Preset::Mapper;

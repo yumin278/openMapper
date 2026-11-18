@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Beszúrás e
 Click a stop on the map to insert it before {stop} (Esc to cancel)	Válassz a térképen egy megállót, hogy „{stop}” elé szúrd be (Esc: mégse)
 That stop is already next to the insertion point.	Ez a megálló már a beszúrás helye mellett van.
 Insert stop before	Megálló beszúrása elé
-Place signal heads and poles	Jelzőfejek és oszlopok elhelyezése
 Paint stripes on selected crossings	Csíkok festése a kijelölt gyalogátkelőhelyekre
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Forráscsúcs kiválasztva. Kattintson egy célcsúcsra a rögzítéshez (Shift: csak vízszintes, Esc: Mégse)
 Aim at a vertex of the selected object	Célozzon a kiválasztott objektum egyik csúcsára
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	T
 no signal positions are configured for this crossing	ehhez a kereszteződéshez nincs beállítva jelzőlámpa-pozíció
 Place signals	Jelzőlámpák elhelyezése
 Signal positions	Jelzőlámpa-pozíciók
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Hol áll egy jelzőfej, a kereszteződés rendszerében. A térkép mellett tárolódik, nem az objektumban
 set id	készlet id
 The signal set to use (empty: the map's default)	A használandó jelzőlámpa-készlet (üres: a térkép alapértelmezettje)
 A signal	Egy jelzőlámpa
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	A csomópon
 It has no traffic rules to copy	Nincs másolható közlekedési szabálya
 The clipboard has no traffic rules	A vágólapon nincsenek közlekedési szabályok
 Saved as a copy to {name}; future saves will write into this copy	Másolatként mentve ide: {name}; a későbbi mentések ebbe a másolatba íródnak
+In multiplayer the host edits the map. Leave the session to change the rules.	Közös szerkesztésben a házigazda szerkeszti a térképet. Lépj ki a munkamenetből a szabályok módosításához.
+a rule's number is not a finite one	egy szabály száma nem véges
+a template rule names a path this crossing does not have	a szabálysablon egy szabálya olyan sávot nevez meg, amely ezen a kereszteződésen nincs
+a template rule names no kind	a szabálysablon egy szabálya nem nevez meg fajtát
+Select one or more objects to apply their rule template	Jelölj ki egy vagy több objektumot a szabálysablonjuk alkalmazásához
+No selected object has a rule template	Egyetlen kijelölt objektumnak sincs szabálysablona
+Skipped:	Kihagyva:
+Apply rule template	Szabálysablon alkalmazása
+Rule template applied to:	Szabálysablon alkalmazva erre:
+Skipped, no rule template:	Kihagyva, nincs szabálysablon:
+configured signal position(s) none of which can be used; nothing was changed	beállított jelzőpozíció, amelyek egyike sem használható; semmi nem változott
+Rule template	Szabálysablon
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	A kiválasztott sávok által a térképobjektumnak adott forgalmi szabályok, amikor ennek a kereszteződésnek a sablonja alkalmazva van. Az MI és a játékos számára, 0-tól számolva. Az objektum mellett tárolva, nem a .sco-ban
+Pick a path first	Előbb válassz egy sávot
+all, mixed values	mind, eltérő értékek
+all	mind
+mixed	vegyes
+Take it off the picked paths	Levétel a kiválasztott sávokról
+Give it to every picked path that lacks it	Odaadni minden kiválasztott sávnak, amelyikből hiányzik
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Minden kijelölt objektum a saját .sco-ja mellett tárolt szabályokat veszi át: a [kill_rule] szabályai megmaradnak, a többi szabálya lecserélődik, és az olyan szabályok, amelyek olyan sávot neveznek meg, amelyik nincs, kimaradnak (egy visszavonási lépés)
+Rules kept beside the object:	Az objektum mellett tárolt szabályok:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	A [kill_rule] szabályai megmaradnak, a többi szabálya a sablonéval helyettesítődik, és az olyan szabályok, amelyek olyan sávot neveznek meg, amelyik nincs, kimaradnak (egy visszavonási lépés)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Hol áll egy jelzőfej, a kereszteződés rendszerében. Az objektum mellett tárolódik, nem a .sco-ban
+Paste from the clipboard (replaces the whole template)	Beillesztés a vágólapról (a teljes sablont lecseréli)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	A sablon minden szabálya törlődik, és a vágólapon lévő [rule] blokkok lépnek a helyükre: ugyanazok a sávok, fajták, értékek és járműosztályok, ugyanabban a sorrendben, ugyanazokban a sorokban, amelyeket a Közlekedési szabályok másolása az objektum tulajdonságai között a vágólapra tesz. Az a szabály, amely olyan sávot nevez meg, amely ezen a kereszteződésen nincs, kimarad
+Nothing was pasted: the clipboard cannot be read	Semmi nem lett beillesztve: a vágólap nem olvasható
+Nothing was pasted: the clipboard does not hold [rule] blocks	Semmi nem lett beillesztve: a vágólapon nincsenek [rule] blokkok
+Pasted rules:	Beillesztett szabályok:
+Skipped rules (this crossing has no such path):	Kihagyott szabályok (ezen a kereszteződésen nincs ilyen sáv):

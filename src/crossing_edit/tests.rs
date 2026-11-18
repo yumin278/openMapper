@@ -197,6 +197,130 @@ fn removing_a_path_renumbers_the_blocks_that_name_paths() {
     assert_eq!(c.paths[0].blocks, vec![(1, 0)]);
 }
 
+// ---------------------------------------------------------------- the rule template
+
+fn rule(index: i32, kind: &str, value: f64) -> TemplateRule {
+    TemplateRule { path_index: index, kind: kind.into(), value, extra: 0.0 }
+}
+
+/// A crossing of `n` plain paths.
+fn with_paths(n: usize) -> Crossing {
+    Crossing { paths: vec![Path::default(); n], ..Default::default() }
+}
+
+#[test]
+fn a_bus_template_rule_brings_no_cars_with_it() {
+    let mut c = with_paths(3);
+    let picked = [0, 1, 2];
+    c.template_add(&picked, "bus", 0.0);
+    assert_eq!(c.rule_template.len(), 6, "three paths: buses only, and no cars");
+    let kinds: Vec<(i32, &str)> = c.rule_template.iter().map(|r| (r.path_index, r.kind.as_str())).collect();
+    assert_eq!(kinds, vec![(0, "bus"), (0, "no_cars"), (1, "bus"), (1, "no_cars"), (2, "bus"), (2, "no_cars")]);
+    assert_eq!(c.template_have(&picked, "bus"), (3, Some(0.0)));
+    assert_eq!(c.template_have(&picked, "no_cars"), (3, Some(0.0)));
+    // (one path that has it already shows as part of the pick)
+    c.template_remove(&[2], "bus");
+    assert_eq!(c.template_have(&picked, "bus"), (2, Some(0.0)));
+    assert_eq!(c.template_have(&picked, "no_cars"), (2, Some(0.0)), "bus takes no_cars with it");
+    // (adding again fills in only the path that lacks it)
+    c.template_add(&picked, "bus", 0.0);
+    assert_eq!(c.rule_template.len(), 6);
+    // (taking bus off every picked path takes no_cars too)
+    c.template_remove(&picked, "bus");
+    assert!(c.rule_template.is_empty());
+}
+
+#[test]
+fn a_paste_keeps_the_rules_of_the_paths_it_has_and_leaves_the_others_out() {
+    let mut c = with_paths(3);
+    let was = vec![rule(0, "bus", 0.0), rule(2, "priority", 1.0)];
+    c.rule_template = was.clone();
+    let pasted = vec![rule(-1, "bus", 0.0), rule(1, "trafficdensity", 0.5), rule(3, "no_cars", 0.0), rule(0, "speedlimit", 30.0)];
+    let (kept, dropped) = c.template_keep(pasted);
+    assert_eq!(kept, vec![rule(1, "trafficdensity", 0.5), rule(0, "speedlimit", 30.0)], "in the order pasted");
+    assert_eq!(dropped, vec![rule(-1, "bus", 0.0), rule(3, "no_cars", 0.0)], "a negative path, and one past the last path, in the order they came");
+    assert!(!kept.iter().any(|r| r.kind == "no_cars"), "a pasted bus brings no no_cars of its own: only what the clipboard had is kept");
+    assert_eq!(c.rule_template, was, "the split changes nothing: the window records the step and puts what is kept in place");
+    // (a crossing with no paths keeps no rule of a paste either)
+    let empty = with_paths(0);
+    assert_eq!(empty.template_keep(vec![rule(0, "bus", 0.0)]), (Vec::new(), vec![rule(0, "bus", 0.0)]));
+    assert!(empty.rule_template.is_empty());
+}
+
+#[test]
+fn a_template_value_is_set_on_every_picked_path_that_has_it() {
+    let mut c = with_paths(3);
+    c.template_add(&[0, 1], "speedlimit", 50.0);
+    assert_eq!(c.template_have(&[0, 1, 2], "speedlimit"), (2, Some(50.0)));
+    c.template_set(&[0, 1], "speedlimit", 30.0);
+    assert_eq!(c.template_have(&[0, 1], "speedlimit"), (2, Some(30.0)));
+    assert_eq!(c.template_have(&[2], "speedlimit"), (0, None), "a path without it is not touched");
+    c.template_add(&[2], "speedlimit", 50.0);
+    c.template_set(&[2], "speedlimit", 70.0);
+    assert_eq!(c.template_have(&[0, 1, 2], "speedlimit"), (3, None), "three that do not share a value are mixed");
+}
+
+#[test]
+fn a_duplicated_path_carries_its_template_rules() {
+    let mut c = with_paths(2);
+    c.rule_template = vec![rule(0, "bus", 0.0)];
+    c.append_path(Path::default(), Some(0));
+    assert_eq!(c.paths.len(), 3);
+    assert_eq!(c.rule_template.len(), 2);
+    assert!(c.rule_template.iter().any(|r| r.path_index == 2 && r.kind == "bus"));
+    // (a new path of its own brings no rule)
+    c.append_path(Path::default(), None);
+    assert_eq!(c.rule_template.len(), 2);
+}
+
+#[test]
+fn moving_a_path_moves_its_template_rules() {
+    let mut c = with_paths(3);
+    c.rule_template = vec![rule(0, "bus", 0.0), rule(2, "no_cars", 0.0)];
+    c.move_path(0, 2);
+    let mut got: Vec<(i32, String)> = c.rule_template.iter().map(|r| (r.path_index, r.kind.clone())).collect();
+    got.sort();
+    assert_eq!(got, vec![(1, "no_cars".into()), (2, "bus".into())]);
+}
+
+#[test]
+fn removing_a_path_takes_its_template_rules_and_moves_the_later_ones_up() {
+    let mut c = with_paths(3);
+    c.rule_template = vec![rule(1, "bus", 0.0), rule(2, "no_cars", 0.0)];
+    c.remove_path(1);
+    assert_eq!(c.paths.len(), 2);
+    assert_eq!(c.rule_template, vec![rule(1, "no_cars", 0.0)], "the removed path's rule is gone, the next moved up");
+}
+
+#[test]
+fn paths_inserted_or_taken_away_move_the_template_rules_with_them() {
+    let mut c = with_paths(3);
+    c.rule_template = vec![rule(2, "bus", 0.0)];
+    c.insert_paths_after(0, vec![Path::default(), Path::default()]);
+    assert_eq!(c.paths.len(), 5);
+    assert_eq!(c.rule_template[0].path_index, 4, "the rule that named path 2 names 4");
+    c.drop_paths(1, 2);
+    assert_eq!(c.paths.len(), 3);
+    assert_eq!(c.rule_template[0].path_index, 2, "and 2 again");
+    // (a rule of a path that is taken away goes with it)
+    c.drop_paths(2, 1);
+    assert!(c.rule_template.is_empty());
+}
+
+#[test]
+fn a_template_rule_beyond_the_paths_stops_the_save() {
+    let mut c = with_paths(1);
+    assert!(c.why_template_not().is_none());
+    c.rule_template = vec![rule(1, "bus", 0.0)];
+    assert!(c.why_template_not().is_some_and(|m| m.starts_with("#0: ")), "{:?}", c.why_template_not());
+    c.rule_template[0].path_index = 0;
+    assert!(c.why_template_not().is_none());
+    c.rule_template[0].value = f64::INFINITY;
+    assert!(c.why_template_not().is_some());
+    c.rule_template[0] = rule(0, "two words", 0.0);
+    assert!(c.why_template_not().is_some());
+}
+
 #[test]
 fn removing_a_light_moves_the_paths_that_wait_at_it() {
     let mut c = Crossing::default();

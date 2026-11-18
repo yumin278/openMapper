@@ -2813,7 +2813,6 @@ Insert before: click a stop on the map to insert it before this one	Önüne ekle
 Click a stop on the map to insert it before {stop} (Esc to cancel)	“{stop}” durağının önüne eklemek için haritada bir durağa tıklayın (iptal için Esc)
 That stop is already next to the insertion point.	Bu durak ekleme noktasının hemen yanında zaten var.
 Insert stop before	Önüne durak ekle
-Place signal heads and poles	Sinyal başlıklarını ve direkleri yerleştir
 Paint stripes on selected crossings	Seçili yaya geçitlerine şerit çiz
 Source vertex chosen. Click a target vertex to snap (Shift: horizontal only, Esc: cancel)	Kaynak köşesi seçildi. Yakalamak için hedef köşeyi tıklayın (Shift: yalnızca yatay, Esc: cancel)
 Aim at a vertex of the selected object	Seçilen nesnenin bir tepe noktasına nişan alın
@@ -2994,7 +2993,6 @@ In multiplayer the host edits the map. Leave the session to place the signals.	�
 no signal positions are configured for this crossing	bu kavşak için sinyal konumu yapılandırılmamış
 Place signals	Sinyalleri yerleştir
 Signal positions	Sinyal konumları
-Where a signal head stands, in the crossing's frame. Saved beside the map, not in the object	Kavşağın koordinat sisteminde bir sinyal başlığının durduğu yer. Nesnede değil, haritanın yanında kaydedilir
 set id	set kimliği
 The signal set to use (empty: the map's default)	Kullanılacak sinyal seti (boş: haritanın varsayılanı)
 A signal	Bir sinyal
@@ -3021,3 +3019,32 @@ Rebuilding the junction replaces its rules with newly generated ones	Kavşak yen
 It has no traffic rules to copy	Kopyalanacak trafik kuralı yok
 The clipboard has no traffic rules	Panoda trafik kuralı yok
 Saved as a copy to {name}; future saves will write into this copy	{name} konumuna kopya olarak kaydedildi; gelecekteki kaydetmeler bu kopyaya yazılacak
+In multiplayer the host edits the map. Leave the session to change the rules.	Ortak düzenlemede haritayı sunucu düzenler. Kuralları değiştirmek için oturumdan çıkın.
+a rule's number is not a finite one	bir kuralın numarası sonlu değil
+a template rule names a path this crossing does not have	bir şablon kuralı, bu kavşakta olmayan bir yolu belirtiyor
+a template rule names no kind	bir şablon kuralı tür belirtmiyor
+Select one or more objects to apply their rule template	Kural şablonlarını uygulamak için bir veya daha fazla nesne seçin
+No selected object has a rule template	Seçilen nesnelerin hiçbirinde kural şablonu yok
+Skipped:	Atlanan:
+Apply rule template	Kural şablonunu uygula
+Rule template applied to:	Kural şablonu uygulandı:
+Skipped, no rule template:	Atlanan, kural şablonu yok:
+configured signal position(s) none of which can be used; nothing was changed	yapılandırılmış trafik lambası konumlarının hiçbiri kullanılamıyor; hiçbir şey değiştirilmedi
+Rule template	Kural şablonu
+The traffic rules the picked paths give a map object when this crossing's template is applied. For the AI and the player, counted from 0. Saved beside the object, not in the .sco	Bu kavşağın şablonu uygulandığında seçilen yolların harita nesnesine verdiği trafik kuralları. YZ ve oyuncu için 0'dan sayılır. Nesnenin yanında saklanır, .sco içinde değil
+Pick a path first	Önce bir yol seçin
+all, mixed values	tümü, farklı değerler
+all	tümü
+mixed	karışık
+Take it off the picked paths	Seçilen yollardan kaldır
+Give it to every picked path that lacks it	Olmayan her seçili yola ver
+Each selected object takes the rules kept beside its own .sco: its [kill_rule]s stay, its other rules are replaced, and rules naming a path it does not have are left out (one step of Undo)	Seçilen her nesne, kendi .sco dosyasının yanında saklanan kuralları alır: [kill_rule] kuralları kalır, diğer kuralları değiştirilir ve sahip olmadığı bir yolu belirten kurallar dışarıda bırakılır (bir Geri al adımı)
+Rules kept beside the object:	Nesnenin yanında saklanan kurallar:
+Its [kill_rule]s stay, its other rules are replaced by the template's, and rules naming a path it does not have are left out (one step of Undo)	[kill_rule] kuralları kalır, diğer kuralları şablonunkilerle değiştirilir ve sahip olmadığı bir yolu belirten kurallar dışarıda bırakılır (bir Geri al adımı)
+Where a signal head stands, in the crossing's frame. Saved beside the object, not in the .sco	Kavşağın koordinat sisteminde bir sinyal başlığının durduğu yer. Nesnenin yanında saklanır, .sco içinde değil
+Paste from the clipboard (replaces the whole template)	Panodan yapıştır (tüm şablonun yerine geçer)
+Every rule of the template is cleared, and the [rule] blocks on the clipboard take its place: the same paths, kinds, values and vehicle classes, in the same order, in the same lines that Copy traffic rules in the object properties puts on the clipboard. A rule naming a path this crossing does not have is left out	Şablonun her kuralı silinir ve panodaki [rule] blokları onun yerine geçer: aynı yollar, türler, değerler ve araç sınıfları, aynı sırayla, nesne özelliklerindeki Trafik kurallarını kopyala öğesinin panoya koyduğu satırların aynısıyla. Bu kavşakta olmayan bir yolu belirten kural atlanır
+Nothing was pasted: the clipboard cannot be read	Hiçbir şey yapıştırılmadı: pano okunamıyor
+Nothing was pasted: the clipboard does not hold [rule] blocks	Hiçbir şey yapıştırılmadı: panoda [rule] bloğu yok
+Pasted rules:	Yapıştırılan kural:
+Skipped rules (this crossing has no such path):	Atlanan kural (bu kavşakta o yol yok):

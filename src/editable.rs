@@ -442,7 +442,15 @@ fn materials_of(m: &omsi_o3d::Mesh, defs: &[omsi_model::MaterialDef]) -> Vec<Mat
 
 /// The `.sco` of an object found where openOMSI looks (content folder, then installation).
 pub fn sco_path(roots: &Roots, rel: &str) -> Option<PathBuf> {
-    [omsi_cfg::resolve_path(&roots.content, rel), omsi_cfg::resolve_path(&roots.omsi, rel)].into_iter().find(|p| p.is_file())
+    sco_path_in(Some(&roots.content), Some(&roots.omsi), rel)
+}
+
+/// [`sco_path`] for the two roots as the caller has them: the content folder's copy first, the
+/// installation's after it, as the game searches them. None when neither has the file.
+pub fn sco_path_in(content: Option<&Path>, omsi: Option<&Path>, rel: &str) -> Option<PathBuf> {
+    let content = content.map(|root| omsi_cfg::resolve_path(root, rel));
+    let install = omsi.map(|root| omsi_cfg::resolve_path(root, rel));
+    content.into_iter().chain(install).find(|p| omsi_cfg::vfs::is_file(p))
 }
 
 /// Any object as an openMapper object's source: its meshes (the nearest level of detail),
