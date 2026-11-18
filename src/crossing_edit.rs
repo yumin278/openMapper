@@ -717,7 +717,12 @@ impl Crossing {
     pub fn template_add(&mut self, paths: &[usize], kind: &str, value: f64) {
         for &i in paths {
             let at = i as i32;
-            for k in if kind == "bus" { &["bus", "no_cars"][..] } else { &[kind][..] } {
+            // (`bus` brings `no_cars` with it; a slice of the borrowed `kind` must outlive the
+            // loop, so both are bound here rather than built in the `if`)
+            let both = ["bus", "no_cars"];
+            let one = [kind];
+            let kinds: &[&str] = if kind == "bus" { &both } else { &one };
+            for k in kinds {
                 if !self.rule_template.iter().any(|r| r.path_index == at && r.kind == *k) {
                     self.rule_template.push(TemplateRule { path_index: at, kind: (*k).into(), value: if *k == "bus" || *k == "no_cars" { 0.0 } else { value }, extra: 0.0 });
                 }

@@ -4421,8 +4421,7 @@ impl CrossingPaths {
         // even when nothing changed here, their `copy` naming the file they came from; the
         // source's settings are left as they were. An object with nothing to say makes no
         // file, and one that has settings keeps them.)
-        let mut config_written = None;
-        {
+        let config_written = {
             let paths = crossing.paths.len();
             let mut config = crate::crossing_config::CrossingConfig::load(&abs, paths).unwrap_or_default();
             config.copy_from = if fresh { Some(old_rel.clone()) } else { self.copy_from.clone() };
@@ -4434,7 +4433,7 @@ impl CrossingPaths {
                         prepared.log_before();
                     }
                     ops.extend(prepared.ops());
-                    config_written = Some(prepared);
+                    Some(prepared)
                 }
                 Err(e) => {
                     if let Some(copy) = created_copy {
@@ -4444,7 +4443,7 @@ impl CrossingPaths {
                     return;
                 }
             }
-        }
+        };
         let config_says_something = config_changed || fresh || self.copy_from.is_some() || !crossing.signals.is_empty() || !crossing.rule_template.is_empty();
         if !ops.is_empty()
             && let Err(e) = crate::doc::safe::commit(&ops)
@@ -4462,7 +4461,9 @@ impl CrossingPaths {
         }
         // (the transaction is the only thing that writes: the logs of it, the note of the
         // backup and the cache all follow a save that came to be)
-        if let Some(prepared) = &config_written {
+        if let Some(prepared) = &config_written
+            && prepared.writes()
+        {
             prepared.log_after();
         }
         if bak_made {
@@ -4522,14 +4523,11 @@ impl CrossingPaths {
         } else {
             "skipped (bak already exists)".into()
         };
-        let settings_log = if let Some(p) = &config_written {
-            if p.path.exists() {
-                format!("written to {}", p.path.display())
-            } else {
-                format!("removed {}", p.path.display())
-            }
-        } else {
-            "skipped (no settings)".into()
+        let settings_log = match &config_written {
+            Some(p) if !p.writes() => "skipped (nothing to write)".to_string(),
+            Some(p) if p.path.exists() => format!("written to {}", p.path.display()),
+            Some(p) => format!("removed {}", p.path.display()),
+            None => "skipped (no settings)".to_string(),
         };
         let cleared_state = if fresh && is_auto_junction {
             "junction_options, pending_options, pending_arms, pending_rebuild, road_plates"
