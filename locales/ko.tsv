@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	붙여넣지 못했습니다: �
 Nothing was pasted: the clipboard does not hold [rule] blocks	붙여넣지 못했습니다: 클립보드에 [rule] 블록이 없습니다
 Pasted rules:	붙여넣은 규칙 수:
 Skipped rules (this crossing has no such path):	제외한 규칙 수(이 교차로에 없는 경로):
+Conflicting segments	충돌하는 구간

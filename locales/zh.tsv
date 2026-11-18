@@ -3044,3 +3044,4 @@ Nothing was pasted: the clipboard cannot be read	未粘贴任何内容：无法�
 Nothing was pasted: the clipboard does not hold [rule] blocks	未粘贴任何内容：剪贴板中没有 [rule] 块
 Pasted rules:	已粘贴的规则数：
 Skipped rules (this crossing has no such path):	已跳过的规则数（该路口没有此路径）：
+Conflicting segments	冲突路段

@@ -105,6 +105,8 @@ pub struct TimetableUi {
     confirm_recalculate: bool,
     overwrite_hand_routes: bool,
     bulk_report: Option<String>,
+    /// Why the last batch recalculation dropped trips (root causes first).
+    bulk_conflicts: Vec<ConflictCause>,
     /// Route-only edits need a timetable snapshot for Undo as well.
     bulk_changed: bool,
     /// Trips deliberately left unchanged by a bulk operation: avoid a subsequent
@@ -135,14 +137,207 @@ fn eligible_for_batch(trip: &Trip) -> bool {
     trip.stations.len() >= 2 && trip.stations_legacy.is_empty()
 }
 
+/// Why a shared station link stopped the batch recalculation.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ConflictKind {
+    /// The trips that calculated the pair disagree with each other.
+    Disagree,
+    /// The pair was protected before the batch began (its trip was hand-picked, failed or
+    /// is a legacy trip) and the calculated link differs from the map's.
+    Protected,
+    /// The pair became protected because another trip using it was already in conflict.
+    Propagated,
+}
+
+impl ConflictKind {
+    fn name(self) -> &'static str {
+        match self {
+            ConflictKind::Disagree => "Disagree",
+            ConflictKind::Protected => "Protected",
+            ConflictKind::Propagated => "Propagated",
+        }
+    }
+
+    /// Root causes first, then propagated ones (only used for the report's order).
+    fn rank(self) -> u8 {
+        match self {
+            ConflictKind::Disagree => 0,
+            ConflictKind::Protected => 1,
+            ConflictKind::Propagated => 2,
+        }
+    }
+}
+
+/// One trip's candidate link for a conflicting pair.
+#[derive(Clone, Debug)]
+struct ConflictCandidate {
+    index: usize,
+    name: String,
+    link: omsi_timetable::StnLink,
+}
+
+impl ConflictCandidate {
+    /// The link's numbers, for the log and the report file.
+    fn describe(&self) -> String {
+        let p = self.link.params;
+        format!(
+            "{}: length {:.3}, stop A off {:.3} / along {:.3}, stop B off {:.3} / along {:.3}, \
+             flag {:.0}, last entry {:.0}, AI path {}",
+            self.name, self.link.length, p[0], p[2], p[1], p[3], p[4], p[5], entries_text(&self.link.entries)
+        )
+    }
+}
+
+/// One field two candidate links (or a candidate and the map's link) disagree on.
+#[derive(Clone, Debug)]
+struct FieldDiff {
+    /// Short name for the summary line ("AI path sequence", "length", ...).
+    field: &'static str,
+    /// Both sides' values, for the log and the report file.
+    detail: String,
+}
+
+/// Where a propagated conflict came from: the trip already in conflict whose other links
+/// protected this pair, and the pair it was itself rejected on.
+#[derive(Clone, Debug)]
+struct ConflictVia {
+    trip: String,
+    pair: Option<(i64, i64)>,
+    /// The round the source trip was rejected in (the cause here is a round later).
+    round: usize,
+}
+
+/// Why the batch recalculation dropped a shared station link, and what each trip computed.
+#[derive(Clone, Debug)]
+struct ConflictCause {
+    kind: ConflictKind,
+    /// 0: a root cause; later: pulled in by an earlier round's conflict.
+    round: usize,
+    from_id: i64,
+    to_id: i64,
+    from_name: String,
+    to_name: String,
+    /// Every trip that calculated a link for the pair, in planned order.
+    trips: Vec<ConflictCandidate>,
+    /// The map's link for the pair, when it differs from the candidate links.
+    original: Option<omsi_timetable::StnLink>,
+    /// What differs, field by field (the first candidate against the others and the original).
+    diffs: Vec<FieldDiff>,
+    via: Option<ConflictVia>,
+    /// The trips this cause first rejected (not already in conflict from another pair).
+    new_trips: Vec<usize>,
+}
+
+impl ConflictCause {
+    /// The fields that differ, once each, for the UI's summary line.
+    fn fields(&self) -> String {
+        let mut names: Vec<&str> = Vec::new();
+        for d in &self.diffs {
+            if !names.contains(&d.field) {
+                names.push(d.field);
+            }
+        }
+        if names.is_empty() { "(values not compared)".to_string() } else { names.join(", ") }
+    }
+
+    /// `Station A(id) → Station B(id) | kind | n trips involved | differing fields`.
+    fn summary(&self) -> String {
+        format!(
+            "{}({}) → {}({}) | {} | {} trips | {}",
+            self.from_name, self.from_id, self.to_name, self.to_id, self.kind.name(), self.trips.len(), self.fields()
+        )
+    }
+
+    /// One log line with both sides of every difference (AI path sequences in full).
+    fn log_text(&self) -> String {
+        let trips: Vec<&str> = self.trips.iter().map(|t| t.name.as_str()).collect();
+        let mut o = format!(
+            "round {} {}: {} ({}) -> {} ({}) | trips: {}",
+            self.round, self.kind.name(), self.from_name, self.from_id, self.to_name, self.to_id, trips.join(", ")
+        );
+        if let Some(orig) = &self.original {
+            o.push_str(&format!(" | original: length {:.3}, AI path {}", orig.length, entries_text(&orig.entries)));
+        }
+        for d in &self.diffs {
+            o.push_str(&format!(" | {} [{}]", d.field, d.detail));
+        }
+        if let Some(via) = &self.via {
+            o.push_str(&format!(" | propagated from trip {} on {} (round {})", via.trip, pair_text(via.pair), via.round));
+        }
+        o
+    }
+
+    /// Which trip a click in the UI should show: one this cause first rejected, else any.
+    fn pick_trip(&self) -> Option<String> {
+        self.new_trips.first().and_then(|i| self.trips.iter().find(|t| t.index == *i)).map(|t| t.name.clone())
+            .or_else(|| self.trips.first().map(|t| t.name.clone()))
+    }
+}
+
+fn pair_text(pair: Option<(i64, i64)>) -> String {
+    match pair {
+        Some((a, b)) => format!("{a} -> {b}"),
+        None => "an earlier pair".to_string(),
+    }
+}
+
+/// An AI path sequence in full: every entry's seven numbers (`id/path/tile/length/-1/0/0`).
+fn entries_text(entries: &[omsi_timetable::StnLinkEntry]) -> String {
+    let items: Vec<String> = entries.iter().map(|e| e.values.iter().map(|v| format!("{v:.3}")).collect::<Vec<_>>().join("/")).collect();
+    format!("[{}]", items.join(", "))
+}
+
+/// The fields two links disagree on (the station pair is the same by construction).
+fn link_diffs(a: &str, first: &omsi_timetable::StnLink, b: &str, other: &omsi_timetable::StnLink) -> Vec<FieldDiff> {
+    let (p, q) = (first.params, other.params);
+    let mut out = Vec::new();
+    if first.entries != other.entries {
+        out.push(FieldDiff {
+            field: "AI path sequence",
+            detail: format!("{a}: {} | {b}: {}", entries_text(&first.entries), entries_text(&other.entries)),
+        });
+    }
+    if first.length != other.length {
+        out.push(FieldDiff { field: "length", detail: format!("{a}: {:.3} | {b}: {:.3}", first.length, other.length) });
+    }
+    if p[0] != q[0] || p[2] != q[2] {
+        out.push(FieldDiff {
+            field: "position of stop A on its lane",
+            detail: format!("{a}: off {:.3} / along {:.3} | {b}: off {:.3} / along {:.3}", p[0], p[2], q[0], q[2]),
+        });
+    }
+    if p[1] != q[1] || p[3] != q[3] {
+        out.push(FieldDiff {
+            field: "position of stop B on its lane",
+            detail: format!("{a}: off {:.3} / along {:.3} | {b}: off {:.3} / along {:.3}", p[1], p[3], q[1], q[3]),
+        });
+    }
+    if p[4] != q[4] {
+        out.push(FieldDiff { field: "other fields", detail: format!("{a}: flag {:.0} | {b}: flag {:.0}", p[4], q[4]) });
+    }
+    if p[5] != q[5] {
+        out.push(FieldDiff { field: "other fields", detail: format!("{a}: last entry {:.0} | {b}: last entry {:.0}", p[5], q[5]) });
+    }
+    out
+}
+
+/// When and by which skipped trip a pair became protected (for the diagnostics only).
+struct ProtectedPair {
+    round: usize,
+    by: Option<usize>,
+    root: Option<(i64, i64)>,
+}
+
 /// Station links belong to the whole map and are keyed only by their two stop IDs.
 /// Do not pick an arbitrary winner when two trips calculate different paths between
 /// the same stops. Nor replace a link used by a trip that could not be recalculated.
+/// Returns the trips to skip and why, root causes (round 0) first.
 fn conflicting_batch_routes(
     planned: &[PlannedRoute],
     original: &[omsi_timetable::StnLink],
     protected: &HashSet<(i64, i64)>,
-) -> HashSet<usize> {
+    names: &HashMap<i64, String>,
+) -> (HashSet<usize>, Vec<ConflictCause>) {
     let mut uses: HashMap<(i64, i64), Vec<(usize, &omsi_timetable::StnLink)>> = HashMap::new();
     for (index, (_, _, links)) in planned.iter().enumerate() {
         for link in links {
@@ -150,30 +345,171 @@ fn conflicting_batch_routes(
         }
     }
     let mut protected = protected.clone();
+    let mut origins: HashMap<(i64, i64), ProtectedPair> = protected
+        .iter()
+        .map(|pair| (*pair, ProtectedPair { round: 0, by: None, root: None }))
+        .collect();
     let mut conflicts = HashSet::new();
+    // (the pair each trip was first rejected on, for the propagation's provenance)
+    let mut entered: Vec<Option<(usize, i64, i64)>> = vec![None; planned.len()];
+    let mut causes: Vec<ConflictCause> = Vec::new();
+    let mut reported: HashSet<(i64, i64)> = HashSet::new();
+    let mut round = 0usize;
     loop {
         let mut added = false;
+        let mut this_round: Vec<((i64, i64), Vec<usize>)> = Vec::new();
         for (pair, group) in &uses {
             let first = group[0].1;
             let disagree = group.iter().any(|(_, link)| *link != first);
             let would_change_protected = protected.contains(pair)
                 && original.iter().any(|link| (link.from_id, link.to_id) == *pair && link != first);
             if disagree || would_change_protected {
+                let mut new_trips = Vec::new();
                 for (index, _) in group {
-                    added |= conflicts.insert(*index);
+                    if conflicts.insert(*index) {
+                        added = true;
+                        new_trips.push(*index);
+                    }
                 }
+                if new_trips.is_empty() || !reported.insert(*pair) {
+                    continue;
+                }
+                let origin = origins.get(pair);
+                let kind = if disagree {
+                    ConflictKind::Disagree
+                } else if origin.map(|o| o.round == 0).unwrap_or(false) {
+                    ConflictKind::Protected
+                } else {
+                    ConflictKind::Propagated
+                };
+                let original_link = original.iter().find(|link| (link.from_id, link.to_id) == *pair);
+                let first_name = &planned[group[0].0].0;
+                let mut diffs = Vec::new();
+                for (index, link) in group.iter().skip(1) {
+                    if *link != first {
+                        diffs.extend(link_diffs(first_name, first, &planned[*index].0, link));
+                    }
+                }
+                if let Some(orig) = original_link.filter(|link| *link != first) {
+                    diffs.extend(link_diffs(first_name, first, "original", orig));
+                }
+                let via = origin.and_then(|o| {
+                    let by = o.by?;
+                    Some(ConflictVia {
+                        trip: planned.get(by)?.0.clone(),
+                        pair: o.root,
+                        round: o.round.saturating_sub(1),
+                    })
+                });
+                causes.push(ConflictCause {
+                    kind,
+                    round,
+                    from_id: pair.0,
+                    to_id: pair.1,
+                    from_name: stop_label(names, pair.0),
+                    to_name: stop_label(names, pair.1),
+                    trips: group.iter().map(|(index, link)| ConflictCandidate {
+                        index: *index,
+                        name: planned[*index].0.clone(),
+                        link: (*link).clone(),
+                    }).collect(),
+                    original: original_link.filter(|link| *link != first).cloned(),
+                    diffs,
+                    via,
+                    new_trips: new_trips.clone(),
+                });
+                this_round.push((*pair, new_trips));
             }
         }
         if !added {
             break;
         }
+        // (a fixed order: the report and the log must read the same each run)
+        this_round.sort_by_key(|(pair, _)| *pair);
+        for (pair, trips) in &this_round {
+            for &index in trips {
+                entered[index].get_or_insert((round, pair.0, pair.1));
+            }
+        }
+        let mut order: Vec<usize> = conflicts.iter().copied().collect();
+        order.sort_unstable();
         // A skipped trip must also retain any other shared links it depends on.
         // Propagate its protection until no additional trip would change those links.
-        for &index in &conflicts {
-            protected.extend(planned[index].2.iter().map(|link| (link.from_id, link.to_id)));
+        for index in order {
+            for link in &planned[index].2 {
+                let pair = (link.from_id, link.to_id);
+                protected.insert(pair);
+                origins.entry(pair).or_insert(ProtectedPair {
+                    round: round + 1,
+                    by: Some(index),
+                    root: entered[index].map(|(_, a, b)| (a, b)),
+                });
+            }
         }
+        round += 1;
     }
-    conflicts
+    causes.sort_by(|a, b| (a.round, a.kind.rank(), a.from_id, a.to_id).cmp(&(b.round, b.kind.rank(), b.from_id, b.to_id)));
+    (conflicts, causes)
+}
+
+fn stop_label(names: &HashMap<i64, String>, id: i64) -> String {
+    names.get(&id).filter(|n| !n.is_empty()).cloned().unwrap_or_else(|| format!("#{id}"))
+}
+
+/// The diagnostics written beside the map after every batch recalculation.
+fn conflict_report(map: &std::path::Path, planned: &[PlannedRoute], conflicts: &HashSet<usize>, causes: &[ConflictCause]) -> String {
+    let mut o = String::from("openMapper: timetable batch recalculation conflicts\n");
+    o.push_str(&format!("map: {}\n", map.display()));
+    o.push_str(&format!("planned trips: {} | conflicting trips: {}\n", planned.len(), conflicts.len()));
+    o.push_str("(written again by every Recalculate all; root causes first)\n");
+    if causes.is_empty() {
+        o.push_str("\nNo shared station link conflicted: every planned trip was written.\n");
+        return o;
+    }
+    for (n, c) in causes.iter().enumerate() {
+        o.push_str(&format!(
+            "\n{}. round {} | {} | station {} ({}) -> {} ({})\n",
+            n + 1, c.round, c.kind.name(), c.from_name, c.from_id, c.to_name, c.to_id
+        ));
+        o.push_str(&format!("   trips involved ({}):\n", c.trips.len()));
+        for t in &c.trips {
+            o.push_str(&format!("     - {}\n", t.describe()));
+        }
+        if let Some(orig) = &c.original {
+            o.push_str(&format!(
+                "   the map's link: length {:.3}, AI path {}\n",
+                orig.length, entries_text(&orig.entries)
+            ));
+        }
+        o.push_str("   differing fields:\n");
+        if c.diffs.is_empty() {
+            o.push_str("     (none recorded)\n");
+        }
+        for d in &c.diffs {
+            o.push_str(&format!("     - {}: {}\n", d.field, d.detail));
+        }
+        if let Some(via) = &c.via {
+            o.push_str(&format!(
+                "   propagated from trip {} on {} (round {})\n",
+                via.trip, pair_text(via.pair), via.round
+            ));
+        }
+        let first: Vec<&str> = c.trips.iter().filter(|t| c.new_trips.contains(&t.index)).map(|t| t.name.as_str()).collect();
+        o.push_str(&format!("   first rejected by this cause: {}\n", first.join(", ")));
+    }
+    o
+}
+
+/// Writes the diagnostics beside the map (overwriting the previous batch's).
+fn write_conflict_report(
+    dir: &std::path::Path,
+    planned: &[PlannedRoute],
+    conflicts: &HashSet<usize>,
+    causes: &[ConflictCause],
+) -> std::io::Result<std::path::PathBuf> {
+    let path = dir.join("openmapper_conflicts.txt");
+    std::fs::write(&path, conflict_report(dir, planned, conflicts, causes))?;
+    Ok(path)
 }
 
 /// What trip `name` drives on: as set here, else as its saved way does (None: as its stops
@@ -490,6 +826,7 @@ impl TimetableUi {
         };
         let stop_positions: HashMap<i64, DVec3> = self.stops.iter().map(|s| (s.id, s.pos)).collect();
         self.bulk_blocked.clear();
+        self.bulk_conflicts.clear();
         let mut planned: Vec<PlannedRoute> = Vec::new();
         let mut protected: HashSet<(i64, i64)> = HashSet::new();
         let mut failures = Vec::new();
@@ -525,16 +862,52 @@ impl TimetableUi {
             }
         }
 
-        let conflicts = conflicting_batch_routes(&planned, &doc.timetable.links, &protected);
+        let mut stop_names: HashMap<i64, String> = HashMap::new();
+        for (_, _, links) in &planned {
+            for link in links {
+                for id in [link.from_id, link.to_id] {
+                    if !stop_names.contains_key(&id) {
+                        stop_names.insert(id, self.stop_name(&doc.timetable, id));
+                    }
+                }
+            }
+        }
+        let (conflicts, causes) = conflicting_batch_routes(&planned, &doc.timetable.links, &protected, &stop_names);
         let conflicting = conflicts.len();
+        // (every cause, root causes first: the set is already sorted that way)
+        for cause in &causes {
+            log::warn!("timetable: conflict {}", cause.log_text());
+        }
+        let mut cause_of_trip: HashMap<usize, usize> = HashMap::new();
+        for (ci, cause) in causes.iter().enumerate() {
+            for index in &cause.new_trips {
+                cause_of_trip.entry(*index).or_insert(ci);
+            }
+        }
         let conflict_samples: Vec<String> = planned.iter().enumerate()
             .filter(|(index, _)| conflicts.contains(index))
             .map(|(_, (name, _, _))| name.clone()).take(5).collect();
+        // (overwritten every time, so it can be attached to a bug report as it is now)
+        let report_path = doc.dir.join("openmapper_conflicts.txt");
+        match write_conflict_report(&doc.dir, &planned, &conflicts, &causes) {
+            Ok(path) => log::warn!("timetable: conflicts written to {}", path.display()),
+            Err(e) => log::warn!("timetable: could not write {}: {e}", report_path.display()),
+        }
         let mut completed = 0;
         for (index, (name, track, links)) in planned.into_iter().enumerate() {
             if conflicts.contains(&index) {
                 self.bulk_blocked.insert(lower(&name));
-                log::warn!("timetable: batch route for {name} skipped: conflicting shared station link");
+                match cause_of_trip.get(&index).map(|ci| &causes[*ci]) {
+                    Some(cause) => {
+                        let why = if cause.round == 0 { "root cause" } else { "propagated" };
+                        log::warn!(
+                            "timetable: batch route for {name} skipped: shared station link {} ({}) -> {} ({}) {why}, round {}",
+                            cause.from_name, cause.from_id, cause.to_name, cause.to_id, cause.round
+                        );
+                    }
+                    // (cannot happen: every rejected trip enters through a cause)
+                    None => log::warn!("timetable: batch route for {name} skipped: conflicting shared station link"),
+                }
                 continue;
             }
             doc.timetable.set_automatic_route(&name, track, links);
@@ -548,6 +921,7 @@ impl TimetableUi {
         }
         self.shown = None;
         self.bulk_changed |= completed > 0;
+        self.bulk_conflicts = causes;
         let mut report = format!(
             "Recalculated / 已重算: {completed}  |  Failed / 失敗（保留原檔）: {}  |  Conflicts / 衝突（保留原檔）: {conflicting}  |  Skipped / 略過: {skipped}",
             failures.len(),
@@ -868,6 +1242,7 @@ impl TimetableUi {
                     self.confirm_recalculate = true;
                     self.overwrite_hand_routes = false;
                     self.bulk_report = None;
+                    self.bulk_conflicts.clear();
                 }
                 ui.label(format!("Eligible trips / 可重算班次: {eligible}"));
             });
@@ -891,6 +1266,31 @@ impl TimetableUi {
             }
             if let Some(report) = &self.bulk_report {
                 ui.label(report);
+            }
+            if !self.bulk_conflicts.is_empty() {
+                ui.label(RichText::new(tr("Conflicting segments", "Конфликтующие участки")).strong());
+                ui.label(RichText::new(doc.dir.join("openmapper_conflicts.txt").display().to_string()).small().color(TEXT_DIM));
+                let mut pick = None;
+                egui::ScrollArea::vertical().id_salt("tt conflicts").max_height(180.0).show(ui, |ui| {
+                    for (ci, cause) in self.bulk_conflicts.iter().enumerate() {
+                        let details = cause.diffs.iter().map(|d| format!("{}: {}", d.field, d.detail)).collect::<Vec<_>>().join("\n");
+                        let line = egui::Button::new(cause.summary()).frame(false);
+                        if ui.add(line).on_hover_text(details).clicked() {
+                            pick = Some(ci);
+                        }
+                    }
+                });
+                if let Some(ci) = pick {
+                    if let Some(name) = self.bulk_conflicts[ci].pick_trip() {
+                        // (show the trip where it belongs, so the click shows it)
+                        let line = doc.timetable.trip(&name).map(|t| t.line.trim().to_string()).unwrap_or_default();
+                        if !line.is_empty() && self.line.as_deref() != Some(line.as_str())
+                            && doc.timetable.lines.iter().any(|l| l.name == line) {
+                            self.select_line(&doc.timetable, Some(line));
+                        }
+                        self.select_trip(Some(name));
+                    }
+                }
             }
             ui.separator();
         }
@@ -2190,6 +2590,24 @@ mod batch_route_tests {
         omsi_timetable::StnLink { from_id, to_id, length, ..Default::default() }
     }
 
+    /// A link with an AI path: one entry per lane driven (`lane` becomes the entry's IDCode).
+    fn lane_link(from_id: i64, to_id: i64, length: f64, lanes: &[i64]) -> omsi_timetable::StnLink {
+        let entries = lanes.iter().map(|lane| omsi_timetable::StnLinkEntry {
+            values: [*lane as f64, 0.0, 0.0, length, -1.0, 0.0, 0.0],
+        }).collect();
+        omsi_timetable::StnLink {
+            length,
+            from_id,
+            to_id,
+            params: [0.0, 0.0, 0.0, 0.0, 0.0, lanes.len().saturating_sub(1) as f64],
+            entries,
+        }
+    }
+
+    fn names() -> HashMap<i64, String> {
+        [(1, "Central"), (2, "Market"), (3, "Depot")].into_iter().map(|(id, n)| (id, n.to_string())).collect()
+    }
+
     fn plan(name: &str, links: Vec<omsi_timetable::StnLink>) -> PlannedRoute {
         (name.to_string(), Vec::new(), links)
     }
@@ -2256,13 +2674,43 @@ mod batch_route_tests {
     fn identical_shared_links_are_safe() {
         let same = link(1, 2, 120.0);
         let plans = vec![plan("a", vec![same.clone()]), plan("b", vec![same])];
-        assert!(conflicting_batch_routes(&plans, &[], &HashSet::new()).is_empty());
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
+        assert!(conflicts.is_empty());
+        assert!(causes.is_empty());
     }
 
     #[test]
     fn disagreeing_shared_links_skip_both_trips() {
         let plans = vec![plan("a", vec![link(1, 2, 120.0)]), plan("b", vec![link(1, 2, 200.0)])];
-        assert_eq!(conflicting_batch_routes(&plans, &[], &HashSet::new()), HashSet::from([0, 1]));
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
+        assert_eq!(conflicts, HashSet::from([0, 1]));
+        assert_eq!(causes.len(), 1);
+        assert_eq!(causes[0].kind, ConflictKind::Disagree);
+        assert_eq!(causes[0].round, 0);
+    }
+
+    #[test]
+    fn two_trips_on_different_lanes_disagree_with_their_ai_paths_in_full() {
+        let plans = vec![
+            plan("a", vec![lane_link(1, 2, 120.0, &[100, 101])]),
+            plan("b", vec![lane_link(1, 2, 120.0, &[200, 201])]),
+        ];
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
+        assert_eq!(conflicts, HashSet::from([0, 1]));
+        assert_eq!(causes.len(), 1, "one pair, one cause: {causes:?}");
+        let cause = &causes[0];
+        assert_eq!(cause.kind, ConflictKind::Disagree);
+        assert_eq!(cause.round, 0, "a disagreement between trips is always a root cause");
+        assert_eq!((cause.from_id, cause.to_id), (1, 2));
+        assert_eq!((cause.from_name.as_str(), cause.to_name.as_str()), ("Central", "Market"));
+        assert_eq!(cause.trips.len(), 2, "both trips that calculated the pair are listed");
+        assert_eq!(cause.new_trips, vec![0, 1]);
+        let diff = cause.diffs.iter().find(|d| d.field == "AI path sequence").expect("the AI paths differ");
+        println!("AI path diff: {}", diff.detail);
+        assert!(diff.detail.contains("100.000"), "the full first sequence: {}", diff.detail);
+        assert!(diff.detail.contains("101.000"), "the full first sequence: {}", diff.detail);
+        assert!(diff.detail.contains("200.000"), "the full second sequence: {}", diff.detail);
+        assert_eq!(cause.summary(), "Central(1) → Market(2) | Disagree | 2 trips | AI path sequence");
     }
 
     #[test]
@@ -2275,7 +2723,23 @@ mod batch_route_tests {
         // Trip a is skipped because it conflicts with b on 1->2. Trip c must
         // also be skipped, because it would change a's original 2->3 link.
         let original = vec![link(2, 3, 100.0)];
-        assert_eq!(conflicting_batch_routes(&plans, &original, &HashSet::new()), HashSet::from([0, 1, 2]));
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &original, &HashSet::new(), &names());
+        assert_eq!(conflicts, HashSet::from([0, 1, 2]));
+        // (root causes first)
+        let root = causes.iter().position(|c| c.round == 0).expect("a root cause");
+        assert_eq!((causes[root].kind, causes[root].from_id, causes[root].to_id), (ConflictKind::Disagree, 1, 2));
+        let propagated = causes.iter().find(|c| c.kind == ConflictKind::Propagated).expect("c is propagated");
+        let propagated_index = causes.iter().position(|c| c.kind == ConflictKind::Propagated).unwrap();
+        assert!(root < propagated_index, "root causes come first: {causes:#?}");
+        assert_eq!((propagated.from_id, propagated.to_id), (2, 3));
+        assert_eq!(propagated.round, 1, "2->3 becomes protected only after round 0");
+        assert_eq!(propagated.new_trips, vec![2], "only c is new: a was already skipped");
+        let via = propagated.via.as_ref().expect("a propagated cause names its source");
+        assert_eq!(via.trip, "a");
+        assert_eq!(via.pair, Some((1, 2)));
+        // (the map's link is what c would have replaced)
+        assert_eq!(propagated.original.as_ref().map(|l| l.length), Some(100.0));
+        assert!(propagated.diffs.iter().any(|d| d.field == "length" && d.detail.contains("150.000") && d.detail.contains("100.000")));
     }
 
     #[test]
@@ -2283,8 +2747,61 @@ mod batch_route_tests {
         let original = link(1, 2, 120.0);
         let protected = HashSet::from([(1, 2)]);
         let plans = vec![plan("a", vec![link(1, 2, 130.0)])];
-        assert_eq!(conflicting_batch_routes(&plans, &[original.clone()], &protected), HashSet::from([0]));
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[original.clone()], &protected, &names());
+        assert_eq!(conflicts, HashSet::from([0]));
+        assert_eq!(causes.len(), 1);
+        assert_eq!((causes[0].kind, causes[0].round), (ConflictKind::Protected, 0), "protected before the batch, not propagated");
+        assert_eq!(causes[0].new_trips, vec![0]);
         let plans = vec![plan("a", vec![original.clone()])];
-        assert!(conflicting_batch_routes(&plans, &[original], &protected).is_empty());
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[original], &protected, &names());
+        assert!(conflicts.is_empty());
+        assert!(causes.is_empty());
+    }
+
+    #[test]
+    fn the_conflict_report_lists_root_causes_first_with_every_value() {
+        let plans = vec![
+            plan("a", vec![lane_link(1, 2, 120.0, &[100]), lane_link(2, 3, 150.0, &[300])]),
+            plan("b", vec![lane_link(1, 2, 120.0, &[200])]),
+            plan("c", vec![lane_link(2, 3, 150.0, &[300])]),
+        ];
+        let original = vec![lane_link(2, 3, 100.0, &[999])];
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &original, &HashSet::new(), &names());
+        let text = conflict_report(std::path::Path::new("/maps/test"), &plans, &conflicts, &causes);
+        println!("{text}");
+        let root = text.find("round 0 | Disagree").expect("the root cause is listed");
+        let propagated = text.find("round 1 | Propagated").expect("the propagated cause is listed");
+        assert!(root < propagated, "root causes first:\n{text}");
+        assert!(text.contains("100.000/0.000/0.000/120.000/-1.000/0.000/0.000"), "the first AI path in full:\n{text}");
+        assert!(text.contains("200.000/0.000/0.000/120.000/-1.000/0.000/0.000"), "the second AI path in full:\n{text}");
+        assert!(text.contains("propagated from trip a on 1 -> 2"), "the source is named:\n{text}");
+        assert!(!text.contains("No shared station link conflicted"));
+    }
+
+    #[test]
+    fn a_batch_without_conflicts_writes_that_nothing_conflicted() {
+        let plans = vec![plan("a", vec![link(1, 2, 120.0)])];
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
+        let text = conflict_report(std::path::Path::new("/maps/test"), &plans, &conflicts, &causes);
+        assert!(text.contains("No shared station link conflicted"), "{text}");
+        assert!(text.contains("conflicting trips: 0"), "{text}");
+    }
+
+    #[test]
+    fn the_conflict_file_is_overwritten_by_the_next_batch() {
+        let dir = std::env::temp_dir().join("openmapper-conflicts-overwrite");
+        std::fs::create_dir_all(&dir).unwrap();
+        let plans = vec![plan("a", vec![link(1, 2, 120.0)]), plan("b", vec![link(1, 2, 200.0)])];
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
+        let path = write_conflict_report(&dir, &plans, &conflicts, &causes).unwrap();
+        let first = std::fs::read_to_string(&path).unwrap();
+        assert!(first.contains("Disagree"), "{first}");
+        // the next batch has nothing to report: the old text must not stay behind
+        let (clean, none) = conflicting_batch_routes(&plans[..1], &[], &HashSet::new(), &names());
+        write_conflict_report(&dir, &plans[..1], &clean, &none).unwrap();
+        let second = std::fs::read_to_string(&path).unwrap();
+        assert!(second.contains("No shared station link conflicted"), "{second}");
+        assert!(!second.contains("Disagree"), "the previous batch's text is gone:\n{second}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

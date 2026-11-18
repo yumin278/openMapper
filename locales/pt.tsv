@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	Nada foi colado: a área de tra
 Nothing was pasted: the clipboard does not hold [rule] blocks	Nada foi colado: a área de transferência não tem blocos [rule]
 Pasted rules:	Regras coladas:
 Skipped rules (this crossing has no such path):	Regras deixadas de fora (este cruzamento não tem essa faixa):
+Conflicting segments	Trechos em conflito

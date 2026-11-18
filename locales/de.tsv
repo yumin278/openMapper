@@ -3046,3 +3046,4 @@ Nothing was pasted: the clipboard cannot be read	Nichts eingefügt: die Zwischen
 Nothing was pasted: the clipboard does not hold [rule] blocks	Nichts eingefügt: die Zwischenablage enthält keine [rule]-Blöcke
 Pasted rules:	Eingefügte Regeln:
 Skipped rules (this crossing has no such path):	Weggelassene Regeln (diese Kreuzung hat keinen solchen Pfad):
+Conflicting segments	Konfliktbehaftete Abschnitte

@@ -3047,3 +3047,4 @@ Nothing was pasted: the clipboard cannot be read	未貼上任何內容：無法�
 Nothing was pasted: the clipboard does not hold [rule] blocks	未貼上任何內容：剪貼簿中沒有 [rule] 區塊
 Pasted rules:	已貼上的規則數：
 Skipped rules (this crossing has no such path):	已略過的規則數（此路口沒有該路徑）：
+Conflicting segments	衝突路段

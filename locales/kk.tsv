@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	Ештеңе қойылмады
 Nothing was pasted: the clipboard does not hold [rule] blocks	Ештеңе қойылмады: буферде [rule] блоктары жоқ
 Pasted rules:	Қойылған ережелер:
 Skipped rules (this crossing has no such path):	Тасталған ережелер (бұл айқаста ондай жол жоқ):
+Conflicting segments	Қайшы келетін бөліктер

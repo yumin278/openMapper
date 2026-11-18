@@ -3046,3 +3046,4 @@ Nothing was pasted: the clipboard cannot be read	Нічого не вставл�
 Nothing was pasted: the clipboard does not hold [rule] blocks	Нічого не вставлено: у буфері обміну немає блоків [rule]
 Pasted rules:	Вставлено правил:
 Skipped rules (this crossing has no such path):	Відкинуто правил (у цього перехрестя немає такого шляху):
+Conflicting segments	Конфліктні ділянки
