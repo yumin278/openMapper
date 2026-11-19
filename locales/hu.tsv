@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	Semmi nem lett beillesztve: a v
 Nothing was pasted: the clipboard does not hold [rule] blocks	Semmi nem lett beillesztve: a vágólapon nincsenek [rule] blokkok
 Pasted rules:	Beillesztett szabályok:
 Skipped rules (this crossing has no such path):	Kihagyott szabályok (ezen a kereszteződésen nincs ilyen sáv):
+Conflicting segments	Ütköző szakaszok

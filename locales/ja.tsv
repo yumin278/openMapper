@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	何も貼り付けられませ�
 Nothing was pasted: the clipboard does not hold [rule] blocks	何も貼り付けられませんでした：クリップボードに [rule] ブロックがありません
 Pasted rules:	貼り付けたルール数：
 Skipped rules (this crossing has no such path):	除外したルール数（この交差点にない経路）：
+Conflicting segments	競合する区間

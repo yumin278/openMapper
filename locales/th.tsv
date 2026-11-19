@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	ไม่มีอะไรถ�
 Nothing was pasted: the clipboard does not hold [rule] blocks	ไม่มีอะไรถูกวาง: คลิปบอร์ดไม่มีบล็อก [rule]
 Pasted rules:	จำนวนกฎที่วาง:
 Skipped rules (this crossing has no such path):	จำนวนกฎที่ตัดออก (ทางแยกนี้ไม่มีเส้นทางนั้น):
+Conflicting segments	ช่วงที่ขัดแย้งกัน

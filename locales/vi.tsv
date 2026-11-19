@@ -3048,3 +3048,4 @@ Nothing was pasted: the clipboard cannot be read	Không dán được gì: khôn
 Nothing was pasted: the clipboard does not hold [rule] blocks	Không dán được gì: bảng nhớ tạm không có khối [rule]
 Pasted rules:	Số quy tắc đã dán:
 Skipped rules (this crossing has no such path):	Số quy tắc bị bỏ (giao lộ này không có làn đó):
+Conflicting segments	Đoạn xung đột
