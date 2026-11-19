@@ -15,6 +15,7 @@ use crate::library::{Category, Kind, Library};
 use crate::road_maker::{MakerTarget, MarkStyle, Marking, RoadSpec};
 use crate::ui::Action;
 use crate::ui_tex::{quad, TexCache};
+use crate::theme::pal;
 
 #[derive(Default)]
 pub struct RoadTypes {
@@ -444,7 +445,7 @@ impl RoadTypes {
                         }
                     }
                 });
-                if ui.small_button(tr("Own…", "Своя…")).clicked() {
+                if ui.small_button(icons::labelled(Icon::Open, tr("Own…", "Своя…"))).clicked() {
                     if let Some(f) = rfd::FileDialog::new().add_filter(tr("Pictures", "Картинки"), &["png", "jpg", "bmp", "tga", "dds"]).pick_file() {
                         *cur = f;
                     }
@@ -464,13 +465,13 @@ impl RoadTypes {
                 return;
             }
             ui.horizontal(|ui| {
-                if ui.button(tr("Standard for these lanes", "Типовая для этих полос")).clicked() {
+                if ui.button(icons::labelled(Icon::AutoFix, tr("Standard for these lanes", "Типовая для этих полос"))).clicked() {
                     s.markings = s.standard_markings();
                 }
-                if ui.button(tr("Add a line", "Добавить линию")).clicked() {
+                if ui.button(icons::labelled(Icon::Add, tr("Add a line", "Добавить линию"))).clicked() {
                     s.markings.push(Marking::default());
                 }
-                if ui.button(tr("Clear", "Очистить")).clicked() {
+                if ui.button(icons::labelled(Icon::Eraser, tr("Clear", "Очистить"))).clicked() {
                     s.markings.clear();
                 }
             });
@@ -480,7 +481,7 @@ impl RoadTypes {
                     s.marked = true;
                 }
                 if s.hand.as_ref().map(|h| !h.is_empty()).unwrap_or(false) {
-                    ui.label(RichText::new(tr("a drawing is on the road", "на дороге есть рисунок")).small().color(Color32::from_gray(150)));
+                    ui.label(RichText::new(tr("a drawing is on the road", "на дороге есть рисунок")).small().color(pal().text_dim));
                 }
             });
             let half = s.roadway_width() / 2.0;
@@ -504,7 +505,7 @@ impl RoadTypes {
                         ui.add(egui::DragValue::new(&mut m.dash).speed(0.1).range(0.5..=12.0).fixed_decimals(1).suffix(" m")).on_hover_text(tr("Dash length", "Длина штриха"));
                         ui.add(egui::DragValue::new(&mut m.gap).speed(0.1).range(0.5..=20.0).fixed_decimals(1).suffix(" m")).on_hover_text(tr("Gap between dashes", "Промежуток между штрихами"));
                     }
-                    if ui.small_button("×").clicked() {
+                    if icons::small(ui, Icon::Delete, tr("Delete", "Удалить")).clicked() {
                         remove = Some(i);
                     }
                 });
@@ -513,7 +514,7 @@ impl RoadTypes {
                 s.markings.remove(i);
             }
         });
-        ui.label(RichText::new(tr("The roadway texture is laid once across all its lanes (as OMSI 2's lane textures are painted: pick one with as many lanes); the footway texture's right end is the kerb.", "Текстура проезжей части ложится один раз поперёк всех полос (как нарисованы полосные текстуры OMSI 2: берите с тем же числом полос); правый край текстуры тротуара: бордюр.")).small().color(Color32::from_gray(140)));
+        ui.label(RichText::new(tr("The roadway texture is laid once across all its lanes (as OMSI 2's lane textures are painted: pick one with as many lanes); the footway texture's right end is the kerb.", "Текстура проезжей части ложится один раз поперёк всех полос (как нарисованы полосные текстуры OMSI 2: берите с тем же числом полос); правый край текстуры тротуара: бордюр.")).small().color(pal().text_dim));
     }
 }
 

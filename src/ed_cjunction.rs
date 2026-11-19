@@ -56,7 +56,7 @@ impl Editor {
                     let folder = crate::junction::folder_name(doc);
                     let asphalt = crate::junction::junction_asphalt(Some(&doc.dir), asphalt.as_deref());
                     for arms in &resolved.plates {
-                        let Some(plate) = crate::junction::layout_plate(assets, arms, asphalt.as_deref()) else { continue };
+                        let Some(plate) = crate::junction::layout_plate(assets, arms, None, asphalt.as_deref()) else { continue };
                         // (the plate's bus-only rules go into the settings beside the object it
                         // writes, not into this record's rules)
                         let Ok(rel) = plate.write_object(&content, &folder) else { continue };

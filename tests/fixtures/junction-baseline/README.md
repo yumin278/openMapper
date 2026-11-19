@@ -8,3 +8,10 @@ junctions through `make_with` and places both pocket variants through the editor
 bus-pocket tool. The first taper in the direction of the original road is saved.
 The regression test compares the complete SCO bytes, including the generated mesh
 name and all path and helper records.
+
+They were regenerated once more (same command, same fixture) on the merge of upstream
+`v0.2.0` (`de21b085bb0b7811b3da85bba37d148fc6c1d1e6`): upstream's road markings now go
+into the junction mesh (`plate_marks`/`add_marks`), so the mesh — and with it the
+generated name, which is hashed from the mesh — changed. Only the `[friendlyname]` and
+`[mesh]` lines differ; every `[splinehelper]` and `[path]` record is byte-for-byte the
+same as before.

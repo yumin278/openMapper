@@ -146,6 +146,7 @@ pub struct App {
     map_settings: crate::ui_mapsettings::MapSettings,
     calendar: crate::ui_calendar::CalendarWindow,
     signals: crate::ui_signals::SignalWindow,
+    trolley: crate::ui_trolley::TrolleyWindow,
     chrono: crate::ui_chrono::ChronoWindow,
     /// The Satellite and terrain window and the overlay on the ground.
     geo: crate::ui_geo::GeoUi,
@@ -270,6 +271,7 @@ impl App {
             map_settings: Default::default(),
             calendar: Default::default(),
             signals: Default::default(),
+            trolley: Default::default(),
             chrono: Default::default(),
             geo: Default::default(),
             osm: Default::default(),
@@ -376,7 +378,13 @@ impl App {
             renderer.roots = vec![r.content.clone(), r.omsi.clone()];
         }
         let egui_ctx = egui::Context::default();
+        // (not for a picture of the window: it must not depend on how the last run left it)
+        if std::env::var_os("OPENMAPPER_SHOT").is_none() {
+            install::load_ui_memory(&egui_ctx);
+        }
         ui::style(&egui_ctx);
+        // OPENMAPPER_THEME=dark|light|system: that theme for this run (checks of both)
+        crate::theme::Choice::from_code(&std::env::var("OPENMAPPER_THEME").unwrap_or_else(|_| self.prefs.theme.clone())).apply(&egui_ctx);
         if self.prefs.ui_scale > 0.0 {
             egui_ctx.set_zoom_factor(self.prefs.ui_scale.clamp(0.5, 2.0));
         }
@@ -384,7 +392,7 @@ impl App {
         if let Some(z) = std::env::var("OPENMAPPER_UI_SCALE").ok().and_then(|z| z.parse::<f32>().ok()) {
             egui_ctx.set_zoom_factor(z.clamp(0.5, 2.0));
         }
-        let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), None, Some(gpu.device.limits().max_texture_dimension_2d as usize));
+        let egui_state = egui_winit::State::new(egui_ctx.clone(), egui::ViewportId::ROOT, &window, Some(window.scale_factor() as f32), window.theme(), Some(gpu.device.limits().max_texture_dimension_2d as usize));
         let egui_renderer = egui_wgpu::Renderer::new(&gpu.device, gpu.config.format, egui_wgpu::RendererOptions { msaa_samples: 1, depth_stencil_format: None, dithering: true, predictable_texture_filtering: false });
         log::info!("graphics: {}", gpu.adapter_name);
         self.gfx = Some(Gfx { window, gpu, renderer, egui_ctx, egui_state, egui_renderer });
@@ -497,6 +505,7 @@ impl App {
         if let Some(g) = &mut self.gfx {
             g.renderer.reset_map();
         }
+        self.crossing.map_gone();
         self.ed.open(doc);
         self.sync.rebase(self.ed.doc.as_ref());
         self.ed.set_tool(Tool::Select);
@@ -510,6 +519,10 @@ impl App {
             self.cam.jump_to(DVec3::new(v[0], v[1], h), v[2]);
             self.cam.yaw = v[3];
             self.cam.pitch = v[4];
+            // (the window of tiles loaded round where the camera now is)
+            self.stream_at = None;
+            self.stream_set = None;
+            self.ask_tile_streaming();
         }
         // OPENMAPPER_SELECT=x,y[,spline|chain]: the object (or the spline starting) nearest there
         // selected (checks of its properties)
@@ -588,6 +601,14 @@ impl App {
             }
         }
         self.hook_edit = std::env::var("OPENMAPPER_EDIT").ok();
+        // OPENMAPPER_UV=1: the UV editor open (on what OPENMAPPER_SHAPE and OPENMAPPER_EDIT made)
+        if std::env::var_os("OPENMAPPER_UV").is_some() {
+            self.ui.uv_open = true;
+        }
+        // OPENMAPPER_ASSETS=1: the assets panel open
+        if std::env::var_os("OPENMAPPER_ASSETS").is_some() {
+            self.ui.assets.open = true;
+        }
         // OPENMAPPER_XFORM=move|rotate|scale: the Select tool's handles shown on the selection
         if let Ok(x) = std::env::var("OPENMAPPER_XFORM") {
             use crate::editor::Xform;
@@ -674,6 +695,9 @@ impl App {
         match std::env::var("OPENMAPPER_SETTINGS").as_deref() {
             Ok("calendar") => self.calendar.open = true,
             Ok("signals") => self.signals.open = true,
+            Ok("trolley") => self.trolley.open = true,
+            // (=kit:<id>: a trolleybus wire kit's window open on it)
+            Ok(k) if k.starts_with("kit:") => self.trolley.edit_kit(&k[4..]),
             Ok("chrono") => self.chrono.open = true,
             Ok(_) => self.map_settings.open = true,
             Err(_) => {}
@@ -773,6 +797,12 @@ impl App {
                 self.ed.ruler = Some((Some(p(v[0], v[1])), Some(p(v[2], v[3]))));
             }
         }
+        // OPENMAPPER_RULER_AREA=x,y;x,y;…: the ruler's outline through those corners
+        if let (Ok(c), Some(doc)) = (std::env::var("OPENMAPPER_RULER_AREA"), &self.ed.doc) {
+            let pts: Vec<DVec3> = c.split(';').filter_map(|q| q.split_once(',')).filter_map(|(x, y)| Some((x.trim().parse::<f64>().ok()?, y.trim().parse::<f64>().ok()?))).map(|(x, y)| DVec3::new(x, y, doc.ground(DVec2::new(x, y)))).collect();
+            self.ed.ruler = Some((None, None));
+            self.ed.ruler_area = pts;
+        }
         if let Some(s) = std::env::var("OPENMAPPER_GRID").ok().and_then(|s| s.parse::<f64>().ok()) {
             self.ed.snap_grid = true;
             self.ed.grid_step = s;
@@ -800,8 +830,12 @@ impl App {
             self.ui.check.issues = None;
         }
         // OPENMAPPER_SCRIPTS=1: the Scripts window open from the start
-        if std::env::var_os("OPENMAPPER_SCRIPTS").is_some() {
-            self.scripts.open = true;
+        if let Ok(f) = std::env::var("OPENMAPPER_SCRIPTS") {
+            // (a project file to open; OPENMAPPER_SCRIPTS_RUN=1 runs the scripts too, stopping at
+            // the line OPENMAPPER_SCRIPTS_BREAK names)
+            let file = if f == "1" { String::new() } else { f };
+            let line = std::env::var("OPENMAPPER_SCRIPTS_BREAK").ok().and_then(|l| l.parse().ok());
+            self.scripts.open_on(&file, std::env::var_os("OPENMAPPER_SCRIPTS_RUN").is_some(), line);
         }
         // OPENMAPPER_TIMETABLE=<line>: the Lines window open on that line (checks without a person at the screen)
         if let Ok(l) = std::env::var("OPENMAPPER_TIMETABLE") {
@@ -1502,6 +1536,10 @@ impl App {
         // so it is not cut short, nor counted as changes to lose)
         if guarded {
             self.finish_save();
+            // (the crossing editor's edits are not the map's: it asks about them itself)
+            if !self.unguarded && !self.crossing.may_leave_map() {
+                return;
+            }
         }
         let dirty = self.ed.doc.as_ref().map(|d| d.is_dirty()).unwrap_or(false);
         if guarded {
@@ -1588,6 +1626,7 @@ impl App {
                 }
                 self.ed.doc = None;
                 self.ed.history.clear();
+                self.crossing.map_gone();
                 if let Some(r) = &self.roots {
                     self.ui.maps = install::list_maps(r);
                 }
@@ -1818,9 +1857,9 @@ impl App {
                     Err(e) => self.cj.failed(e.to_string()),
                 }
             }
-            Action::Scripts => self.scripts.open = !self.scripts.open,
-            Action::ScriptedLight(b, color, range) => {
-                if let Err(e) = self.new_scripted_light(b, color, range) {
+            Action::Scripts => self.scripts.toggle(),
+            Action::ScriptObject { lua } => {
+                if let Err(e) = self.script_object(lua) {
                     self.ed.error(e.to_string());
                 }
             }
@@ -1965,7 +2004,7 @@ impl App {
                 self.ed.toast(if on {
                     tr("OMSI 2's editor: the middle button turns, the right button held and moved zooms, a right click goes there (Shift: menu); G moves the selection, N makes a new object, Enter confirms, the tile grid is on Shift+G", "Редактор OMSI 2: средняя кнопка вращает, правая зажатая с движением приближает, правый клик переходит туда (Shift: меню); G двигает выделенное, N создаёт объект, Enter подтверждает, сетка тайлов на Shift+G").to_string()
                 } else {
-                    tr("openMapper's own controls: the camera as chosen under Camera, the keys as in View → Controls", "Собственное управление openMapper: камера как выбрано в «Камера», клавиши как в «Вид → Управление»").to_string()
+                    tr("openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls", "Собственное управление openMapper: камера как выбрано в «Камера», клавиши как в «Вид > Управление»").to_string()
                 });
             }
             Action::SetKeySet(p) => {
@@ -1976,7 +2015,7 @@ impl App {
                 self.prefs.save();
                 self.ed.toast(match p {
                     Preset::Blender => tr("Blender's keys: G moves the selection, Shift+S scales it, X deletes, Tab edits the mesh, Shift+A adds an object, Shift+D duplicates, F3 searches. W A S D and Q E move the camera as they always do", "Клавиши Blender: G двигает выделенное, Shift+S масштабирует, X удаляет, Tab правит меш, Shift+A добавляет объект, Shift+D дублирует, F3 ищет. W A S D и Q E двигают камеру, как всегда"),
-                    _ => tr("The keys as in View → Controls", "Клавиши как в «Вид → Управление»"),
+                    _ => tr("The keys as in View > Controls", "Клавиши как в «Вид > Управление»"),
                 }.to_string());
             }
             Action::SetCamTune(t) => {
@@ -2006,6 +2045,13 @@ impl App {
                 self.prefs.save();
                 if let Some(g) = &self.gfx {
                     g.egui_ctx.set_zoom_factor(z);
+                }
+            }
+            Action::SetTheme(c) => {
+                self.prefs.theme = c.code().to_string();
+                self.prefs.save();
+                if let Some(g) = &self.gfx {
+                    c.apply(&g.egui_ctx);
                 }
             }
             Action::Copy => {
@@ -2116,6 +2162,7 @@ impl App {
             Action::MapSettings => self.map_settings.open = true,
             Action::Calendar => self.calendar.open = true,
             Action::SignalRoutes => self.signals.open = true,
+            Action::Trolley => self.trolley.open = true,
             Action::Chrono => self.chrono.open = true,
             Action::OpenLines => self.tt.open = true,
             Action::OpenTraffic => self.traffic.open = true,
@@ -2253,30 +2300,6 @@ impl App {
             && self.crossing.split_picked()
         {
             self.ed.toast(tr("Cut in two: each piece can now be changed on its own", "Разрезана надвое: каждый кусок теперь можно менять отдельно"));
-            return;
-        }
-        if !self.crossing.open
-            && code == Some(KeyCode::KeyV)
-            && !self.keys.ctrl
-            && !self.keys.alt
-        {
-            if self.ed.vertex_snap.is_some() {
-                self.ed.cancel_vertex_snap();
-            } else {
-                self.ed.start_vertex_snap();
-            }
-            return;
-        }
-        if !self.crossing.open
-            && code == Some(KeyCode::KeyL)
-            && !self.keys.ctrl
-            && !self.keys.alt
-        {
-            if self.ed.edge_snap.is_some() {
-                self.ed.cancel_edge_snap();
-            } else {
-                self.ed.start_edge_snap();
-            }
             return;
         }
         let ctrl = self.keys.ctrl;
@@ -2468,6 +2491,23 @@ impl App {
             Cmd::FlipPath => self.ed.flip_selected(),
             Cmd::Ruler => self.ed.toggle_ruler(),
             Cmd::Knife => self.ed.toggle_cutting(),
+            Cmd::NextPiece | Cmd::PrevPiece => {
+                self.ed.select_linked(c == Cmd::NextPiece, shift);
+            }
+            Cmd::SnapVertex if !self.crossing.open => {
+                if self.ed.vertex_snap.is_some() {
+                    self.ed.cancel_vertex_snap();
+                } else {
+                    self.ed.start_vertex_snap();
+                }
+            }
+            Cmd::SnapEdge if !self.crossing.open => {
+                if self.ed.edge_snap.is_some() {
+                    self.ed.cancel_edge_snap();
+                } else {
+                    self.ed.start_edge_snap();
+                }
+            }
             Cmd::CompleteTo => self.ed.complete_to(),
             Cmd::EditMesh => self.toggle_edit_mode(),
             Cmd::Polygon | Cmd::PolygonClick => {
@@ -2513,6 +2553,8 @@ impl App {
             Cmd::Focus => actions.push(Action::FocusSelection),
             Cmd::TestDrive => actions.push(if shift { Action::PlayHere(false) } else { Action::Play }),
             Cmd::Picture => actions.push(Action::ViewPicture),
+            // (the crossing editor has its own use for the keys)
+            Cmd::SnapVertex | Cmd::SnapEdge => {}
         }
     }
 
@@ -2761,14 +2803,14 @@ impl App {
     /// end where the mouse is. The judgement is made where the circles are drawn - 0.40 m
     /// above its own ends and 0.55 m above a lane's - not at the bare point, since at a low
     /// camera angle the two are tens of pixels apart and the circle under the cursor misses.
-    fn crossing_snap_end(&mut self, at: DVec3, world: DVec3, m: glam::Mat4) -> Option<crate::crossing_edit::Joint> {
+    fn crossing_snap_end(&mut self, _at: DVec3, world: DVec3, m: glam::Mat4) -> Option<crate::crossing_edit::Joint> {
         if self.keys.ctrl {
             return None;
         }
         let skip = self.crossing.map_dragging();
         let mouse = self.mouse.pos;
         let mut best: Option<(f32, crate::crossing_edit::Joint)> = None;
-        let mut consider = |s: Option<(f32, f32)>, j: crate::crossing_edit::Joint, best: &mut Option<(f32, crate::crossing_edit::Joint)>| {
+        let consider = |s: Option<(f32, f32)>, j: crate::crossing_edit::Joint, best: &mut Option<(f32, crate::crossing_edit::Joint)>| {
             let Some(s) = s else { return };
             let d = ((s.0 - mouse.0).powi(2) + (s.1 - mouse.1).powi(2)).sqrt();
             if d <= 16.0 && best.map(|b| d < b.0).unwrap_or(true) {
@@ -3006,6 +3048,11 @@ impl App {
             self.ed.detach_lanes(assets, roots);
             self.ed.pick_ai_path_near(assets, at);
         }
+        // (an edit that kept every tile lets go of the copies it did not need at once, not with
+        // the next edit: on a city that is a copy of the whole map held meanwhile)
+        if let Some(doc) = self.ed.doc.as_ref() {
+            self.ed.history.settle(doc);
+        }
         if let Some(assets) = self.assets.as_mut() {
             self.ed.tick(assets, dt, self.mouse.left && !self.mouse.over_ui);
             if let Some(roots) = &self.roots {
@@ -3018,7 +3065,21 @@ impl App {
         g.renderer.profile.add("editor", crate::render::profile::ms(t_ed));
         let t_ui = Instant::now();
         // the interface
-        let raw = g.egui_state.take_egui_input(&g.window);
+        let mut raw = g.egui_state.take_egui_input(&g.window);
+        // OPENMAPPER_CLICK=x,y[;x,y…]: a click at each of those window points, ten frames
+        // apart from the 40th (a menu opened for a picture with no one at the screen)
+        if let Ok(v) = std::env::var("OPENMAPPER_CLICK") {
+            let n = self.frames.wrapping_sub(40);
+            let at = v.split(';').nth((n / 10) as usize).and_then(|p| p.split_once(',')).and_then(|(x, y)| Some(egui::pos2(x.trim().parse().ok()?, y.trim().parse().ok()?)));
+            if let (true, Some(pos)) = (self.frames >= 40, at) {
+                // (moved there first, pressed and let go on later frames, as a hand does)
+                match n % 10 {
+                    0 => raw.events.push(egui::Event::PointerMoved(pos)),
+                    2 | 4 => raw.events.push(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: n % 10 == 2, modifiers: Default::default() }),
+                    _ => {}
+                }
+            }
+        }
         let mut actions: Vec<Action> = Vec::new();
         let mut wanted_thumbs: Vec<(String, bool)> = Vec::new();
         let mut wanted_swatches: Vec<String> = Vec::new();
@@ -3102,8 +3163,10 @@ impl App {
         self.geo.fill_bridge(&mut self.ui.geo, &self.ed);
         self.ui.minimap.imagery = self.geo.minimap_tiles();
         g.renderer.profile.add("ui.before", crate::render::profile::ms(t_ui));
+        crate::controls::show_keys(&Keymap::of(&self.prefs.keys, Preset::of(&self.prefs.keys_set, self.prefs.omsi_controls)));
         let full = g.egui_ctx.run_ui(raw, |ui| {
             let ctx = ui.ctx().clone();
+            crate::theme::sync(&ctx);
             if self.ed.doc.is_none() {
                 ui::welcome(ui, &mut self.ui, &self.prefs, self.roots.as_ref().map(|r| r.omsi.as_path()), &mut actions);
             } else {
@@ -3139,6 +3202,7 @@ impl App {
             }
             crate::ui_edit::paint_box(&ctx, &self.ed);
             crate::ui_edit::paint_ruler(&ctx, &self.ed, &self.cam, self.view);
+            crate::ruler_area::paint(&ctx, &self.ed, &self.cam, self.view);
             crate::ui_edit::paint_cut(&ctx, &self.ed, &self.cam, self.view);
             crate::collab::presence::paint(&ctx, &self.collab, &self.ed, &self.cam, self.view);
             crate::ui_menu::show(&ctx, &mut self.ui.view_menu, &mut self.ed, &self.lib, &mut actions);
@@ -3162,6 +3226,7 @@ impl App {
                 self.calendar.window(&ctx, &mut self.ed);
                 self.chrono.window(&ctx, &mut self.ed, &self.lib, self.roots.as_ref(), &mut actions);
                 self.signals.window(&ctx, &mut self.ed, &self.lib, self.roots.as_ref(), &mut actions);
+                self.trolley.window(&ctx, &mut self.ed, self.roots.as_ref(), self.assets.as_mut(), &mut actions);
                 self.geo.window(&ctx, &mut self.ed, &mut self.prefs);
                 self.ui.views.follow(self.ed.doc.as_ref().map(|d| d.dir.as_path()));
                 self.ui.views.window(&ctx, &mut self.cam);
@@ -3201,7 +3266,7 @@ impl App {
                 recover_answer = crate::doc::autosave::offer(&ctx, m);
             }
             sync_answer = crate::ui_sync::window(&ctx, &self.sync);
-            let unsaved = self.ed.doc.as_ref().map(|d| d.is_dirty()).unwrap_or(false);
+            let unsaved = self.ed.doc.as_ref().map(|d| d.is_dirty()).unwrap_or(false) || self.crossing.unsaved();
             restart_now = self.updater.frame(&ctx, &mut self.prefs, unsaved) && self.recover.is_none();
         });
         match view {
@@ -3294,7 +3359,7 @@ impl App {
         g.renderer.profile.add("ui", crate::render::profile::ms(t_ui));
         let t_acquire = Instant::now();
         // draw
-        let frame = match g.gpu.surface.get_current_texture() {
+        let frame = match g.gpu.surface.as_ref().expect("the window's surface").get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(f) | wgpu::CurrentSurfaceTexture::Suboptimal(f) => Some(f),
             wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
                 let s = g.window.inner_size();
@@ -4069,7 +4134,8 @@ impl ApplicationHandler for App {
                 let mut typing = g.egui_ctx.egui_wants_keyboard_input();
                 // (Ctrl/Cmd + Z, Y: the map's undo even from a text field, which lets go of
                 // the keyboard; its own text undo would only undo half of the edit)
-                if typing && pressed && self.keys.ctrl && matches!(code, Some(KeyCode::KeyZ) | Some(KeyCode::KeyY) | Some(KeyCode::KeyD)) {
+                // (a script's code editor keeps its own undo)
+                if typing && pressed && self.keys.ctrl && matches!(code, Some(KeyCode::KeyZ) | Some(KeyCode::KeyY) | Some(KeyCode::KeyD)) && !crate::ui_code::has_focus(&g.egui_ctx) {
                     g.egui_ctx.memory_mut(|m| m.stop_text_input());
                     typing = false;
                 }
@@ -4416,6 +4482,9 @@ impl ApplicationHandler for App {
             crate::doc::autosave::clear(&r.content);
         }
         self.prefs.save();
+        if let (Some(g), None) = (&self.gfx, std::env::var_os("OPENMAPPER_SHOT")) {
+            install::save_ui_memory(&g.egui_ctx);
+        }
     }
 }
 
@@ -4454,7 +4523,7 @@ fn stream_window(doc: &Document, on: bool, count: usize, at: &mut Option<DVec2>,
 
 /// Write the window's picture to a PNG (the screenshot mode).
 /// Show a file in the system's file manager.
-fn reveal(p: &Path) {
+pub(crate) fn reveal(p: &Path) {
     #[cfg(target_os = "macos")]
     let _ = std::process::Command::new("open").arg("-R").arg(p).spawn();
     #[cfg(target_os = "windows")]
@@ -4549,7 +4618,7 @@ fn save_map_picture(img: image::RgbaImage, crop: [u32; 4], path: &Path) -> anyho
 }
 
 /// The window's picture as it was drawn.
-fn read_frame(gpu: &Gpu, tex: &wgpu::Texture) -> anyhow::Result<image::RgbaImage> {
+pub(crate) fn read_frame(gpu: &Gpu, tex: &wgpu::Texture) -> anyhow::Result<image::RgbaImage> {
     let (w, h) = (tex.width(), tex.height());
     let row = (w * 4).div_ceil(256) * 256;
     let buf = gpu.device.create_buffer(&wgpu::BufferDescriptor { label: Some("shot"), size: (row * h) as u64, usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ, mapped_at_creation: false });

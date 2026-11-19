@@ -24,7 +24,7 @@ use crate::i18n::tr;
 use crate::icons::{self, Icon};
 use crate::install::Prefs;
 use crate::render::imagery::{Imagery, Mips};
-use crate::ui::TEXT_DIM;
+use crate::theme::pal;
 
 /// What the main interface (the View menu, the Tiles tool) shows of the overlay and asks of
 /// it; filled by [`GeoUi::fill_bridge`] before the frame, read by [`GeoUi::take_bridge`].
@@ -60,7 +60,7 @@ pub enum Request {
 /// View menu: the overlay on or off.
 pub fn view_menu(ui: &mut egui::Ui, b: &mut Bridge) {
     let mut on = b.overlay;
-    if crate::ui::check(ui, &mut on, icons::labelled(Icon::Layers, tr("Satellite overlay", "Спутниковая подложка"))).changed() {
+    if crate::ui::check(ui, &mut on, icons::labelled(Icon::Satellite, tr("Satellite overlay", "Спутниковая подложка"))).changed() {
         b.requests.push(Request::Overlay(on));
     }
 }
@@ -70,9 +70,9 @@ pub fn tiles_panel(ui: &mut egui::Ui, b: &mut Bridge) {
     ui.add_space(10.0);
     ui.label(RichText::new(tr("Satellite and own pictures", "Спутник и свои картинки")).strong());
     let Some(t) = &b.tile else {
-        ui.label(RichText::new(tr("Click a tile to see its overlay here.", "Кликните тайл, чтобы увидеть здесь его подложку.")).color(TEXT_DIM));
+        ui.label(RichText::new(tr("Click a tile to see its overlay here.", "Кликните тайл, чтобы увидеть здесь его подложку.")).color(pal().text_dim));
         osm_map_row(ui, b, None);
-        if ui.button(tr("Satellite and terrain…", "Спутник и рельеф…")).clicked() {
+        if ui.button(icons::labelled(Icon::Satellite, tr("Satellite and terrain…", "Спутник и рельеф…"))).clicked() {
             b.requests.push(Request::Open);
         }
         return;
@@ -88,13 +88,13 @@ pub fn tiles_panel(ui: &mut egui::Ui, b: &mut Bridge) {
         b.requests.push(Request::Opacity(k, op));
     }
     ui.horizontal_wrapped(|ui| {
-        if ui.add_enabled(t.placed, egui::Button::new(tr("Load satellite imagery", "Загрузить спутник"))).on_disabled_hover_text(tr("Place the map on the Earth first (Satellite and terrain…)", "Сначала разместите карту на Земле (Спутник и рельеф…)")).clicked() {
+        if ui.add_enabled(t.placed, egui::Button::new(icons::labelled(Icon::Import, tr("Load satellite imagery", "Загрузить спутник")))).on_disabled_hover_text(tr("Place the map on the Earth first (Satellite and terrain…)", "Сначала разместите карту на Земле (Спутник и рельеф…)")).clicked() {
             b.requests.push(Request::LoadImagery(k));
         }
-        if ui.button(tr("Load image file…", "Загрузить картинку…")).on_hover_text(tr("Your own picture for this tile (a scan, a screenshot): or drop it on the window", "Своя картинка для этого тайла (скан, скриншот): или перетащите её в окно")).clicked() {
+        if ui.button(icons::labelled(Icon::Image, tr("Load image file…", "Загрузить картинку…"))).on_hover_text(tr("Your own picture for this tile (a scan, a screenshot): or drop it on the window", "Своя картинка для этого тайла (скан, скриншот): или перетащите её в окно")).clicked() {
             b.requests.push(Request::OwnPicture(k));
         }
-        if ui.button(tr("Satellite and terrain…", "Спутник и рельеф…")).clicked() {
+        if ui.button(icons::labelled(Icon::Satellite, tr("Satellite and terrain…", "Спутник и рельеф…"))).clicked() {
             b.requests.push(Request::Open);
         }
     });
@@ -239,7 +239,7 @@ impl Slippy {
         }
         self.centre = self.centre.clamp(DVec2::ZERO, DVec2::ONE);
         let painter = ui.painter_at(rect);
-        painter.rect_filled(rect, 0.0, Color32::from_gray(40));
+        painter.rect_filled(rect, 0.0, pal().view);
         let z = (self.zoom.round() as i64).clamp(0, src.max_zoom as i64) as u8;
         let n = 1u32 << z;
         let lo = self.to_merc(rect, rect.min);
@@ -882,11 +882,11 @@ impl GeoUi {
         if self.dir.is_none() {
             return;
         }
-        crate::ui::section(ui, tr("OMSI's aerial photos", "Аэроснимки OMSI"));
+        crate::ui::section(ui, Icon::Image, tr("OMSI's aerial photos", "Аэроснимки OMSI"));
         // (copying now: how far it is, and nothing else to press)
         if let Some(job) = &self.aerial_job {
             let at = job.at.load(Ordering::Relaxed);
-            ui.label(RichText::new(format!("{} {at} / {}", tr("Copying the photos", "Копирование снимков"), job.total)).small().color(TEXT_DIM));
+            ui.label(RichText::new(format!("{} {at} / {}", tr("Copying the photos", "Копирование снимков"), job.total)).small().color(pal().text_dim));
             return;
         }
         match self.aerial.clone() {
@@ -897,9 +897,9 @@ impl GeoUi {
                         "По одному снимку на тайл, как их кладёт на землю редактор OMSI: копируются в карту и используются как есть.",
                     ))
                     .small()
-                    .color(TEXT_DIM),
+                    .color(pal().text_dim),
                 );
-                ui.label(RichText::new(folder.display().to_string()).small().color(TEXT_DIM));
+                ui.label(RichText::new(folder.display().to_string()).small().color(pal().text_dim));
                 let label = format!("{} ({n})", tr("Import them", "Импортировать"));
                 if ui.button(icons::labelled(Icon::Import, &label)).clicked() {
                     self.import_aerial(ed, &folder);
@@ -912,7 +912,7 @@ impl GeoUi {
                         "У этой карты их нет рядом: OMSI хранит их в maps/aerials/<папка карты>.",
                     ))
                     .small()
-                    .color(TEXT_DIM),
+                    .color(pal().text_dim),
                 );
                 if ui.button(icons::labelled(Icon::Import, tr("Choose a folder of them…", "Выбрать папку с ними…"))).clicked() {
                     if let Some(p) = rfd::FileDialog::new().set_title(tr("A folder of aerial photos", "Папка аэроснимков")).pick_folder() {
@@ -941,7 +941,7 @@ impl GeoUi {
                 ui.label(tr("Tiles", "Тайлов"));
                 c = ui.add(egui::DragValue::new(n).speed(1.0).range(1..=2000)).changed();
                 let side = ((*n as f64).sqrt() * ts() * 0.5 / 1000.0) as f32;
-                ui.label(RichText::new(format!("≈ ±{side:.1} km")).small().color(TEXT_DIM));
+                ui.label(RichText::new(format!("≈ ±{side:.1} km")).small().color(pal().text_dim));
             });
             ui.label(
                 RichText::new(tr(
@@ -949,7 +949,7 @@ impl GeoUi {
                     "У остальных снимок остаётся в папке карты и ставится снова, когда вы к ним вернётесь.",
                 ))
                 .small()
-                .color(TEXT_DIM),
+                .color(pal().text_dim),
             );
             if c {
                 self.near = None;
@@ -1331,7 +1331,7 @@ impl GeoUi {
             return;
         }
         let mut open = self.open;
-        egui::Window::new(icons::labelled(Icon::Map, tr("Satellite and terrain", "Спутник и рельеф")))
+        egui::Window::new(icons::labelled(Icon::Satellite, tr("Satellite and terrain", "Спутник и рельеф")))
             .id(egui::Id::new("geo window"))
             .open(&mut open)
             .default_pos([300.0, 70.0])
@@ -1349,7 +1349,7 @@ impl GeoUi {
         let geo = self.georef();
         // ---- where the map is
         ui.horizontal(|ui| {
-            ui.label(icons::labelled(Icon::Focus, ""));
+            ui.label(Icon::Focus.text(16.0));
             let r = ui.add(egui::TextEdit::singleline(&mut self.search).hint_text(tr("Find a place: a town, a street, an address… (Enter)", "Найти место: город, улица, адрес… (Enter)")).desired_width(ui.available_width() - 8.0));
             if r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) && !self.search.trim().is_empty() && self.search_rx.is_none() {
                 let (tx, rx) = channel();
@@ -1361,7 +1361,7 @@ impl GeoUi {
             }
         });
         if self.search_rx.is_some() {
-            ui.label(RichText::new(tr("Searching…", "Поиск…")).color(TEXT_DIM));
+            ui.label(RichText::new(tr("Searching…", "Поиск…")).color(pal().text_dim));
         }
         if !self.places.is_empty() {
             let mut pick = None;
@@ -1428,14 +1428,14 @@ impl GeoUi {
         }
         ui.add_space(4.0);
         if world {
-            ui.label(RichText::new(tr("This map has world coordinates ([worldcoordinates]): it lies on the Earth by itself, its tiles are Web Mercator tiles.", "У этой карты мировые координаты ([worldcoordinates]): она сама лежит на Земле, её тайлы: тайлы Web Mercator.")).color(TEXT_DIM));
+            ui.label(RichText::new(tr("This map has world coordinates ([worldcoordinates]): it lies on the Earth by itself, its tiles are Web Mercator tiles.", "У этой карты мировые координаты ([worldcoordinates]): она сама лежит на Земле, её тайлы: тайлы Web Mercator.")).color(pal().text_dim));
         } else {
             ui.horizontal_wrapped(|ui| {
                 let label = if self.placing { tr("Click on the map where the orange tile goes…", "Кликните на карте, где будет оранжевый тайл…") } else { tr("Place the map here", "Разместить карту здесь") };
                 if ui.add(egui::Button::new(icons::labelled(Icon::Flag, label)).selected(self.placing)).on_hover_text(tr("Then click on the map: the middle of the orange tile goes there", "Затем кликните на карте: туда встанет середина оранжевого тайла")).clicked() {
                     self.placing = !self.placing;
                 }
-                if ui.button(tr("At the view's middle", "В центр вида")).clicked() {
+                if ui.button(icons::labelled(Icon::Focus, tr("At the view's middle", "В центр вида"))).clicked() {
                     let (la, lo) = g::lat_lon_of_merc(self.map.centre);
                     let rot = self.file.anchor.map(|a| a.rotation).unwrap_or(0.0);
                     self.file.anchor = Some(Anchor { tile: [anchor_tile.0, anchor_tile.1], lat: la, lon: lo, rotation: rot });
@@ -1451,10 +1451,10 @@ impl GeoUi {
             });
             match &self.file.anchor {
                 Some(a) => {
-                    ui.label(RichText::new(format!("{} {}, {}: {:.6}°, {:.6}° · {}", tr("Orange tile", "Оранжевый тайл"), a.tile[0], a.tile[1], a.lat, a.lon, tr("click the map to fly there in the view", "клик по карте: перелёт туда в окне вида"))).color(TEXT_DIM));
+                    ui.label(RichText::new(format!("{} {}, {}: {:.6}°, {:.6}° · {}", tr("Orange tile", "Оранжевый тайл"), a.tile[0], a.tile[1], a.lat, a.lon, tr("click the map to fly there in the view", "клик по карте: перелёт туда в окне вида"))).color(pal().text_dim));
                 }
                 None => {
-                    ui.label(RichText::new(tr("1. Find the place.  2. Press \"Place the map here\" and click on the map: the orange tile (the map's middle) goes there.", "1. Найдите место.  2. Нажмите «Разместить карту здесь» и кликните на карте: туда встанет оранжевый тайл (середина карты).")).color(TEXT_DIM));
+                    ui.label(RichText::new(tr("1. Find the place.  2. Press \"Place the map here\" and click on the map: the orange tile (the map's middle) goes there.", "1. Найдите место.  2. Нажмите «Разместить карту здесь» и кликните на карте: туда встанет оранжевый тайл (середина карты).")).color(pal().text_dim));
                 }
             }
         }
@@ -1465,7 +1465,7 @@ impl GeoUi {
             self.probe_here(&prefs.geo, la, lo);
         }
         let lat = here.map(|h| h.0).unwrap_or(50.0);
-        crate::ui::section(ui, tr("Imagery", "Снимки"));
+        crate::ui::section(ui, Icon::Satellite, tr("Imagery", "Снимки"));
         let ranked = self.ranked(&prefs.geo, lat);
         let current = self.source(&prefs.geo, lat);
         let best = ranked.first().map(|r| r.0.name.clone());
@@ -1475,7 +1475,7 @@ impl GeoUi {
                 self.touch();
             }
             if let (true, Some(b)) = (self.file.source.is_empty(), &best) {
-                ui.label(RichText::new(format!("({b})")).color(TEXT_DIM));
+                ui.label(RichText::new(format!("({b})")).color(pal().text_dim));
             }
         });
         for (s, m) in &ranked {
@@ -1490,18 +1490,18 @@ impl GeoUi {
                     (None, None) if here.is_some() => tr("checking…", "проверка…").into(),
                     _ => s.note(),
                 };
-                ui.label(RichText::new(note).color(TEXT_DIM));
+                ui.label(RichText::new(note).color(pal().text_dim));
             });
         }
         if let (Some(c), Some((_, Some(bm)))) = (&current, ranked.first()) {
             let cm = ranked.iter().find(|r| r.0.name == c.name).and_then(|r| r.1);
             if let Some(cm) = cm {
                 if cm > bm * 1.5 {
-                    ui.colored_label(Color32::from_rgb(240, 190, 90), format!("{} {} ({:.0} cm)", ranked[0].0.name, tr("is sharper here", "здесь чётче"), bm * 100.0));
+                    ui.colored_label(pal().warn, format!("{} {} ({:.0} cm)", ranked[0].0.name, tr("is sharper here", "здесь чётче"), bm * 100.0));
                 }
             }
             if *bm > 0.25 && !prefs.geo.keys.values().any(|k| !k.trim().is_empty()) {
-                ui.label(RichText::new(tr("Sharper imagery may be had here with your own free key for Mapbox, MapTiler or Google (Keys below).", "Более чёткие снимки здесь могут быть с вашим бесплатным ключом Mapbox, MapTiler или Google (ниже, «Ключи»).")).color(TEXT_DIM));
+                ui.label(RichText::new(tr("Sharper imagery may be had here with your own free key for Mapbox, MapTiler or Google (Keys below).", "Более чёткие снимки здесь могут быть с вашим бесплатным ключом Mapbox, MapTiler или Google (ниже, «Ключи»).")).color(pal().text_dim));
             }
         }
         if let Some(c) = &current {
@@ -1509,7 +1509,7 @@ impl GeoUi {
             if c.kind == Kind::Google {
                 line = format!("Google · {}", self.google_line.clone().unwrap_or_default());
             }
-            ui.label(RichText::new(line).small().color(TEXT_DIM));
+            ui.label(RichText::new(line).small().color(pal().text_dim));
             if !c.key_link.is_empty() && !c.needs_key {
                 ui.hyperlink_to(RichText::new(tr("Terms of use", "Условия использования")).small(), &c.key_link);
             }
@@ -1543,7 +1543,7 @@ impl GeoUi {
             ui.end_row();
         });
         if let Some((z, m)) = self.detail {
-            ui.label(RichText::new(format!("{} z{z}, ~{:.0} {}", tr("Loaded at", "Загружено с"), m * 100.0, tr("cm a pixel", "см на пиксель"))).color(TEXT_DIM));
+            ui.label(RichText::new(format!("{} z{z}, ~{:.0} {}", tr("Loaded at", "Загружено с"), m * 100.0, tr("cm a pixel", "см на пиксель"))).color(pal().text_dim));
         }
         let mut c = false;
         c |= crate::ui::check(ui, &mut self.file.with_terrain, tr("Also load terrain heights", "Загружать и высоты рельефа")).changed();
@@ -1559,7 +1559,7 @@ impl GeoUi {
             if ui.add_enabled(placed && !busy, egui::Button::new(icons::labelled(Icon::Import, tr("Load for all tiles", "Загрузить для всех тайлов")))).clicked() {
                 self.load_checked(ed, &prefs.geo, keys.clone(), self.file.with_terrain);
             }
-            let r = ui.add_enabled(placed && !busy && picked.is_some(), egui::Button::new(tr("For the selected tile", "Для выбранного тайла")));
+            let r = ui.add_enabled(placed && !busy && picked.is_some(), egui::Button::new(icons::labelled(Icon::Import, tr("For the selected tile", "Для выбранного тайла"))));
             let r = r.on_disabled_hover_text(tr("Click a tile with the Tiles tool (7)", "Кликните тайл инструментом «Тайлы» (7)"));
             if r.clicked() {
                 if let Some(k) = picked {
@@ -1580,15 +1580,15 @@ impl GeoUi {
             });
         }
         if let Some((s, err)) = &self.status {
-            ui.colored_label(if *err { Color32::from_rgb(240, 120, 100) } else { Color32::from_rgb(150, 210, 140) }, s);
+            ui.colored_label(if *err { pal().error } else { pal().ok }, s);
         }
         for e in self.errors.iter().take(4) {
-            ui.label(RichText::new(e).small().color(Color32::from_rgb(240, 150, 120)));
+            ui.label(RichText::new(e).small().color(pal().error));
         }
         if !self.edges.is_empty() {
             ui.horizontal_wrapped(|ui| {
-                ui.colored_label(Color32::from_rgb(240, 190, 90), format!("{} {}", self.edges.len(), tr("tiles beside the loaded heights were not loaded: the ground steps at their edge.", "тайлов рядом с загруженными высотами не загружены: на их краю ступенька.")));
-                if ui.button(tr("Fit their edges", "Подогнать их края")).on_hover_text(tr("Their edge takes the loaded heights, fading out 60 m into the tile", "Их край берёт загруженные высоты, переходя на нет за 60 м вглубь тайла")).clicked() {
+                ui.colored_label(pal().warn, format!("{} {}", self.edges.len(), tr("tiles beside the loaded heights were not loaded: the ground steps at their edge.", "тайлов рядом с загруженными высотами не загружены: на их краю ступенька.")));
+                if ui.button(icons::labelled(Icon::Build, tr("Fit their edges", "Подогнать их края"))).on_hover_text(tr("Their edge takes the loaded heights, fading out 60 m into the tile", "Их край берёт загруженные высоты, переходя на нет за 60 м вглубь тайла")).clicked() {
                     self.fit_edges(ed);
                 }
                 if ui.small_button(tr("Leave them", "Оставить")).clicked() {
@@ -1607,14 +1607,14 @@ impl GeoUi {
             });
             if let Some(b) = t.base {
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new(format!("{} {b:.2} m", tr("Taken off:", "Вычтено:"))).color(TEXT_DIM));
-                    if ui.small_button(tr("Measure again", "Измерить заново")).clicked() {
+                    ui.label(RichText::new(format!("{} {b:.2} m", tr("Taken off:", "Вычтено:"))).color(pal().text_dim));
+                    if ui.small_button(icons::labelled(Icon::Refresh, tr("Measure again", "Измерить заново"))).clicked() {
                         t.base = None;
                         c = true;
                     }
                 });
             }
-            ui.label(RichText::new(sources::builtin().into_iter().find(|s| s.is_terrain()).map(|s| s.attribution).unwrap_or_default()).small().color(TEXT_DIM));
+            ui.label(RichText::new(sources::builtin().into_iter().find(|s| s.is_terrain()).map(|s| s.attribution).unwrap_or_default()).small().color(pal().text_dim));
             ui.hyperlink_to(RichText::new(tr("Terrain data attribution", "Источники данных рельефа")).small(), "https://github.com/tilezen/joerd/blob/master/docs/attribution.md");
             if c {
                 self.save_at = Some(Instant::now());
@@ -1622,7 +1622,7 @@ impl GeoUi {
         });
         ui.separator();
         // ---- the overlay
-        crate::ui::section(ui, tr("Overlay on the ground", "Подложка на земле"));
+        crate::ui::section(ui, Icon::Layers, tr("Overlay on the ground", "Подложка на земле"));
         ui.horizontal(|ui| {
             let mut c = crate::ui::check(ui, &mut self.file.overlay, tr("Show", "Показывать")).changed();
             c |= ui.add(egui::Slider::new(&mut self.file.opacity, 0.0..=1.0).text(tr("opacity", "непрозрачность"))).changed();
@@ -1642,7 +1642,7 @@ impl GeoUi {
                     ui.label(format!("{}, {}", k.0, k.1));
                     c |= ui.checkbox(&mut t.visible, "").changed();
                     c |= ui.add(egui::Slider::new(&mut t.opacity, 0.0..=1.0).show_value(false)).changed();
-                    ui.label(RichText::new(what).small().color(TEXT_DIM));
+                    ui.label(RichText::new(what).small().color(pal().text_dim));
                     ui.end_row();
                     if c {
                         self.save_at = Some(Instant::now());
@@ -1700,7 +1700,7 @@ impl GeoUi {
 
     fn keys_ui(&mut self, ui: &mut egui::Ui, prefs: &mut Prefs) {
         ui.collapsing(tr("Keys for more sources (optional)", "Ключи для других источников (необязательно)"), |ui| {
-            ui.label(RichText::new(tr("Everything works without a key. With your own free key these may be sharper in some places; the key stays on this computer.", "Всё работает без ключа. С вашим бесплатным ключом эти источники местами чётче; ключ остаётся на этом компьютере.")).color(TEXT_DIM));
+            ui.label(RichText::new(tr("Everything works without a key. With your own free key these may be sharper in some places; the key stays on this computer.", "Всё работает без ключа. С вашим бесплатным ключом эти источники местами чётче; ключ остаётся на этом компьютере.")).color(pal().text_dim));
             let mut changed = false;
             for s in sources::builtin().into_iter().filter(|s| s.needs_key) {
                 let name = if s.kind == Kind::Google { tr("Google satellite (needs your API key)", "Google спутник (нужен ваш API-ключ)").to_string() } else { s.name.clone() };
@@ -1709,7 +1709,7 @@ impl GeoUi {
                     ui.hyperlink_to(tr("get a key", "получить ключ"), &s.key_link);
                 });
                 if s.kind == Kind::Google {
-                    ui.label(RichText::new(tr("In Google Cloud: make a project, enable the Map Tiles API, create an API key, paste it here. Google bills by use above its free amount.", "В Google Cloud: создайте проект, включите Map Tiles API, создайте API-ключ и вставьте сюда. Сверх бесплатного объёма Google берёт плату.")).small().color(TEXT_DIM));
+                    ui.label(RichText::new(tr("In Google Cloud: make a project, enable the Map Tiles API, create an API key, paste it here. Google bills by use above its free amount.", "В Google Cloud: создайте проект, включите Map Tiles API, создайте API-ключ и вставьте сюда. Сверх бесплатного объёма Google берёт плату.")).small().color(pal().text_dim));
                 }
                 let key = prefs.geo.keys.entry(s.name.clone()).or_default();
                 changed |= ui.add(egui::TextEdit::singleline(key).password(true).hint_text(tr("key", "ключ")).desired_width(f32::INFINITY)).changed();
@@ -1728,8 +1728,8 @@ impl GeoUi {
             for (i, s) in prefs.geo.sources.iter().enumerate() {
                 ui.horizontal(|ui| {
                     ui.label(&s.name);
-                    ui.label(RichText::new(&s.url).small().color(TEXT_DIM));
-                    if ui.small_button(icons::labelled(Icon::Delete, "")).clicked() {
+                    ui.label(RichText::new(&s.url).small().color(pal().text_dim));
+                    if icons::small(ui, Icon::Delete, tr("Delete", "Удалить")).clicked() {
                         remove = Some(i);
                     }
                 });
@@ -1760,7 +1760,7 @@ impl GeoUi {
                 });
                 ui.end_row();
             });
-            ui.label(RichText::new(tr("{z} {x} {y} are filled in; a WMS gets {bbox} (EPSG:3857) and {width} {height}; {key} is your key.", "Подставляются {z} {x} {y}; WMS получает {bbox} (EPSG:3857) и {width} {height}; {key}: ваш ключ.")).small().color(TEXT_DIM));
+            ui.label(RichText::new(tr("{z} {x} {y} are filled in; a WMS gets {bbox} (EPSG:3857) and {width} {height}; {key} is your key.", "Подставляются {z} {x} {y}; WMS получает {bbox} (EPSG:3857) и {width} {height}; {key}: ваш ключ.")).small().color(pal().text_dim));
             let ok = !c.name.trim().is_empty() && c.url.starts_with("http") && (c.url.contains("{z}") || c.url.contains("{bbox}"));
             if ui.add_enabled(ok, egui::Button::new(icons::labelled(Icon::Add, tr("Add", "Добавить")))).clicked() {
                 let mut s = c.clone();
@@ -1779,8 +1779,8 @@ impl GeoUi {
     }
 
     fn own_ui(&mut self, ui: &mut egui::Ui, ed: &mut Editor, keys: &[TileKey]) {
-        crate::ui::section(ui, tr("Own pictures", "Свои картинки"));
-        ui.label(RichText::new(tr("A scan, a screenshot, an old plan: laid on tiles and lined up by eye. No place on the Earth needed.", "Скан, скриншот, старый план: кладётся на тайлы и подгоняется на глаз. Размещение на Земле не нужно.")).color(TEXT_DIM));
+        crate::ui::section(ui, Icon::Image, tr("Own pictures", "Свои картинки"));
+        ui.label(RichText::new(tr("A scan, a screenshot, an old plan: laid on tiles and lined up by eye. No place on the Earth needed.", "Скан, скриншот, старый план: кладётся на тайлы и подгоняется на глаз. Размещение на Земле не нужно.")).color(pal().text_dim));
         let bound = keys.iter().fold(None, |r: Option<[i32; 4]>, k| Some(match r {
             None => [k.0, k.1, k.0, k.1],
             Some([a, b, c, d]) => [a.min(k.0), b.min(k.1), c.max(k.0), d.max(k.1)],
@@ -1796,7 +1796,7 @@ impl GeoUi {
         });
         let r = *rect;
         let r = [r[0].min(r[2]), r[1].min(r[3]), r[0].max(r[2]), r[1].max(r[3])];
-        if ui.button(icons::labelled(Icon::Import, tr("Load image file over these tiles…", "Загрузить картинку на эти тайлы…"))).clicked() {
+        if ui.button(icons::labelled(Icon::Image, tr("Load image file over these tiles…", "Загрузить картинку на эти тайлы…"))).clicked() {
             self.pick_picture(ed, r);
         }
         let ids: Vec<String> = self.file.pictures.keys().cloned().collect();
@@ -1813,10 +1813,10 @@ impl GeoUi {
         let before = fit;
         let mut remove = false;
         ui.horizontal_wrapped(|ui| {
-            if ui.button(tr("Turn left 90°", "Влево на 90°")).clicked() {
+            if ui.button(icons::labelled(Icon::RotateLeft, tr("Turn left 90°", "Влево на 90°"))).clicked() {
                 fit.rotation = ((fit.rotation - 90.0 + 180.0).rem_euclid(360.0)) - 180.0;
             }
-            if ui.button(tr("Turn right 90°", "Вправо на 90°")).clicked() {
+            if ui.button(icons::labelled(Icon::Rotate, tr("Turn right 90°", "Вправо на 90°"))).clicked() {
                 fit.rotation = ((fit.rotation + 90.0 + 180.0).rem_euclid(360.0)) - 180.0;
             }
             ui.add(egui::DragValue::new(&mut fit.rotation).speed(0.1).range(-180.0..=180.0).suffix("°"));
@@ -1831,7 +1831,7 @@ impl GeoUi {
             ui.label(tr("Size", "Размер"));
             let s0 = fit.scale.max(1e-3);
             ui.add(egui::DragValue::new(&mut fit.scale).speed(0.002).range(0.05..=20.0).custom_formatter(move |v, _| format!("{:.1} × {:.1} m", w / s0 * v, h / s0 * v)));
-            if ui.small_button(tr("Reset", "Сбросить")).clicked() {
+            if ui.small_button(icons::labelled(Icon::Restart, tr("Reset", "Сбросить"))).clicked() {
                 fit = Fit::default();
             }
             if ui.small_button(icons::labelled(Icon::Delete, tr("Remove", "Убрать"))).clicked() {
@@ -1866,10 +1866,10 @@ impl GeoUi {
         let Some((keys, terrain)) = self.confirm.clone() else { return };
         let own = keys.iter().filter(|k| self.file.tile(**k).own.is_some()).count();
         let mut answer = None;
-        egui::Window::new(tr("Your own pictures", "Ваши картинки")).id(egui::Id::new("geo confirm")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+        egui::Window::new(icons::labelled(Icon::Image, tr("Your own pictures", "Ваши картинки"))).id(egui::Id::new("geo confirm")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0]).show(ctx, |ui| {
             ui.label(format!("{own} {}", tr("of these tiles have your own pictures. Replace them with satellite imagery?", "из этих тайлов с вашими картинками. Заменить их спутниковыми снимками?")));
             ui.horizontal(|ui| {
-                if ui.button(tr("Replace them", "Заменить")).clicked() {
+                if ui.button(icons::labelled(Icon::Swap, tr("Replace them", "Заменить"))).clicked() {
                     answer = Some(true);
                 }
                 if ui.button(tr("Keep my pictures", "Оставить мои")).clicked() {

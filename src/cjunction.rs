@@ -353,7 +353,7 @@ pub fn bake(roots: &crate::install::Roots, layout: &Layout, assets: &mut Assets,
         for a in arms {
             anyhow::ensure!(assets.spline_wait(&a.file, 5000).is_some(), "{}: {}", tr("the spline cannot be read", "сплайн не читается"), a.file);
         }
-        let plate = crate::junction::layout_plate(assets, arms, asphalt.as_deref()).ok_or_else(|| anyhow::anyhow!("{}", tr("the plate could not be made from these arms", "плиту не удалось построить из этих въездов")))?;
+        let plate = crate::junction::layout_plate(assets, arms, None, asphalt.as_deref()).ok_or_else(|| anyhow::anyhow!("{}", tr("the plate could not be made from these arms", "плиту не удалось построить из этих въездов")))?;
         joined.append(&plate.model_mesh(&mut src.model.materials, &mut textures), 0);
         plate_bus_paths.extend(plate.bus_paths.iter().map(|i| i + plate_path_count));
         plate_path_count += plate.lanes.len();

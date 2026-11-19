@@ -25,7 +25,7 @@ fn drawn_junctions_place_rules_on_the_baked_bus_routes() {
     layout.sync_arms(&is_road, &half);
     let resolved = layout.resolve(&is_road, &half);
     assert_eq!(resolved.plates.len(), 1);
-    let plate = crate::junction::layout_plate(&mut assets, &resolved.plates[0], None).unwrap();
+    let plate = crate::junction::layout_plate(&mut assets, &resolved.plates[0], None, None).unwrap();
     assert!(!plate.bus_paths.is_empty());
     // Independently locate the road's declared bus paths at each plate arm and
     // follow the emitted segments from one bus endpoint to another.

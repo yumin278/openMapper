@@ -239,6 +239,8 @@ pub enum Slot<T> {
 
 /// Everything loaded so far, keyed by lower-case paths.
 pub struct Assets {
+    /// How many pictures have arrived so far (one coming in between two looks is still seen).
+    pub textures_arrived: u64,
     tx: mpsc::Sender<Req>,
     rx: mpsc::Receiver<Resp>,
     pub objects: HashMap<String, Slot<ObjectModel>>,
@@ -288,7 +290,7 @@ impl Assets {
                 }
             });
         }
-        Assets { tx, rx, objects: HashMap::new(), splines: HashMap::new(), textures: HashMap::new(), new_textures: Vec::new(), tree_masks: HashMap::new(), pending: 0, omsi, content }
+        Assets { tx, rx, objects: HashMap::new(), splines: HashMap::new(), textures: HashMap::new(), new_textures: Vec::new(), tree_masks: HashMap::new(), pending: 0, textures_arrived: 0, omsi, content }
     }
 
     pub(crate) fn resolve(&self, rel: &str) -> PathBuf {
@@ -329,6 +331,39 @@ impl Assets {
             }
             if matches!(self.objects.get(&key).or_else(|| self.objects.get(&lower)).or_else(|| self.objects.get(rel)), Some(Slot::Failed)) || start.elapsed().as_millis() as u64 > ms {
                 return None;
+            }
+            self.poll();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// Every object and spline model of a map asked for and waited for (at most `ms`): what
+    /// looks at all of them at once (a check) must not take one still loading for none.
+    pub fn load_map_models(&mut self, doc: &crate::doc::Document, ms: u64) {
+        let start = std::time::Instant::now();
+        let mut objects = std::collections::HashSet::new();
+        let mut splines = std::collections::HashSet::new();
+        for t in doc.tiles.values() {
+            for o in &t.tile.objects {
+                objects.insert(o.file.to_lowercase());
+            }
+            for s in t.tile.splines.iter().filter(|s| !s.deleted) {
+                splines.insert(s.file.to_lowercase());
+            }
+        }
+        loop {
+            let mut waiting = false;
+            // (a file that is not there is failed under its name with the slashes turned: looked
+            // for under the name as written, it was never seen to have failed, and every map
+            // with a missing model waited the whole time - a minute for the street check)
+            for f in &objects {
+                waiting |= self.object(f).is_none() && !self.object_failed(f);
+            }
+            for f in &splines {
+                waiting |= self.spline(f).is_none() && !self.spline_failed(f);
+            }
+            if !waiting || start.elapsed().as_millis() as u64 > ms {
+                return;
             }
             self.poll();
             std::thread::sleep(std::time::Duration::from_millis(5));
@@ -434,12 +469,18 @@ impl Assets {
                     self.splines.insert(k, m.map(Slot::Ready).unwrap_or(Slot::Failed));
                 }
                 Resp::Texture(p, t) => {
+                    self.textures_arrived += 1;
                     self.textures.insert(p.clone(), t.map(Slot::Ready).unwrap_or(Slot::Failed));
                     self.new_textures.push(p);
                 }
             }
         }
         any
+    }
+
+    /// Pictures asked for and not arrived yet (diagnostics).
+    pub fn textures_loading(&self) -> Vec<String> {
+        self.textures.iter().filter(|(_, s)| matches!(s, Slot::Loading)).map(|(p, _)| p.display().to_string()).collect()
     }
 
     /// The picture could not be read (missing, cut short, a format nothing reads).
@@ -457,13 +498,34 @@ impl Assets {
         matches!(self.objects.get(&norm_asset_key(rel)).or_else(|| self.objects.get(&lower)).or_else(|| self.objects.get(rel)), Some(Slot::Failed))
     }
 
-    /// Forget one object's model, and the pictures in its folder, so they are read again
-    /// (its files were written anew).
-    pub fn forget_object(&mut self, rel: &str, dir: &Path) {
+    /// Forget one object's model, so it is read again (its file was written anew), under
+    /// whichever spelling of its name it was asked for.
+    pub fn forget_object_model(&mut self, rel: &str) {
         self.objects.remove(&norm_asset_key(rel));
         self.objects.remove(&rel.to_lowercase());
         self.objects.remove(rel);
+    }
+
+    /// Forget one object's model, and the pictures in its folder, so they are read again
+    /// (its files were written anew).
+    pub fn forget_object(&mut self, rel: &str, dir: &Path) {
+        self.forget_object_model(rel);
         self.textures.retain(|k, s| matches!(s, Slot::Loading) || !k.starts_with(dir));
+    }
+
+    /// Forget one spline type's model, and the pictures in its folder, so they are read
+    /// again (its files were written anew).
+    pub fn forget_spline(&mut self, rel: &str, dir: &Path) {
+        self.splines.remove(&rel.to_lowercase());
+        self.textures.retain(|k, s| matches!(s, Slot::Loading) || !k.starts_with(dir));
+    }
+
+    /// Forget what could not be read (files may have been written since): tried again when
+    /// next asked for.
+    pub fn forget_failed(&mut self) {
+        self.objects.retain(|_, s| !matches!(s, Slot::Failed));
+        self.splines.retain(|_, s| !matches!(s, Slot::Failed));
+        self.textures.retain(|_, s| !matches!(s, Slot::Failed));
     }
 
     /// Forget everything (after an import changed files on disk).
@@ -905,6 +967,51 @@ mod tests {
         assert_eq!(lamps, [crate::editable::Lamp::Red, crate::editable::Lamp::Yellow, crate::editable::Lamp::Green]);
         assert_eq!(m.parts.iter().filter(|p| p.visible.is_none()).count(), 1, "the body is not switched");
         assert!(m.light_head, "it takes its state from a crossing");
+    }
+
+    /// Waiting for a map's models ends once the missing ones have failed, not at the time
+    /// given: a model named with backslashes was never seen to fail.
+    #[test]
+    fn a_missing_model_does_not_hold_the_wait_for_the_maps_models() {
+        let dir = std::env::temp_dir().join(format!("om-missing-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let mut doc = crate::selection::tests::flat_map(1);
+        crate::selection::tests::add_spline(&mut doc, (0, 0), 1, 10.0, 10.0, 0.0, 20.0, 0, 0);
+        crate::selection::tests::add_object(&mut doc, (0, 0), 2, 10.0, 10.0);
+        let mut assets = Assets::new(dir.clone(), dir.clone());
+        let t = std::time::Instant::now();
+        assets.load_map_models(&doc, 20_000);
+        assert!(t.elapsed().as_secs() < 10, "waited {:?}", t.elapsed());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A crossing saved in place is read again: its model was kept under its name with the
+    /// slashes turned, and the save forgot it under the name as written, so the map went on
+    /// showing the old paths and lights until a restart.
+    #[test]
+    fn an_object_written_anew_is_read_again() {
+        let dir = std::env::temp_dir().join(format!("om-reread-{}", std::process::id()));
+        let _ = std::fs::create_dir_all(dir.join("Sceneryobjects/X"));
+        let rel = "Sceneryobjects\\X\\Crossing.sco";
+        let write = |cycle: u32| std::fs::write(dir.join("Sceneryobjects/X/Crossing.sco"), format!("[traffic_lights_group]\n{cycle}\n\n[traffic_light]\nMain\n")).unwrap();
+        let mut assets = Assets::new(dir.clone(), dir.clone());
+        let load = |assets: &mut Assets| {
+            let t = std::time::Instant::now();
+            loop {
+                if let Some(m) = assets.object(rel) {
+                    return m.cycle;
+                }
+                assert!(!assets.object_failed(rel) && t.elapsed().as_secs() < 20, "the crossing does not read");
+                assets.poll();
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+        };
+        write(30);
+        assert_eq!(load(&mut assets), Some(30.0));
+        write(45);
+        assets.forget_object_model(rel);
+        assert_eq!(load(&mut assets), Some(45.0), "the file as it is now");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// A crossing's program: not only the lights' names but their phases and the cycle, which

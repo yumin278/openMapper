@@ -1,7 +1,7 @@
 openMapper junction: lights=0 heads=0 main=30 side=20 crossings= zebra_tex=1 walks=1 helpers=omsi sig=
 
 [friendlyname]
-Junction 1ab112
+Junction 2d1ab2
 
 [groups]
 1
@@ -12,7 +12,7 @@ openMapper
 [absheight]
 
 [mesh]
-junction_1ab11210af17380f.x
+junction_2d1ab256dd07245e.x
 
 [splinehelper]
 Splines\openMapper\Plain.sli

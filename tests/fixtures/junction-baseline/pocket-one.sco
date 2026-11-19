@@ -1,7 +1,7 @@
 openMapper junction: lights=0 heads=0 main=30 side=20 crossings= zebra_tex=1 walks=1 helpers=omsi sig=
 
 [friendlyname]
-Junction 34124b
+Junction d8f600
 
 [groups]
 1
@@ -12,7 +12,7 @@ openMapper
 [absheight]
 
 [mesh]
-junction_34124b8a61bdcafe_busbay.x
+junction_d8f60032f753e055_busbay.x
 
 [splinehelper]
 Splines\openMapper\Plain.sli
