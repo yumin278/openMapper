@@ -70,7 +70,7 @@ impl Category {
             Category::Tracks => Icon::Tram,
             Category::Paths => Icon::Walk,
             Category::Decoration => Icon::Fence,
-            Category::Technical => Icon::Settings,
+            Category::Technical => Icon::Construction,
         }
     }
 }
@@ -336,6 +336,21 @@ impl Library {
             log::warn!("catalogue: {} of {total} object(s) the editor wrote could not be read again", total - read);
         }
         read
+    }
+
+    /// A file written while the editor runs (a road type of one's own, a made object) taken into
+    /// the catalogue at once, replacing what it said of that file before.
+    pub fn add_file(&mut self, root: &Path, path: &Path, kind: Kind) -> bool {
+        let Some(a) = describe(root, path, kind, true) else { return false };
+        let key = a.rel.to_lowercase();
+        match self.index.get(&key) {
+            Some(&i) => self.assets[i] = a,
+            None => {
+                self.index.insert(key, self.assets.len());
+                self.assets.push(a);
+            }
+        }
+        true
     }
 
     pub fn find(&self, rel: &str) -> Option<&Asset> {

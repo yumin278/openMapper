@@ -27,7 +27,8 @@ fn taken_off(dir: &Path) -> Vec<String> {
 /// added, its links, trips, tracks and lines in place of those of the same name, the lines
 /// it takes off gone.
 pub fn merged(map: &Timetable, dir: &Path) -> Timetable {
-    let s = TimetableData::load(dir);
+    let mut s = TimetableData::load(dir);
+    crate::timetable::reread_short_station_records(&mut s.trips);
     let mut t = map.clone();
     for b in s.bus_stops {
         if !t.stops.iter().any(|x| x.object_id == b.object_id && x.group == b.group) {

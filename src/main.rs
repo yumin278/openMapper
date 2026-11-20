@@ -80,13 +80,26 @@ mod roundabout;
 mod rows;
 mod rules_clip;
 mod scaled;
+mod script;
 mod scripting;
 mod selection;
 mod signals;
 mod signal_sets;
 mod stops;
+mod street_model;
+mod road_ends;
+mod street_check;
+mod ed_author;
+mod ed_ground;
+mod ed_walk;
+mod ed_align;
+mod ruler_area;
+mod trolley;
+mod trolley_kit;
+mod ui_trolley;
 mod switches;
 mod texts;
+mod theme;
 mod timetable;
 mod traffic;
 mod sysfont;
@@ -126,6 +139,7 @@ mod ui_xform;
 mod ui_pbr;
 mod ui_roads;
 mod ui_tex;
+mod ui_code;
 mod ui_script;
 mod ui_stops;
 mod ui_sync;
@@ -180,6 +194,7 @@ fn main() {
         _ => {}
     }
     // `openmapper path/to/global.cfg` opens that map
+    logging::windowed();
     logging::watchdog();
     logging::stage("cleaning up after an update");
     updater::clean_up();

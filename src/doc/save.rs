@@ -2,7 +2,7 @@
 //! `.terrain` height fields and the painting masks. A map read from the installation is
 //! first copied whole into the content folder, so the original is never written to.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -112,6 +112,7 @@ pub(crate) fn prepare_save(doc: &Document) -> SaveJob {
         descriptions: doc.descriptions.clone(),
         groups: Vec::new(),
         signal_sets: Default::default(),
+        global_extra: doc.global_extra.clone(),
     };
     SaveJob { doc: copy, known: doc.tiles.keys().copied().collect(), stamp }
 }
@@ -134,7 +135,7 @@ pub(crate) fn apply_stamp(doc: &mut Document, stamp: &SaveStamp) -> bool {
         if let Some(t) = doc.tiles.get_mut(k) {
             if t.content_rev == *content && t.terrain_rev == *terrain && t.mask_rev == *mask {
                 t.dirty = false;
-                t.tile.version = 14;
+                as_version_14(&mut t.tile, grid_scale(k.1));
                 t.tile.has_terrain = true;
             }
         }
@@ -213,7 +214,7 @@ fn save_with(doc: &mut Document, known: &HashSet<TileKey>) -> anyhow::Result<()>
     }
     for k in written {
         if let Some(t) = doc.tiles.get_mut(&k) {
-            t.tile.version = 14;
+            as_version_14(&mut t.tile, grid_scale(k.1));
             t.tile.has_terrain = true;
             t.dirty = false;
         }
@@ -247,10 +248,10 @@ pub(crate) fn plan_known(doc: &Document, dir: &Path, all: bool, has_tile: &dyn F
         }
         let file = file_of(doc, *k);
         let mut own = t.tile.clone();
-        own.version = 14;
         own.has_terrain = true;
         own.has_water = t.water.is_some();
         super::unfit_from_world_grid(&mut own, k.1);
+        as_version_14(&mut own, 1.0);
         ops.push(Op::Write(dir.join(&file), utf16(&tile_text(&own))));
         ops.push(Op::Write(dir.join(format!("{file}.terrain")), t.terrain.to_bytes()));
         match t.water {
@@ -278,6 +279,27 @@ pub(crate) fn plan_known(doc: &Document, dir: &Path, all: bool, has_tile: &dyn F
     // (only what is there to remove)
     ops.retain(|o| !matches!(o, Op::Remove(p) if !p.exists()));
     (ops, written)
+}
+
+/// A tile as version 14 writes it. One read from OMSI 1 (older than version 11) had no chain
+/// distances; written, each spline's last number is the one its rows count from (left 0,
+/// every row on a spline into its chain stood that far off its place once read back). `k`:
+/// the scale of the tile onto the map's grid, which the editor's chain distances are in.
+pub(crate) fn as_version_14(t: &mut Tile, k: f64) {
+    if t.version > 0 && t.version < 11 {
+        for s in t.splines.iter_mut() {
+            if let Some(o) = s.map_chain_offset {
+                s.tex_offset = o / k;
+            }
+        }
+    }
+    t.version = 14;
+}
+
+/// The scale of the tiles of row `ty` onto a `[worldcoordinates]` map's grid (1 elsewhere).
+fn grid_scale(ty: i32) -> f64 {
+    let (kx, ky) = omsi_map::world_tile_scale(ty);
+    (kx + ky) / 2.0
 }
 
 pub fn tile_file(k: TileKey) -> String {
@@ -324,12 +346,35 @@ pub(crate) fn global_text(doc: &Document) -> String {
 pub(crate) fn global_text_known(doc: &Document, has_tile: &dyn Fn(&TileKey) -> bool) -> String {
     let g = &doc.global;
     let mut s = header();
-    let kw = |s: &mut String, k: &str, lines: &[String]| {
+    // (the blocks the editor does not write itself go back after the block they followed)
+    let extra = &doc.global_extra;
+    let mut used = vec![false; extra.len()];
+    let foreign = |s: &mut String, b: &ForeignBlock| {
+        for l in &b.lines {
+            let _ = writeln!(s, "{l}");
+        }
+        s.push('\n');
+    };
+    for (b, u) in extra.iter().zip(used.iter_mut()).filter(|(b, _)| b.after.is_none()) {
+        foreign(&mut s, b);
+        *u = true;
+    }
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    let mut kw = |s: &mut String, k: &str, lines: &[String]| {
         let _ = writeln!(s, "[{k}]");
         for l in lines {
             let _ = writeln!(s, "{l}");
         }
         s.push('\n');
+        let key = k.to_ascii_lowercase();
+        let n = seen.entry(key.clone()).or_insert(0);
+        for (b, u) in extra.iter().zip(used.iter_mut()) {
+            if !*u && b.after.as_ref().is_some_and(|a| a.0 == key && a.1 == *n) {
+                foreign(s, b);
+                *u = true;
+            }
+        }
+        *n += 1;
     };
     kw(&mut s, "name", &[g.name.clone()]);
     kw(&mut s, "friendlyname", &[g.friendly_name.clone()]);
@@ -349,6 +394,10 @@ pub(crate) fn global_text_known(doc: &Document, has_tile: &dyn Fn(&TileKey) -> b
     }
     if g.left_hand_traffic {
         kw(&mut s, "LHT", &[]);
+    }
+    // (openOMSI's: the modes the map is built for, `[tram_transport]` and the like)
+    for m in g.transport.iter() {
+        kw(&mut s, m.keyword(), &[]);
     }
     if g.background_image.len() == 5 {
         // (OMSI's editor reads six lines here, openOMSI's reader keeps five: without the sixth
@@ -422,7 +471,73 @@ pub(crate) fn global_text_known(doc: &Document, has_tile: &dyn Fn(&TileKey) -> b
             kw(&mut s, "map", &[k.0.to_string(), k.1.to_string(), t.file.clone()]);
         }
     }
+    // (what followed a block no longer written: at the end)
+    for (b, u) in extra.iter().zip(&used) {
+        if !u {
+            foreign(&mut s, b);
+        }
+    }
     s
+}
+
+/// A block of global.cfg the editor does not write itself (a keyword of an add-on, of openOMSI
+/// or of a newer OMSI the reader does not know), kept as it was read: its lines from the
+/// keyword on, and the block it followed (keyword in lower case, and which one of that name),
+/// after which it is written back.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ForeignBlock {
+    pub after: Option<(String, usize)>,
+    pub lines: Vec<String>,
+}
+
+/// Whether `global_text` writes this keyword (lower case) itself.
+fn written_keyword(k: &str) -> bool {
+    const OWN: [&str; 25] = [
+        "name", "friendlyname", "description", "version", "nextidcode", "worldcoordinates", "dynhelperactive", "realrail", "lht", "backgroundimage", "mapcam", "moneysystem", "ticketpack",
+        "repair_time_min", "years", "realyearoffset", "standarddepot", "groundtex", "addseason", "trafficdensity_road", "trafficdensity_passenger", "entrypoints", "splineobjtypes", "scenobjlist", "map",
+    ];
+    OWN.contains(&k) || omsi_cfg::transport::TransportMode::from_keyword(k).is_some()
+}
+
+/// The blocks of a global.cfg's lines that the editor does not write itself (see
+/// [`ForeignBlock`]). A keyword line is one the game's reader takes for one; the text of a
+/// description runs to its `[end]` whatever it holds.
+pub fn foreign_blocks(lines: &[String]) -> Vec<ForeignBlock> {
+    let mut out: Vec<ForeignBlock> = Vec::new();
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    let mut after = None;
+    let mut open = false;
+    let mut i = 0;
+    while i < lines.len() {
+        match omsi_cfg::keyword_of(lines[i].trim()) {
+            Some(k) if written_keyword(&k.to_ascii_lowercase()) => {
+                let k = k.to_ascii_lowercase();
+                let n = seen.entry(k.clone()).or_insert(0);
+                after = Some((k.clone(), *n));
+                *n += 1;
+                open = false;
+                if k == "description" {
+                    while i + 1 < lines.len() && !lines[i + 1].trim().eq_ignore_ascii_case("[end]") {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+            }
+            Some(_) => {
+                out.push(ForeignBlock { after: after.clone(), lines: vec![lines[i].clone()] });
+                open = true;
+            }
+            None if open => out.last_mut().unwrap().lines.push(lines[i].clone()),
+            None => {}
+        }
+        i += 1;
+    }
+    for b in &mut out {
+        while b.lines.last().is_some_and(|l| l.trim().is_empty()) {
+            b.lines.pop();
+        }
+    }
+    out
 }
 
 /// The editor camera (`[mapcam]`: tile x, tile y, x, height, y, heading, pitch, distance) on a
@@ -497,7 +612,8 @@ pub(crate) fn tile_text(t: &Tile) -> String {
         written.insert(a.id);
     }
     // (each after what it hangs on, as OMSI 2 reads them: an [attachObj] written before its
-    // parent is dropped by Omsi.exe. One whose parent is not in the tile goes last, as it was)
+    // parent is dropped by Omsi.exe. One whose parent is not in the tile goes last, as it was,
+    // and what hangs on it after it)
     let mut left: Vec<&MapObject> = t.attach_objects.iter().collect();
     loop {
         let before = left.len();
@@ -510,8 +626,24 @@ pub(crate) fn tile_text(t: &Tile) -> String {
             written.insert(o.id);
             false
         });
-        if left.is_empty() || left.len() == before {
+        if left.is_empty() {
             break;
+        }
+        if left.len() == before {
+            let hung: HashSet<i64> = left.iter().map(|o| o.id).collect();
+            left.retain(|o| {
+                if o.parent_id.is_some_and(|p| hung.contains(&p)) {
+                    return true;
+                }
+                numbered(&mut s);
+                object(&mut s, o, true);
+                written.insert(o.id);
+                false
+            });
+            // (a ring hung on itself: written as it is)
+            if left.len() == before {
+                break;
+            }
         }
     }
     for o in left {
@@ -627,6 +759,11 @@ pub(crate) fn attachment_at(s: &mut String, a: &SplineAttachment, spline_index: 
     );
     labels(s, a.strings.len() as i32, &a.strings);
     s.push('\n');
+    // (the editor's flag on the record itself, right after it: Omsi.exe gives it to the
+    // record before)
+    if a.terrain_align {
+        s.push_str("[spline_terrain_align]\n\n");
+    }
     var_parent(s, a.var_parent);
     rules(s, &a.rules);
 }
@@ -667,8 +804,11 @@ mod tests {
             extra: vec!["Hauptstr.".into(), "".into()],
             ..Default::default()
         });
+        // (a row the editor flagged, with the flag on the record and not on the road before)
+        t.spline_attachments.push(SplineAttachment { file: "Sceneryobjects\\lamp.sco".into(), id: 10, interval: 30.0, range: 60.0, terrain_align: true, ..Default::default() });
         let text = tile_text(&t);
         let back = Tile::parse(&omsi_cfg::CfgFile::from_str("tile_0_0.map", &text));
+        assert!(back.spline_attachments[0].terrain_align && !back.splines[0].terrain_align_flag);
         assert_eq!(back.splines.len(), 1);
         let s = &back.splines[0];
         assert_eq!((s.id, s.next_id, s.pos, s.heading, s.radius, s.mirror), (7, 8, [10.5, 20.25, 3.0], 45.0, -120.0, true));
@@ -831,7 +971,8 @@ mod tests {
         let hang = |id: i64, parent: i64| MapObject { file: "Sceneryobjects\\sign.sco".into(), id, parent_id: Some(parent), ..Default::default() };
         // (a sign on a sign that comes later in the list, signs on a row and an object, one on
         // nothing in this tile)
-        t.attach_objects = vec![hang(30, 31), hang(31, 10), hang(32, 11), hang(33, 20), hang(34, 999)];
+        // (and a sign on a sign whose pole is on another tile, listed before the sign it is on)
+        t.attach_objects = vec![hang(30, 31), hang(31, 10), hang(32, 11), hang(33, 20), hang(34, 999), hang(41, 40), hang(40, 998)];
         let text = tile_text(&t);
         let back = Tile::parse(&omsi_cfg::CfgFile::from_str("tile_0_0.map", &text));
         assert_eq!(back.splines.len(), 2);
@@ -839,10 +980,11 @@ mod tests {
         assert_eq!(rows, vec![(10, 0), (11, -1), (12, -1), (13, -1)], "no row lands on spline 7:\n{text}");
         let mut hung: Vec<i64> = back.attach_objects.iter().map(|o| o.id).collect();
         hung.sort();
-        assert_eq!(hung, vec![30, 31, 32, 33, 34], "every hung object read back, the sign on the later sign too");
+        assert_eq!(hung, vec![30, 31, 32, 33, 34, 40, 41], "every hung object read back, the sign on the later sign too");
         // (in the file, every [attachObj] comes after the record it hangs on)
         let at = |id: i64| text.find(&format!("\n{id}\n")).unwrap();
         assert!(at(10) < at(31) && at(31) < at(30));
+        assert!(at(40) < at(41), "the sign whose pole is elsewhere before the one on it:\n{text}");
     }
 
     /// The editor camera on a tile the map no longer has is put on one it has: OMSI 2's editor

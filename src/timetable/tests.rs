@@ -750,6 +750,20 @@ fn a_lane_a_little_off_the_road_in_height_runs_on_into_it() {
     assert_eq!(ids, vec![2]);
 }
 
+/// A lane of a broken spline far out (Solnechnogorsk_2024 has some 10^22 m north) is linked
+/// with the rest without the cell numbers overflowing: saving the map stopped there.
+#[test]
+fn a_lane_at_the_end_of_the_numbers_is_linked_without_overflowing() {
+    let tile = (0, 0);
+    let mut net = Network::default();
+    let north = |y0: f64, y1: f64| vec![DVec3::new(0.0, y0, 0.0), DVec3::new(0.0, y1, 0.0)];
+    net.add(PathKey { tile, id: 1, path: 0 }, north(1.15e22, 1.15e22 + 10.0), 10.0, 0, 0, (true, false));
+    net.add(PathKey { tile, id: 2, path: 0 }, north(-1.15e22 - 10.0, -1.15e22), 10.0, 1, 0, (true, false));
+    net.add(PathKey { tile, id: 3, path: 0 }, north(0.0, 20.0), 20.0, 2, 0, (true, false));
+    net.link();
+    assert!(net.lanes.iter().all(|l| l.next.is_empty()));
+}
+
 /// A road north: `A` to y 100, a 1 m piece `S` (a junction's connector), `B` on from y 101
 /// to a junction at y 120 and a detour `D` beside it; on past the junction, and a road
 /// leading into `A` from the south.
@@ -906,4 +920,121 @@ fn every_way_a_stop_is_served_has_a_name() {
     names.dedup();
     assert_eq!(names.len(), 5);
     assert!(crate::stops::StopKind::SERVE.contains(&2));
+}
+
+/// The six stops a timetable test converts: ID, name (`Stop 1`…`Stop 6`), and the profile's
+/// arrival and departure times at odd and even ones alike.
+const SIX_STOPS: [(i64, &str); 6] = [(1000, "Stop 1"), (1001, "Stop 2"), (1002, "Stop 3"), (1003, "Stop 4"), (1004, "Stop 5"), (1005, "Stop 6")];
+
+fn six_stop_profile() -> omsi_timetable::TripProfile {
+    omsi_timetable::TripProfile {
+        name: "standard".into(),
+        factor: 18.0,
+        man_dep_time: vec![(1, 2.0), (3, 4.0)],
+        man_arr_time: vec![(5, 18.0)],
+        other_stopping: vec![(2, 2)],
+    }
+}
+
+fn six_stop_profile_text() -> String {
+    "[profile]\nstandard\n18.000\n\n[profile_man_dep_time]\n1\n2.000\n[profile_man_dep_time]\n3\n4.000\n[profile_man_arr_time]\n5\n18.000\n[profile_otherstopping]\n2\n2\n".into()
+}
+
+/// A `[station]` record of 8 lines, as OMSI 2 writes it: object ID, track entry, name,
+/// tile, then four numbers (the last its dwell time).
+fn canonical_records() -> String {
+    let mut o = String::new();
+    for (n, (id, name)) in SIX_STOPS.iter().enumerate() {
+        o.push_str(&format!("[station]\n{id}\n{}\n{name}\n0\n0.500\n{}.000\n3.000\n{}.000\n\n", n * 10, n * 100, n * 5));
+    }
+    o
+}
+
+/// A shorter `[station]` record (7 lines, no `dwell`) with no blank line between records, as
+/// older mod maps have them.
+fn short_records() -> String {
+    let mut o = String::new();
+    for (n, (id, name)) in SIX_STOPS.iter().enumerate() {
+        o.push_str(&format!("[station]\n{id}\n{}\n{name}\n0\n0.500\n{}.000\n3.000\n", n * 10, n * 100));
+    }
+    o
+}
+
+/// An even shorter record (6 lines) followed by the blank line OMSI 2 usually puts between
+/// blocks: seven lines per record again, and the last one takes the `[profile]` line for its
+/// missing eighth field, so the profile goes with it.
+fn shorter_records() -> String {
+    let mut o = String::new();
+    for (n, (id, name)) in SIX_STOPS.iter().enumerate() {
+        o.push_str(&format!("[station]\n{id}\n{}\n{name}\n0\n0.500\n{}.000\n\n", n * 10, n * 100));
+    }
+    o
+}
+
+fn six_stop_trip(records: &str) -> String {
+    format!("[trip]\nr66\nTerminus\n66\n\n{records}{}", six_stop_profile_text())
+}
+
+/// Every stop of a legacy trip comes through the Type 2 conversion: position, name and order
+/// of all six, the even ones too, and its arrival and departure times.
+fn assert_six_stops(tt: &Timetable, what: &str) {
+    let trip = tt.trip("66").unwrap_or_else(|| panic!("{what}: no trip"));
+    assert_eq!(trip.stations_legacy.len(), 6, "{what}: legacy records");
+    let ids: Vec<i64> = trip.stations_legacy.iter().map(|s| s.first().and_then(|v| v.trim().parse().ok()).unwrap_or_default()).collect();
+    let names: Vec<&str> = trip.stations_legacy.iter().map(|s| s.get(2).map(|v| v.trim()).unwrap_or_default()).collect();
+    assert_eq!(ids, SIX_STOPS.iter().map(|x| x.0).collect::<Vec<_>>(), "{what}: stop IDs in order");
+    assert_eq!(names, SIX_STOPS.iter().map(|x| x.1).collect::<Vec<_>>(), "{what}: stop names in order");
+    assert_eq!(trip.profiles, vec![six_stop_profile()], "{what}: arrival and departure times");
+}
+
+fn assert_converted_six_stops(tt: &Timetable, what: &str) {
+    let trip = tt.trip("66").unwrap_or_else(|| panic!("{what}: no trip"));
+    assert!(!is_type1(trip), "{what}: converted to Type 2");
+    assert!(trip.stations_legacy.is_empty() && trip.display_name.is_empty(), "{what}: legacy records cleared");
+    assert_eq!(trip.stations, SIX_STOPS.iter().map(|x| x.0).collect::<Vec<_>>(), "{what}: every stop in order");
+    assert_eq!(trip.profiles, vec![six_stop_profile()], "{what}: arrival and departure times kept");
+}
+
+#[test]
+fn type2_conversion_keeps_every_stop_of_canonical_legacy_records() {
+    let out = scratch("type2-six-canonical");
+    std::fs::write(out.join("TTData/66.ttp"), encode(&six_stop_trip(&canonical_records()))).unwrap();
+    let mut tt = Timetable::load(&out, &[]);
+    assert_six_stops(&tt, "loaded");
+    let widths: Vec<usize> = tt.trip("66").unwrap().stations_legacy.iter().map(Vec::len).collect();
+    assert_eq!(widths, vec![8; 6], "loaded: fields of each record");
+    assert_eq!(tt.convert_all_to_type2(), (1, 0));
+    assert_converted_six_stops(&tt, "converted");
+    save_to(&mut tt, &out, &[]).unwrap();
+    let text = std::fs::read_to_string(out.join("TTData/66.ttp")).unwrap();
+    let written: Vec<i64> = text.lines().enumerate().filter(|(_, l)| l.trim() == "[station_typ2]").map(|(i, _)| text.lines().nth(i + 1).unwrap().trim().parse().unwrap()).collect();
+    assert_eq!(written, SIX_STOPS.iter().map(|x| x.0).collect::<Vec<_>>(), "written stops");
+    let back = Timetable::load(&out, &[]);
+    assert_converted_six_stops(&back, "saved and read again");
+    let _ = std::fs::remove_dir_all(out);
+}
+
+/// Records shorter than the eight lines OMSI 2 writes used to make the trip reader take the
+/// next record's `[station]` line for the missing field and skip that record: stops 2, 4 and 6
+/// were gone and the conversion wrote only 1, 3 and 5.
+#[test]
+fn type2_conversion_keeps_every_stop_of_short_legacy_records() {
+    for (what, records, width) in [("seven lines, no blank line", short_records(), 7), ("six lines and a blank line", shorter_records(), 6)] {
+        let out = scratch(&format!("type2-six-short-{}", what.replace([' ', ','], "-")));
+        std::fs::write(out.join("TTData/66.ttp"), encode(&six_stop_trip(&records))).unwrap();
+        let mut tt = Timetable::load(&out, &[]);
+        assert_six_stops(&tt, what);
+        // (the "Profiles" header after the records is not taken for a field of the last one)
+        let widths: Vec<usize> = tt.trip("66").unwrap().stations_legacy.iter().map(Vec::len).collect();
+        assert_eq!(widths, vec![width; 6], "{what}: fields of each record");
+        assert_eq!(tt.convert_all_to_type2(), (1, 0), "{what}: converted");
+        assert_converted_six_stops(&tt, what);
+        save_to(&mut tt, &out, &[]).unwrap();
+        let text = std::fs::read_to_string(out.join("TTData/66.ttp")).unwrap();
+        let written: Vec<i64> = text.lines().enumerate().filter(|(_, l)| l.trim() == "[station_typ2]").map(|(i, _)| text.lines().nth(i + 1).unwrap().trim().parse().unwrap()).collect();
+        assert_eq!(written, SIX_STOPS.iter().map(|x| x.0).collect::<Vec<_>>(), "{what}: written stops");
+        let back = Timetable::load(&out, &[]);
+        assert_converted_six_stops(&back, what);
+        let _ = std::fs::remove_dir_all(out);
+    }
 }

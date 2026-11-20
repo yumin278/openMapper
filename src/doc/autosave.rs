@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use super::{Document, TileKey};
 use crate::i18n::tr;
+use crate::icons::{self, Icon};
+use crate::theme::pal;
 
 /// How often the changes are kept (`OPENMAPPER_AUTOSAVE=<seconds>` for checks).
 fn every() -> Duration {
@@ -108,6 +110,7 @@ pub fn snapshot(doc: &Document) -> Snapshot {
         descriptions: if doc.descriptions.dirty { doc.descriptions.clone() } else { Default::default() },
         groups: Vec::new(),
         signal_sets: Default::default(),
+        global_extra: doc.global_extra.clone(),
     };
     Snapshot { doc: copy, tiles: doc.tiles.keys().copied().collect(), epoch: *EPOCH.lock().unwrap_or_else(|e| e.into_inner()) }
 }
@@ -309,7 +312,7 @@ impl Timer {
 /// drop it.
 pub fn offer(ctx: &egui::Context, meta: &Meta) -> Option<bool> {
     let mut answer = None;
-    egui::Window::new(tr("Unsaved changes found", "Найдены несохранённые изменения")).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(ctx, |ui| {
+    egui::Window::new(icons::labelled(Icon::Backup, tr("Unsaved changes found", "Найдены несохранённые изменения"))).collapsible(false).resizable(false).anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO).show(ctx, |ui| {
         ui.set_width(380.0);
         ui.label(format!(
             "{} «{}» ({}).",
@@ -317,17 +320,17 @@ pub fn offer(ctx: &egui::Context, meta: &Meta) -> Option<bool> {
             meta.name,
             meta.age()
         ));
-        ui.label(egui::RichText::new(tr("The changes kept by the autosave can be brought back. The map itself was not changed.", "Изменения, сохранённые автосохранением, можно вернуть. Сама карта не изменялась.")).small().color(egui::Color32::GRAY));
+        ui.label(egui::RichText::new(tr("The changes kept by the autosave can be brought back. The map itself was not changed.", "Изменения, сохранённые автосохранением, можно вернуть. Сама карта не изменялась.")).small().color(pal().text_dim));
         if meta.disk_newer {
             ui.add_space(4.0);
-            ui.colored_label(egui::Color32::from_rgb(230, 180, 80), tr("The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.", "Файлы карты изменены после этого автосохранения (другой программой, например редактором OMSI 2). Восстановление положит старые тайлы из автосохранения поверх этих изменений."));
+            ui.colored_label(pal().warn, tr("The map's files were changed after this autosave (by another program, OMSI 2's editor say). Restoring puts the autosaved, older tiles over those changes.", "Файлы карты изменены после этого автосохранения (другой программой, например редактором OMSI 2). Восстановление положит старые тайлы из автосохранения поверх этих изменений."));
         }
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            if ui.button(tr("Restore the changes", "Вернуть изменения")).clicked() {
+            if ui.button(icons::labelled(Icon::Backup, tr("Restore the changes", "Вернуть изменения"))).clicked() {
                 answer = Some(true);
             }
-            if ui.button(tr("Drop them", "Отбросить")).clicked() {
+            if ui.button(icons::labelled(Icon::Delete, tr("Drop them", "Отбросить"))).clicked() {
                 answer = Some(false);
             }
         });
@@ -359,7 +362,8 @@ mod tests {
             descriptions: Default::default(),
             groups: Vec::new(),
             signal_sets: Default::default(),
-            };
+            global_extra: Vec::new(),
+        };
         doc.global.name = "M".into();
         for k in [(0, 0), (1, 0)] {
             doc.add_tile(k);
