@@ -4621,7 +4621,7 @@ impl CrossingPaths {
             // made, and "As a new file" must still make one rather than write over it)
             if sco_written {
                 // (the GPU model too, and only that one: the catalogue is not read again)
-                assets.objects.remove(&self.rel.to_lowercase());
+                assets.forget_object_model(&self.rel);
                 let _ = assets.object(&self.rel);
             }
             self.message = Some((tr("Saved", "Сохранено").into(), false));
@@ -4632,7 +4632,7 @@ impl CrossingPaths {
             self.rel = rel.clone();
             self.abs = abs.clone();
             if sco_written {
-                assets.objects.remove(&rel.to_lowercase());
+                assets.forget_object_model(&rel);
                 let _ = assets.object(&rel);
             }
             if repointed {
@@ -7167,9 +7167,191 @@ Main
         (w, ed, roots, assets)
     }
 
+    /// A junction's `.sco` with no mesh, so the asset thread reads its paths alone (an object
+    /// with a `[mesh]` whose `.o3d` is not there is not read at all).
+    const JUNCTION_SCO: &str = "\
+[friendlyname]
+Junction
+
+[path]
+-6.5
+-12
+0.1
+90
+0
+12
+0
+0
+0
+3.5
+0
+3
+
+[path]
+6.5
+-12
+0.1
+90
+0
+12
+0
+0
+0
+3.5
+0
+2
+";
+
+    /// A junction open on a map of its own, named as the map names it: `rel` may use
+    /// backslashes (as OMSI and a generated `Sceneryobjects\openMapper\…\junction.sco` do),
+    /// forward slashes, or both. The asset cache keeps the model under a normalised key, so
+    /// the spelling here is what a save has to forget.
+    fn saveable_path(name: &str, rel: &str) -> (CrossingPaths, Editor, Roots, Assets) {
+        use crate::selection::tests::{add_object, flat_map};
+        let dir = std::env::temp_dir().join(format!("om-crossing-path-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let content = dir.join("content");
+        let abs = content.join(rel.replace('\\', "/"));
+        std::fs::create_dir_all(abs.parent().unwrap()).unwrap();
+        let sheet = Sheet::parse(JUNCTION_SCO);
+        let text = sheet.text();
+        std::fs::write(&abs, &text).unwrap();
+        let bytes = std::fs::read(&abs).unwrap();
+        let map_dir = content.join("maps").join("TestMap");
+        std::fs::create_dir_all(&map_dir).unwrap();
+        let roots = Roots { omsi: dir.join("omsi"), content };
+        let mut doc = flat_map(1);
+        doc.dir = map_dir.clone();
+        add_object(&mut doc, (0, 0), 1, 0.0, 0.0);
+        doc.tiles.get_mut(&(0, 0)).unwrap().tile.objects[0].file = rel.into();
+        let mut ed = Editor::default();
+        ed.doc = Some(doc);
+        let mut w = CrossingPaths { open: true, ..Default::default() };
+        w.target = Some(Sel::Object((0, 0), 1));
+        w.map_dir = map_dir;
+        w.from_rel = rel.into();
+        w.rel = rel.into();
+        w.abs = abs;
+        w.bytes = bytes;
+        w.seen = sheet.crossing.clone();
+        w.mark = w.seen.clone();
+        w.sheet = Some(sheet);
+        w.selected = Some(0);
+        let assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+        (w, ed, roots, assets)
+    }
+
+    /// The main map's AI lanes that belong to the object on (0, 0), as the map would draw
+    /// them from the assets cache.
+    fn object_lane_points(ed: &Editor, assets: &mut Assets) -> Vec<DVec3> {
+        let doc = ed.doc.as_ref().unwrap();
+        let (lanes, _) = crate::lanes::near(doc, assets, DVec2::ZERO, 500.0);
+        lanes.iter().filter(|l| l.object == Some(((0, 0), 1))).flat_map(|l| l.pts.iter().copied()).collect()
+    }
+
     /// How many `[path]`s an object's `.sco` has (what a template rule must name one of).
     fn paths_of(abs: &std::path::Path) -> usize {
         omsi_scenery::SceneryObject::load(abs).map(|s| s.paths.len()).unwrap_or(0)
+    }
+
+    /// A save forgets the model under the name the asset cache keeps it under: the slashes
+    /// turned to `/`, the name lowercased. A generated junction is named with backslashes (or
+    /// a mix), so removing only `to_lowercase()` matched nothing and the main map kept drawing
+    /// the AI paths it had cached until the program restarted.
+    #[test]
+    fn saving_refreshes_the_cached_ai_paths_whatever_the_separators() {
+        for (name, rel) in [
+            ("backslash", "Sceneryobjects\\openMapper\\TestMap\\junction_A1B2C3\\junction_A1B2C3.sco"),
+            ("forward", "Sceneryobjects/openMapper/TestMap/junction_A1B2C3/junction_A1B2C3.sco"),
+            ("mixed", "Sceneryobjects\\openMapper/TestMap\\junction_A1B2C3/junction_A1B2C3.sco"),
+        ] {
+            let (mut w, mut ed, roots, mut assets) = saveable_path(name, rel);
+            let before = assets.object_wait(rel, 20_000).expect("the junction reads");
+            assert_eq!(before.paths.len(), 2);
+            assert!((before.paths[0].start[0] + 6.5).abs() < 1e-6, "{name}: before: {}", before.paths[0].start[0]);
+            w.sheet.as_mut().unwrap().crossing.paths[0].v[0] = -9.5;
+            let mut actions = Vec::new();
+            w.save(&mut ed, &roots, &mut assets, &mut actions);
+            assert!(!w.unsaved(), "{name}: {:?}", w.message);
+            let after = assets.object_wait(&w.rel, 20_000).expect("the saved junction reads");
+            assert!(
+                (after.paths[0].start[0] + 9.5).abs() < 1e-6,
+                "{name}: the map reads the saved path, not the cached one: {}",
+                after.paths[0].start[0]
+            );
+            assert!(actions.iter().any(|a| matches!(a, crate::ui::Action::CrossingSaved(r) if r == &w.rel)));
+            let _ = std::fs::remove_dir_all(roots.content);
+        }
+    }
+
+    /// Save and close: once the question is answered, the window is gone and the main map's
+    /// AI paths are the ones just written, not the model it cached while the window was open.
+    #[test]
+    fn saving_and_closing_leaves_the_main_map_ai_paths_on_the_written_file() {
+        let rel = "Sceneryobjects\\openMapper\\TestMap\\junction_SAVE01\\junction_SAVE01.sco";
+        let (mut w, mut ed, roots, mut assets) = saveable_path("save-close", rel);
+        let before = assets.object_wait(rel, 20_000).expect("the junction reads");
+        assert_eq!(before.paths.len(), 2);
+        let old_lanes = object_lane_points(&ed, &mut assets);
+        assert!(!old_lanes.is_empty(), "the map draws the object's lanes");
+        // (the edit the close question saves)
+        let paths = &mut w.sheet.as_mut().unwrap().crossing.paths;
+        paths[1].v[0] = 10.5;
+        paths[1].v[5] = 18.0;
+        let mut actions = Vec::new();
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(!w.unsaved(), "the save before closing is seen: {:?}", w.message);
+        // (the window's Save and close: the draft is taken off the map)
+        w.open = false;
+        w.discard();
+        let lib = Library::default();
+        let ctx = context();
+        let input = egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1400.0, 900.0))), time: Some(0.1), ..Default::default() };
+        let _ = ctx.run_ui(input, |ui| {
+            let c = ui.ctx().clone();
+            w.window(&c, &mut ed, &lib, Some(&roots), Some(&mut assets), &mut actions);
+        });
+        assert!(ed.crossing_draft.is_none(), "the window's own drawing is gone");
+        let after_model = assets.object_wait(&w.rel, 20_000).expect("the saved junction reads");
+        assert!((after_model.paths[1].start[0] - 10.5).abs() < 1e-6);
+        let new_lanes = object_lane_points(&ed, &mut assets);
+        assert_ne!(old_lanes, new_lanes, "the main map draws the paths just written");
+        let _ = std::fs::remove_dir_all(roots.content);
+    }
+
+    /// A save the transaction refuses leaves the cached model as it was: the map is not told
+    /// a file changed, and no half-written crossing is read back.
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_save_does_not_drop_the_cached_ai_paths() {
+        let rel = "Sceneryobjects\\openMapper\\TestMap\\junction_FAIL01\\junction_FAIL01.sco";
+        let (mut w, mut ed, roots, mut assets) = saveable_path("fail-cache", rel);
+        let before = assets.object_wait(rel, 20_000).expect("the junction reads");
+        // (the settings file is a link: the transaction will not replace anything but a
+        // regular file, so it fails after the `.sco` has been prepared)
+        let config = crate::crossing_config::path_for(&w.abs);
+        let real = w.map_dir.join("settings.json");
+        let settings_before = serde_json::to_string_pretty(&serde_json::json!({
+            "version": 1,
+            "signals": [{ "light": 0, "set": "", "x": 0.0, "up": 0.0, "fwd": 0.0, "heading": 0.0 }],
+        }))
+        .unwrap()
+            + "\n";
+        std::fs::write(&real, &settings_before).unwrap();
+        std::os::unix::fs::symlink(&real, &config).unwrap();
+        w.sheet.as_mut().unwrap().crossing.paths[0].v[0] = -9.5;
+        let mut actions = Vec::new();
+        w.save(&mut ed, &roots, &mut assets, &mut actions);
+        assert!(w.unsaved(), "the failed save is not seen");
+        assert!(w.message.as_ref().is_some_and(|(_, bad)| *bad), "{:?}", w.message);
+        assert!(actions.is_empty(), "nothing is announced as saved");
+        assert!(
+            matches!(assets.objects.get(&crate::assets::norm_asset_key(rel)), Some(crate::assets::Slot::Ready(_))),
+            "the model that was read is still the one the map draws"
+        );
+        let after = assets.object_wait(rel, 20_000).expect("the junction still reads");
+        assert_eq!(after.paths[0].start[0], before.paths[0].start[0], "the unchanged file's paths");
+        let _ = std::fs::remove_dir_all(roots.content);
     }
 
     /// The settings beside an object's `.sco`.
