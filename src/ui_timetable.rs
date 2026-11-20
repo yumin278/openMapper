@@ -262,6 +262,8 @@ impl TimetableUi {
             })
             .collect();
         self.stops.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then(a.id.cmp(&b.id)));
+        // The preview's lane indices belong to the previous network.
+        self.shown = None;
         self.net = Some(net);
         self.net_key = key;
         self.net_built = Some(std::time::Instant::now());

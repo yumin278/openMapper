@@ -150,3 +150,52 @@ impl TimetableUi {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::selection::tests::{add_object, add_spline, flat_map};
+
+    #[test]
+    fn deleting_a_junction_invalidates_the_timetable_route_preview() {
+        let dir = std::env::temp_dir().join(format!("om-timetable-junction-preview-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("Splines")).unwrap();
+        std::fs::create_dir_all(dir.join("Sceneryobjects")).unwrap();
+        let spline = "[path]\n0\n0\n0\n3\n0\n";
+        let junction = "[path]\n0\n0\n0\n0\n0\n10\n0\n0\n0\n3\n0\n0\n";
+        std::fs::write(dir.join("Splines/road.sli"), spline).unwrap();
+        std::fs::write(dir.join("Sceneryobjects/x.sco"), junction).unwrap();
+
+        let mut doc = flat_map(1);
+        let tile = (0, 0);
+        add_spline(&mut doc, tile, 1, 100.0, 100.0, 0.0, 30.0, 0, 0);
+        add_object(&mut doc, tile, 2, 100.0, 130.0);
+        let name = "Through the junction";
+        let mut tt = TimetableUi { files: Files::new(vec![dir.clone()]), trip: Some(name.into()), ..Default::default() };
+        assert!(tt.ensure_net(&doc, None));
+        let net = tt.net.as_ref().unwrap();
+        let road_lane = net.by_key[&crate::timetable::network::PathKey { tile, id: 1, path: 0 }][0];
+        let junction_lane = net.by_key[&crate::timetable::network::PathKey { tile, id: 2, path: 0 }][0];
+        let lanes = vec![road_lane, junction_lane];
+        println!("Road path:\n{spline}Junction path:\n{junction}Before deletion: {} network lanes, preview lanes {lanes:?}", net.lanes.len());
+        tt.shown = Some((name.into(), Vec::new(), tt.net_key, Route { lanes: lanes.clone(), ..Default::default() }));
+        assert_eq!(tt.way_lanes(&doc, name), lanes);
+
+        doc.delete_object(tile, 2);
+        tt.net_built = None;
+        assert!(tt.ensure_net(&doc, None));
+        let new_len = tt.net.as_ref().unwrap().lanes.len();
+        let shown = tt.way_lanes(&doc, name);
+        println!("After deletion: {new_len} network lanes, preview lanes {shown:?}");
+        assert_eq!(new_len, 2);
+        assert!(junction_lane >= new_len);
+        let ctx = egui::Context::default();
+        ctx.set_fonts(icons::fonts());
+        let _ = ctx.run_ui(Default::default(), |ui| {
+            tt.way_section(ui, &mut doc, name, &mut Vec::new());
+        });
+        assert!(shown.is_empty());
+        assert_eq!(tt.trip.as_deref(), Some(name));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
