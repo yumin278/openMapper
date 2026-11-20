@@ -3074,9 +3074,9 @@ Form the ground	整平地面
 Select a road piece first	請先選取一段道路
 Nothing is joined at its end	其末端沒有相接的物件
 Nothing is joined at its start	其起點沒有相接的物件
-Move: drag an arrow along X, Y or Z, a square in its plane, the circle over the ground	移動：拖曳箭頭沿 X、Y 或 Z 軸移動，拖曳方形在其平面內移動，拖曳圓環在地面上移動
-Rotate: drag a ring to turn about X, Y or Z	旋轉：拖曳圓環繞 X、Y 或 Z 軸轉動
-Scale: drag an arrow to scale along that axis, a square for two, the circle for all three	縮放：拖曳箭頭沿該軸縮放，拖曳方形縮放兩個軸向，拖曳圓環縮放三個軸向
+Move: drag an arrow along X, Y or Z, a square in its plane, the circle over the ground	移動：拖動箭頭沿 X、Y 或 Z 軸移動，拖動方形在其平面內移動，拖動圓環在地面上移動
+Rotate: drag a ring to turn about X, Y or Z	旋轉：拖動圓環繞 X、Y 或 Z 軸轉動
+Scale: drag an arrow to scale along that axis, a square for two, the circle for all three	縮放：拖動箭頭沿該軸縮放，拖動方形縮放兩個軸向，拖動圓環縮放三個軸向
 Junctions where the roads meet	道路交會處的路口
 Streets from the street model	由街道模型建立的街道
 perimeter	周長
@@ -3147,18 +3147,18 @@ Click: a breakpoint (F9 on the cursor's line)	點擊：設定中斷點（游標�
 permission	權限
 The light before	前一個燈號
 The next light	下一個燈號
-The phase before	前一個時相
-The next phase	下一個時相
+The phase before	前一個燈號階段
+The next phase	下一個燈號階段
 to 	至 
 Select the piece joined at its start (,)	選取在其起點相接的路段（,）
 Select the piece joined at its end (.)	選取在其末端相接的路段（.）
-Click two points to measure the distance and gradient between them (U) · Shift + clicks: the corners of an area (its size and perimeter) · right-click: off	點擊兩點以量測其間距離與坡度（U）· Shift + 點擊：區域的角點（其面積與周長）· 右鍵：關閉
+Click two points to measure the distance and gradient between them (U) · Shift + clicks: the corners of an area (its size and perimeter) · right-click: off	點擊兩點以量測其間距離與斜度（U）· Shift + 點擊：區域的角點（其面積與周長）· 右鍵：關閉
 Snap a vertex of the selected object to a vertex of another object\nShift: Horizontal only, Esc/Right-click: Cancel	將選取物件的頂點對齊到另一物件的頂點\nShift：僅水平，Esc／右鍵：取消
 Align an edge of the selected object to an edge or road\nRotates and snaps collinear\nShift: Horizontal only, Esc/Right-click: Cancel	將選取物件的邊緣對齊到邊緣或道路\n會旋轉並對齊成共線\nShift：僅水平，Esc／右鍵：取消
 On the straight line between the two farthest apart, at equal steps (posts, lamps, a row of trees)	在相距最遠兩者之間的直線上，以等距排列（柱、燈、一列樹）
 Equal steps between the two farthest apart, each keeping its distance to the side	在相距最遠兩者之間等距排列，各自保持其側向距離
 height, m	高度，m
-gradient, %	坡度，%
+gradient, %	斜度，%
 cant, %	超高，%
 Rotate, °	旋轉，°
 Name, file, IDCode, stop, x, y or tile x y	名稱、檔案、IDCode、站牌、x、y 或 圖塊 x y
@@ -3271,7 +3271,7 @@ Switches	轉轍器
 Pick in the view	在檢視中選取
 A click in the view picks a span or a switch (yellow dot)	在檢視中點擊可選取跨距或轉轍器（黃點）
 The wires over the road surface	道路表面上的電線
-the kerb lane each way	各方向的路緣車道
+the kerb lane each way	各方向的路緣行車線
 the way the road runs	道路的行進方向
 against the road's way	與道路行進方向相反
 Section	區段
@@ -3288,11 +3288,11 @@ Frogs and section insulators are put where the wire has them, as the kit names t
 Nothing is laid on the map, the wire is for the game only. A kit (+) names your own models of the wire, its masts, frogs and insulators.	不會在地圖上鋪設任何東西，電車線僅供遊戲使用。套件（+）可指名你自己的電線、電桿、岔心與絕緣子模型。
 Over the selected roads	在選取的道路上
 Select roads in the view first (double-click: a whole road)	請先在檢視中選取道路（連按兩下：整條道路）
-The selected object's lanes (a junction): tick those the wire goes over. Three spans meeting make a frog.	選取物件（路口）的車道：勾選電線經過的車道。三段跨距交會會形成岔心。
-It has no street lanes.	它沒有街道車道。
-lane	車道
-Over the ticked lanes	在勾選的車道上
-Select one junction to lay the wire over its lanes.	請選取一個路口，以便在其車道上鋪設電車線。
+The selected object's lanes (a junction): tick those the wire goes over. Three spans meeting make a frog.	選取物件（路口）的行車線：勾選電線經過的行車線。三段跨距交會會形成岔心。
+It has no street lanes.	它沒有街道行車線。
+lane	行車線
+Over the ticked lanes	在勾選的行車線上
+Select one junction to lay the wire over its lanes.	請選取一個路口，以便在其行車線上鋪設電車線。
 Draw a span by hand	手動繪製跨距
 Click its points in the view; started or ended on a span's end it joins it, on a span's middle it branches off there (a frog)	在檢視中點擊其各點；起點或終點落在跨距端點時會與其相接，落在跨距中段時會由該處分歧（岔心）
 points: click the next in the view	點：在檢視中點擊下一個點
@@ -3318,7 +3318,7 @@ Span	跨距
 points	點
 Spacing	間距
 its own	其自身
-Drag: the whole span up or down	拖曳：整段跨距上升或下降
+Drag: the whole span up or down	拖動：整段跨距上升或下降
 The span the other way: the positive wire is on the right of its way	跨距反向：正極電線在其行進方向的右側
 Pick a span in the view, or in the list.	請在檢視或清單中選取跨距。
 section	區段
