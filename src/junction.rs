@@ -1762,6 +1762,207 @@ fn export_texture(tex: &Path, to_dir: &Path) -> String {
     name.into_owned()
 }
 
+// (kept from upstream 0.2.0: the plate asphalt cut from a road's own texture, with its test.
+// The fork's junctions take the map's `plain_asphalt_texture.bmp` override, else the
+// installation's asphalt, so this cut is not on that path; it is kept whole, and tested,
+// rather than dropped with the conflict.)
+/// A plain square of a road's own surface, `period` metres a side (what the texture spans
+/// along the road): `band_m` metres of a lane's middle (no markings), as wide as it is on
+/// the road, mirrored to and fro across so it tiles without a seam, and the texture's full
+/// length along. The junction's roadway, laid flat at the same scale, then has the roads'
+/// grain and colour, not a stretched smear.
+#[allow(dead_code)]
+fn clean_asphalt(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64, out: &Path) -> Option<()> {
+    let buf = clean_asphalt_image(tex, u, u_per_m, period, lane_m)?;
+    save_like(&buf, out)
+}
+
+/// Save a picture in the format its file name says (the road's own texture is a .bmp, .dds,
+/// .tga or .jpg, and what is made from it is written as one too); a name of another kind
+/// gets a PNG.
+fn save_like(buf: &image::RgbaImage, out: &Path) -> Option<()> {
+    let ext = out.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    match ext.as_str() {
+        "dds" => std::fs::write(out, crate::doc::dds::rgba(buf.width(), buf.height(), buf.as_raw())).ok(),
+        "bmp" | "jpg" | "jpeg" => image::DynamicImage::ImageRgba8(buf.clone()).to_rgb8().save(out).ok(),
+        "tga" | "png" => buf.save(out).ok(),
+        _ => buf.save_with_format(out, image::ImageFormat::Png).ok(),
+    }
+}
+
+
+/// The plain asphalt made from `tex` as `<stem>_junction2.<same extension>` in `to_dir`, with
+/// the same made from each of its companions (its winter pictures, in their formats) and the
+/// others (.cfg, .surf) copied under the new name. Gives the main picture's path.
+#[allow(dead_code)]
+fn plain_like(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64, to_dir: &Path) -> Option<PathBuf> {
+    let stem = tex.file_stem()?.to_string_lossy().to_string();
+    let ext = tex.extension().map(|e| e.to_string_lossy().to_string()).unwrap_or_else(|| "png".into());
+    // (2: made with every painted line, dashed ones too, kept out; a `_junction` picture made
+    // before may hold a dashed line, and a name already there is not made again)
+    let new_stem = format!("{stem}_junction2");
+    let out = to_dir.join(format!("{new_stem}.{ext}"));
+    // (one cut short, a full disk say, is made again)
+    if out.exists() && omsi_texture::decode_file(&out).is_err() {
+        let _ = std::fs::remove_file(&out);
+    }
+    if !out.exists() {
+        clean_asphalt(tex, u, u_per_m, period, lane_m, &out)?;
+    }
+    for c in companions(tex) {
+        let Some(name) = c.file_name().map(|f| f.to_string_lossy().to_string()) else { continue };
+        let to = to_dir.join(format!("{new_stem}{}", &name[stem.len().min(name.len())..]));
+        if to.exists() {
+            continue;
+        }
+        let image_ext = c.extension().map(|e| matches!(e.to_string_lossy().to_lowercase().as_str(), "bmp" | "dds" | "tga" | "jpg" | "jpeg" | "png")).unwrap_or(false);
+        // (a picture made the same way, else the file as it is)
+        let done = image_ext && c.file_name().map(|f| !f.to_string_lossy().to_lowercase().ends_with(".cfg")).unwrap_or(false) && clean_asphalt(&c, u, u_per_m, period, lane_m, &to).is_some();
+        if !done {
+            let _ = std::fs::copy(&c, &to);
+        }
+    }
+    Some(out)
+}
+
+/// Where in a road's texture the plain asphalt is taken from: (the middle u of the band, its
+/// width in metres and in u, mirrored to and fro). Every column across the lane round `u` is
+/// looked down for paint as the road's lines are read (`scan_paint`): bright for long runs
+/// down it (a solid line, or dashes however far apart) or brighter on the whole than the
+/// rest. None: the whole lane, repeated, so slabs keep their grid. Paint: the widest stretch
+/// of the lane clear of it by 10 cm (round the lane's middle when it is there), up to half a
+/// lane, mirrored, so no line, solid or dashed, comes into the plate.
+fn clean_band(img: &omsi_texture::Image, u: f64, u_per_m: f64, lane_m: f64) -> (f64, f64, f64, bool) {
+    let (w, h) = (img.width as usize, img.height as usize);
+    let u_per_m = u_per_m.max(1e-6);
+    let whole = lane_m.clamp(1.0, 5.0);
+    let plain = (u, whole, (whole * u_per_m).max(0.002), false);
+    let half_lane = (lane_m * 0.5).clamp(0.8, 2.0);
+    let fallback = (u, half_lane, (half_lane * u_per_m).max(0.002), true);
+    if w == 0 || h == 0 || img.rgba.len() < w * h * 4 {
+        return plain;
+    }
+    // the columns across the lane (k counts on past the texture's edge: it repeats)
+    let span = (whole.max(lane_m) * u_per_m).min(1.0);
+    let k0 = ((u - span * 0.5) * w as f64).floor() as i64;
+    let k1 = (((u + span * 0.5) * w as f64).ceil() as i64).min(k0 + w as i64 - 1);
+    let rows = h.min(128);
+    let lum = |k: i64, r: usize| {
+        let sx = k.rem_euclid(w as i64) as usize;
+        let sy = (((r as f64 + 0.5) / rows as f64 * h as f64) as usize).min(h - 1);
+        let p = &img.rgba[(sy * w + sx) * 4..][..3];
+        (p[0] as f32 + p[1] as f32 + p[2] as f32) / 765.0
+    };
+    let cols: Vec<Vec<f32>> = (k0..=k1).map(|k| (0..rows).map(|r| lum(k, r)).collect()).collect();
+    let median = |mut v: Vec<f32>| {
+        v.sort_by(f32::total_cmp);
+        v[v.len() / 2]
+    };
+    let base = median(cols.iter().flatten().copied().collect());
+    let means: Vec<f32> = cols.iter().map(|c| c.iter().sum::<f32>() / rows as f32).collect();
+    let mean_base = median(means.clone());
+    let painted: Vec<bool> = cols
+        .iter()
+        .zip(&means)
+        .map(|(c, m)| {
+            let (cover, runs) = paint_down(&c.iter().map(|v| *v > base + 0.18 && *v > 0.5).collect::<Vec<_>>());
+            is_paint(cover, runs) || *m > mean_base + 0.1
+        })
+        .collect();
+    if !painted.iter().any(|p| *p) {
+        return plain;
+    }
+    // (kept clear of the lines' soft edges)
+    let n = painted.len();
+    let margin = (0.1 * u_per_m * w as f64).ceil().max(2.0) as usize;
+    let clear: Vec<bool> = (0..n).map(|i| !painted[i.saturating_sub(margin)..=(i + margin).min(n - 1)].iter().any(|p| *p)).collect();
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < n {
+        if clear[i] {
+            let j = (i..n).take_while(|j| clear[*j]).last().unwrap_or(i);
+            runs.push((i, j));
+            i = j + 1;
+        } else {
+            i += 1;
+        }
+    }
+    // (in columns from k0: the lane's middle, and the least a band may be)
+    let ku = u * w as f64 - k0 as f64;
+    let least = (0.3 * u_per_m * w as f64).max(3.0);
+    let len = |r: &(usize, usize)| (r.1 - r.0 + 1) as f64;
+    let at_middle = runs.iter().find(|r| r.0 as f64 <= ku && ku < r.1 as f64 + 1.0 && len(r) >= least);
+    let Some(run) = at_middle.or_else(|| runs.iter().max_by(|a, b| len(a).total_cmp(&len(b)))).copied() else { return fallback };
+    if len(&run) < 2.0 {
+        return fallback;
+    }
+    let band = (len(&run) - 0.02).min(half_lane * u_per_m * w as f64);
+    let (lo, hi) = (run.0 as f64 + band * 0.5, run.1 as f64 + 1.0 - band * 0.5);
+    let c = if at_middle.is_some() { ku.clamp(lo, hi.max(lo)) } else { (lo + hi) * 0.5 };
+    let band_u = band / w as f64;
+    ((k0 as f64 + c) / w as f64, band_u / u_per_m, band_u, true)
+}
+
+fn clean_asphalt_image(tex: &Path, u: f64, u_per_m: f64, period: f64, lane_m: f64) -> Option<image::RgbaImage> {
+    let img = omsi_texture::decode_file(tex).ok()?;
+    let (w, h) = (img.width as usize, img.height as usize);
+    let (centre_u, band_m, band_u, mirror) = clean_band(&img, u, u_per_m, lane_m);
+    let size = 512usize;
+    let mut buf = image::RgbaImage::new(size as u32, size as u32);
+    // (each band side by side taken from another stretch of the road, so its patches and
+    // slabs do not stand in rows of the same one)
+    let bands = (period / band_m).round().max(1.0) as usize;
+    let band_m = period / bands as f64;
+    for y in 0..size {
+        for x in 0..size {
+            let m = x as f64 / size as f64 * period;
+            let j = ((m / band_m) as usize).min(bands - 1);
+            let shift = if j == 0 { 0.0 } else { (j as f64 * 0.618_034).fract() };
+            let sy = (((y as f64 / size as f64 + shift).fract() * h as f64) as usize).min(h - 1);
+            let t = if mirror {
+                let f = (m / band_m).rem_euclid(2.0);
+                if f < 1.0 { f } else { 2.0 - f }
+            } else {
+                (m / band_m).rem_euclid(1.0)
+            };
+            let uu = (centre_u - band_u * 0.5 + band_u * t).rem_euclid(1.0);
+            let sx = ((uu * w as f64) as usize).min(w - 1);
+            let p = &img.rgba[(sy * w + sx) * 4..][..4];
+            buf.put_pixel(x as u32, y as u32, image::Rgba([p[0], p[1], p[2], 255]));
+        }
+    }
+    flatten_columns(&mut buf);
+    Some(buf)
+}
+
+/// Each column brought to the picture's mean brightness: the wheel tracks and the worn
+/// stripes a lane's middle carries along the road (which, spread over a whole plate, read as
+/// ribs) go, the asphalt's grain and patches stay.
+fn flatten_columns(buf: &mut image::RgbaImage) {
+    let (w, h) = (buf.width() as usize, buf.height() as usize);
+    if w == 0 || h == 0 {
+        return;
+    }
+    let lum = |p: &image::Rgba<u8>| (p[0] as f64 + p[1] as f64 + p[2] as f64) / 3.0;
+    let cols: Vec<f64> = (0..w).map(|x| (0..h).map(|y| lum(buf.get_pixel(x as u32, y as u32))).sum::<f64>() / h as f64).collect();
+    // (the columns' means smoothed a little across, so a single dark crack keeps its line)
+    let smooth: Vec<f64> = (0..w).map(|x| {
+        let r = 1usize;
+        let (a, b) = (x.saturating_sub(r), (x + r).min(w - 1));
+        cols[a..=b].iter().sum::<f64>() / (b - a + 1) as f64
+    }).collect();
+    let mean = cols.iter().sum::<f64>() / w as f64;
+    for x in 0..w {
+        let k = if smooth[x] > 1.0 { mean / smooth[x] } else { 1.0 };
+        for y in 0..h {
+            let p = buf.get_pixel_mut(x as u32, y as u32);
+            for c in 0..3 {
+                p[c] = (p[c] as f64 * k).round().clamp(0.0, 255.0) as u8;
+            }
+        }
+    }
+}
+
 fn num(v: f64) -> String {
     let s = format!("{v:.4}");
     let s = s.trim_end_matches('0').trim_end_matches('.');
@@ -3699,6 +3900,50 @@ mod tests {
         }
     }
 
+
+    /// A lane's texture: grey grain (deterministic), with a thin dashed line (3 px of 256,
+    /// half the length) near its right edge at px 109..=111 when `dashed`.
+    fn lane_texture(dashed: bool) -> omsi_texture::Image {
+        let (w, h) = (256usize, 128usize);
+        let mut seed = 12345u32;
+        let mut rgba = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for x in 0..w {
+                seed = seed.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+                let g = if dashed && (109..=111).contains(&x) && y < h / 2 { 225 } else { 84 + ((seed >> 24) % 16) as u8 };
+                rgba.extend_from_slice(&[g, g, g, 255]);
+            }
+        }
+        omsi_texture::Image { width: w as u32, height: h as u32, rgba, has_alpha: false }
+    }
+
+    /// The plate's asphalt is cut from a lane of the road's texture; a dashed line in it, however
+    /// thin (one the old test, looking at seven columns at each edge of the lane, stepped
+    /// over), is left out, so the plate shows no stripes of dashes.
+    #[test]
+    fn plain_asphalt_leaves_out_a_thin_dashed_line() {
+        let dir = test_dir("asphalt");
+        // (the texture runs once over 8 m; the lane's middle at u 0.25, a lane 3 m of path)
+        let (u, u_per_m, lane_m) = (0.25, 0.125, 3.0 / 0.9);
+        let img = lane_texture(true);
+        let (c, band_m, band_u, mirror) = clean_band(&img, u, u_per_m, lane_m);
+        assert!(mirror && band_m >= 0.8, "{c} {band_m} {band_u}");
+        let (a, b) = ((c - band_u * 0.5) * 256.0, (c + band_u * 0.5) * 256.0);
+        assert!(b < 109.0 - 2.0 || a > 112.0 + 2.0, "the band {a}..{b} takes in the line");
+        // and the picture made from it has no stripe brighter or darker than the grain
+        let tex = dir.join("lane.png");
+        image::RgbaImage::from_raw(256, 128, img.rgba.clone()).unwrap().save(&tex).unwrap();
+        let out = clean_asphalt_image(&tex, u, u_per_m, 8.0, lane_m).unwrap();
+        let lum = |p: &image::Rgba<u8>| (p[0] as f32 + p[1] as f32 + p[2] as f32) / 765.0;
+        let mut all: Vec<f32> = out.pixels().map(lum).collect();
+        all.sort_by(f32::total_cmp);
+        let base = all[all.len() / 2];
+        assert!(out.pixels().all(|p| (lum(p) - base).abs() < 0.1), "{base} {:?} {:?}", all.first(), all.last());
+        // with no paint in the lane, the whole lane is taken, repeated (slabs keep their grid)
+        let (c, band_m, _, mirror) = clean_band(&lane_texture(false), u, u_per_m, lane_m);
+        assert!(!mirror && (c - u).abs() < 1e-9 && (band_m - lane_m).abs() < 1e-9);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     /// Where the arms come in at different heights the roadway folds along its fan; the paint
     /// lies on it all the same, every piece just over the triangle it is on.

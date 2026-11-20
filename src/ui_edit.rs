@@ -512,7 +512,7 @@ pub fn group_properties(ui: &mut egui::Ui, ed: &mut Editor, lib: &Library, paren
             if ui.button(icons::labelled(Icon::Reverse, tr("Reverse their direction", "Развернуть их направление"))).on_hover_text(reverse_help()).clicked() {
                 ed.reverse_selected();
             }
-            if ui.button(tr("Turn round and reverse", "Развернуть кругом и обратить")).on_hover_text(flip_help()).clicked() {
+            if ui.button(icons::labelled(Icon::Flip, tr("Turn round and reverse", "Развернуть кругом и обратить"))).on_hover_text(flip_help()).clicked() {
                 ed.flip_selected();
             }
             if ui.button(icons::labelled(Icon::Complete, tr("Complete to", "Достроить до"))).on_hover_text(crate::complete::help()).clicked() {

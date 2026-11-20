@@ -944,9 +944,13 @@ impl ComplexJunctions {
         let stale = self.plate.as_ref().map(|p| p.0 != self.layout.pieces || p.1 != self.layout.build).unwrap_or(true);
         if stale {
             let asphalt = crate::junction::junction_asphalt(map_dir, installed_asphalt);
+            // (the drawing's own folder: upstream writes the plate's paint decals into it so
+            // that the drawing shows the roads' markings, as the map's junctions carry them)
+            let preview_dir = std::env::temp_dir().join("openmapper-junction-preview");
+            let _ = std::fs::create_dir_all(&preview_dir);
             let resolved = self.layout.resolve(&|f| is_road(lib, f), &|f| half_of(lib, f));
             self.skipped = resolved.skipped;
-            let plates: Option<Vec<_>> = resolved.plates.iter().map(|arms| assets.as_deref_mut().and_then(|a| crate::junction::layout_plate(a, arms, None, asphalt.as_deref())).map(|p| (p.flat_textured(), p.lanes))).collect();
+            let plates: Option<Vec<_>> = resolved.plates.iter().map(|arms| assets.as_deref_mut().and_then(|a| crate::junction::layout_plate(a, arms, Some(&preview_dir), asphalt.as_deref())).map(|p| (p.flat_textured(), p.lanes))).collect();
             // (a road type not loaded yet: made again next frame)
             self.plate = plates.map(|pl| {
                 let lanes = pl.iter().flat_map(|p| p.1.iter().copied()).collect();
