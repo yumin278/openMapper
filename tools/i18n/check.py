@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks that every interface text has a translation in every language.
+"""Checks that every interface text has a translation in every language this fork maintains.
 
     python3 tools/i18n/check.py              the check CI runs (exit 1 when something is missing)
     python3 tools/i18n/check.py --todo de    the texts `locales/de.tsv` still lacks, as `English<TAB>` lines
@@ -7,11 +7,19 @@
 The texts are the English ones of `tr("English", "Русский")` calls and `cmd!(icon, "English", "Русский", ...)`
 commands in `src/`. A language's table is `locales/<code>.tsv`: the English, a tab, the translation
 (`\\n`, `\\t` and `\\\\` stand for a newline, a tab and a backslash).
+
+This fork maintains Chinese translations only (Traditional zh-tw with Hong Kong terminology, and
+Simplified zh). Every other language is upstream's: its table is kept as it came, new English texts
+are not translated here, and those texts fall back to English in the interface (`tr` returns the
+English when a table has no entry). That is why `LANGS` names just these two: upstream's own release
+left several hundred newer texts untranslated in all 26 languages, and this fork does not fill them
+in the other 24. When merging upstream, take upstream's side of a `locales/<other>.tsv` conflict and
+add no translation entries; merge and fill zh-tw / zh.
 """
 import glob, os, re, sys
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
-LANGS = "be ca cs de es fr hi hu id it ja kk ko ms nl pl pt-pt pt sv th tl tr uk vi zh-tw zh".split()
+LANGS = "zh-tw zh".split()
 STR = r'"((?:[^"\\]|\\.)*)"'
 CALL = re.compile(r"\btr\(\s*" + STR + r"\s*,\s*" + STR + r"\s*\)", re.S)
 CMD = re.compile(r"\bcmd!\(\s*[\w:]+\s*,\s*" + STR + r"\s*,\s*" + STR, re.S)
