@@ -73,13 +73,131 @@ fn key(name: &str) -> String {
     name.to_lowercase()
 }
 
+/// `[station]` records and `[station_typ2]` stops of a trip file as written: each block is
+/// read to the next keyword line, not to a fixed eight lines (see
+/// [`reread_short_station_records`]).
+fn station_records(lines: &[String]) -> (Vec<Vec<String>>, Vec<i64>) {
+    let mut legacy: Vec<Vec<String>> = Vec::new();
+    let mut ids: Vec<i64> = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        let keyword = omsi_cfg::keyword_of(&lines[i]).map(str::to_ascii_lowercase);
+        i += 1;
+        let Some(keyword) = keyword else { continue };
+        if keyword != "station" && keyword != "station_typ2" {
+            continue;
+        }
+        let typ2 = keyword == "station_typ2";
+        // (a `[station]` record ends at the next keyword or at its blank line - unless it has
+        // fewer than three fields so far, where the blank is an empty name or track index; a
+        // `[station_typ2]` stop is its one line)
+        let ends_at_blank = if typ2 { 1 } else { 3 };
+        let mut fields: Vec<String> = Vec::new();
+        while i < lines.len() {
+            if omsi_cfg::keyword_of(&lines[i]).is_some() {
+                break;
+            }
+            let line = lines[i].trim_end();
+            if line.is_empty() && fields.len() >= ends_at_blank {
+                break;
+            }
+            fields.push(line.to_string());
+            i += 1;
+        }
+        while fields.last().is_some_and(|l| l.is_empty()) {
+            fields.pop();
+        }
+        if typ2 {
+            if let Some(id) = fields.first().and_then(|s| s.trim().parse::<i64>().ok()) {
+                ids.push(id);
+            }
+        } else {
+            legacy.push(fields);
+        }
+    }
+    (legacy, ids)
+}
+
+/// The `[profile]` entries of the file, from the first one on (the same reading as
+/// openOMSI's, which the trip reader uses for the rest).
+fn profile_records(f: &omsi_cfg::CfgFile) -> Vec<omsi_timetable::TripProfile> {
+    let Some(at) = f.lines.iter().position(|l| omsi_cfg::keyword_of(l).is_some_and(|k| k.eq_ignore_ascii_case("profile"))) else {
+        return Vec::new();
+    };
+    let mut profiles: Vec<omsi_timetable::TripProfile> = Vec::new();
+    let mut r = f.reader();
+    r.seek(at);
+    while let Some(k) = r.next_keyword() {
+        match k.as_str() {
+            "profile" => profiles.push(omsi_timetable::TripProfile { name: r.str().to_string(), factor: r.f32(), ..Default::default() }),
+            "profile_man_arr_time" => {
+                let (i, v) = (r.i32(), r.f32());
+                if let Some(p) = profiles.last_mut() {
+                    p.man_arr_time.push((i, v));
+                }
+            }
+            "profile_man_dep_time" => {
+                let (i, v) = (r.i32(), r.f32());
+                if let Some(p) = profiles.last_mut() {
+                    p.man_dep_time.push((i, v));
+                }
+            }
+            "profile_otherstopping" => {
+                let (i, v) = (r.i32(), r.i32());
+                if let Some(p) = profiles.last_mut() {
+                    p.other_stopping.push((i, v));
+                }
+            }
+            _ => {}
+        }
+    }
+    profiles
+}
+
+/// A `[station]` record of an older mod map can be shorter than the eight lines OMSI 2
+/// writes (or the blank line between records can be missing), and openOMSI's trip reader
+/// takes the next record's `[station]` line for the missing field - it then skips that whole
+/// record, and every other stop of the trip is gone (stops 2, 4, 6 of six: the Type 2
+/// conversion then writes only half of them). Read such files again to the next keyword, and
+/// take the profiles with them, which the same slip can leave out.
+pub(crate) fn reread_short_station_records(trips: &mut [Trip]) {
+    for trip in trips {
+        if trip.stations_legacy.is_empty() {
+            continue;
+        }
+        let Ok(f) = omsi_cfg::CfgFile::read(&trip.path) else { continue };
+        let (legacy, ids) = station_records(&f.lines);
+        let more_stops = legacy.len() > trip.stations_legacy.len();
+        let more_typ2 = ids.len() > trip.stations.len();
+        if !more_stops && !more_typ2 {
+            continue;
+        }
+        log::warn!(
+            "timetable: {} has {} `[station]` records and {} `[station_typ2]` stops but {} and {} were read (records shorter than the usual eight lines); read again to the next keyword",
+            trip.name,
+            legacy.len(),
+            ids.len(),
+            trip.stations_legacy.len(),
+            trip.stations.len()
+        );
+        if more_stops {
+            trip.stations_legacy = legacy;
+        }
+        if more_typ2 {
+            trip.stations = ids;
+        }
+        trip.profiles = profile_records(&f);
+    }
+}
+
 impl Timetable {
     /// Read `TTData` of the map folder `dir`; `order` is global.cfg's tile list.
     pub fn load(dir: &Path, order: &[TileKey]) -> Timetable {
-        let d = TimetableData::load(dir);
+        let mut d = TimetableData::load(dir);
         for e in &d.errors {
             log::warn!("timetable: {e}");
         }
+        reread_short_station_records(&mut d.trips);
         let n = (d.lines.len(), d.trips.len(), d.tracks.len(), d.bus_stops.len());
         if n != (0, 0, 0, 0) {
             log::info!("timetable: {} lines, {} trips, {} tracks, {} stops", n.0, n.1, n.2, n.3);
