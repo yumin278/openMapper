@@ -19,7 +19,7 @@ fn draw(label: &str, textures: Vec<PathBuf>, roadway: Option<PathBuf>) -> (RoadS
     ctx.set_fonts(icons::fonts());
     let screen = egui::Rect::from_min_size(Pos2::ZERO, Vec2::new(1400.0, 3000.0));
     let output = ctx.run_ui(egui::RawInput { screen_rect: Some(screen), ..Default::default() }, |root| {
-        egui::CentralPanel::default().show(root.ctx(), |ui| {
+        egui::CentralPanel::default().show(root, |ui| {
             RoadTypes::maker_ui(ui, &mut spec, &mut list, &mut search, &roots, &mut pics, &mut canvas, false, None);
         });
     });
