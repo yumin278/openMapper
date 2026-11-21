@@ -272,6 +272,28 @@ mod tests {
     use crate::road_maker::MakerTarget;
 
     #[test]
+    fn road_maker_sli_import_rejects_gaps_and_unsupported_dividers() {
+        let sides = "\
+            [heightprofile]\n-3\n-1\n0.1\n0.1\n\
+            [heightprofile]\n1\n3\n0.1\n0.1\n\
+            [profile]\n0\n[profilepnt]\n-3\n0.1\n0\n1\n[profilepnt]\n-1\n0.1\n1\n1\n\
+            [profile]\n0\n[profilepnt]\n1\n0.1\n0\n1\n[profilepnt]\n3\n0.1\n1\n1\n\
+            [path]\n0\n-2\n0.1\n2\n1\n[path]\n0\n2\n0.1\n2\n0\n";
+        let collision = "[heightprofile]\n-1\n1\n0.25\n0.25\n";
+        let sloped = "[profile]\n0\n[profilepnt]\n-1\n0.25\n0\n1\n[profilepnt]\n1\n0.20\n1\n1\n";
+        for (centre, expected) in [
+            (collision.to_string(), "The road surface has a gap without cross-section data"),
+            (format!("{collision}{sloped}"), "The central divider cannot be represented by an existing strip"),
+        ] {
+            let text = format!("[texture]\nasphalt.bmp\n{sides}{centre}");
+            let spline = Spline::parse(&omsi_cfg::CfgFile::from_str("divider.sli", &text));
+            let error = infer(&spline, "Divider".into(), false).unwrap_err();
+            println!("{text}\nImport rejected: {error}");
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    #[test]
     fn road_maker_sli_import_keeps_an_off_centre_path_and_manual_shift_separate() {
         let input = "[texture]\nasphalt.bmp\n\
             [heightprofile]\n0\n4\n0.1\n0.1\n\

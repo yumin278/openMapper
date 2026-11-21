@@ -105,6 +105,7 @@ fn install(
 /// Everything an implementer needs when a regression fails.
 fn report(stock: &Stock, source: &Spline, spec: &RoadSpec, json: &Path) {
     println!("== {} ==", stock.name);
+    println!("source SLI keyword blocks:\n{}", stock.text);
     println!(
         "textures: {:?}",
         source
@@ -190,6 +191,8 @@ fn check_paths(stock: &Stock, source: &Spline, out: &Spline) {
         .filter(|p| p.kind == 0)
         .map(|p| (p.start[0], p.direction))
         .collect();
+    println!("{} vehicle Path X/direction: {want:?} → {got:?}", stock.name);
+    assert!(out.paths.iter().all(|p| p.kind == 0));
     assert_eq!(
         got.len(),
         want.len(),
@@ -337,10 +340,10 @@ fn wilhelm2_import_keeps_every_lane_path_where_the_stock_spline_put_it() {
     check_pavement(stock, &out);
     check_strips(stock, &spec);
     assert!(
-        (spec.total_width() - (stock.pavement.1 - stock.pavement.0)).abs() <= 0.001,
-        "{}: the imported cross section is {:.3} m wide, the pavement {:.3} m",
+        (spec.roadway_width() - (stock.pavement.1 - stock.pavement.0)).abs() <= 0.001,
+        "{}: the imported roadway is {:.3} m wide, the pavement {:.3} m",
         stock.name,
-        spec.total_width(),
+        spec.roadway_width(),
         stock.pavement.1 - stock.pavement.0
     );
 
