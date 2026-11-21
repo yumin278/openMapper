@@ -7,6 +7,41 @@ const LABEL_FONT: f32 = 9.0;
 const LABEL_PAD: f32 = 3.0;
 const LABEL_GAP: f32 = 4.0;
 
+struct PreviewAxis {
+    left: f32,
+    min_x: f32,
+    scale: f32,
+}
+
+impl PreviewAxis {
+    fn new(rect: egui::Rect, road_left: f32, road_right: f32) -> Self {
+        let pad = 15.0_f32.min(rect.width() * 0.2);
+        let min_x = road_left.min(0.0);
+        let max_x = road_right.max(0.0);
+        let span = (max_x - min_x).max(0.001);
+        Self {
+            left: rect.left() + pad,
+            min_x,
+            scale: (rect.width() - 2.0 * pad).max(0.0) / span,
+        }
+    }
+
+    fn pixel(&self, x: f32) -> f32 {
+        self.left + (x - self.min_x) * self.scale
+    }
+}
+
+fn draw_origin(painter: &egui::Painter, x: f32, top: f32, bottom: f32) {
+    let mut y = top;
+    while y < bottom {
+        let dash = [Pos2::new(x, y), Pos2::new(x, (y + 5.0).min(bottom))];
+        // A light border keeps the black dashes readable over dark asphalt.
+        painter.line_segment(dash, Stroke::new(3.0, Color32::from_gray(200)));
+        painter.line_segment(dash, Stroke::new(1.5, Color32::BLACK));
+        y += 9.0;
+    }
+}
+
 pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: bool) {
     let (rect, _) = ui.allocate_exact_size(
         Vec2::new(ui.available_width(), if top { 170.0 } else { 100.0 }),
@@ -17,11 +52,12 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
     let positions = s.strip_positions();
     let lo = positions.first().map_or(0.0, |p| p.0);
     let hi = positions.last().map_or(1.0, |p| p.1);
-    let scale = (rect.width() - 30.0) / (hi - lo).max(1.0);
-    let x = |m: f32| rect.center().x + (m - (lo + hi) / 2.0) * scale;
+    let axis = PreviewAxis::new(rect, s.output_x(lo), s.output_x(hi));
+    let scale = axis.scale;
+    let x = |m| axis.pixel(s.output_x(m));
     // Each path's x, under the strip it is written for: the value in the `.sli`, signed.
     let font = egui::FontId::monospace(LABEL_FONT);
-    let (centers, labels) = path_labels(s, &positions, &x);
+    let (centers, labels) = path_labels(s, &positions, |m| axis.pixel(m));
     let widths: Vec<f32> = labels
         .iter()
         .map(|text| {
@@ -120,7 +156,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
             _ => None,
         };
         if let Some(dir) = direction {
-            let middle = x(RoadSpec::strip_path_center(strip, a, b));
+            let middle = axis.pixel(s.strip_path_x(strip, a, b));
             let cy = if top { (y + bottom) / 2.0 } else { y - 11.0 };
             let sign = if dir == Direction::Fwd { -1.0 } else { 1.0 };
             painter.add(egui::Shape::convex_polygon(
@@ -160,7 +196,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
         } else {
             s.standard_markings()
         };
-        for m in markings {
+        for m in markings.into_iter().filter(|_| scale > 0.0) {
             for (position, dashed) in m.lines_at() {
                 let mut y = rect.top() + 8.0;
                 while y < bottom {
@@ -179,11 +215,12 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
                     if !dashed {
                         break;
                     }
-                    y += s.dash_period(&m) * scale;
+                    y += (s.dash_period(&m) * scale).max(1.0);
                 }
             }
         }
     }
+    draw_origin(&painter, axis.pixel(0.0), rect.top() + 4.0, bottom + 4.0);
     painter.text(
         Pos2::new(rect.center().x, rect.bottom() - 9.0),
         egui::Align2::CENTER_CENTER,
@@ -220,8 +257,9 @@ fn path_labels(
     let mut labels = Vec::new();
     for (strip, &(a, b)) in s.strips.iter().zip(positions) {
         if matches!(strip, Strip::Lane { .. } | Strip::BusBay { .. }) {
-            centers.push(x(RoadSpec::strip_path_center(strip, a, b)));
-            labels.push(signed_x(s.strip_path_x(strip, a, b)));
+            let path_x = s.strip_path_x(strip, a, b);
+            centers.push(x(path_x));
+            labels.push(signed_x(path_x));
         }
     }
     (centers, labels)
@@ -356,9 +394,101 @@ mod tests {
         without.x_offset = 3.0;
         let (shifted_centers, shifted_labels) =
             path_labels(&without, &without.strip_positions(), &|m| m);
-        println!("X offset +3.000, same drawing centers {shifted_centers:?}, labels {shifted_labels:?}");
-        assert_eq!(shifted_centers, centers);
+        println!("X offset +3.000, shifted drawing centers {shifted_centers:?}, labels {shifted_labels:?}");
+        assert_eq!(shifted_centers, vec![-3.0, 0.0, 5.5]);
         assert_eq!(shifted_labels, vec!["X=-3.000", "X=+0.000", "X=+5.500"]);
+    }
+
+    /// Read the meshes, arrowheads and origin dashes actually submitted to egui.
+    fn drawn_x(spec: &RoadSpec, width: f32, top: bool) -> (f32, f32, f32, Vec<f32>) {
+        let ctx = egui::Context::default();
+        let screen = egui::Rect::from_min_size(Pos2::ZERO, Vec2::new(width, 400.0));
+        let mut textures = TexCache::default();
+        let frame = ctx.run_ui(
+            egui::RawInput { screen_rect: Some(screen), ..Default::default() },
+            |root| {
+                egui::CentralPanel::default().show(root, |ui| draw(ui, spec, &mut textures, top));
+            },
+        );
+        let mut edges = Vec::new();
+        let mut arrows = Vec::new();
+        let mut dashes = Vec::new();
+        for item in &frame.shapes {
+            match &item.shape {
+                egui::Shape::Mesh(mesh) if mesh.vertices.len() == 4 => {
+                    edges.extend(mesh.vertices.iter().map(|v| v.pos.x));
+                    assert!(mesh.vertices.iter().all(|v| item.clip_rect.contains(v.pos)));
+                }
+                egui::Shape::Path(path) if path.closed && path.points.len() == 3 => {
+                    arrows.push(path.points[0].x);
+                }
+                egui::Shape::LineSegment { points, stroke }
+                    if stroke.color == Color32::BLACK && stroke.width == 1.5 =>
+                {
+                    assert_eq!(points[0].x, points[1].x);
+                    assert!(points.iter().all(|p| item.clip_rect.contains(*p)));
+                    dashes.push((points[0].x, points[0].y, points[1].y));
+                }
+                _ => {}
+            }
+        }
+        assert!(dashes.len() > 2);
+        let origin = dashes[0].0;
+        assert!(dashes.iter().all(|dash| dash.0 == origin));
+        assert!(dashes.windows(2).all(|pair| pair[0].2 < pair[1].1));
+        let left = edges.iter().copied().reduce(f32::min).unwrap();
+        let right = edges.iter().copied().reduce(f32::max).unwrap();
+        (origin, left, right, arrows)
+    }
+
+    fn verify_drawn_and_written(spec: &RoadSpec, range: (f32, f32), paths: &[f32]) {
+        let sli = spec.sli(false);
+        let emitted = omsi_scenery::Spline::parse(&omsi_cfg::CfgFile::from_str("preview.sli", &sli));
+        let vertices = emitted.profiles.iter().flat_map(|p| &p.points);
+        let lo = vertices.clone().map(|p| p.x).reduce(f32::min).unwrap();
+        let hi = vertices.map(|p| p.x).reduce(f32::max).unwrap();
+        assert_eq!((lo, hi), range);
+        let written: Vec<_> = emitted.paths.iter().map(|p| p.start[0]).collect();
+        assert_eq!(written, paths);
+        for width in [72.0, 218.0, 540.0] {
+            let top = drawn_x(spec, width, true);
+            let side = drawn_x(spec, width, false);
+            assert_eq!(top, side);
+            let (origin, left, right, arrows) = top;
+            let scale = (right - left) / (hi - lo);
+            assert!(scale > 0.0);
+            assert!((left - (origin + scale * lo)).abs() < 0.02);
+            assert!((right - (origin + scale * hi)).abs() < 0.02);
+            assert_eq!(arrows.len(), paths.len());
+            for (&pixel, &path) in arrows.iter().zip(paths) {
+                assert!((pixel - (origin + scale * path)).abs() < 0.02);
+            }
+            println!("canvas {width:.0}: SLI [{lo:.3}, {hi:.3}] paths {paths:?}; drawn origin={origin:.2}, edges={left:.2}..{right:.2}, arrows={arrows:?} (top and side)");
+        }
+    }
+
+    #[test]
+    fn road_maker_preview_draws_the_emitted_x_in_both_views() {
+        let mut spec = RoadSpec {
+            advanced: true,
+            strips: vec![Strip::Lane {
+                dir: Direction::Fwd,
+                width: 3.5,
+                bus_only: false,
+                path_offset: 0.25,
+            }],
+            ..Default::default()
+        };
+        for offset in [0.0, 1.75, -1.75, 5.0, -5.0] {
+            spec.x_offset = offset;
+            verify_drawn_and_written(&spec, (offset - 1.75, offset + 1.75), &[offset + 0.25]);
+        }
+    }
+
+    #[test]
+    fn road_maker_preview_places_imported_wilhelm2_at_the_origin_edge() {
+        let spec = crate::road_maker::sli_import::wilhelm2_test_spec();
+        verify_drawn_and_written(&spec, (0.0, 8.9), &[1.45, 4.4, 7.4]);
     }
 
     #[test]
