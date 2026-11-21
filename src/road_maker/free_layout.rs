@@ -8,16 +8,31 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
         "File created with openMapper\n\n[friendlyname]\n{}\n\n",
         spec.name.trim()
     );
-    for (strip, (lo, hi)) in strips.iter().zip(&positions) {
-        let h = strip.height(spec.kerb);
-        let _ = write!(
-            text,
-            "[heightprofile]\n{}\n{}\n{}\n{}\n\n",
-            num(spec.output_x(*lo)),
-            num(spec.output_x(*hi)),
-            num(h),
-            num(h)
-        );
+    if spec.source_height_profile.is_empty() {
+        for (strip, (lo, hi)) in strips.iter().zip(&positions) {
+            let h = strip.height(spec.kerb);
+            let _ = write!(
+                text,
+                "[heightprofile]\n{}\n{}\n{}\n{}\n\n",
+                num(spec.output_x(*lo)),
+                num(spec.output_x(*hi)),
+                num(h),
+                num(h)
+            );
+        }
+    } else {
+        // The imported spline's own collision heights, which may differ from the visible
+        // surface: an asphalt shoulder can lie under a raised kerb.
+        for span in collision_profile(spec, strips, &positions) {
+            let _ = write!(
+                text,
+                "[heightprofile]\n{}\n{}\n{}\n{}\n\n",
+                num(spec.output_x(span.x0)),
+                num(spec.output_x(span.x1)),
+                num(span.z),
+                num(span.z)
+            );
+        }
     }
     let mut textures = vec![spec.roadway_tex_name()];
     let mut texture_index = |path: &Path| -> usize {
@@ -169,4 +184,54 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
         );
     }
     text
+}
+
+/// The collision heights of an imported road.
+///
+/// The imported spline keeps its own `[heightprofile]`, which may differ from the visible
+/// surface: the asphalt shoulder of `2spur_11m_altonaer_d.sli` lies under a 0.250 m kerb.
+/// The source's heights are kept where they cover the cross section; a strip that has been
+/// raised above them keeps its own height.
+fn collision_profile(spec: &RoadSpec, strips: &[Strip], positions: &[(f32, f32)]) -> Vec<HeightSpan> {
+    let bounds: Vec<(f32, f32)> = strips.iter().zip(positions).map(|(_, (a, b))| (*a, *b)).collect();
+    if bounds.is_empty() {
+        return Vec::new();
+    }
+    let lo = bounds.iter().map(|(a, _)| *a).fold(f32::INFINITY, f32::min);
+    let hi = bounds.iter().map(|(_, b)| *b).fold(f32::NEG_INFINITY, f32::max);
+    let source: Vec<HeightSpan> = spec
+        .source_height_profile
+        .iter()
+        .map(|s| HeightSpan { x0: s.x0.max(lo), x1: s.x1.min(hi), z: s.z })
+        .filter(|s| s.x1 > s.x0)
+        .collect();
+    let mut borders: Vec<f32> = bounds.iter().flat_map(|(a, b)| [*a, *b]).collect();
+    borders.extend(source.iter().flat_map(|s| [s.x0, s.x1]));
+    borders.sort_by(|a, b| a.total_cmp(b));
+    borders.dedup_by(|a, b| (*a - *b).abs() <= 1e-4);
+    let mut out: Vec<HeightSpan> = Vec::new();
+    for pair in borders.windows(2) {
+        let (a, b) = (pair[0], pair[1]);
+        if b - a <= 1e-4 {
+            continue;
+        }
+        let mid = (a + b) / 2.0;
+        let strip_height = strips
+            .iter()
+            .zip(&bounds)
+            .find(|(_, (s0, s1))| mid > *s0 && mid < *s1)
+            .map(|(s, _)| s.height(spec.kerb));
+        let source_height = source.iter().find(|s| mid > s.x0 && mid < s.x1).map(|s| s.z);
+        let z = match (strip_height, source_height) {
+            (Some(h), Some(src)) => h.max(src),
+            (Some(h), None) => h,
+            (None, Some(src)) => src,
+            (None, None) => continue,
+        };
+        match out.last_mut() {
+            Some(last) if (last.z - z).abs() <= 1e-4 && (last.x1 - a).abs() <= 1e-4 => last.x1 = b,
+            _ => out.push(HeightSpan { x0: a, x1: b, z }),
+        }
+    }
+    out
 }

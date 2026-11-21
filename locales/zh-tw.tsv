@@ -3389,3 +3389,4 @@ A vehicle path has no matching flat road surface	有車輛路徑找不到對應�
 The road surface has a gap without cross-section data	路面有缺口，且缺少橫剖面資料
 The central divider cannot be represented by an existing strip	中央分隔帶無法用現有積木表示
 The default roadway texture str_asphdrk.bmp was not found; choose a roadway texture from the list	找不到預設行車道貼圖 str_asphdrk.bmp；請從清單中選擇行車道貼圖
+The imported height profile is not usable	匯入的高度剖面無法使用

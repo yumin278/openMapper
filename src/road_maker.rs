@@ -233,6 +233,14 @@ pub fn arrow_polygon(at: (f32, f32), back: bool) -> Vec<(f32, f32)> {
     [(-0.15, -1.5), (0.15, -1.5), (0.15, 0.3), (0.55, 0.3), (0.0, 1.5), (-0.55, 0.3), (-0.15, 0.3)].iter().map(|&(x, y)| (at.0 + x, at.1 + s * y)).collect()
 }
 
+/// One collision height range of an imported road, in the cross section's own coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct HeightSpan {
+    pub x0: f32,
+    pub x1: f32,
+    pub z: f32,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoadSpec {
@@ -245,6 +253,10 @@ pub struct RoadSpec {
     /// Source SLI's coordinate of the centre of the imported cross section.
     #[serde(skip_serializing_if = "zero_offset")]
     pub source_x_origin: f32,
+    /// The imported spline's own collision heights, in cross section coordinates. They may
+    /// differ from the visible surface: an asphalt shoulder can lie under a raised kerb.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub source_height_profile: Vec<HeightSpan>,
     /// Canonical cross section, in physical left-to-right order.
     pub strips: Vec<Strip>,
     /// Derived at export; never trusted from an edited sidecar.
@@ -291,7 +303,7 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { imported_sli: false, x_offset: 0.0, source_x_origin: 0.0, bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { imported_sli: false, x_offset: 0.0, source_x_origin: 0.0, source_height_profile: Vec::new(), bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
 
@@ -465,6 +477,11 @@ impl RoadSpec {
         }
         if !self.source_x_origin.is_finite() {
             return Err(sli_import::invalid_paths().into());
+        }
+        for span in &self.source_height_profile {
+            if !span.x0.is_finite() || !span.x1.is_finite() || !span.z.is_finite() || span.x1 <= span.x0 {
+                return Err(crate::i18n::tr("The imported height profile is not usable", "Импортированный профиль высот непригоден").into());
+            }
         }
         if crate::pocket::is_bay_spline(&self.file_stem()) {
             return Err(crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)").into());
@@ -656,7 +673,7 @@ impl RoadSpec {
     }
 
     /// Translate only emitted coordinates, after computing widths and UVs.
-    fn output_x(&self, layout_x: f32) -> f32 {
+    pub(crate) fn output_x(&self, layout_x: f32) -> f32 {
         let source_x = if self.source_x_origin == 0.0 { layout_x } else { layout_x + self.source_x_origin };
         if self.x_offset == 0.0 { source_x } else { source_x + self.x_offset }
     }

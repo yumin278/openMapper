@@ -5,7 +5,7 @@ use std::io::Write;
 use anyhow::{Context, Result, ensure};
 use omsi_scenery::Spline;
 
-use super::{Direction, RoadSpec, Strip};
+use super::{Direction, HeightSpan, RoadSpec, Strip};
 use crate::i18n::tr;
 use crate::install::Roots;
 use std::path::{Path, PathBuf};
@@ -31,6 +31,32 @@ fn merged_spans(spans: impl Iterator<Item = Span>) -> Vec<Span> {
             end.1 = end.1.max(hi);
         } else {
             merged.push((lo, hi));
+        }
+    }
+    merged
+}
+
+/// The spline's own collision heights over the given range, merged where they agree.
+fn source_height_spans(spline: &Spline, lo: f32, hi: f32) -> Vec<HeightSpan> {
+    let mut spans: Vec<HeightSpan> = spline
+        .height_profiles
+        .iter()
+        .filter(|p| p.z0.is_finite() && p.z1.is_finite() && (p.z0 - p.z1).abs() <= EPS)
+        .map(|p| HeightSpan {
+            x0: p.x0.min(p.x1).max(lo),
+            x1: p.x0.max(p.x1).min(hi),
+            z: p.z0,
+        })
+        .filter(|s| s.x1 > s.x0 && s.z >= super::ROAD_H - EPS)
+        .collect();
+    spans.sort_by(|a, b| a.x0.total_cmp(&b.x0));
+    let mut merged: Vec<HeightSpan> = Vec::new();
+    for span in spans {
+        match merged.last_mut() {
+            Some(last) if (last.z - span.z).abs() <= EPS && span.x0 <= last.x1 + EPS => {
+                last.x1 = last.x1.max(span.x1);
+            }
+            _ => merged.push(span),
         }
     }
     merged
@@ -142,19 +168,28 @@ fn infer(spline: &Spline, name: String, map_left_hand: bool) -> Result<RoadSpec>
             .filter(move |p| (p.z0 - at).abs() <= EPS && (p.z1 - at).abs() <= EPS)
             .map(|p| (p.x0.min(p.x1), p.x0.max(p.x1))))
     };
-    // Geometry is independent of texture indices. Intersect render profiles
-    // with collision profiles so neither can invent a strip on its own.
+    // Geometry is independent of texture indices. The render profile is the visible
+    // surface, so it decides where the road is; the height profile only says how
+    // high the road is. An asphalt shoulder may reach past the flat height profile,
+    // so the visible surface alone gives the carriageway's extent.
     let surface_spans = |at: f32| {
         merged_spans(spline.profiles.iter().flat_map(|p| p.points.windows(2))
             .filter(move |p| (p[0].z - at).abs() <= EPS && (p[1].z - at).abs() <= EPS)
             .map(|p| (p[0].x.min(p[1].x), p[0].x.max(p[1].x))))
     };
-    let surfaces = surface_spans(super::ROAD_H);
-    let carriageways: Vec<_> = height_spans(super::ROAD_H)
+    let surfaces: Vec<_> = surface_spans(super::ROAD_H)
         .into_iter()
-        .flat_map(|(lo, hi)| surfaces.iter().map(move |&(a, b)| (lo.max(a), hi.min(b))))
         .filter(|&(lo, hi)| hi > lo)
         .collect();
+    let carriageways: Vec<_> = if surfaces.is_empty() {
+        // No render profile at all: the flat height profile is all we know.
+        height_spans(super::ROAD_H)
+            .into_iter()
+            .filter(|&(lo, hi)| hi > lo)
+            .collect()
+    } else {
+        surfaces
+    };
     let assigned = paths
         .iter()
         .map(|p| {
@@ -250,9 +285,22 @@ fn infer(spline: &Spline, name: String, map_left_hand: bool) -> Result<RoadSpec>
         "{}",
         invalid_paths()
     );
+    let source_x_origin = (left_edge + previous_end) / 2.0;
+    // The spline's own collision heights over the imported extent, in the spline's
+    // coordinates. They may differ from the visible surface: an asphalt shoulder can
+    // lie under a raised kerb, and that difference is worth keeping.
+    let source_height_profile: Vec<HeightSpan> = source_height_spans(spline, left_edge, previous_end)
+        .into_iter()
+        .map(|span| HeightSpan {
+            x0: span.x0 - source_x_origin,
+            x1: span.x1 - source_x_origin,
+            z: span.z,
+        })
+        .collect();
     let spec = RoadSpec {
         imported_sli: true,
-        source_x_origin: (left_edge + previous_end) / 2.0,
+        source_x_origin,
+        source_height_profile,
         advanced: true,
         left_hand: Some(left_hand),
         name,
@@ -261,6 +309,13 @@ fn infer(spline: &Spline, name: String, map_left_hand: bool) -> Result<RoadSpec>
     };
     spec.validate().map_err(anyhow::Error::msg)?;
     Ok(spec)
+}
+
+#[cfg(test)]
+pub(crate) fn wilhelm2_test_spec() -> RoadSpec {
+    let text = include_str!("../../tests/fixtures/sli-marcel/Hstr_6spur_Wilhelm2.sli");
+    let spline = Spline::parse(&omsi_cfg::CfgFile::from_str("Wilhelm2.sli", text));
+    infer(&spline, "Wilhelm2".into(), false).unwrap()
 }
 
 #[cfg(test)]

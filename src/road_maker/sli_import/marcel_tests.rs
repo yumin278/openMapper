@@ -499,3 +499,236 @@ fn zeppelin1_finds_its_plain_asphalt_texture_by_name() {
     assert!(json.is_file());
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+/// A Hong Kong street whose visible asphalt is wider than its flat height profile.
+///
+/// The roadway is drawn from x = -5.500 to x = +5.500 at 0.100 m, while the height
+/// profile only says 0.100 m between -4.000 and +4.000: the outer 1.500 m of asphalt
+/// lies under a 0.250 m kerb. The import must keep the visible 11.000 m of pavement
+/// and the source's own height profile, not crop the pavement at the height profile.
+const ALTONAER: Stock = Stock {
+    name: "2spur_11m_altonaer_d",
+    rel: "Splines/3dtranstudio/hkstreet/2spur_11m_altonaer_d.sli",
+    text: include_str!("../../../tests/fixtures/sli-marcel/2spur_11m_altonaer_d.sli"),
+    map_left_hand: true,
+    source_x_origin: 0.0,
+    pavement: (-5.5, 5.5),
+    lanes: &[(-2.0, 0), (2.0, 1)],
+    strips: &[(Direction::Fwd, 3.25), (Direction::Back, 3.25)],
+};
+
+/// The asphalt the game draws: the render profile at the roadway's height.
+fn visible_asphalt(spline: &Spline) -> (f32, f32) {
+    let mut lo = f32::INFINITY;
+    let mut hi = f32::NEG_INFINITY;
+    for profile in &spline.profiles {
+        for pair in profile.points.windows(2) {
+            if (pair[0].z - ROAD_H).abs() <= 1e-3 && (pair[1].z - ROAD_H).abs() <= 1e-3 {
+                lo = lo.min(pair[0].x).min(pair[1].x);
+                hi = hi.max(pair[0].x).max(pair[1].x);
+            }
+        }
+    }
+    (lo, hi)
+}
+
+/// The collision heights, as `(x0, x1, z)`.
+fn height_bands(spline: &Spline) -> Vec<(f32, f32, f32)> {
+    spline
+        .height_profiles
+        .iter()
+        .map(|h| (h.x0.min(h.x1), h.x0.max(h.x1), h.z0))
+        .collect()
+}
+
+fn close(a: f32, b: f32) -> bool {
+    (a - b).abs() <= 0.001
+}
+
+/// Every render-profile segment the game draws at the roadway's height, left to right.
+fn paved_segments(spline: &Spline) -> Vec<(f32, f32)> {
+    let mut segments: Vec<(f32, f32)> = spline
+        .profiles
+        .iter()
+        .flat_map(|profile| profile.points.windows(2))
+        .filter(|pair| (pair[0].z - ROAD_H).abs() <= 1e-3 && (pair[1].z - ROAD_H).abs() <= 1e-3)
+        .map(|pair| (pair[0].x.min(pair[1].x), pair[0].x.max(pair[1].x)))
+        .filter(|(lo, hi)| hi - lo > 1e-3)
+        .collect();
+    segments.sort_by(|a, b| a.0.total_cmp(&b.0));
+    segments
+}
+
+/// The pavement is one continuous surface: each paved segment meets the next, so neither a
+/// gap nor an unpaved stretch is left between two strips, and the paved run covers exactly
+/// the width the stock spline draws.
+fn check_continuous_paving(stock: &Stock, out: &Spline) {
+    let segments = paved_segments(out);
+    assert!(
+        !segments.is_empty(),
+        "{}: the import draws no pavement at the roadway's height",
+        stock.name
+    );
+    println!(
+        "{} paved segments at z={ROAD_H:.3}: {segments:?}",
+        stock.name
+    );
+    for pair in segments.windows(2) {
+        assert!(
+            pair[1].0 <= pair[0].1 + 1e-3,
+            "{}: paved segment {:.3}..{:.3} leaves a gap before {:.3}..{:.3}",
+            stock.name,
+            pair[0].0,
+            pair[0].1,
+            pair[1].0,
+            pair[1].1
+        );
+    }
+    let lo = segments.first().unwrap().0;
+    let hi = segments.last().unwrap().1;
+    assert!(
+        close(lo, stock.pavement.0) && close(hi, stock.pavement.1),
+        "{}: the paved run is {lo:.3}..{hi:.3}, the stock spline {:.3}..{:.3}",
+        stock.name,
+        stock.pavement.0,
+        stock.pavement.1
+    );
+}
+
+/// Every AI street path, source and imported, runs at the roadway's height.
+fn check_vehicle_path_z(stock: &Stock, source: &Spline, out: &Spline) {
+    for (which, spline) in [("source", source), ("imported", out)] {
+        let heights: Vec<f32> = spline
+            .paths
+            .iter()
+            .filter(|p| p.kind == 0)
+            .map(|p| p.start[2])
+            .collect();
+        assert_eq!(
+            heights.len(),
+            stock.lanes.len(),
+            "{}: {which} has {} vehicle paths",
+            stock.name,
+            heights.len()
+        );
+        for (i, z) in heights.iter().enumerate() {
+            assert!(
+                close(*z, ROAD_H),
+                "{}: {which} vehicle path {i} sits at z={z:.3}, the roadway at {ROAD_H:.3}",
+                stock.name
+            );
+        }
+    }
+}
+
+#[test]
+fn altonaer_import_keeps_the_visible_pavement_and_the_source_height_profile() {
+    let stock = &ALTONAER;
+    let (roots, source, dir) = install(stock, "altonaer", &["str_asphdrk.bmp"]);
+    let loaded = Spline::parse(&CfgFile::from_str(Path::new("altonaer.sli"), stock.text));
+
+    println!("== {} ==", stock.name);
+    println!("source SLI keyword blocks:\n{}", stock.text);
+    println!("source [heightprofile]s: {:?}", height_bands(&loaded));
+    println!("source visible asphalt: {:?}", visible_asphalt(&loaded));
+    println!(
+        "source [path]s: {:?}",
+        loaded
+            .paths
+            .iter()
+            .map(|p| (p.kind, p.start[0], p.start[2], p.width, p.direction))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        close(visible_asphalt(&loaded).0, -5.5) && close(visible_asphalt(&loaded).1, 5.5),
+        "the fixture's visible asphalt moved: {:?}",
+        visible_asphalt(&loaded)
+    );
+    assert_eq!(
+        height_bands(&loaded),
+        vec![(-7.0, -4.0, 0.25), (-4.0, 4.0, 0.1), (4.0, 7.0, 0.25)],
+        "the fixture's height profile drifted"
+    );
+
+    let json = create(&roots, stock.rel, stock.name.to_string(), stock.map_left_hand)
+        .unwrap_or_else(|error| panic!("{}: the stock spline must import: {error:#}", stock.name));
+    let spec = RoadSpec::of_with_traffic(&source, stock.map_left_hand)
+        .unwrap_or_else(|| panic!("{}: the sidecar must reopen", stock.name));
+
+    println!("inferred strips: {:#?}", spec.strips);
+    println!(
+        "source_x_origin: {}, x_offset: {}",
+        spec.source_x_origin, spec.x_offset
+    );
+    let positions = spec.strip_positions();
+    for (i, (strip, (lo, hi))) in spec.strips.iter().zip(&positions).enumerate() {
+        println!(
+            "  strip {i}: [{lo:.3}, {hi:.3}] width {:.3} height {:.3} {strip:?}",
+            strip.width(),
+            strip.height(spec.kerb)
+        );
+    }
+    println!("JSON:\n{}", std::fs::read_to_string(&json).unwrap());
+    println!("emitted SLI:\n{}", spec.sli(stock.map_left_hand));
+
+    let out = emitted(stock, &spec);
+    println!("emitted [heightprofile]s: {:?}", height_bands(&out));
+    println!("emitted visible asphalt: {:?}", visible_asphalt(&out));
+
+    // The pavement the game draws is the whole 11.000 m, not the 8.000 m that the
+    // flat height profile alone would give.
+    let (lo, hi) = visible_asphalt(&out);
+    assert!(
+        close(lo, -5.5) && close(hi, 5.5),
+        "the imported pavement is {lo:.3}..{hi:.3}, the stock spline -5.500..5.500"
+    );
+    assert!(
+        close(hi - lo, 11.0),
+        "the imported asphalt is {:.3} m wide, the stock spline 11.000 m",
+        hi - lo
+    );
+    assert!(
+        close(spec.roadway_width(), 11.0),
+        "the imported roadway is {:.3} m wide, the stock spline 11.000 m",
+        spec.roadway_width()
+    );
+
+    // The source's own height profile is kept: the outer 1.500 m of asphalt still
+    // lies under the 0.250 m kerb.
+    assert_eq!(
+        height_bands(&out),
+        vec![(-5.5, -4.0, 0.25), (-4.0, 4.0, 0.1), (4.0, 5.5, 0.25)],
+        "the height profile must not be flattened to one level"
+    );
+
+    check_paths(stock, &loaded, &out);
+    check_continuous_paving(stock, &out);
+    check_vehicle_path_z(stock, &loaded, &out);
+    check_strips(stock, &spec);
+    assert!(
+        close(spec.source_x_origin, 0.0),
+        "the source origin moved to {}",
+        spec.source_x_origin
+    );
+    assert_eq!(
+        std::fs::read(&source).unwrap(),
+        stock.text.as_bytes(),
+        "{}: the source must not be rewritten",
+        stock.name
+    );
+    check_source_after_save_as(stock, &roots, &source, &json, &spec);
+
+    // A second import may not overwrite the sidecar the first one wrote.
+    assert!(
+        create(
+            &roots,
+            stock.rel,
+            stock.name.to_string(),
+            stock.map_left_hand
+        )
+        .is_err(),
+        "{}: an existing sidecar must not be overwritten",
+        stock.name
+    );
+    std::fs::remove_dir_all(dir).unwrap();
+}
