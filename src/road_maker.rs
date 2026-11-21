@@ -23,6 +23,8 @@ pub(crate) mod sli_import;
 mod filename;
 #[cfg(test)]
 mod x_offset_tests;
+#[cfg(test)]
+mod texture_tests;
 pub use filename::MakerTarget;
 pub mod bus_rules;
 pub use strips::{Direction, Strip};
@@ -61,6 +63,38 @@ pub const YELLOW: [u8; 3] = [232, 190, 60];
 
 /// The road surface's height (m); strips stand at or above it.
 pub const ROAD_H: f32 = 0.10;
+
+/// The stock plain asphalt every new road starts with (found in the installation or the
+/// content folder). Nothing here paints its own lane lines, so markings the maker paints
+/// stay the only ones.
+pub const DEFAULT_ROADWAY_TEX: &str = "str_asphdrk.bmp";
+
+/// Whether `path`'s file name is exactly `name`, ignoring case only.
+fn named(path: &Path, name: &str) -> bool {
+    path.file_name().is_some_and(|file| file.to_string_lossy().eq_ignore_ascii_case(name))
+}
+
+/// The first picture in `textures` named exactly `name` (case-insensitive).
+pub fn find_named_texture(textures: &[PathBuf], name: &str) -> Option<PathBuf> {
+    textures.iter().find(|path| named(path, name)).cloned()
+}
+
+/// The first file named exactly `name` (case-insensitive) in one of `dirs`, in their order.
+pub(crate) fn find_named_texture_in_dirs(name: &str, dirs: &[PathBuf]) -> Option<PathBuf> {
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && named(&path, name) { return Some(path); }
+        }
+    }
+    None
+}
+
+/// The stock asphalt among the pictures the maker offers, if there is one.
+pub fn default_roadway_texture(textures: &[PathBuf]) -> Option<PathBuf> {
+    find_named_texture(textures, DEFAULT_ROADWAY_TEX)
+}
 
 impl Default for Marking {
     fn default() -> Self {
@@ -268,8 +302,15 @@ fn num(v: f32) -> String {
 /// A ready-made start for the road maker: (name, what it is made of).
 pub fn presets() -> Vec<(&'static str, RoadSpec)> {
     use crate::i18n::tr;
-    let base = RoadSpec::default();
+    let base = RoadSpec { roadway_tex: tex.map(Path::to_path_buf).unwrap_or_default(), ..Default::default() };
     vec![
+    presets_with_roadway_texture(None)
+}
+
+/// The presets, each with `tex` as its roadway picture when one is offered. Every preset
+/// starts with the stock asphalt; a road that already has a picture keeps it when a preset
+/// is chosen in the maker.
+pub fn presets_with_roadway_texture(tex: Option<&Path>) -> Vec<(&'static str, RoadSpec)> {
         (tr("Quiet street", "Тихая улица"), RoadSpec { lane_width: 3.0, footway: 2.0, ..base.clone() }),
         (tr("Street with a footway on one side", "Улица с тротуаром с одной стороны"), RoadSpec { lane_width: 3.0, footway: 0.0, footway_right: Some(2.0), ..base.clone() }),
         (tr("Main road", "Главная дорога"), RoadSpec { lanes_fwd: 2, lanes_back: 2, lane_width: 3.25, footway: 3.0, ..base.clone() }),
@@ -450,6 +491,17 @@ impl RoadSpec {
     pub fn footway_left(&self) -> f32 {
         match self.effective_strips().first() { Some(Strip::Footway { width, .. }) => *width, _ => 0.0 }
     }
+    /// Give a road that has no roadway picture the stock asphalt among `textures`. A picture
+    /// already chosen (an existing `.road.json`, a preset, the user's own) is never replaced.
+    /// Returns whether the road now names a roadway picture.
+    pub fn use_default_roadway_texture(&mut self, textures: &[PathBuf]) -> bool {
+        if !self.roadway_tex.as_os_str().is_empty() { return true; }
+        let Some(found) = default_roadway_texture(textures) else { return false; };
+        log::info!("road maker: default roadway texture {}", found.display());
+        self.roadway_tex = found;
+        true
+    }
+
 
     pub fn footway_right(&self) -> f32 {
         match self.effective_strips().last() { Some(Strip::Footway { width, .. }) => *width, _ => 0.0 }

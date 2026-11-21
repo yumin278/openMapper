@@ -31,18 +31,22 @@ pub(crate) fn create(
         )
     );
     let spline = Spline::load(&source)?;
-    let (mut spec, texture) = infer(&spline, name, map_left_hand)?;
-    let dirs = crate::assets::texture_dirs(
-        &roots.omsi,
-        &roots.content,
-        source.parent().unwrap_or(Path::new(".")),
-    );
-    let dirs: Vec<&Path> = dirs.iter().map(PathBuf::as_path).collect();
-    spec.roadway_tex =
-        omsi_texture::find_texture(&spline.textures[texture].file, &dirs).context(tr(
-            "The roadway texture is missing",
-            "Нет текстуры проезжей части",
-        ))?;
+    let (mut spec, _texture) = infer(&spline, name, map_left_hand)?;
+    // Every road the maker writes starts on the stock plain asphalt; without it the maker
+    // warns and the user chooses a roadway picture by hand.
+    match stock_roadway_texture(&source, roots) {
+        Some(found) => {
+            log::info!(
+                "road maker: imported road uses the default roadway texture {}",
+                found.display()
+            );
+            spec.roadway_tex = found;
+        }
+        None => log::warn!(
+            "road maker: {} is missing from the texture folders; the roadway texture must be chosen by hand",
+            super::DEFAULT_ROADWAY_TEX
+        ),
+    }
     let mut json = serde_json::to_value(&spec)?;
     for field in RoadSpec::LEGACY_FIELDS {
         json.as_object_mut().unwrap().remove(field);

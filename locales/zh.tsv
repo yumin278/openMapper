@@ -3381,3 +3381,4 @@ The source must be a local SLI file	源文件必须是本地 SLI 文件
 Only flat roads with one continuous carriageway can be imported	仅支持导入车行路面平坦且连续的道路
 Overall X offset	整体 X 偏移
 The X offset must be finite	X 偏移必须是有限数值
+The default roadway texture str_asphdrk.bmp was not found; choose a roadway texture from the list	找不到默认路面纹理 str_asphdrk.bmp；请从列表中选择路面纹理
