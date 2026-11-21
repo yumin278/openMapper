@@ -163,7 +163,7 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
         let _ = write!(
             text,
             "[path]\n{kind}\n{}\n{}\n{}\n{direction}\n\n",
-            num((lo + hi) / 2.0),
+            num(spec.path_x(*lo, *hi)),
             num(strip.height(spec.kerb)),
             num(strip.width() * scale)
         );

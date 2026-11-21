@@ -343,6 +343,11 @@ impl RoadSpec {
             .filter(|s| s.has_ai_path())
             .enumerate()
             .filter_map(|(i, s)| matches!(s, Strip::Lane { bus_only: true, .. }).then_some(i))
+    /// The x the `.sli` gets for the AI path of the strip between `lo` and `hi`, in metres from
+    /// the centre line (positive to the right). Both writers and the preview use this one
+    /// calculation.
+    pub fn path_x(&self, lo: f32, hi: f32) -> f32 { (lo + hi) / 2.0 }
+
             .collect()
     }
 
@@ -679,7 +684,7 @@ impl RoadSpec {
                 Strip::Median { .. } => continue,
             };
             let _ = write!(s, "[path]\n{kind}\n{}\n{}\n{}\n{direction}\n\n",
-                num((lo + hi) / 2.0), num(strip.height(self.kerb)), num(strip.width() * scale));
+                num(self.path_x(lo, hi)), num(strip.height(self.kerb)), num(strip.width() * scale));
         }
         s
     }
