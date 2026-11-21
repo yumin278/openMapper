@@ -123,7 +123,7 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
                 } else if matches!(next, Strip::Footway { .. }) {
                     footway_has_texture(i + 1)
                 } else {
-                    !spec.footway_tex.as_os_str().is_empty()
+                    spec.imported_sli || !spec.footway_tex.as_os_str().is_empty()
                 };
                 if available {
                     profile(&mut text, index, (*hi, h, u0, 0.2), (*hi, next_h, u1, 0.2));
@@ -163,7 +163,7 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
         let _ = write!(
             text,
             "[path]\n{kind}\n{}\n{}\n{}\n{direction}\n\n",
-            num(spec.path_x(*lo, *hi)),
+            num(spec.strip_path_x(strip, *lo, *hi)),
             num(strip.height(spec.kerb)),
             num(strip.width() * scale)
         );

@@ -4,7 +4,7 @@ fn drawn_junctions_place_rules_on_the_baked_bus_routes() {
     use crate::road_maker::{Direction, RoadSpec, Strip};
     let (mut assets, dir, plain, _) = pocket_fixture("drawn-bus");
     let content = dir.join("content");
-    let lane = |dir, bus_only| Strip::Lane { dir, width: 3.5, bus_only };
+    let lane = |dir, bus_only| Strip::Lane { dir, width: 3.5, bus_only, path_offset: 0.0 };
     let road = RoadSpec {
         name: "Bus".into(), left_hand: Some(false),
         roadway_tex: dir.join("asph.png"), footway_tex: dir.join("side.png"),

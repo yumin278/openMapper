@@ -120,7 +120,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
             _ => None,
         };
         if let Some(dir) = direction {
-            let middle = x((a + b) / 2.0);
+            let middle = x(RoadSpec::strip_path_center(strip, a, b));
             let cy = if top { (y + bottom) / 2.0 } else { y - 11.0 };
             let sign = if dir == Direction::Fwd { -1.0 } else { 1.0 };
             painter.add(egui::Shape::convex_polygon(
@@ -210,8 +210,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
     }
 }
 
-/// The x of every path drawn with an arrow (each Lane and BusBay), centred on its strip as the
-/// writer centres it, and the label the preview shows for it.
+/// The on-screen position and emitted X label for each Lane or BusBay arrow.
 fn path_labels(
     s: &RoadSpec,
     positions: &[(f32, f32)],
@@ -221,8 +220,8 @@ fn path_labels(
     let mut labels = Vec::new();
     for (strip, &(a, b)) in s.strips.iter().zip(positions) {
         if matches!(strip, Strip::Lane { .. } | Strip::BusBay { .. }) {
-            centers.push(x((a + b) / 2.0));
-            labels.push(signed_x(s.path_x(a, b)));
+            centers.push(x(RoadSpec::strip_path_center(strip, a, b)));
+            labels.push(signed_x(s.strip_path_x(strip, a, b)));
         }
     }
     (centers, labels)
@@ -312,6 +311,7 @@ mod tests {
                     dir: Direction::Back,
                     width: 3.0,
                     bus_only: false,
+                    path_offset: 0.0,
                 },
                 Strip::Median {
                     width: 2.0,
@@ -323,6 +323,7 @@ mod tests {
                     dir: Direction::Fwd,
                     width: 4.0,
                     bus_only: false,
+                    path_offset: 0.0,
                 },
                 foot(true),
             ],

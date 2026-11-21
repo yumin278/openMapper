@@ -83,6 +83,7 @@ fn raised_spec(name: &str, left_path: bool, median_height: Option<f32>) -> RoadS
                 dir: Direction::Back,
                 width: 3.0,
                 bus_only: false,
+                path_offset: 0.0,
             },
             Strip::Median {
                 width: 2.0,
@@ -94,6 +95,7 @@ fn raised_spec(name: &str, left_path: bool, median_height: Option<f32>) -> RoadS
                 dir: Direction::Fwd,
                 width: 3.0,
                 bus_only: false,
+                path_offset: 0.0,
             },
             Strip::Footway {
                 width: 2.0,
@@ -129,6 +131,7 @@ fn footway_without_an_ai_path_omits_its_path_and_renumbers_bus_and_bay_paths() {
                 dir: Direction::Back,
                 width: 3.0,
                 bus_only: true,
+                path_offset: 0.0,
             },
             Strip::Median {
                 width: 2.0,
@@ -140,11 +143,13 @@ fn footway_without_an_ai_path_omits_its_path_and_renumbers_bus_and_bay_paths() {
                 dir: Direction::Fwd,
                 width: 4.0,
                 bus_only: false,
+                path_offset: 0.0,
             },
             Strip::Lane {
                 dir: Direction::Fwd,
                 width: 3.5,
                 bus_only: true,
+                path_offset: 0.0,
             },
             Strip::BusBay { width: 2.5 },
             foot(true),
@@ -271,11 +276,13 @@ fn a_strip_below_the_roadway_is_refused_and_a_level_footway_warns() {
             dir: Direction::Back,
             width: 3.0,
             bus_only: false,
+            path_offset: 0.0,
         },
         Strip::Lane {
             dir: Direction::Fwd,
             width: 3.0,
             bus_only: false,
+            path_offset: 0.0,
         },
     ];
 
@@ -578,7 +585,7 @@ fn road_maker_writers_take_every_path_x_from_the_shared_calculation() {
             .iter()
             .zip(spec.strip_positions())
             .filter(|(strip, _)| strip.has_ai_path())
-            .map(|(_, (lo, hi))| format!("{:.3}", spec.path_x(lo, hi)))
+            .map(|(strip, (lo, hi))| format!("{:.3}", spec.strip_path_x(strip, lo, hi)))
             .collect();
         let written = path_x_lines(&spec.sli(false));
         assert_eq!(written.len(), expected.len(), "{}", spec.name);

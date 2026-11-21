@@ -3384,4 +3384,8 @@ The source must be a local SLI file	來源必須是本機 SLI 檔案
 Only flat roads with one continuous carriageway can be imported	只可匯入車行鋪面平坦且連續的道路
 Overall X offset	整體 X 偏移
 The X offset must be finite	X 偏移必須是有限數值
+The vehicle path data or directions cannot be represented	無法表示車輛路徑資料或方向
+A vehicle path has no matching flat road surface	有車輛路徑找不到對應的平坦路面
+The road surface has a gap without cross-section data	路面有缺口，且缺少橫剖面資料
+The central divider cannot be represented by an existing strip	中央分隔帶無法用現有積木表示
 The default roadway texture str_asphdrk.bmp was not found; choose a roadway texture from the list	找不到預設行車道貼圖 str_asphdrk.bmp；請從清單中選擇行車道貼圖

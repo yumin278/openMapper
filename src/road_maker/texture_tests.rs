@@ -150,6 +150,28 @@ fn the_stock_asphalt_is_found_in_another_installed_spline_folder_or_the_root_tex
 }
 
 #[test]
+fn an_imported_road_takes_the_stock_asphalt_from_its_own_or_another_splines_folder() {
+    use crate::install::Roots;
+    let dir = temp("import-search");
+    let roots = Roots { omsi: dir.join("omsi"), content: dir.join("content") };
+    let source = roots.content.join("Splines").join("Map").join("my road.sli");
+    touch(&source);
+    // (the map's own copy, beside the source, wins)
+    let own = roots.content.join("Splines").join("Map").join("texture").join("STR_AsphDrk.BMP");
+    touch(&own);
+    let marcel = roots.content.join("Splines").join("Marcel").join("texture").join("str_asphdrk.bmp");
+    touch(&marcel);
+    assert_eq!(super::sli_import::stock_roadway_texture(&source, &roots), Some(own.clone()));
+    std::fs::remove_file(&own).unwrap();
+    assert_eq!(super::sli_import::stock_roadway_texture(&source, &roots), Some(marcel.clone()));
+    std::fs::remove_file(&marcel).unwrap();
+    // A similar name is not the stock asphalt, and neither is a missing one.
+    touch(&roots.content.join("Splines").join("Marcel").join("texture").join("str_asphdrk_2line.bmp"));
+    assert_eq!(super::sli_import::stock_roadway_texture(&source, &roots), None);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
 fn the_default_is_found_in_the_texture_folders_ignoring_case_only() {
     let dir = temp("dirs");
     let installed = dir.join("Texture");

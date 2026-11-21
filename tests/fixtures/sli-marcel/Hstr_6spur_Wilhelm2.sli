@@ -1,0 +1,148 @@
+; ---------------------------------------------------------------------------
+; Fixture for openMapper's Road Maker SLI import regression tests.
+;
+; Source: OMSI 2, Splines\Marcel\Hstr_6spur_Wilhelm2.sli, as published at
+;   https://github.com/smrtosg/Hillgrove-Woodlands-Town/blob/main/OMSI%202/Splines/Marcel/Hstr_6spur_Wilhelm2.sli
+;   Git blob SHA-1 5e012d2af0d8991247f59e1b1f35a49c39d8d97c, 1395 bytes, SHA-256 3326e11cfa5e513e7f5efe42b50f4262020363440f3d1b892f90763171b447a5.
+; The local OMSI 2 installation has the same keyword blocks in
+;   Splines\Marcel\Hstr_6spur_Wilhelm2.sli (1586 bytes, dated 2015-03-14); only the
+;   comments and the CR LF line endings differ.
+;
+; Kept: every keyword block ([length], [halfcantwidth], [heightprofile],
+; [texture], [profile], [profilepnt], [path]) in the original order, with the
+; original numeric text. Omitted: free-text comments and section headings.
+; Line endings: CR LF -> LF. No value was changed.
+; See PROVENANCE.md beside this file.
+; ---------------------------------------------------------------------------
+
+[heightprofile]
+-4.500
+0.000
+0.250
+0.250
+[heightprofile]
+0.000
+8.900
+0.100
+0.100
+[heightprofile]
+8.900
+13.900
+0.250
+0.250
+[texture]
+str_gruenstreifen.bmp
+[texture]
+str_asphdrk_1line.bmp
+[texture]
+str_asphdrk_2line.bmp
+[texture]
+str_gehweg03.bmp
+[profile]
+0
+[profilepnt]
+-4.500
+0.240
+0.360
+0.200
+[profilepnt]
+0.000
+0.250
+0.973
+0.200
+[profile]
+0
+[profilepnt]
+0.000
+0.250
+0.973
+0.200
+[profilepnt]
+0.000
+0.100
+0.995
+0.200
+[profile]
+1
+[profilepnt]
+0.000
+0.100
+0.995
+0.167
+[profilepnt]
+2.900
+0.100
+0.005
+0.167
+[profile]
+2
+[profilepnt]
+2.900
+0.100
+0.005
+0.167
+[profilepnt]
+5.900
+0.100
+0.995
+0.167
+[profile]
+1
+[profilepnt]
+5.900
+0.100
+0.005
+0.167
+[profilepnt]
+8.900
+0.100
+0.995
+0.167
+[profile]
+3
+[profilepnt]
+8.900
+0.100
+0.995
+0.200
+[profilepnt]
+8.900
+0.250
+0.973
+0.200
+[profile]
+3
+[profilepnt]
+8.900
+0.250
+0.973
+0.200
+[profilepnt]
+13.900
+0.250
+0.005
+0.200
+[path]
+0
+1.450
+0.100
+2.929
+0
+[path]
+0
+4.400
+0.100
+3.030
+0
+[path]
+0
+7.400
+0.100
+3.030
+0
+[path]
+1
+11.900
+0.250
+1.664
+2
