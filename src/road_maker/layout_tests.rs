@@ -5,6 +5,7 @@ fn lane(dir: Direction, width: f32, bus_only: bool) -> Strip {
         dir,
         width,
         bus_only,
+        path_offset: 0.0,
     }
 }
 fn spec() -> RoadSpec {

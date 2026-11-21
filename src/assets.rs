@@ -548,6 +548,43 @@ pub fn texture_dirs(omsi: &Path, content: &Path, dir: &Path) -> Vec<PathBuf> {
     dirs
 }
 
+/// The pictures roads may be painted with, found once: the spline texture folders of both
+/// roots (their seasonal copies left out) and the roots' own `Texture` folders, where the
+/// stock asphalt also lives. Sorted by file name; one entry per name, the content folder's
+/// first, so the maker and the importer choose the same file.
+pub(crate) fn spline_textures(roots: &crate::install::Roots) -> Vec<PathBuf> {
+    let picture = |p: &Path| p.extension().map(|x| ["bmp", "dds", "tga", "png", "jpg"].contains(&x.to_string_lossy().to_lowercase().as_str())).unwrap_or(false);
+    let mut out = Vec::new();
+    for root in roots.all() {
+        if let Some(splines) = std::fs::read_dir(root).ok().and_then(|rd| rd.flatten().map(|e| e.path()).find(|p| p.file_name().map(|f| f.to_string_lossy().eq_ignore_ascii_case("splines")).unwrap_or(false))) {
+            let mut stack = vec![splines];
+            while let Some(d) = stack.pop() {
+                let Ok(rd) = std::fs::read_dir(&d) else { continue };
+                for e in rd.flatten() {
+                    let p = e.path();
+                    if p.is_dir() {
+                        // (not the seasons' copies)
+                        let n = e.file_name().to_string_lossy().to_lowercase();
+                        if !n.starts_with("winter") && !n.starts_with("spring") && !n.starts_with("fall") {
+                            stack.push(p);
+                        }
+                    } else if picture(&p) {
+                        out.push(p);
+                    }
+                }
+            }
+        }
+        // (the installation's own `Texture` folder: the stock asphalt is there even when no
+        // spline of this installation ships it)
+        if let Ok(rd) = std::fs::read_dir(omsi_cfg::resolve_path(root, "Texture")) {
+            out.extend(rd.flatten().map(|e| e.path()).filter(|p| p.is_file() && picture(p)));
+        }
+    }
+    out.sort_by_key(|p| p.file_name().map(|f| f.to_string_lossy().to_lowercase()).unwrap_or_default());
+    out.dedup_by_key(|p| p.file_name().map(|f| f.to_string_lossy().to_lowercase()).unwrap_or_default());
+    out
+}
+
 fn find_tex(name: &str, dirs: &[PathBuf]) -> Option<PathBuf> {
     if name.trim().is_empty() {
         return None;

@@ -83,6 +83,7 @@ fn raised_spec(name: &str, left_path: bool, median_height: Option<f32>) -> RoadS
                 dir: Direction::Back,
                 width: 3.0,
                 bus_only: false,
+                path_offset: 0.0,
             },
             Strip::Median {
                 width: 2.0,
@@ -94,6 +95,7 @@ fn raised_spec(name: &str, left_path: bool, median_height: Option<f32>) -> RoadS
                 dir: Direction::Fwd,
                 width: 3.0,
                 bus_only: false,
+                path_offset: 0.0,
             },
             Strip::Footway {
                 width: 2.0,
@@ -129,6 +131,7 @@ fn footway_without_an_ai_path_omits_its_path_and_renumbers_bus_and_bay_paths() {
                 dir: Direction::Back,
                 width: 3.0,
                 bus_only: true,
+                path_offset: 0.0,
             },
             Strip::Median {
                 width: 2.0,
@@ -140,11 +143,13 @@ fn footway_without_an_ai_path_omits_its_path_and_renumbers_bus_and_bay_paths() {
                 dir: Direction::Fwd,
                 width: 4.0,
                 bus_only: false,
+                path_offset: 0.0,
             },
             Strip::Lane {
                 dir: Direction::Fwd,
                 width: 3.5,
                 bus_only: true,
+                path_offset: 0.0,
             },
             Strip::BusBay { width: 2.5 },
             foot(true),
@@ -271,11 +276,13 @@ fn a_strip_below_the_roadway_is_refused_and_a_level_footway_warns() {
             dir: Direction::Back,
             width: 3.0,
             bus_only: false,
+            path_offset: 0.0,
         },
         Strip::Lane {
             dir: Direction::Fwd,
             width: 3.0,
             bus_only: false,
+            path_offset: 0.0,
         },
     ];
 
@@ -527,4 +534,66 @@ fn old_road_json_without_the_new_fields_saves_back_unchanged() {
     assert_eq!(std::fs::read_to_string(&sli_path).unwrap(), sli_before);
     assert_eq!(std::fs::read(&json_path).unwrap(), json_before);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// The x of every `[path]`, exactly as the `.sli` text has it.
+fn path_x_lines(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut lines = text.lines();
+    while let Some(line) = lines.next() {
+        if line.trim() == "[path]" {
+            let _kind = lines.next();
+            if let Some(x) = lines.next() {
+                out.push(x.trim().to_string());
+            }
+            for _ in 0..3 {
+                let _ = lines.next();
+            }
+        }
+    }
+    out
+}
+
+/// Both writers take every path's x from `RoadSpec::path_x`, in its three decimals: negative,
+/// positive, and the zero of a one-way road centred on the spline.
+#[test]
+fn road_maker_writers_take_every_path_x_from_the_shared_calculation() {
+    let simple = |name: &str, lanes_fwd: u8, lanes_back: u8, footway: f32| {
+        RoadSpec {
+            name: name.into(),
+            lanes_fwd,
+            lanes_back,
+            lane_width: 3.5,
+            footway,
+            footway_right: Some(footway),
+            ..Default::default()
+        }
+        .normalised(false)
+    };
+    let centered = simple("Centred", 1, 0, 0.0);
+    let two_way = simple("Two way", 1, 1, 2.0);
+    // A fixed height keeps this one out of the simple controls: it goes to the free layout.
+    let free = raised_spec("Free layout", true, Some(0.25)).normalised(false);
+    // Each goes through the writer its layout calls for.
+    assert_eq!(centered.sli(false), centered.projection().compatible_sli(false));
+    assert_eq!(two_way.sli(false), two_way.projection().compatible_sli(false));
+    assert_eq!(free.sli(false), super::free_layout::emit(&free));
+
+    for spec in [&centered, &two_way, &free] {
+        let expected: Vec<String> = spec
+            .strips
+            .iter()
+            .zip(spec.strip_positions())
+            .filter(|(strip, _)| strip.has_ai_path())
+            .map(|(strip, (lo, hi))| format!("{:.3}", spec.strip_path_x(strip, lo, hi)))
+            .collect();
+        let written = path_x_lines(&spec.sli(false));
+        assert_eq!(written.len(), expected.len(), "{}", spec.name);
+        assert_eq!(written, expected, "{}", spec.name);
+        println!("{} path x: {written:?}", spec.name);
+    }
+    // The named values the calculation gives, sign and all.
+    assert_eq!(path_x_lines(&centered.sli(false)), vec!["0.000".to_string()]);
+    assert!(path_x_lines(&two_way.sli(false)).contains(&"-1.750".to_string()));
+    assert!(path_x_lines(&two_way.sli(false)).contains(&"1.750".to_string()));
 }

@@ -511,6 +511,11 @@ impl AssetBrowser {
         if a.kind == Kind::Spline && a.half_width > 0.0 {
             ui.label(RichText::new(format!("{} {:.1} m", tr("width", "ширина"), a.half_width * 2.0)).small());
         }
+        if a.kind == Kind::Spline && a.category == Category::Roads
+            && ui.button(tr("Create Road Maker settings from this SLI", "Создать настройки конструктора дороги из этого SLI")).clicked()
+        {
+            actions.push(Action::ImportRoadSpec(a.rel.clone(), a.name.clone()));
+        }
         ui.add_space(4.0);
         let use_label = if a.kind == Kind::Spline { tr("Build with it", "Строить им") } else { tr("Place it", "Поставить") };
         if ui.button(icons::labelled(if a.kind == Kind::Spline { Icon::Road } else { Icon::Objects }, use_label)).clicked() {

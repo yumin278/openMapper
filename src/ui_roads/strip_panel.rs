@@ -56,6 +56,7 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                             dir,
                             width,
                             bus_only,
+                            ..
                         } => {
                             ui.add(egui::Slider::new(width, 2.5..=5.0).suffix(" m"));
                             ui.selectable_value(
@@ -161,6 +162,7 @@ pub(super) fn panel(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &[PathBuf]) {
                 dir: Direction::Fwd,
                 width: 3.5,
                 bus_only: false,
+                path_offset: 0.0,
             });
         }
         if ui

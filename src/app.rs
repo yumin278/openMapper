@@ -1901,6 +1901,15 @@ impl App {
                     }
                 }
             }
+            Action::ImportRoadSpec(rel, name) => {
+                if let Some(roots) = &self.roots {
+                    let left_hand = self.ed.doc.as_ref().is_some_and(|doc| doc.global.left_hand_traffic);
+                    match crate::road_maker::sli_import::create(roots, &rel, name, left_hand) {
+                        Ok(path) => self.ed.toast(format!("{}: {}", tr("Road Maker settings created", "Настройки конструктора дороги созданы"), path.display())),
+                        Err(error) => self.ed.error(format!("{}: {error:#}", tr("Could not import this road spline", "Не удалось импортировать этот дорожный сплайн"))),
+                    }
+                }
+            }
             Action::RevealAsset(rel) => {
                 if let Some(r) = &self.roots {
                     reveal(&r.resolve(&rel));
