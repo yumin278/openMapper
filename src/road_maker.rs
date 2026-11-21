@@ -21,6 +21,8 @@ mod migration;
 mod free_layout;
 pub(crate) mod sli_import;
 mod filename;
+#[cfg(test)]
+mod x_offset_tests;
 pub use filename::MakerTarget;
 pub mod bus_rules;
 pub use strips::{Direction, Strip};
@@ -203,6 +205,9 @@ pub struct RoadSpec {
     /// Imported cross sections stay in strip mode even when simple controls could represent them.
     #[serde(skip_serializing_if = "is_false")]
     pub imported_sli: bool,
+    /// Translation of the emitted cross section relative to the spline's local origin.
+    #[serde(skip_serializing_if = "zero_offset")]
+    pub x_offset: f32,
     /// Canonical cross section, in physical left-to-right order.
     pub strips: Vec<Strip>,
     /// Derived at export; never trusted from an edited sidecar.
@@ -249,11 +254,12 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { imported_sli: false, bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { imported_sli: false, x_offset: 0.0, bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
 
 fn is_false(value: &bool) -> bool { !value }
+fn zero_offset(value: &f32) -> bool { *value == 0.0 }
 
 fn num(v: f32) -> String {
     format!("{v:.3}")
@@ -337,17 +343,17 @@ impl RoadSpec {
 
     pub fn strip_positions(&self) -> Vec<(f32, f32)> { strips::positions(&self.effective_strips()) }
 
+    /// The x the `.sli` gets for the AI path of the strip between `lo` and `hi`, in metres from
+    /// the spline's local origin (positive to the right). Both writers and the preview use this one
+    /// calculation.
+    pub fn path_x(&self, lo: f32, hi: f32) -> f32 { self.output_x((lo + hi) / 2.0) }
+
     pub fn bus_path_indices(&self) -> Vec<usize> {
         self.strips
             .iter()
             .filter(|s| s.has_ai_path())
             .enumerate()
             .filter_map(|(i, s)| matches!(s, Strip::Lane { bus_only: true, .. }).then_some(i))
-    /// The x the `.sli` gets for the AI path of the strip between `lo` and `hi`, in metres from
-    /// the centre line (positive to the right). Both writers and the preview use this one
-    /// calculation.
-    pub fn path_x(&self, lo: f32, hi: f32) -> f32 { (lo + hi) / 2.0 }
-
             .collect()
     }
 
@@ -402,6 +408,9 @@ impl RoadSpec {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        if !self.x_offset.is_finite() {
+            return Err(crate::i18n::tr("The X offset must be finite", "Смещение по X должно быть конечным числом").into());
+        }
         if crate::pocket::is_bay_spline(&self.file_stem()) {
             return Err(crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)").into());
         }
@@ -580,6 +589,11 @@ impl RoadSpec {
         } else { free_layout::emit(&s) }
     }
 
+    /// Translate only emitted coordinates, after computing widths and UVs.
+    fn output_x(&self, layout_x: f32) -> f32 {
+        if self.x_offset == 0.0 { layout_x } else { layout_x + self.x_offset }
+    }
+
     fn compatible_sli(&self, left_hand: bool) -> String {
         let rw = self.roadway_width();
         let (xl, xr) = (-rw / 2.0, rw / 2.0);
@@ -596,7 +610,7 @@ impl RoadSpec {
         let mut s = format!("File created with openMapper\n\n[friendlyname]\n{}\n\n", self.name.trim());
         // the ground and the wheels: footways high, the roadway low
         let height = |s: &mut String, a: f32, b: f32, h: f32| {
-            let _ = write!(s, "[heightprofile]\n{}\n{}\n{}\n{}\n\n", num(a), num(b), num(h), num(h));
+            let _ = write!(s, "[heightprofile]\n{}\n{}\n{}\n{}\n\n", num(self.output_x(a)), num(self.output_x(b)), num(h), num(h));
         };
         if fl > 0.0 {
             height(&mut s, xl - fl, xl, side_h);
@@ -635,7 +649,7 @@ impl RoadSpec {
         let profile = |s: &mut String, tex: u32, a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)| {
             let _ = write!(s, "[profile]\n{tex}\n\n");
             for p in [a, b] {
-                let _ = write!(s, "[profilepnt]\n{}\n{}\n{}\n{}\n\n", num(p.0), num(p.1), num(p.2), num(p.3));
+                let _ = write!(s, "[profilepnt]\n{}\n{}\n{}\n{}\n\n", num(self.output_x(p.0)), num(p.1), num(p.2), num(p.3));
             }
         };
         // the roadway: one texture across it, u 0 at its left edge and 1 at its right (as the

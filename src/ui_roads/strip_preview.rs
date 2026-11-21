@@ -215,7 +215,7 @@ pub(super) fn draw(ui: &mut egui::Ui, s: &RoadSpec, tex: &mut TexCache, top: boo
 fn path_labels(
     s: &RoadSpec,
     positions: &[(f32, f32)],
-    x: &dyn Fn(f32) -> f32,
+    x: impl Fn(f32) -> f32,
 ) -> (Vec<f32>, Vec<String>) {
     let mut centers = Vec::new();
     let mut labels = Vec::new();
@@ -279,6 +279,9 @@ mod tests {
 
     #[test]
     fn road_maker_strip_preview_path_x_is_shown_signed_to_the_millimetre() {
+        for x in [-1.639, 0.0, 1.639] {
+            println!("Local X {x} → {}", signed_x(x));
+        }
         assert_eq!(signed_x(1.639), "X=+1.639");
         assert_eq!(signed_x(-1.639), "X=-1.639");
         assert_eq!(signed_x(0.0), "X=+0.000");
@@ -349,6 +352,12 @@ mod tests {
         }
         let (_, labels) = path_labels(&without, &without.strip_positions(), &|m| m);
         assert_eq!(labels, vec!["X=-6.000", "X=-3.000", "X=+2.500"]);
+        without.x_offset = 3.0;
+        let (shifted_centers, shifted_labels) =
+            path_labels(&without, &without.strip_positions(), &|m| m);
+        println!("X offset +3.000, same drawing centers {shifted_centers:?}, labels {shifted_labels:?}");
+        assert_eq!(shifted_centers, centers);
+        assert_eq!(shifted_labels, vec!["X=-3.000", "X=+0.000", "X=+5.500"]);
     }
 
     #[test]

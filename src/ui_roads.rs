@@ -459,6 +459,10 @@ impl RoadTypes {
             }
         }
         if !s.advanced { s.rebuild_strips(left_hand); }
+        ui.horizontal(|ui| {
+            ui.label(tr("Overall X offset", "Общее смещение по X"));
+            ui.add(egui::DragValue::new(&mut s.x_offset).speed(0.05).fixed_decimals(3).suffix(" m"));
+        });
         egui::CollapsingHeader::new(RichText::new(tr("Road markings", "Дорожная разметка")).strong().color(Color32::WHITE)).id_salt("road markings").default_open(s.marked).show(ui, |ui| {
             ui.checkbox(&mut s.marked, tr("Paint my own markings", "Нарисовать свою разметку")).on_hover_text(tr("The maker paints the lines onto the roadway texture: pick a plain asphalt texture, or its own lines show too", "Конструктор рисует линии на текстуре проезжей части: берите гладкий асфальт, иначе проступят и его собственные линии"));
             if !s.marked {
@@ -515,6 +519,8 @@ impl RoadTypes {
             }
         });
         ui.label(RichText::new(tr("The roadway texture is laid once across all its lanes (as OMSI 2's lane textures are painted: pick one with as many lanes); the footway texture's right end is the kerb.", "Текстура проезжей части ложится один раз поперёк всех полос (как нарисованы полосные текстуры OMSI 2: берите с тем же числом полос); правый край текстуры тротуара: бордюр.")).small().color(pal().text_dim));
+        // Leave room for the last line's pixel rounding at the scroll area's clip edge.
+        ui.add_space(ui.spacing().item_spacing.y);
     }
 }
 

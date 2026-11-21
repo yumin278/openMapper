@@ -3379,3 +3379,5 @@ Road Maker settings created	已创建 Road Maker 设置
 Could not import this road spline	无法导入此道路曲线
 The source must be a local SLI file	源文件必须是本地 SLI 文件
 Only flat roads with one continuous carriageway can be imported	仅支持导入车行路面平坦且连续的道路
+Overall X offset	整体 X 偏移
+The X offset must be finite	X 偏移必须是有限数值

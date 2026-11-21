@@ -13,8 +13,8 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
         let _ = write!(
             text,
             "[heightprofile]\n{}\n{}\n{}\n{}\n\n",
-            num(*lo),
-            num(*hi),
+            num(spec.output_x(*lo)),
+            num(spec.output_x(*hi)),
             num(h),
             num(h)
         );
@@ -62,7 +62,7 @@ pub(super) fn emit(spec: &RoadSpec) -> String {
             let _ = write!(
                 s,
                 "[profilepnt]\n{}\n{}\n{}\n{}\n\n",
-                num(x),
+                num(spec.output_x(x)),
                 num(h),
                 num(u),
                 num(v)
