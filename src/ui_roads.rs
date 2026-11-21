@@ -37,33 +37,6 @@ pub struct RoadTypes {
     canvas: crate::ui_markpaint::MarkCanvas,
 }
 
-/// The pictures of the spline texture folders: what roads are painted with.
-fn spline_textures(roots: &Roots) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    for root in roots.all() {
-        let Some(splines) = std::fs::read_dir(root).ok().and_then(|rd| rd.flatten().map(|e| e.path()).find(|p| p.file_name().map(|f| f.to_string_lossy().eq_ignore_ascii_case("splines")).unwrap_or(false))) else { continue };
-        let mut stack = vec![splines];
-        while let Some(d) = stack.pop() {
-            let Ok(rd) = std::fs::read_dir(&d) else { continue };
-            for e in rd.flatten() {
-                let p = e.path();
-                if p.is_dir() {
-                    // (not the seasons' copies)
-                    let n = e.file_name().to_string_lossy().to_lowercase();
-                    if !n.starts_with("winter") && !n.starts_with("spring") && !n.starts_with("fall") {
-                        stack.push(p);
-                    }
-                } else if p.extension().map(|x| ["bmp", "dds", "tga", "png", "jpg"].contains(&x.to_string_lossy().to_lowercase().as_str())).unwrap_or(false) {
-                    out.push(p);
-                }
-            }
-        }
-    }
-    out.sort_by_key(|p| p.file_name().map(|f| f.to_string_lossy().to_lowercase()).unwrap_or_default());
-    out.dedup_by_key(|p| p.file_name().map(|f| f.to_string_lossy().to_lowercase()).unwrap_or_default());
-    out
-}
-
 fn file_name(p: &Path) -> String {
     p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default()
 }
@@ -338,24 +311,28 @@ impl RoadTypes {
 
         if s.left_hand.is_none() { s.rebuild_strips(left_hand); }
         let mut advanced = s.advanced;
-        if ui.checkbox(&mut advanced, crate::i18n::tr("Advanced: strip mode", "Дополнительно: режим полос")).changed() {
+        if ui.add_enabled(!s.imported_sli, egui::Checkbox::new(&mut advanced, tr("Advanced: strip mode", "Дополнительно: режим полос"))).changed() {
             if advanced { s.advanced = true; s.mode_error = None; }
             else if let Err(issues) = s.use_simple_mode() {
                 s.mode_error = Some(format!("{}: {}", crate::i18n::tr("This road contains settings that simple mode cannot represent", "Эта дорога содержит настройки, недоступные в простом режиме"), issues.join(", ")));
             }
         }
         if let Some(error) = &s.mode_error { ui.colored_label(Color32::YELLOW, error); }
+        let list = textures.get_or_insert_with(|| crate::assets::spline_textures(roots));
+        let default_roadway = crate::road_maker::default_roadway_texture(list.as_slice());
         if s.advanced {
-            let list = textures.get_or_insert_with(|| spline_textures(roots));
-            strip_panel::panel(ui, s, list);
+            strip_panel::panel(ui, s, list.as_slice());
         } else {
         ui.horizontal(|ui| {
             ui.label(tr("Start from", "Взять за основу"));
             egui::ComboBox::from_id_salt("road preset").selected_text(tr("a ready-made road…", "готовую дорогу…")).show_ui(ui, |ui| {
-                for (label, p) in crate::road_maker::presets() {
+                for (label, p) in crate::road_maker::presets_with_roadway_texture(default_roadway.as_deref()) {
                     if ui.selectable_label(false, label).clicked() {
-                        // (the name and the pictures stay: they are the user's)
-                        *s = RoadSpec { name: std::mem::take(&mut s.name), roadway_tex: std::mem::take(&mut s.roadway_tex), footway_tex: std::mem::take(&mut s.footway_tex), median_tex: std::mem::take(&mut s.median_tex), ..p };
+                        // (the name and a chosen roadway picture stay; a road with none
+                        // starts on the preset's stock asphalt)
+                        let mut next = RoadSpec { name: std::mem::take(&mut s.name), footway_tex: std::mem::take(&mut s.footway_tex), median_tex: std::mem::take(&mut s.median_tex), ..p };
+                        if !s.roadway_tex.as_os_str().is_empty() { next.roadway_tex = std::mem::take(&mut s.roadway_tex); }
+                        *s = next;
                     }
                 }
             });
@@ -416,21 +393,22 @@ impl RoadTypes {
             ui.colored_label(Color32::YELLOW, crate::i18n::tr("Built-in multi-lane texture markings may not align with these lanes", "Разметка многополосной текстуры может не совпадать с полосами"));
         }
         preview(ui, s, tex, left_hand);
-        let list = textures.get_or_insert_with(|| spline_textures(roots));
         let has_median = s.median_width() > 0.0;
         for (i, (label, hint)) in [(tr("Roadway texture", "Текстура проезжей части"), "asph"), (tr("Footway texture", "Текстура тротуара"), "side"), (tr("Middle strip texture", "Текстура разделителя"), "gras")].into_iter().enumerate() {
             if (s.advanced && i > 0) || (i == 2 && !has_median) {
                 continue;
             }
-            let cur = match i { 0 => &mut s.roadway_tex, 1 => &mut s.footway_tex, _ => &mut s.median_tex };
             // (a sensible one to start with: the stock asphalt or footway; the strip may keep
             // the roadway's own)
-            if cur.as_os_str().is_empty() && i < 2 {
-                let want = if i == 0 { "str_asphdrk_2line.bmp" } else { "str_side1.bmp" };
+            if i == 0 {
+                s.use_default_roadway_texture(list.as_slice());
+            } else if i == 1 && s.footway_tex.as_os_str().is_empty() {
+                let want = "str_side1.bmp";
                 if let Some(p) = list.iter().find(|p| file_name(p).eq_ignore_ascii_case(want)).or_else(|| list.iter().find(|p| file_name(p).to_lowercase().contains(hint))) {
-                    *cur = p.clone();
+                    s.footway_tex = p.clone();
                 }
             }
+            let cur = match i { 0 => &mut s.roadway_tex, 1 => &mut s.footway_tex, _ => &mut s.median_tex };
             ui.horizontal(|ui| {
                 ui.label(label);
                 egui::ComboBox::from_id_salt(("road tex", i)).width(260.0).selected_text(if cur.as_os_str().is_empty() { if i == 1 { tr("No footway texture", "Нет текстуры тротуара").to_string() } else { tr("like the roadway", "как у проезжей части").to_string() } } else { file_name(cur) }).show_ui(ui, |ui| {
@@ -451,6 +429,9 @@ impl RoadTypes {
                     }
                 }
             });
+            if i == 0 && s.roadway_tex.as_os_str().is_empty() {
+                ui.colored_label(Color32::YELLOW, tr("The default roadway texture str_asphdrk.bmp was not found; choose a roadway texture from the list", "Стандартная текстура проезжей части str_asphdrk.bmp не найдена; выберите текстуру проезжей части из списка"));
+            }
         }
         if s.strips.iter().any(|strip| matches!(strip, crate::road_maker::Strip::BusBay { .. })) && ui.button(tr("Reset bay texture", "Сбросить текстуру кармана")).clicked() {
             match s.reset_bay_texture_in_maker(&roots.content, edit) {
@@ -459,6 +440,10 @@ impl RoadTypes {
             }
         }
         if !s.advanced { s.rebuild_strips(left_hand); }
+        ui.horizontal(|ui| {
+            ui.label(tr("Overall X offset", "Общее смещение по X"));
+            ui.add(egui::DragValue::new(&mut s.x_offset).speed(0.05).fixed_decimals(3).suffix(" m"));
+        });
         egui::CollapsingHeader::new(RichText::new(tr("Road markings", "Дорожная разметка")).strong().color(Color32::WHITE)).id_salt("road markings").default_open(s.marked).show(ui, |ui| {
             ui.checkbox(&mut s.marked, tr("Paint my own markings", "Нарисовать свою разметку")).on_hover_text(tr("The maker paints the lines onto the roadway texture: pick a plain asphalt texture, or its own lines show too", "Конструктор рисует линии на текстуре проезжей части: берите гладкий асфальт, иначе проступят и его собственные линии"));
             if !s.marked {
@@ -515,8 +500,12 @@ impl RoadTypes {
             }
         });
         ui.label(RichText::new(tr("The roadway texture is laid once across all its lanes (as OMSI 2's lane textures are painted: pick one with as many lanes); the footway texture's right end is the kerb.", "Текстура проезжей части ложится один раз поперёк всех полос (как нарисованы полосные текстуры OMSI 2: берите с тем же числом полос); правый край текстуры тротуара: бордюр.")).small().color(pal().text_dim));
+        // Leave room for the last line's pixel rounding at the scroll area's clip edge.
+        ui.add_space(ui.spacing().item_spacing.y);
     }
 }
 
 #[cfg(test)]
 mod scroll_tests;
+#[cfg(test)]
+mod texture_tests;

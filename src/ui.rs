@@ -82,6 +82,7 @@ pub enum Action {
     RevealAsset(String),
     /// An asset's name in the catalogue: its path, and the name as it was typed.
     RenameAsset(String, String),
+    ImportRoadSpec(String, String),
     /// Move an asset of the content folder into openMapper's bin.
     DeleteAsset(String),
     /// Welcome list: a map's folder shown in the file manager (its global.cfg).

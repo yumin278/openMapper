@@ -30,6 +30,7 @@ pub fn from_legacy(spec: &RoadSpec, left_hand: bool) -> Vec<Strip> {
         dir: left_dir,
         width: spec.lane_width,
         bus_only: false,
+        path_offset: 0.0,
     }));
     if spec.lanes_back > 0 && spec.lanes_fwd > 0 && spec.median > 0.0 {
         strips.push(Strip::Median {
@@ -43,6 +44,7 @@ pub fn from_legacy(spec: &RoadSpec, left_hand: bool) -> Vec<Strip> {
         dir: right_dir,
         width: spec.lane_width,
         bus_only: false,
+        path_offset: 0.0,
     }));
     if spec.pocket > 0.0 {
         strips.push(Strip::BusBay { width: spec.pocket });

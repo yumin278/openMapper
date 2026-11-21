@@ -19,7 +19,12 @@ use serde::{Deserialize, Serialize};
 mod strips;
 mod migration;
 mod free_layout;
+pub(crate) mod sli_import;
 mod filename;
+#[cfg(test)]
+mod x_offset_tests;
+#[cfg(test)]
+mod texture_tests;
 pub use filename::MakerTarget;
 pub mod bus_rules;
 pub use strips::{Direction, Strip};
@@ -58,6 +63,38 @@ pub const YELLOW: [u8; 3] = [232, 190, 60];
 
 /// The road surface's height (m); strips stand at or above it.
 pub const ROAD_H: f32 = 0.10;
+
+/// The stock plain asphalt every new road starts with (found in the installation or the
+/// content folder). Nothing here paints its own lane lines, so markings the maker paints
+/// stay the only ones.
+pub const DEFAULT_ROADWAY_TEX: &str = "str_asphdrk.bmp";
+
+/// Whether `path`'s file name is exactly `name`, ignoring case only.
+fn named(path: &Path, name: &str) -> bool {
+    path.file_name().is_some_and(|file| file.to_string_lossy().eq_ignore_ascii_case(name))
+}
+
+/// The first picture in `textures` named exactly `name` (case-insensitive).
+pub fn find_named_texture(textures: &[PathBuf], name: &str) -> Option<PathBuf> {
+    textures.iter().find(|path| named(path, name)).cloned()
+}
+
+/// The first file named exactly `name` (case-insensitive) in one of `dirs`, in their order.
+pub(crate) fn find_named_texture_in_dirs(name: &str, dirs: &[PathBuf]) -> Option<PathBuf> {
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else { continue };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() && named(&path, name) { return Some(path); }
+        }
+    }
+    None
+}
+
+/// The stock asphalt among the pictures the maker offers, if there is one.
+pub fn default_roadway_texture(textures: &[PathBuf]) -> Option<PathBuf> {
+    find_named_texture(textures, DEFAULT_ROADWAY_TEX)
+}
 
 impl Default for Marking {
     fn default() -> Self {
@@ -199,6 +236,15 @@ pub fn arrow_polygon(at: (f32, f32), back: bool) -> Vec<(f32, f32)> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoadSpec {
+    /// Imported cross sections stay in strip mode even when simple controls could represent them.
+    #[serde(skip_serializing_if = "is_false")]
+    pub imported_sli: bool,
+    /// Translation of the emitted cross section relative to the spline's local origin.
+    #[serde(skip_serializing_if = "zero_offset")]
+    pub x_offset: f32,
+    /// Source SLI's coordinate of the centre of the imported cross section.
+    #[serde(skip_serializing_if = "zero_offset")]
+    pub source_x_origin: f32,
     /// Canonical cross section, in physical left-to-right order.
     pub strips: Vec<Strip>,
     /// Derived at export; never trusted from an edited sidecar.
@@ -245,9 +291,12 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { imported_sli: false, x_offset: 0.0, source_x_origin: 0.0, bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
+
+fn is_false(value: &bool) -> bool { !value }
+fn zero_offset(value: &f32) -> bool { *value == 0.0 }
 
 fn num(v: f32) -> String {
     format!("{v:.3}")
@@ -255,8 +304,15 @@ fn num(v: f32) -> String {
 
 /// A ready-made start for the road maker: (name, what it is made of).
 pub fn presets() -> Vec<(&'static str, RoadSpec)> {
+    presets_with_roadway_texture(None)
+}
+
+/// The presets, each with `tex` as its roadway picture when one is offered. Every preset
+/// starts with the stock asphalt; a road that already has a picture keeps it when a preset
+/// is chosen in the maker.
+pub fn presets_with_roadway_texture(tex: Option<&Path>) -> Vec<(&'static str, RoadSpec)> {
     use crate::i18n::tr;
-    let base = RoadSpec::default();
+    let base = RoadSpec { roadway_tex: tex.map(Path::to_path_buf).unwrap_or_default(), ..Default::default() };
     vec![
         (tr("Quiet street", "Тихая улица"), RoadSpec { lane_width: 3.0, footway: 2.0, ..base.clone() }),
         (tr("Street with a footway on one side", "Улица с тротуаром с одной стороны"), RoadSpec { lane_width: 3.0, footway: 0.0, footway_right: Some(2.0), ..base.clone() }),
@@ -331,6 +387,19 @@ impl RoadSpec {
 
     pub fn strip_positions(&self) -> Vec<(f32, f32)> { strips::positions(&self.effective_strips()) }
 
+    /// The x the `.sli` gets for the AI path of the strip between `lo` and `hi`, in metres from
+    /// the spline's local origin (positive to the right). Both writers and the preview use this one
+    /// calculation.
+    pub(crate) fn strip_path_center(strip: &Strip, lo: f32, hi: f32) -> f32 {
+        let centre = (lo + hi) / 2.0;
+        let offset = strip.path_offset();
+        if offset == 0.0 { centre } else { centre + offset }
+    }
+
+    pub(crate) fn strip_path_x(&self, strip: &Strip, lo: f32, hi: f32) -> f32 {
+        self.output_x(Self::strip_path_center(strip, lo, hi))
+    }
+
     pub fn bus_path_indices(&self) -> Vec<usize> {
         self.strips
             .iter()
@@ -391,6 +460,12 @@ impl RoadSpec {
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        if !self.x_offset.is_finite() {
+            return Err(crate::i18n::tr("The X offset must be finite", "Смещение по X должно быть конечным числом").into());
+        }
+        if !self.source_x_origin.is_finite() {
+            return Err(sli_import::invalid_paths().into());
+        }
         if crate::pocket::is_bay_spline(&self.file_stem()) {
             return Err(crate::i18n::tr("Names must not contain _bay_ (reserved for the bus bay tool)", "Имя не должно содержать _bay_ (зарезервировано для инструмента автобусных карманов)").into());
         }
@@ -414,6 +489,17 @@ impl RoadSpec {
         } else {
             Vec::new()
         }
+    }
+
+    /// Give a road that has no roadway picture the stock asphalt among `textures`. A picture
+    /// already chosen (an existing `.road.json`, a preset, the user's own) is never replaced.
+    /// Returns whether the road now names a roadway picture.
+    pub fn use_default_roadway_texture(&mut self, textures: &[PathBuf]) -> bool {
+        if !self.roadway_tex.as_os_str().is_empty() { return true; }
+        let Some(found) = default_roadway_texture(textures) else { return false; };
+        log::info!("road maker: default roadway texture {}", found.display());
+        self.roadway_tex = found;
+        true
     }
 
     fn bay_tex_name(&self) -> String {
@@ -563,10 +649,16 @@ impl RoadSpec {
     pub fn sli(&self, left_hand: bool) -> String {
         let s = self.normalised(left_hand);
         if s.validate().is_err() { return String::new(); }
-        if s.simple_mode_issues().is_empty() {
+        if !s.imported_sli && s.simple_mode_issues().is_empty() {
             let projected = s.projection();
             projected.compatible_sli(projected.left_hand.unwrap())
         } else { free_layout::emit(&s) }
+    }
+
+    /// Translate only emitted coordinates, after computing widths and UVs.
+    fn output_x(&self, layout_x: f32) -> f32 {
+        let source_x = if self.source_x_origin == 0.0 { layout_x } else { layout_x + self.source_x_origin };
+        if self.x_offset == 0.0 { source_x } else { source_x + self.x_offset }
     }
 
     fn compatible_sli(&self, left_hand: bool) -> String {
@@ -585,7 +677,7 @@ impl RoadSpec {
         let mut s = format!("File created with openMapper\n\n[friendlyname]\n{}\n\n", self.name.trim());
         // the ground and the wheels: footways high, the roadway low
         let height = |s: &mut String, a: f32, b: f32, h: f32| {
-            let _ = write!(s, "[heightprofile]\n{}\n{}\n{}\n{}\n\n", num(a), num(b), num(h), num(h));
+            let _ = write!(s, "[heightprofile]\n{}\n{}\n{}\n{}\n\n", num(self.output_x(a)), num(self.output_x(b)), num(h), num(h));
         };
         if fl > 0.0 {
             height(&mut s, xl - fl, xl, side_h);
@@ -624,7 +716,7 @@ impl RoadSpec {
         let profile = |s: &mut String, tex: u32, a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)| {
             let _ = write!(s, "[profile]\n{tex}\n\n");
             for p in [a, b] {
-                let _ = write!(s, "[profilepnt]\n{}\n{}\n{}\n{}\n\n", num(p.0), num(p.1), num(p.2), num(p.3));
+                let _ = write!(s, "[profilepnt]\n{}\n{}\n{}\n{}\n\n", num(self.output_x(p.0)), num(p.1), num(p.2), num(p.3));
             }
         };
         // the roadway: one texture across it, u 0 at its left edge and 1 at its right (as the
@@ -673,7 +765,7 @@ impl RoadSpec {
                 Strip::Median { .. } => continue,
             };
             let _ = write!(s, "[path]\n{kind}\n{}\n{}\n{}\n{direction}\n\n",
-                num((lo + hi) / 2.0), num(strip.height(self.kerb)), num(strip.width() * scale));
+                num(self.strip_path_x(strip, lo, hi)), num(strip.height(self.kerb)), num(strip.width() * scale));
         }
         s
     }
@@ -867,7 +959,7 @@ impl RoadSpec {
         log::info!("road maker: wrote {}", path.display());
         // (the spec beside it, so the road can be opened in the maker again)
         let mut saved = serde_json::to_value(self)?;
-        if self.simple_mode_issues().is_empty() {
+        if !self.imported_sli && self.simple_mode_issues().is_empty() {
             let projected = serde_json::to_value(self.projection())?;
             for field in Self::LEGACY_FIELDS { saved[field] = projected[field].clone(); }
             saved["footway_tex"] = projected["footway_tex"].clone();
@@ -906,7 +998,7 @@ impl RoadSpec {
         }
         spec.bus_paths = spec.bus_path_indices();
         spec.bay_paths = spec.bay_path_indices();
-        spec.advanced = !spec.simple_mode_issues().is_empty();
+        spec.advanced = spec.imported_sli || !spec.simple_mode_issues().is_empty();
         if !spec.advanced {
             // Controls are a projection; the saved strips remain authoritative.
             spec = spec.projection();

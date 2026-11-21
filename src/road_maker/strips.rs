@@ -25,6 +25,9 @@ pub enum Strip {
         dir: Direction,
         width: f32,
         bus_only: bool,
+        /// Imported path position relative to the lane centre, in metres.
+        #[serde(default, skip_serializing_if = "super::zero_offset")]
+        path_offset: f32,
     },
     Median {
         width: f32,
@@ -58,6 +61,13 @@ fn path_is_default(path: &bool) -> bool {
 }
 
 impl Strip {
+    pub(super) fn path_offset(&self) -> f32 {
+        match self {
+            Self::Lane { path_offset, .. } => *path_offset,
+            _ => 0.0,
+        }
+    }
+
     pub fn width(&self) -> f32 {
         match self {
             Self::Lane { width, .. }
@@ -106,6 +116,9 @@ pub fn validate(strips: &[Strip], left_hand: bool, kerb: f32) -> Result<(), Stri
             return Err(crate::i18n::tr("Strip {} has an invalid width", "Недопустимая ширина полосы {}").replace("{}", &(i + 1).to_string()));
         }
         let h = strip.height(kerb);
+        if !strip.path_offset().is_finite() || strip.path_offset().abs() > w / 2.0 {
+            return Err(super::sli_import::invalid_paths().into());
+        }
         if !h.is_finite() || h < super::ROAD_H - 1e-4 {
             return Err(crate::i18n::tr(
                 "The median and footway must not be lower than the roadway",
@@ -120,7 +133,9 @@ pub fn validate(strips: &[Strip], left_hand: bool, kerb: f32) -> Result<(), Stri
             Strip::BusBay { .. } if i.checked_add(1) != Some(first) && i != last + 1 => {
                 return Err(crate::i18n::tr("BusBays must border the roadway, at most one per side", "Автобусные карманы должны примыкать к дороге, не более одного с каждой стороны").into());
             }
-            Strip::Median { .. } if i < first || i > last => {
+            Strip::Median { raised, .. }
+                if (i < first || i > last) && (*raised || h != super::ROAD_H) =>
+            {
                 return Err(crate::i18n::tr("Medians must be inside the roadway", "Разделительные полосы должны быть внутри проезжей части").into());
             }
             _ => {}
@@ -235,6 +250,7 @@ mod tests {
             dir,
             width,
             bus_only: false,
+            path_offset: 0.0,
         }
     }
 
@@ -289,7 +305,7 @@ mod tests {
         };
         let median = Strip::Median {
             width: 2.0,
-            raised: false,
+            raised: true,
             tex: PathBuf::new(),
             height: None,
         };

@@ -23,6 +23,7 @@ fn maker_scroll_keeps_actions_visible() {
                             dir: crate::road_maker::Direction::Fwd,
                             width: 3.0,
                             bus_only: false,
+                            path_offset: 0.0,
                         };
                         8
                     ];
