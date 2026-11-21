@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 mod strips;
 mod migration;
 mod free_layout;
+pub(crate) mod sli_import;
 mod filename;
 pub use filename::MakerTarget;
 pub mod bus_rules;
@@ -199,6 +200,9 @@ pub fn arrow_polygon(at: (f32, f32), back: bool) -> Vec<(f32, f32)> {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RoadSpec {
+    /// Imported cross sections stay in strip mode even when simple controls could represent them.
+    #[serde(skip_serializing_if = "is_false")]
+    pub imported_sli: bool,
     /// Canonical cross section, in physical left-to-right order.
     pub strips: Vec<Strip>,
     /// Derived at export; never trusted from an edited sidecar.
@@ -245,9 +249,11 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { imported_sli: false, bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
+
+fn is_false(value: &bool) -> bool { !value }
 
 fn num(v: f32) -> String {
     format!("{v:.3}")
@@ -563,7 +569,7 @@ impl RoadSpec {
     pub fn sli(&self, left_hand: bool) -> String {
         let s = self.normalised(left_hand);
         if s.validate().is_err() { return String::new(); }
-        if s.simple_mode_issues().is_empty() {
+        if !s.imported_sli && s.simple_mode_issues().is_empty() {
             let projected = s.projection();
             projected.compatible_sli(projected.left_hand.unwrap())
         } else { free_layout::emit(&s) }
@@ -867,7 +873,7 @@ impl RoadSpec {
         log::info!("road maker: wrote {}", path.display());
         // (the spec beside it, so the road can be opened in the maker again)
         let mut saved = serde_json::to_value(self)?;
-        if self.simple_mode_issues().is_empty() {
+        if !self.imported_sli && self.simple_mode_issues().is_empty() {
             let projected = serde_json::to_value(self.projection())?;
             for field in Self::LEGACY_FIELDS { saved[field] = projected[field].clone(); }
             saved["footway_tex"] = projected["footway_tex"].clone();
@@ -906,7 +912,7 @@ impl RoadSpec {
         }
         spec.bus_paths = spec.bus_path_indices();
         spec.bay_paths = spec.bay_path_indices();
-        spec.advanced = !spec.simple_mode_issues().is_empty();
+        spec.advanced = spec.imported_sli || !spec.simple_mode_issues().is_empty();
         if !spec.advanced {
             // Controls are a projection; the saved strips remain authoritative.
             spec = spec.projection();

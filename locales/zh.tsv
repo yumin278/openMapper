@@ -3374,3 +3374,8 @@ A route code	线路代码
 Flip	翻转
 Left to right	从左到右
 Top to bottom	从上到下
+Create Road Maker settings from this SLI	解析选中的 SLI 并创建 Road Maker 设置
+Road Maker settings created	已创建 Road Maker 设置
+Could not import this road spline	无法导入此道路曲线
+The source must be a local SLI file	源文件必须是本地 SLI 文件
+Only flat roads with one continuous carriageway can be imported	仅支持导入车行路面平坦且连续的道路

@@ -120,7 +120,9 @@ pub fn validate(strips: &[Strip], left_hand: bool, kerb: f32) -> Result<(), Stri
             Strip::BusBay { .. } if i.checked_add(1) != Some(first) && i != last + 1 => {
                 return Err(crate::i18n::tr("BusBays must border the roadway, at most one per side", "Автобусные карманы должны примыкать к дороге, не более одного с каждой стороны").into());
             }
-            Strip::Median { .. } if i < first || i > last => {
+            Strip::Median { raised, .. }
+                if (i < first || i > last) && (*raised || h != super::ROAD_H) =>
+            {
                 return Err(crate::i18n::tr("Medians must be inside the roadway", "Разделительные полосы должны быть внутри проезжей части").into());
             }
             _ => {}
@@ -289,7 +291,7 @@ mod tests {
         };
         let median = Strip::Median {
             width: 2.0,
-            raised: false,
+            raised: true,
             tex: PathBuf::new(),
             height: None,
         };

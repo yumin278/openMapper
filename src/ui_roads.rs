@@ -338,7 +338,7 @@ impl RoadTypes {
 
         if s.left_hand.is_none() { s.rebuild_strips(left_hand); }
         let mut advanced = s.advanced;
-        if ui.checkbox(&mut advanced, crate::i18n::tr("Advanced: strip mode", "Дополнительно: режим полос")).changed() {
+        if ui.add_enabled(!s.imported_sli, egui::Checkbox::new(&mut advanced, tr("Advanced: strip mode", "Дополнительно: режим полос"))).changed() {
             if advanced { s.advanced = true; s.mode_error = None; }
             else if let Err(issues) = s.use_simple_mode() {
                 s.mode_error = Some(format!("{}: {}", crate::i18n::tr("This road contains settings that simple mode cannot represent", "Эта дорога содержит настройки, недоступные в простом режиме"), issues.join(", ")));
