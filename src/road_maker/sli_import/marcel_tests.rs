@@ -22,7 +22,7 @@ use omsi_scenery::Spline;
 
 use super::create;
 use crate::install::Roots;
-use crate::road_maker::{Direction, RoadSpec, Strip, ROAD_H};
+use crate::road_maker::{Direction, MakerTarget, RoadSpec, Strip, ROAD_H};
 
 /// A stock spline and the geometry its import must reproduce.
 struct Stock {
@@ -156,6 +156,34 @@ fn emitted(stock: &Stock, spec: &RoadSpec) -> Spline {
     Spline::parse(&CfgFile::from_str(Path::new("emitted.sli"), &text))
 }
 
+fn check_source_after_save_as(
+    stock: &Stock,
+    roots: &Roots,
+    path: &Path,
+    json: &Path,
+    spec: &RoadSpec,
+) {
+    let before = std::fs::read(path).unwrap();
+    let sidecar_before = std::fs::read(json).unwrap();
+    println!("{}: source bytes after import identical: {}", stock.name, before == stock.text.as_bytes());
+    assert_eq!(before, stock.text.as_bytes());
+    let target = MakerTarget::open(stock.rel.to_string(), path.to_owned()).unwrap();
+    let mut copy = spec.clone();
+    copy.name = format!("{} copy", stock.name);
+    let rel = copy.write_in_maker_as_new(&roots.content, stock.map_left_hand, &target).unwrap();
+    let saved = crate::doc::safe::own_path(&roots.content, &rel);
+    assert_ne!(saved, path);
+    check_paths(stock, &Spline::load(path).unwrap(), &Spline::load(&saved).unwrap());
+    let after = std::fs::read(path).unwrap();
+    let sidecar_after = std::fs::read(json).unwrap();
+    println!(
+        "{}: source bytes after Save As identical: {}; source sidecar identical: {}",
+        stock.name, before == after, sidecar_before == sidecar_after
+    );
+    assert_eq!(before, after);
+    assert_eq!(sidecar_before, sidecar_after);
+}
+
 /// The fixture is what the test thinks it is, and the import reproduces every path.
 fn check_paths(stock: &Stock, source: &Spline, out: &Spline) {
     let want: Vec<(f32, i32)> = source
@@ -191,7 +219,10 @@ fn check_paths(stock: &Stock, source: &Spline, out: &Spline) {
         .filter(|p| p.kind == 0)
         .map(|p| (p.start[0], p.direction))
         .collect();
-    println!("{} vehicle Path X/direction: {want:?} → {got:?}", stock.name);
+    println!(
+        "{} vehicle Path X/direction: {want:?} → {got:?}",
+        stock.name
+    );
     assert!(out.paths.iter().all(|p| p.kind == 0));
     assert_eq!(
         got.len(),
@@ -283,16 +314,9 @@ fn check_strips(stock: &Stock, spec: &RoadSpec) {
 #[test]
 fn wilhelm2_import_keeps_every_lane_path_where_the_stock_spline_put_it() {
     let stock = &WILHELM2;
-    let (roots, source, dir) = install(
-        stock,
-        "lanes",
-        &[
-            "str_gruenstreifen.bmp",
-            "str_asphdrk_1line.bmp",
-            "str_asphdrk_2line.bmp",
-            "str_gehweg03.bmp",
-        ],
-    );
+    // The maker's stock asphalt is the one texture an imported road needs; the
+    // spline's own asphalt names (str_asphdrk_1line/_2line here) are not consulted.
+    let (roots, source, dir) = install(stock, "lanes", &["str_asphdrk.bmp"]);
     let json = create(
         &roots,
         stock.rel,
@@ -339,6 +363,7 @@ fn wilhelm2_import_keeps_every_lane_path_where_the_stock_spline_put_it() {
     check_paths(stock, &loaded, &out);
     check_pavement(stock, &out);
     check_strips(stock, &spec);
+    check_source_after_save_as(stock, &roots, &source, &json, &spec);
     assert!(
         (spec.roadway_width() - (stock.pavement.1 - stock.pavement.0)).abs() <= 0.001,
         "{}: the imported roadway is {:.3} m wide, the pavement {:.3} m",
@@ -365,16 +390,7 @@ fn wilhelm2_import_keeps_every_lane_path_where_the_stock_spline_put_it() {
 #[test]
 fn zeppelin1_import_keeps_the_raised_median_and_every_lane_path() {
     let stock = &ZEPPELIN1;
-    let (roots, source, dir) = install(
-        stock,
-        "lanes",
-        &[
-            "str_asphdrk_1line.bmp",
-            "str_asphdrk.bmp",
-            "str_side1.bmp",
-            "str_gruenstreifen.bmp",
-        ],
-    );
+    let (roots, source, dir) = install(stock, "lanes", &["str_asphdrk.bmp"]);
     let json = create(
         &roots,
         stock.rel,
@@ -416,6 +432,7 @@ fn zeppelin1_import_keeps_the_raised_median_and_every_lane_path() {
     check_paths(stock, &loaded, &out);
     check_pavement(stock, &out);
     check_strips(stock, &spec);
+    check_source_after_save_as(stock, &roots, &source, &json, &spec);
 
     // The 3.500 m median is the reason the inner paths sit at ±3.250 and not at ±2.125.
     let raised: Vec<(f32, f32, f32)> = out
@@ -447,9 +464,8 @@ fn zeppelin1_import_keeps_the_raised_median_and_every_lane_path() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
-/// The import resolves the file names the spline lists. For Zeppelin1 the plain
-/// asphalt (`str_asphdrk.bmp`, its texture 1) is all that has to be installed: the
-/// stock file's texture folder is not part of these fixtures.
+/// The import uses the same unmarked asphalt as a newly created road, without
+/// relying on the source's texture list.
 #[test]
 fn zeppelin1_finds_its_plain_asphalt_texture_by_name() {
     let stock = &ZEPPELIN1;

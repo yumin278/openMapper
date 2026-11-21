@@ -64,6 +64,15 @@ fn a_missing_choice_is_filled_but_a_chosen_picture_is_kept() {
 }
 
 #[test]
+fn an_unset_roadway_texture_has_no_stock_or_lined_name_to_fall_back_on() {
+    let mut spec = RoadSpec::default();
+    assert!(spec.roadway_tex_name().is_empty(), "a missing choice is not replaced by a stock bitmap");
+    // The only lined name is the copy this road paints itself, when markings are on.
+    spec.marked = true;
+    assert_eq!(spec.roadway_tex_name(), "road_lines.bmp");
+}
+
+#[test]
 fn every_preset_starts_on_the_stock_asphalt_when_it_is_offered() {
     let dir = temp("presets");
     let stock = dir.join("str_asphdrk.bmp");
@@ -78,6 +87,30 @@ fn every_preset_starts_on_the_stock_asphalt_when_it_is_offered() {
         assert!(spec.roadway_tex.as_os_str().is_empty());
     }
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn a_manually_chosen_roadway_texture_survives_the_write_and_the_reload() {
+    let content = temp("manual-write");
+    let texture_dir = content.join("Splines").join("openMapper").join("texture");
+    std::fs::create_dir_all(&texture_dir).unwrap();
+    let stock = texture_dir.join("str_asphdrk.bmp");
+    let own = texture_dir.join("own asphalt.bmp");
+    touch(&stock);
+    touch(&own);
+    let spec = RoadSpec { name: "Manual".into(), roadway_tex: own.clone(), ..Default::default() };
+    let rel = spec.write(&content).unwrap();
+    let path = content.join(rel.replace('\\', "/"));
+    let sli = std::fs::read_to_string(&path).unwrap();
+    assert!(sli.contains("own asphalt.bmp"), "the written road must name the chosen picture:\n{sli}");
+    assert!(!sli.contains("str_asphdrk.bmp"), "the written road must not swap in the stock asphalt:\n{sli}");
+    let mut back = RoadSpec::of(&path).expect("the written road must reopen");
+    assert_eq!(back.roadway_tex, own, "the reload must keep the chosen picture, not the stock one");
+    assert_ne!(back.roadway_tex, stock);
+    // Nor does showing the road replace it by the stock asphalt that is also installed.
+    assert!(back.use_default_roadway_texture(&[stock.clone()]));
+    assert_eq!(back.roadway_tex, own);
+    std::fs::remove_dir_all(content).unwrap();
 }
 
 #[test]
