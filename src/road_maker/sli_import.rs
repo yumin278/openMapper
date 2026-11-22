@@ -109,7 +109,7 @@ pub(crate) fn create(
     ensure!(
         !draft_sli.try_exists()?,
         "{}",
-        tr("Another road already uses this file: {file}", "Другая дорога уже использует этот файл: {file}")
+        tr("Another road already uses this file: {file}", "Этот файл уже используется другой дорогой: {file}")
             .replace("{file}", &rel)
     );
     let path = draft_sli.with_extension("road.json");
