@@ -62,6 +62,8 @@ struct PreparedStopReplacement {
     routes: Vec<(String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>)>,
     peers: HashSet<String>,
     net_key: u64,
+    /// The roads were available, so the new ways were checked and are written with the stops.
+    routes_checked: bool,
     /// The route basis the prepared ways were found on (a change aborts the commit).
     links_basis: Vec<omsi_timetable::StnLink>,
     tracks_basis: Vec<omsi_timetable::Track>,
@@ -1645,69 +1647,68 @@ impl TimetableUi {
                 routes: Vec::new(),
                 peers: HashSet::new(),
                 net_key: self.net_key,
+                routes_checked: self.net.is_some(),
                 links_basis: tt.links.clone(),
                 tracks_basis: tt.tracks.clone(),
             });
         }
-        let Some(net) = &self.net else {
-            // (without the roads the new ways cannot be checked: refuse rather than leave a
-            // half-changed stop list with the old ways)
-            return Err("the roads are unavailable: the replacement cannot be checked".to_string());
-        };
         let peers: HashSet<String> = affected.iter().map(|(name, _)| lower(name)).collect();
+        let routes_checked = self.net.is_some();
         let mut routes = Vec::new();
         // (all affected trips must calculate the same link for a station pair: the map has
         // only one link per pair, and this group writes it in one go)
         let mut by_pair: HashMap<(i64, i64), (String, omsi_timetable::StnLink)> = HashMap::new();
-        for (name, _) in &affected {
-            let Some(trip) = preview.trip(name) else { continue };
-            if trip.stations.len() < 2 {
-                continue;
-            }
-            // (the same places the reroute uses: the map's stop objects, not the list's marks)
-            let pos: Vec<Option<DVec3>> = trip.stations.iter().map(|id| positions.get(id).copied()).collect();
-            let r = if tt.by_hand(name) {
-                // (a hand-picked way stays the way it was picked, as it does in a reroute)
-                let lanes = preview.track(name)
-                    .map(|t| crate::timetable::way::lanes_of_track(net, &t.entries, order))
-                    .and_then(|v| v.into_iter().collect::<Option<Vec<usize>>>());
-                match lanes {
-                    Some(lanes) => crate::timetable::way::along(net, &lanes, &pos, left),
-                    None => return Err(format!("{name}: its hand-picked way is no longer on the map")),
+        if let Some(net) = &self.net {
+            for (name, _) in &affected {
+                let Some(trip) = preview.trip(name) else { continue };
+                if trip.stations.len() < 2 {
+                    continue;
                 }
-            } else {
-                let ways = self.ways.get(&lower(name)).copied().or_else(|| route::ways_of(&preview, name, net, order));
-                route::find(net, &pos, left, ways)
-            };
-            if !r.ok() {
-                log::warn!("timetable: the stop ID change of {current} would leave {name} without a way: {:?}", r.problems);
-                return Err(format!("{name}: {:?}", r.problems));
-            }
-            let links = if r.stops.len() == trip.stations.len() && trip.stations.len() >= 2 {
-                r.links(net, order, &trip.stations)
-            } else {
-                Vec::new()
-            };
-            let conflicts = links::link_conflicts_among(&preview, name, &links, &peers);
-            if !conflicts.is_empty() {
-                for c in &conflicts {
-                    log::warn!("timetable: {name}: {}", c.log_text());
-                }
-                return Err(conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", "));
-            }
-            for link in &links {
-                let pair = (link.from_id, link.to_id);
-                if let Some((other, first)) = by_pair.get(&pair) {
-                    if *first != *link {
-                        log::warn!("timetable: {name} and {other} calculate different links for {pair:?}");
-                        return Err(format!("{name} and {other} disagree about {pair:?}"));
+                // (the same places the reroute uses: the map's stop objects, not the list's marks)
+                let pos: Vec<Option<DVec3>> = trip.stations.iter().map(|id| positions.get(id).copied()).collect();
+                let r = if tt.by_hand(name) {
+                    // (a hand-picked way stays the way it was picked, as it does in a reroute)
+                    let lanes = preview.track(name)
+                        .map(|t| crate::timetable::way::lanes_of_track(net, &t.entries, order))
+                        .and_then(|v| v.into_iter().collect::<Option<Vec<usize>>>());
+                    match lanes {
+                        Some(lanes) => crate::timetable::way::along(net, &lanes, &pos, left),
+                        None => return Err(format!("{name}: its hand-picked way is no longer on the map")),
                     }
                 } else {
-                    by_pair.insert(pair, (name.clone(), link.clone()));
+                    let ways = self.ways.get(&lower(name)).copied().or_else(|| route::ways_of(&preview, name, net, order));
+                    route::find(net, &pos, left, ways)
+                };
+                if !r.ok() {
+                    log::warn!("timetable: the stop ID change of {current} would leave {name} without a way: {:?}", r.problems);
+                    return Err(format!("{name}: {:?}", r.problems));
                 }
+                let links = if r.stops.len() == trip.stations.len() && trip.stations.len() >= 2 {
+                    r.links(net, order, &trip.stations)
+                } else {
+                    Vec::new()
+                };
+                let conflicts = links::link_conflicts_among(&preview, name, &links, &peers);
+                if !conflicts.is_empty() {
+                    for c in &conflicts {
+                        log::warn!("timetable: {name}: {}", c.log_text());
+                    }
+                    return Err(conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", "));
+                }
+                for link in &links {
+                    let pair = (link.from_id, link.to_id);
+                    if let Some((other, first)) = by_pair.get(&pair) {
+                        if *first != *link {
+                            log::warn!("timetable: {name} and {other} calculate different links for {pair:?}");
+                            return Err(format!("{name} and {other} disagree about {pair:?}"));
+                        }
+                    } else {
+                        by_pair.insert(pair, (name.clone(), link.clone()));
+                    }
+                }
+                let track = r.track(net, order);
+                routes.push((name.clone(), track, links));
             }
-            let track = r.track(net, order);
-            routes.push((name.clone(), track, links));
         }
         let old = affected.iter()
             .filter_map(|(name, _)| tt.trip(name).map(|t| {
@@ -1722,6 +1723,7 @@ impl TimetableUi {
         let new_trips = affected.iter().filter_map(|(name, _)| preview.trip(name).map(|t| (lower(name), t.clone()))).collect();
         Ok(PreparedStopReplacement {
             affected, old, new_trips, routes, peers, net_key: self.net_key,
+            routes_checked,
             links_basis: tt.links.clone(),
             tracks_basis: tt.tracks.clone(),
         })
@@ -1773,8 +1775,14 @@ impl TimetableUi {
         }
         for (name, _) in &prepared.affected {
             tt.touch_trip(name);
-            tt.reroute.remove(&lower(name));
             tt.type2_converted.remove(&lower(name));
+            if prepared.routes_checked {
+                tt.reroute.remove(&lower(name));
+            } else {
+                // (the roads were unavailable, so the stop list is kept as the edit asked and
+                // the way is found when they are: the old queue behaviour for the data edit)
+                tt.reroute.insert(lower(name));
+            }
         }
         Ok(prepared.affected)
     }
@@ -3657,7 +3665,7 @@ mod batch_route_tests {
         let _map = crate::doc::one_map();
         let (mut doc, mut ui) = lane_map(
             "replace-all-atomic",
-            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 70.0)],
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 30.0)],
             &[("a", vec![1, 2]), ("b", vec![1, 3]), ("c", vec![4, 2])],
         );
         doc.timetable.links.push(link(4, 2, 99.0));
@@ -3698,7 +3706,7 @@ mod batch_route_tests {
         let _map = crate::doc::one_map();
         let (mut doc, mut ui) = lane_map(
             "replace-all-missing",
-            &[(1, 10.0), (2, 50.0), (4, 70.0)],
+            &[(1, 10.0), (2, 50.0), (4, 30.0)],
             &[("a", vec![1, 2]), ("b", vec![1, 2])],
         );
         let positions = stop_positions(&ui);
@@ -3722,7 +3730,7 @@ mod batch_route_tests {
         let _map = crate::doc::one_map();
         let (mut doc, mut ui) = lane_map(
             "replace-network-changed",
-            &[(1, 10.0), (2, 50.0), (4, 70.0)],
+            &[(1, 10.0), (2, 50.0), (4, 30.0)],
             &[("a", vec![1, 2]), ("b", vec![1, 3])],
         );
         let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
@@ -3746,7 +3754,7 @@ mod batch_route_tests {
         let _map = crate::doc::one_map();
         let (mut doc, mut ui) = lane_map(
             "replace-links-changed",
-            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 70.0)],
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 30.0)],
             &[("a", vec![1, 2]), ("b", vec![1, 3])],
         );
         let out = std::env::temp_dir().join(format!("openmapper-replace-links-{}", std::process::id()));
@@ -3784,7 +3792,7 @@ mod batch_route_tests {
         let _map = crate::doc::one_map();
         let (mut doc, mut ui) = lane_map(
             "replace-late-failure",
-            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 70.0)],
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 30.0)],
             &[("a", vec![1, 2]), ("b", vec![1, 3])],
         );
         let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
