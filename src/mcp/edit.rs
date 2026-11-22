@@ -1571,7 +1571,18 @@ impl Server {
             }
             let m = ((r.length() / 1000.0 / speed * 60.0) + 0.5 * stops.len() as f64).ceil().max(2.0) as f32;
             let tt = &mut doc.timetable;
-            tt.set_route(&trip, r.track(&net, &doc.order), r.links(&net, &doc.order, stops));
+            let (track, links) = (r.track(&net, &doc.order), r.links(&net, &doc.order, stops));
+            crate::timetable::links::log_route(&trip, stops, &pos, &track, &links, &r.problems);
+            if let Err(conflicts) = tt.set_route(&trip, track, links) {
+                for c in &conflicts {
+                    log::warn!("timetable: {}", c.log_text());
+                }
+                problems.push(format!(
+                    "trip {trip}: shared station link not written: {}",
+                    conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", ")
+                ));
+                continue;
+            }
             if let Some(p) = tt.trip_mut(&trip).and_then(|x| x.profiles.first_mut()) {
                 p.factor = m;
             }
@@ -1672,10 +1683,29 @@ impl Server {
         };
         let mark = self.ed.history.mark();
         let before = self.doc().map(|d| crate::history::Snapshot { global: Some((d.global.clone(), d.order.clone())), timetable: Some(d.timetable.clone()), traffic: Some(d.traffic.clone()), ..Default::default() })?;
-        crate::sample::build(&mut self.ed, &mut self.assets, &self.lib, &self.roots, centre)?;
-        self.ed.history.push_snapshot("Sample", before);
-        self.ed.history.merge_since(mark, "Sample");
-        Ok(json!({ "center": p2(centre) }))
+        match crate::sample::build(&mut self.ed, &mut self.assets, &self.lib, &self.roots, centre) {
+            Ok(()) => {
+                self.ed.history.push_snapshot("Sample", before);
+                self.ed.history.merge_since(mark, "Sample");
+                Ok(json!({ "center": p2(centre) }))
+            }
+            Err(e) => {
+                // (a sample that stopped half-way leaves no line, trip, tour, route or start point)
+                if let Some(doc) = self.ed.doc.as_mut() {
+                    if let Some(timetable) = before.timetable {
+                        doc.timetable = timetable;
+                    }
+                    if let Some(traffic) = before.traffic {
+                        doc.traffic = traffic;
+                    }
+                    if let Some((global, order)) = before.global {
+                        doc.global = global;
+                        doc.order = order;
+                    }
+                }
+                Err(e)
+            }
+        }
     }
 
     pub fn new_map(&mut self, a: super::Args) -> Reply {

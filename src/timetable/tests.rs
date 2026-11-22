@@ -465,7 +465,7 @@ fn a_new_line_on_grundorf_saves_and_reads_back() {
     let pos: Vec<Option<DVec3>> = stops.iter().map(|id| stop_world(&doc, &mut files, *id)).collect();
     let r = route::find(&net, &pos, false, None);
     assert!(r.ok(), "{:?}", r.problems);
-    tt.set_route(&trip, r.track(&net, &doc.order), r.links(&net, &doc.order, &stops));
+    tt.set_route(&trip, r.track(&net, &doc.order), r.links(&net, &doc.order, &stops)).unwrap_or_else(|c| panic!("the new line's route was refused: {c:?}"));
     tt.lines.iter_mut().find(|l| l.name == line).unwrap().tours.push(omsi_timetable::Tour {
         number: "1".into(),
         ai_group: "Busses".into(),
@@ -641,7 +641,7 @@ fn a_line_copied_drives_copies_of_its_trips() {
     let l = tt.add_line("76");
     let a = tt.add_trip(&l, "76_A-B", vec![1, 2]);
     let b = tt.add_trip(&l, "76_B-A", vec![2, 1]);
-    tt.set_route(&a, vec![Default::default()], Vec::new());
+    tt.set_route(&a, vec![Default::default()], Vec::new()).unwrap();
     let line = tt.lines.iter_mut().find(|x| x.name == l).unwrap();
     line.tours.push(omsi_timetable::Tour { number: "1".into(), trips: vec![omsi_timetable::TourTrip { trip: a.clone(), ..Default::default() }, omsi_timetable::TourTrip { trip: b.clone(), ..Default::default() }], ..Default::default() });
     let copy = tt.duplicate_line(&l).unwrap();
@@ -729,7 +729,7 @@ fn a_tram_trip_runs_on_its_track() {
     let line = tt.add_line("5");
     let trip = tt.add_trip(&line, "5_1", vec![10, 11]);
     assert_eq!(route::ways_of(&tt, &trip, &net, &[tile]), None);
-    tt.set_route(&trip, r.track(&net, &[tile]), r.links(&net, &[tile], &[10, 11]));
+    tt.set_route(&trip, r.track(&net, &[tile]), r.links(&net, &[tile], &[10, 11])).unwrap();
     assert_eq!(route::ways_of(&tt, &trip, &net, &[tile]), Some(route::Ways::Rail));
 }
 
@@ -854,7 +854,7 @@ fn a_track_picked_by_hand_reads_back() {
     let line = tt.add_line("4");
     let trip = tt.add_trip(&line, "4_A", vec![1, 2]);
     let entries = vec![TrackEntry { values: vec![10.0, 0.0, 0.0, 3.0, 50.0, 0.0] }, TrackEntry { values: vec![11.0, 1.0, 0.0, 7.0, 12.5, 0.0] }];
-    tt.set_by_hand(&trip, Some((entries.clone(), Vec::new())));
+    tt.set_by_hand(&trip, Some((entries.clone(), Vec::new()))).unwrap();
     assert!(tt.by_hand(&trip));
     save_to(&mut tt, &out, &[]).unwrap();
     let text = std::fs::read_to_string(out.join("TTData").join("4_A.ttr")).unwrap();
@@ -867,7 +867,7 @@ fn a_track_picked_by_hand_reads_back() {
     // renamed, it stays picked by hand; found automatically again, it is not
     tt.rename_trip(&trip, "4_B").unwrap();
     assert!(tt.by_hand("4_B") && !tt.by_hand("4_A"));
-    tt.set_by_hand("4_B", None);
+    tt.set_by_hand("4_B", None).unwrap();
     assert!(!tt.by_hand("4_B") && tt.reroute.contains("4_b"));
     let _ = std::fs::remove_dir_all(&out);
 }
@@ -1036,5 +1036,160 @@ fn type2_conversion_keeps_every_stop_of_short_legacy_records() {
         let back = Timetable::load(&out, &[]);
         assert_converted_six_stops(&back, what);
         let _ = std::fs::remove_dir_all(out);
+    }
+}
+
+/// The station links of the whole map are keyed by their two stop IDs: a single trip's way
+/// may only be written when it agrees with the other trips between the same stops.
+mod shared_links {
+    use super::*;
+
+    fn link(from: i64, to: i64, length: f64) -> omsi_timetable::StnLink {
+        omsi_timetable::StnLink { from_id: from, to_id: to, length, ..Default::default() }
+    }
+
+    /// A link with an AI path: one entry per lane driven (`lane` becomes the entry's IDCode).
+    fn lane_link(from: i64, to: i64, length: f64, lanes: &[i64]) -> omsi_timetable::StnLink {
+        let entries = lanes.iter().map(|lane| omsi_timetable::StnLinkEntry {
+            values: [*lane as f64, 0.0, 0.0, length, -1.0, 0.0, 0.0],
+        }).collect();
+        omsi_timetable::StnLink {
+            length,
+            from_id: from,
+            to_id: to,
+            params: [0.0, 0.0, 0.0, 0.0, 0.0, lanes.len().saturating_sub(1) as f64],
+            entries,
+        }
+    }
+
+    fn entry(id: f64) -> TrackEntry {
+        TrackEntry { values: vec![id, 0.0, 0.0, 0.0, 50.0, 0.0] }
+    }
+
+    fn two_trips() -> Timetable {
+        let mut tt = Timetable::default();
+        tt.add_trip("", "A", vec![100, 200]);
+        tt.add_trip("", "B", vec![100, 200]);
+        tt
+    }
+
+    /// A differing link on a shared pair writes nothing at all: no StnLink replaced, no
+    /// `.ttr` made or changed, and the trip is not marked by hand.
+    #[test]
+    fn a_differing_shared_link_writes_nothing() {
+        let mut tt = two_trips();
+        let existing = lane_link(100, 200, 120.0, &[10, 11]);
+        tt.links.push(existing.clone());
+        let track_before = tt.tracks.len();
+        let conflicts = tt.set_by_hand("A", Some((vec![entry(1.0)], vec![lane_link(100, 200, 140.0, &[10, 11])]))).unwrap_err();
+        println!("refused: {conflicts:#?}");
+        assert_eq!(tt.links, vec![existing], "the map's link is unchanged");
+        assert_eq!(tt.tracks.len(), track_before, "no track was made");
+        assert!(tt.track("A").is_none());
+        assert!(!tt.changed.contains("a.ttr"), "nothing was queued for writing");
+        assert!(!tt.by_hand("A"), "a refused write does not mark the trip by hand");
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!((conflicts[0].from_id, conflicts[0].to_id), (100, 200));
+        assert_eq!(conflicts[0].trips, vec!["B".to_string()]);
+        assert_eq!(conflicts[0].existing.as_ref().map(|l| l.length), Some(120.0));
+        assert_eq!(conflicts[0].new.length, 140.0);
+        assert!(conflicts[0].diffs.iter().any(|d| d.field == "length" && d.detail.contains("120.000") && d.detail.contains("140.000")));
+    }
+
+    /// The same link as the map's may be written (nothing changes for the other trip).
+    #[test]
+    fn an_identical_shared_link_is_written() {
+        let mut tt = two_trips();
+        let same = lane_link(100, 200, 120.0, &[10, 11]);
+        tt.links.push(same.clone());
+        tt.set_route("A", vec![entry(1.0)], vec![same.clone()]).unwrap();
+        assert_eq!(tt.links, vec![same.clone()]);
+        assert!(tt.track("A").is_some(), "the route's track is written");
+        assert!(tt.changed.contains("a.ttr"));
+    }
+
+    /// A pair only this trip drives between may always be written.
+    #[test]
+    fn a_pair_only_this_trip_uses_is_written() {
+        let mut tt = Timetable::default();
+        tt.add_trip("", "A", vec![100, 200]);
+        tt.add_trip("", "B", vec![200, 300]);
+        tt.links.push(link(200, 300, 50.0));
+        let own = lane_link(100, 200, 120.0, &[10]);
+        tt.set_route("A", vec![entry(1.0)], vec![own.clone()]).unwrap();
+        assert!(tt.links.contains(&own));
+        assert!(tt.links.contains(&link(200, 300, 50.0)), "another pair's link is left alone");
+    }
+
+    /// Another trip on the pair and no link yet on the map: nothing to compare with, so the
+    /// single write is refused rather than assumed safe.
+    #[test]
+    fn a_missing_link_on_a_shared_pair_is_a_conflict() {
+        let mut tt = two_trips();
+        let conflicts = tt.set_route("A", vec![entry(1.0)], vec![link(100, 200, 120.0)]).unwrap_err();
+        assert_eq!(tt.links.len(), 0, "nothing was written");
+        assert_eq!(conflicts.len(), 1);
+        assert!(conflicts[0].existing.is_none());
+        assert!(conflicts[0].diffs.is_empty());
+        assert_eq!(conflicts[0].trips, vec!["B".to_string()]);
+    }
+
+    /// A Type 1 trip's `[station]` records name the stops of its pairs too.
+    #[test]
+    fn a_legacy_trips_station_records_use_the_pair() {
+        let mut tt = Timetable::default();
+        tt.add_trip("", "A", vec![100, 200]);
+        tt.trips.push(omsi_timetable::Trip {
+            name: "Legacy".into(),
+            stations_legacy: vec![vec!["100".into()], vec!["200".into()]],
+            ..Default::default()
+        });
+        tt.links.push(link(100, 200, 120.0));
+        let conflicts = tt.set_route("A", vec![entry(1.0)], vec![lane_link(100, 200, 140.0, &[10])]).unwrap_err();
+        assert_eq!(conflicts.len(), 1);
+        assert_eq!(conflicts[0].trips, vec!["Legacy".to_string()]);
+        assert_eq!(tt.links.len(), 1);
+    }
+
+    /// After the user confirms: the link is replaced, and the gate reports whom it affected.
+    #[test]
+    fn the_user_can_overwrite_shared_links() {
+        let mut tt = two_trips();
+        let existing = lane_link(100, 200, 120.0, &[10]);
+        tt.links.push(existing.clone());
+        let new = lane_link(100, 200, 140.0, &[10, 11]);
+        let affected = tt.overwrite_route("A", vec![entry(2.0)], vec![new.clone()], false);
+        assert_eq!(affected.len(), 1);
+        assert_eq!(affected[0].trips, vec!["B".to_string()]);
+        assert_eq!(tt.links, vec![new], "the user's link replaced the old one");
+        assert!(tt.track("A").is_some());
+    }
+
+    /// The batch writes several trips together: a pair only they use may be created even
+    /// when the map has no link for it yet (`conflicting_batch_routes` compared them).
+    #[test]
+    fn a_batch_may_create_a_pair_shared_among_its_own_trips() {
+        let mut tt = two_trips();
+        let peers: std::collections::HashSet<String> = ["a".to_string(), "b".to_string()].into_iter().collect();
+        let same = link(100, 200, 120.0);
+        tt.set_automatic_route_among("A", vec![entry(1.0)], vec![same.clone()], &peers).unwrap();
+        tt.set_automatic_route_among("B", vec![entry(2.0)], vec![same.clone()], &peers).unwrap();
+        assert_eq!(tt.links, vec![same]);
+        assert!(tt.track("A").is_some() && tt.track("B").is_some());
+    }
+
+    /// A scoped batch grows along every shared station pair until nothing new is reached.
+    #[test]
+    fn the_scope_follows_shared_station_pairs() {
+        let mut tt = Timetable::default();
+        tt.add_trip("", "A", vec![1, 2]);
+        tt.add_trip("", "B", vec![1, 2, 3]);
+        tt.add_trip("", "C", vec![2, 3, 4]);
+        tt.add_trip("", "D", vec![9, 10]);
+        let scope = links::sharing_trips(&tt, "A");
+        let mut names: Vec<&str> = scope.iter().map(String::as_str).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec!["a", "b", "c"]);
+        assert_eq!(links::sharing_trips(&tt, "D"), ["d".to_string()].into_iter().collect());
     }
 }

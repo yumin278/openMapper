@@ -74,6 +74,9 @@ pub enum Problem {
     NoWay(usize),
     /// The way picked by hand does not pass the stop (after the one before).
     OffWay(usize),
+    /// The way calculated for the trip was not written: a station link it would replace is
+    /// shared with other trips and differs from theirs (or the map has none to compare).
+    SharedLink,
 }
 
 impl Route {

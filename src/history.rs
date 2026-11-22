@@ -71,7 +71,7 @@ impl Changed {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct History {
     undo: Vec<Step>,
     redo: Vec<Step>,

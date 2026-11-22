@@ -175,3 +175,28 @@ fn a_read_only_street_check_fixes_nothing() {
     assert!(call(&mut s, "street_check", json!({})).is_ok());
     assert!(call(&mut s, "street_check", json!({ "fix": true })).is_err());
 }
+
+/// A line whose trips cannot be routed (here: a map with no roads at all) leaves no line,
+/// trip or route behind.
+#[test]
+fn a_line_that_cannot_be_routed_leaves_nothing_behind() {
+    let mut s = server(true);
+    {
+        let doc = s.ed.doc.as_mut().unwrap();
+        let t = &mut doc.tiles.get_mut(&(0, 0)).unwrap().tile;
+        for (id, x) in [(10, 10.0), (11, 90.0)] {
+            t.objects.push(omsi_map::MapObject {
+                file: "Sceneryobjects\\Generic\\bus_stop.sco".into(),
+                id, pos: [x, 10.0, 0.0], flag: 7,
+                extra: vec![format!("Stop {id}"), "0".into(), "0".into(), "10".into()],
+                ..Default::default()
+            });
+        }
+    }
+    let err = call(&mut s, "make_line", json!({ "name": "9", "stops": [10, 11], "one_way": true })).unwrap_err();
+    println!("{err}");
+    let tt = &s.ed.doc.as_ref().unwrap().timetable;
+    assert!(tt.lines.is_empty(), "{:?}", tt.lines);
+    assert!(tt.trips.is_empty(), "{:?}", tt.trips);
+    assert!(tt.tracks.is_empty());
+}

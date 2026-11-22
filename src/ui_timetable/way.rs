@@ -16,14 +16,28 @@ pub(super) fn saved_lanes(net: &Network, doc: &Document, name: &str) -> Option<V
 }
 
 /// The way of a trip along `lanes`, its stops found on it, kept as the trip's (picked by
-/// hand): its track, and the station links where every stop lies on it.
-pub(super) fn keep_by_hand(net: &Network, files: &mut Files, doc: &mut Document, name: &str, lanes: &[usize]) -> Route {
+/// hand): its track, and the station links where every stop lies on it. The write goes
+/// through the shared-link gate; `conflicts` says why nothing was written when it refused.
+pub(super) struct HandWrite {
+    pub route: Route,
+    pub stations: Vec<i64>,
+    pub track: Vec<omsi_timetable::TrackEntry>,
+    pub links: Vec<omsi_timetable::StnLink>,
+    pub conflicts: Vec<SharedLinkConflict>,
+}
+
+pub(super) fn keep_by_hand(net: &Network, files: &mut Files, doc: &mut Document, name: &str, lanes: &[usize]) -> HandWrite {
     let stations = doc.timetable.trip(name).map(|t| t.stations.clone()).unwrap_or_default();
     let pos: Vec<Option<DVec3>> = stations.iter().map(|id| timetable::stop_world(doc, files, *id)).collect();
     let r = way::along(net, lanes, &pos, doc.global.left_hand_traffic);
     let links = if r.stops.len() == stations.len() && stations.len() >= 2 { r.links(net, &doc.order, &stations) } else { Vec::new() };
-    doc.timetable.set_by_hand(name, Some((r.track(net, &doc.order), links)));
-    r
+    let track = r.track(net, &doc.order);
+    links::log_route(name, &stations, &pos, &track, &links, &r.problems);
+    let conflicts = match doc.timetable.set_by_hand(name, Some((track.clone(), links.clone()))) {
+        Ok(()) => Vec::new(),
+        Err(conflicts) => conflicts,
+    };
+    HandWrite { route: r, stations, track, links, conflicts }
 }
 
 impl TimetableUi {
@@ -39,14 +53,40 @@ impl TimetableUi {
     /// The trip's way set to `lanes`, picked by hand from now on.
     fn set_way(&mut self, doc: &mut Document, name: &str, lanes: &[usize]) {
         let Some(net) = &self.net else { return };
-        let r = keep_by_hand(net, &mut self.files, doc, name, lanes);
-        if r.problems.is_empty() {
-            self.problems.remove(&lower(name));
-        } else {
-            self.problems.insert(lower(name), r.problems);
-        }
+        let was_hand = doc.timetable.by_hand(name);
+        let w = keep_by_hand(net, &mut self.files, doc, name, lanes);
+        self.hand_route_written(name, w, self.net_key, was_hand);
         self.routed.remove(&lower(name));
         self.shown = None;
+    }
+
+    /// Find the trip's way automatically again in place of the paths picked by hand. The
+    /// hand-picked way (and its track) stays until the new one passed the shared-link gate:
+    /// a failure or a conflict changes nothing.
+    fn find_automatically(&mut self, doc: &mut Document, name: &str) {
+        let Some(net) = &self.net else { return };
+        let Some(trip) = doc.timetable.trip(name).cloned() else { return };
+        if trip.stations.len() < 2 {
+            return;
+        }
+        let pos: Vec<Option<DVec3>> = trip.stations.iter().map(|id| timetable::stop_world(doc, &mut self.files, *id)).collect();
+        let r = route::find(net, &pos, doc.global.left_hand_traffic, ways_for(&self.ways, doc, net, name));
+        if !r.ok() {
+            self.problems.insert(lower(name), r.problems.clone());
+            log::warn!("timetable: {name} stays picked by hand: its route was not found: {:?}", r.problems);
+            return;
+        }
+        let track = r.track(net, &doc.order);
+        let links = r.links(net, &doc.order, &trip.stations);
+        links::log_route(name, &trip.stations, &pos, &track, &links, &r.problems);
+        match doc.timetable.set_automatic_route(name, track.clone(), links.clone()) {
+            Ok(()) => {
+                self.route_written(name);
+                self.way_edit = false;
+                self.shown = None;
+            }
+            Err(conflicts) => self.shared_write_refused(name, trip.stations.clone(), track, links, false, true, self.net_key, conflicts, Vec::new()),
+        }
     }
 
     /// While the paths are being picked, a click in the view puts the path under it into the
@@ -80,9 +120,7 @@ impl TimetableUi {
                 self.clear_stop_edits();
             }
             if hand && ui.button(icons::labelled(Icon::Route, tr("Find the way automatically", "Найти путь автоматически"))).on_hover_text(tr("Forget the paths picked: the way is found along the roads again", "Забыть выбранные пути: путь снова найдётся по дорогам")).clicked() {
-                doc.timetable.set_by_hand(name, None);
-                self.way_edit = false;
-                self.shown = None;
+                self.find_automatically(doc, name);
             }
         });
         if hand {

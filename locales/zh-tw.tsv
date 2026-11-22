@@ -3390,3 +3390,18 @@ The road surface has a gap without cross-section data	路面有缺口，且缺�
 The central divider cannot be represented by an existing strip	中央分隔帶無法用現有積木表示
 The default roadway texture str_asphdrk.bmp was not found; choose a roadway texture from the list	找不到預設行車道貼圖 str_asphdrk.bmp；請從清單中選擇行車道貼圖
 The imported height profile is not usable	匯入的高度剖面無法使用
+its shared station link was not written	它的共用站間連結沒有寫入
+Trip {trip}'s {from} → {to} is shared with {trips}, but the new AI path differs from the existing StnLink. The original data was not changed.	班次 {trip} 的 {from} → {to} 與 {trips} 共用，但新的 AI 路徑與現有的 StnLink 不一致。原資料沒有變更。
+The map has no StnLink for {from} → {to} yet, and {trips} also drive between these stops. The original data was not changed.	地圖上還沒有 {from} → {to} 的 StnLink，而 {trips} 也行駛這兩個站之間。原資料沒有變更。
+This replaces the shared station links for:	這會取代以下站對的共用站間連結：
+Confirm overwrite	確認覆寫
+Overwrite shared links	覆寫共用連結
+A shared station link differs: this trip's way was not written, and the saved data is unchanged.	共用站間連結不一致：這個班次的路線沒有寫入，已儲存的資料沒有變更。
+Recalculate this trip	重算此班次
+Find this trip's way again, checking the shared station links before writing	再次尋找此班次的路線，寫入前先檢查共用站間連結
+Recalculate this trip and the trips sharing its station pairs	重算此班次及與它共用站對的班次
+A batch over this trip and every trip it shares a station pair with, with the batch's shared-link protection	對此班次及所有與它共用站對的班次執行批次重算，並套用批次的共用連結保護
+The stop change of {trip} was not applied: its way would change the shared station link {from} → {to} used by {trips}. The stops and the way of the trip are as they were.	班次 {trip} 的站點變更沒有套用：它的路線會改到 {trips} 共用的站間連結 {from} → {to}。這個班次的站點與路線維持原狀。
+The trip or its shared station links changed since; the old overwrite was dropped and the trip is recalculated.	班次或其共用站間連結已經改變；舊的覆寫已取消，班次會重新計算。
+The stop ID change was not applied: a trip's way would not be found or a shared station link differs. Nothing was changed.	站點 ID 變更沒有套用：有班次的路線找不到，或共用站間連結不一致。所有資料維持不變。
+The stop change of {trip} was not applied: no way was found for the new stops. The stops and the way of the trip are as they were.	班次 {trip} 的站點變更沒有套用：新站點找不到路線。這個班次的站點與路線維持原狀。

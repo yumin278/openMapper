@@ -114,17 +114,18 @@ pub fn add(doc: &mut Document, roots: Vec<std::path::PathBuf>, routes: &[(String
         if doc.timetable.trips.iter().any(|t| t.line.eq_ignore_ascii_case(&line_name) && t.stations == ids) {
             continue;
         }
+        let mut new_line = false;
         let line = match doc.timetable.lines.iter().find(|l| l.name.eq_ignore_ascii_case(&line_name)) {
             Some(l) => l.name.clone(),
             None => {
                 added.lines += 1;
+                new_line = true;
                 doc.timetable.add_line(&line_name)
             }
         };
         let terminus = doc.timetable.stop_name(*ids.last().unwrap()).unwrap_or("").to_string();
         let trip_name = file_name(&format!("{line}_{}", if terminus.is_empty() { name.as_str() } else { terminus.as_str() }));
         let trip = doc.timetable.add_trip(&line, &trip_name, ids.clone());
-        added.trips += 1;
         let pos: Vec<Option<DVec3>> = ids.iter().map(|id| crate::timetable::stop_world(doc, &mut files, *id)).collect();
         let r = route::find(&net, &pos, left, None);
         let mut minutes = (pts.len() as f32 * 1.5).max(5.0);
@@ -132,14 +133,30 @@ pub fn add(doc: &mut Document, roots: Vec<std::path::PathBuf>, routes: &[(String
             // (about 18 km/h with the stops)
             minutes = ((r.length() / 1000.0 / 18.0 * 60.0) + 1.0).ceil().max(2.0) as f32;
             let (track, links) = (r.track(&net, &doc.order), r.links(&net, &doc.order, &ids));
+            crate::timetable::links::log_route(&trip, &ids, &pos, &track, &links, &r.problems);
             let tt = &mut doc.timetable;
-            tt.set_route(&trip, track, links);
-            if let Some(p) = tt.trip_mut(&trip).and_then(|x| x.profiles.first_mut()) {
-                p.factor = minutes;
+            match tt.set_route(&trip, track, links) {
+                Ok(()) => {
+                    if let Some(p) = tt.trip_mut(&trip).and_then(|x| x.profiles.first_mut()) {
+                        p.factor = minutes;
+                    }
+                    tt.reroute.remove(&trip.to_lowercase());
+                    added.routed += 1;
+                }
+                Err(conflicts) => {
+                    for c in &conflicts {
+                        log::warn!("timetable: {trip}: {}", c.log_text());
+                    }
+                    // (a refused route leaves no trip, and no line made only for it)
+                    log::warn!("timetable: the OSM import takes {trip} back: a shared station link differs");
+                    if take_back(tt, &trip, &line, new_line) {
+                        added.lines = added.lines.saturating_sub(1);
+                    }
+                    continue;
+                }
             }
-            tt.reroute.remove(&trip.to_lowercase());
-            added.routed += 1;
         }
+        added.trips += 1;
         match of_line.iter_mut().find(|l| l.0 == line) {
             Some(l) => l.1.push((trip, minutes)),
             None => of_line.push((line, vec![(trip, minutes)])),
@@ -173,9 +190,21 @@ pub fn add(doc: &mut Document, roots: Vec<std::path::PathBuf>, routes: &[(String
     added
 }
 
+/// Take back a trip whose route was refused, and the line made only for it (True when the
+/// line went too).
+fn take_back(tt: &mut crate::timetable::Timetable, trip: &str, line: &str, new_line: bool) -> bool {
+    tt.delete_trip(trip);
+    if new_line && !tt.trips.iter().any(|t| t.line.eq_ignore_ascii_case(line)) {
+        tt.delete_line(line);
+        return true;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::timetable::Timetable;
 
     #[test]
     fn a_route_is_read_with_its_platforms_in_order() {
@@ -187,5 +216,30 @@ mod tests {
         assert_eq!(r[0].number, "130");
         assert_eq!(r[0].stops, vec![(2.0, 2.0), (3.0, 3.0)]);
         assert_eq!(file_name("Bus 130: A => B"), "Bus 130- A => B".replace(['>'], "-"));
+    }
+
+    /// A route refused by the shared-link gate takes its trip, and a line made only for it,
+    /// back: what the import added is not left half-made.
+    #[test]
+    fn a_refused_trip_takes_its_new_line_with_it() {
+        let mut tt = Timetable::default();
+        let line = tt.add_line("9");
+        let trip = tt.add_trip(&line, "9_a", vec![1, 2]);
+        assert!(take_back(&mut tt, &trip, &line, true));
+        assert!(tt.trip(&trip).is_none(), "the trip is gone");
+        assert!(tt.lines.is_empty(), "the line made for it is gone");
+    }
+
+    /// A line that was already there (and still has trips) stays when one of its routes is
+    /// refused.
+    #[test]
+    fn a_refused_trip_keeps_a_line_that_still_has_trips() {
+        let mut tt = Timetable::default();
+        let line = tt.add_line("9");
+        let keep = tt.add_trip(&line, "9_keep", vec![1, 2]);
+        let trip = tt.add_trip(&line, "9_a", vec![2, 3]);
+        assert!(!take_back(&mut tt, &trip, &line, false));
+        assert!(tt.trip(&trip).is_none());
+        assert!(tt.trip(&keep).is_some() && tt.lines.len() == 1);
     }
 }

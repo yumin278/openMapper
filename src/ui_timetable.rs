@@ -18,6 +18,7 @@ use crate::install::Roots;
 use crate::render::FrameExtras;
 use crate::timetable::network::{Files, Network};
 use crate::timetable::route::{self, Problem, Route, Ways};
+use crate::timetable::links::{self, entries_text, link_diffs, FieldDiff, SharedLinkConflict};
 use crate::timetable::{self, clock, Timetable, ALL_DAYS};
 use crate::ui::Action;
 use crate::theme::pal;
@@ -49,6 +50,56 @@ struct ReplaceStopId {
     old_id: i64,
     input: String,
     all: bool,
+}
+
+/// A multi-trip stop ID replacement checked and ready to write: its new stops, the routes
+/// calculated for them, and the state to put back if any route write fails. Nothing is
+/// changed until `commit_replace_stop_ids`.
+struct PreparedStopReplacement {
+    affected: Vec<(String, Vec<usize>)>,
+    old: Vec<(String, StopEdit)>,
+    new_trips: Vec<(String, omsi_timetable::Trip)>,
+    routes: Vec<(String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>)>,
+    peers: HashSet<String>,
+    net_key: u64,
+    /// The route basis the prepared ways were found on (a change aborts the commit).
+    links_basis: Vec<omsi_timetable::StnLink>,
+    tracks_basis: Vec<omsi_timetable::Track>,
+}
+
+/// A trip as it was before a stop edit, with what would be written for it (so an undone edit
+/// leaves an untouched `.ttp` alone).
+#[derive(Debug)]
+struct StopEdit {
+    trip: omsi_timetable::Trip,
+    files: (bool, bool),
+    type2_converted: bool,
+}
+
+/// A stop edit that was undone, and why: a shared station link it would change, or a way
+/// that could not be found for its new stops.
+#[derive(Debug)]
+struct RevertedEdit {
+    conflicts: Vec<SharedLinkConflict>,
+    problems: Vec<Problem>,
+}
+
+/// A route that was found but not written because it would change a station link other
+/// trips drive on: kept until the user confirms overwriting it (or cancels).
+struct SharedWrite {
+    trip: String,
+    /// The stops the route was found for (a later stop edit makes the kept write stale).
+    stations: Vec<i64>,
+    track: Vec<omsi_timetable::TrackEntry>,
+    links: Vec<omsi_timetable::StnLink>,
+    /// The write marks the trip by hand (else it makes it automatic).
+    by_hand: bool,
+    /// The trip's hand-picked state when the write was found (a later change makes it stale).
+    was_hand: bool,
+    /// The network the route was found on (a rebuilt one makes the kept write stale).
+    net_key: u64,
+    conflicts: Vec<SharedLinkConflict>,
+    confirm: bool,
 }
 
 /// What the window keeps between frames.
@@ -84,6 +135,16 @@ pub struct TimetableUi {
     routed: HashMap<String, u64>,
     /// What went wrong finding a trip's route.
     problems: HashMap<String, Vec<Problem>>,
+    /// Routes found but not written because a shared station link would change, by
+    /// lower-case trip name (with the write to make when the user confirms).
+    shared_conflicts: HashMap<String, SharedWrite>,
+    /// Trips whose stops were edited here, as they were before the edit: an edit whose way
+    /// would change a shared station link (or cannot be routed) is undone, so its stops and
+    /// its old way stay together (lower-case name).
+    stop_edits: HashMap<String, StopEdit>,
+    /// Stop edits that were undone because of a shared link or because the new stops had no
+    /// way, with why (the trip's page).
+    reverted_edits: HashMap<String, RevertedEdit>,
     /// What the trips set here drive on (by lower-case name); the others drive on what their
     /// way was found on, or what their stops stand by.
     ways: HashMap<String, Ways>,
@@ -177,22 +238,8 @@ struct ConflictCandidate {
 impl ConflictCandidate {
     /// The link's numbers, for the log and the report file.
     fn describe(&self) -> String {
-        let p = self.link.params;
-        format!(
-            "{}: length {:.3}, stop A off {:.3} / along {:.3}, stop B off {:.3} / along {:.3}, \
-             flag {:.0}, last entry {:.0}, AI path {}",
-            self.name, self.link.length, p[0], p[2], p[1], p[3], p[4], p[5], entries_text(&self.link.entries)
-        )
+        links::describe_link(&self.name, &self.link)
     }
-}
-
-/// One field two candidate links (or a candidate and the map's link) disagree on.
-#[derive(Clone, Debug)]
-struct FieldDiff {
-    /// Short name for the summary line ("AI path sequence", "length", ...).
-    field: &'static str,
-    /// Both sides' values, for the log and the report file.
-    detail: String,
 }
 
 /// Where a propagated conflict came from: the trip already in conflict whose other links
@@ -247,13 +294,15 @@ impl ConflictCause {
     }
 
     /// One log line with both sides of every difference (AI path sequences in full).
-    fn log_text(&self) -> String {
+    fn log_text(&self, missing: &HashSet<(i64, i64)>) -> String {
         let trips: Vec<&str> = self.trips.iter().map(|t| t.name.as_str()).collect();
         let mut o = format!(
             "round {} {}: {} ({}) -> {} ({}) | trips: {}",
             self.round, self.kind.name(), self.from_name, self.from_id, self.to_name, self.to_id, trips.join(", ")
         );
-        if let Some(orig) = &self.original {
+        if missing.contains(&(self.from_id, self.to_id)) {
+            o.push_str(" | no StnLink for this pair on the map yet");
+        } else if let Some(orig) = &self.original {
             o.push_str(&format!(" | original: length {:.3}, AI path {}", orig.length, entries_text(&orig.entries)));
         }
         for d in &self.diffs {
@@ -277,46 +326,6 @@ fn pair_text(pair: Option<(i64, i64)>) -> String {
         Some((a, b)) => format!("{a} -> {b}"),
         None => "an earlier pair".to_string(),
     }
-}
-
-/// An AI path sequence in full: every entry's seven numbers (`id/path/tile/length/-1/0/0`).
-fn entries_text(entries: &[omsi_timetable::StnLinkEntry]) -> String {
-    let items: Vec<String> = entries.iter().map(|e| e.values.iter().map(|v| format!("{v:.3}")).collect::<Vec<_>>().join("/")).collect();
-    format!("[{}]", items.join(", "))
-}
-
-/// The fields two links disagree on (the station pair is the same by construction).
-fn link_diffs(a: &str, first: &omsi_timetable::StnLink, b: &str, other: &omsi_timetable::StnLink) -> Vec<FieldDiff> {
-    let (p, q) = (first.params, other.params);
-    let mut out = Vec::new();
-    if first.entries != other.entries {
-        out.push(FieldDiff {
-            field: "AI path sequence",
-            detail: format!("{a}: {} | {b}: {}", entries_text(&first.entries), entries_text(&other.entries)),
-        });
-    }
-    if first.length != other.length {
-        out.push(FieldDiff { field: "length", detail: format!("{a}: {:.3} | {b}: {:.3}", first.length, other.length) });
-    }
-    if p[0] != q[0] || p[2] != q[2] {
-        out.push(FieldDiff {
-            field: "position of stop A on its lane",
-            detail: format!("{a}: off {:.3} / along {:.3} | {b}: off {:.3} / along {:.3}", p[0], p[2], q[0], q[2]),
-        });
-    }
-    if p[1] != q[1] || p[3] != q[3] {
-        out.push(FieldDiff {
-            field: "position of stop B on its lane",
-            detail: format!("{a}: off {:.3} / along {:.3} | {b}: off {:.3} / along {:.3}", p[1], p[3], q[1], q[3]),
-        });
-    }
-    if p[4] != q[4] {
-        out.push(FieldDiff { field: "other fields", detail: format!("{a}: flag {:.0} | {b}: flag {:.0}", p[4], q[4]) });
-    }
-    if p[5] != q[5] {
-        out.push(FieldDiff { field: "other fields", detail: format!("{a}: last entry {:.0} | {b}: last entry {:.0}", p[5], q[5]) });
-    }
-    out
 }
 
 /// When and by which skipped trip a pair became protected (for the diagnostics only).
@@ -454,8 +463,18 @@ fn stop_label(names: &HashMap<i64, String>, id: i64) -> String {
     names.get(&id).filter(|n| !n.is_empty()).cloned().unwrap_or_else(|| format!("#{id}"))
 }
 
+/// A stand-in for a station link the map does not have, only for the batch's protection: it
+/// differs from every calculated link, so a protected pair with no link still stops the trip
+/// that would create one. Its NaN parameters make it easy to keep out of the report.
+fn missing_stnlink(from_id: i64, to_id: i64) -> omsi_timetable::StnLink {
+    omsi_timetable::StnLink { from_id, to_id, params: [f64::NAN; 6], ..Default::default() }
+}
+
 /// The diagnostics written beside the map after every batch recalculation.
-fn conflict_report(map: &std::path::Path, planned: &[PlannedRoute], conflicts: &HashSet<usize>, causes: &[ConflictCause]) -> String {
+fn conflict_report(
+    map: &std::path::Path, planned: &[PlannedRoute], conflicts: &HashSet<usize>, causes: &[ConflictCause],
+    missing: &HashSet<(i64, i64)>,
+) -> String {
     let mut o = String::from("openMapper: timetable batch recalculation conflicts\n");
     o.push_str(&format!("map: {}\n", map.display()));
     o.push_str(&format!("planned trips: {} | conflicting trips: {}\n", planned.len(), conflicts.len()));
@@ -473,7 +492,9 @@ fn conflict_report(map: &std::path::Path, planned: &[PlannedRoute], conflicts: &
         for t in &c.trips {
             o.push_str(&format!("     - {}\n", t.describe()));
         }
-        if let Some(orig) = &c.original {
+        if missing.contains(&(c.from_id, c.to_id)) {
+            o.push_str("   the map has no StnLink for this pair yet (it must not be assumed safe)\n");
+        } else if let Some(orig) = &c.original {
             o.push_str(&format!(
                 "   the map's link: length {:.3}, AI path {}\n",
                 orig.length, entries_text(&orig.entries)
@@ -504,9 +525,10 @@ fn write_conflict_report(
     planned: &[PlannedRoute],
     conflicts: &HashSet<usize>,
     causes: &[ConflictCause],
+    missing: &HashSet<(i64, i64)>,
 ) -> std::io::Result<std::path::PathBuf> {
     let path = dir.join("openmapper_conflicts.txt");
-    std::fs::write(&path, conflict_report(dir, planned, conflicts, causes))?;
+    std::fs::write(&path, conflict_report(dir, planned, conflicts, causes, missing))?;
     Ok(path)
 }
 
@@ -514,6 +536,77 @@ fn write_conflict_report(
 /// say).
 fn ways_for(set: &HashMap<String, Ways>, doc: &Document, net: &Network, name: &str) -> Option<Ways> {
     set.get(&lower(name)).copied().or_else(|| route::ways_of(&doc.timetable, name, net, &doc.order))
+}
+
+/// The route of `name` was written: nothing is left to report about it. (Free functions so a
+/// caller holding a borrow of another field of the window can still use them.)
+fn clear_route_report(problems: &mut HashMap<String, Vec<Problem>>, shared: &mut HashMap<String, SharedWrite>, name: &str) {
+    problems.remove(&lower(name));
+    shared.remove(&lower(name));
+}
+
+/// A route found for `name` was not written: keep it (with what it would overwrite) for the
+/// trip's page, and log both the old and the new link in full.
+#[allow(clippy::too_many_arguments)]
+fn refuse_shared_write(
+    problems: &mut HashMap<String, Vec<Problem>>, shared: &mut HashMap<String, SharedWrite>, blocked: &mut HashSet<String>,
+    name: &str, stations: Vec<i64>, track: Vec<omsi_timetable::TrackEntry>, links: Vec<omsi_timetable::StnLink>,
+    by_hand: bool, was_hand: bool, net_key: u64, conflicts: Vec<SharedLinkConflict>, mut route_problems: Vec<Problem>,
+) {
+    let key = lower(name);
+    if !route_problems.contains(&Problem::SharedLink) {
+        route_problems.push(Problem::SharedLink);
+    }
+    problems.insert(key.clone(), route_problems);
+    shared.insert(key.clone(), SharedWrite {
+        trip: name.to_string(),
+        stations,
+        track,
+        links,
+        by_hand,
+        was_hand,
+        net_key,
+        conflicts: conflicts.clone(),
+        confirm: false,
+    });
+    // (the pre-save pass must not silently try another way for it)
+    blocked.insert(key);
+    log::warn!("timetable: the route of {name} was not written: {} shared station link(s) would change", conflicts.len());
+    for c in &conflicts {
+        log::warn!("timetable: {name}: {}", c.log_text());
+    }
+}
+
+/// A stop edit was undone: its way would have changed a shared station link, and the trip's
+/// old stops and old way must stay together. Nothing of the route was written.
+#[allow(clippy::too_many_arguments)]
+fn revert_stop_edit(
+    doc: &mut Document, problems: &mut HashMap<String, Vec<Problem>>, shared: &mut HashMap<String, SharedWrite>,
+    blocked: &mut HashSet<String>, reverted: &mut HashMap<String, RevertedEdit>,
+    name: &str, before: StopEdit, conflicts: Vec<SharedLinkConflict>, route_problems: Vec<Problem>,
+) {
+    let key = lower(name);
+    if conflicts.is_empty() {
+        log::warn!("timetable: the stop change of {name} was undone: no way was found for the new stops: {route_problems:?}");
+    } else {
+        log::warn!("timetable: the stop change of {name} was undone: {} shared station link(s) would change", conflicts.len());
+        for c in &conflicts {
+            log::warn!("timetable: {name}: {}", c.log_text());
+        }
+    }
+    doc.timetable.restore_stop_edit(name, before.trip, before.files, before.type2_converted);
+    problems.remove(&key);
+    shared.remove(&key);
+    blocked.remove(&key);
+    reverted.insert(key, RevertedEdit { conflicts, problems: route_problems });
+}
+
+/// Whether the trip, network and shared links a kept write was found on are still the ones
+/// there: a change since means the overwrite must not be written from that old calculation.
+fn shared_write_is_fresh(tt: &Timetable, write: &SharedWrite, net_key: u64) -> bool {
+    tt.trip(&write.trip).is_some_and(|t| t.stations == write.stations && tt.by_hand(&write.trip) == write.was_hand)
+        && net_key == write.net_key
+        && links::link_conflicts(tt, &write.trip, &write.links) == write.conflicts
 }
 
 /// A trip's time (minutes): its first profile's.
@@ -775,55 +868,167 @@ impl TimetableUi {
     }
 
     /// Find the routes of the trips whose stops changed and keep them in the timetable.
+    /// A route that would change a station link other trips drive on is not written: the
+    /// conflict is kept for the trip's page, and nothing of the route (links, track, hand
+    /// state) changes.
     fn reroute(&mut self, doc: &mut Document) {
         let Some(net) = &self.net else { return };
-        let names: Vec<String> = std::mem::take(&mut doc.timetable.reroute).into_iter().filter(|name| !doc.timetable.type2_converted.contains(name)).collect();
+        let queued = std::mem::take(&mut doc.timetable.reroute);
+        let names: Vec<String> = queued.iter().filter(|name| !doc.timetable.type2_converted.contains(*name)).cloned().collect();
+        // (a queued trip left for the conversion has no stop edit to undo later)
+        for name in queued.iter().filter(|name| doc.timetable.type2_converted.contains(*name)) {
+            self.stop_edits.remove(&lower(name.as_str()));
+        }
         for name in names {
             // An explicit stop edit is a new request to route this trip.
             self.bulk_blocked.remove(&lower(&name));
-            let Some(trip) = doc.timetable.trip(&name).cloned() else { continue };
+            let Some(trip) = doc.timetable.trip(&name).cloned() else {
+                self.stop_edits.remove(&lower(&name));
+                continue;
+            };
+            self.reverted_edits.remove(&lower(&name));
             if timetable::is_type1(&trip) {
+                self.stop_edits.remove(&lower(&name));
                 continue;
             }
+            // (the stops before the edit that queued this, to undo it if its way conflicts)
+            let mut before_edit = self.stop_edits.remove(&lower(&name));
             if doc.timetable.by_hand(&name) {
                 // (paths picked by hand stay: the stops are found along them again)
                 if let Some(lanes) = way::saved_lanes(net, doc, &name) {
-                    let r = way::keep_by_hand(net, &mut self.files, doc, &name, &lanes);
-                    if r.problems.is_empty() {
-                        self.problems.remove(&name);
+                    let w = way::keep_by_hand(net, &mut self.files, doc, &name, &lanes);
+                    if !w.conflicts.is_empty() {
+                        match before_edit.take() {
+                            Some(before) => revert_stop_edit(
+                                doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                                &mut self.reverted_edits, &name, before, w.conflicts, w.route.problems.clone(),
+                            ),
+                            None => refuse_shared_write(
+                                &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                                &name, w.stations, w.track, w.links, true, true, self.net_key, w.conflicts, w.route.problems.clone(),
+                            ),
+                        }
+                        self.shown = None;
+                    } else if w.route.problems.is_empty() {
+                        clear_route_report(&mut self.problems, &mut self.shared_conflicts, &name);
+                    } else if let Some(before) = before_edit.take() {
+                        // (the new stops have no way: the stops and the old way stay together)
+                        revert_stop_edit(
+                            doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                            &mut self.reverted_edits, &name, before, Vec::new(), w.route.problems.clone(),
+                        );
+                        self.shown = None;
                     } else {
-                        self.problems.insert(name.clone(), r.problems);
+                        self.problems.insert(lower(&name), w.route.problems.clone());
+                        self.shared_conflicts.remove(&lower(&name));
                     }
                 }
                 continue;
             }
             if trip.stations.len() < 2 {
-                self.problems.remove(&name);
+                clear_route_report(&mut self.problems, &mut self.shared_conflicts, &name);
                 continue;
             }
             let pos: Vec<Option<DVec3>> = trip.stations.iter().map(|id| timetable::stop_world(doc, &mut self.files, *id)).collect();
             let r = route::find(net, &pos, doc.global.left_hand_traffic, ways_for(&self.ways, doc, net, &name));
-            if r.ok() {
-                let track = r.track(net, &doc.order);
-                let links = r.links(net, &doc.order, &trip.stations);
-                doc.timetable.set_route(&trip.name, track, links);
-                self.problems.remove(&name);
-            } else {
-                self.problems.insert(name.clone(), r.problems.clone());
+            if !r.ok() {
+                if let Some(before) = before_edit.take() {
+                    // (the new stops have no way: the stops and the old way stay together)
+                    revert_stop_edit(
+                        doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                        &mut self.reverted_edits, &name, before, Vec::new(), r.problems.clone(),
+                    );
+                    self.shown = None;
+                    continue;
+                }
+                self.problems.insert(lower(&name), r.problems.clone());
+                self.routed.insert(lower(&name), self.net_key);
+                continue;
             }
-            self.routed.insert(name, self.net_key);
+            let track = r.track(net, &doc.order);
+            let links = r.links(net, &doc.order, &trip.stations);
+            links::log_route(&trip.name, &trip.stations, &pos, &track, &links, &r.problems);
+            match doc.timetable.set_route(&trip.name, track.clone(), links.clone()) {
+                Ok(()) => clear_route_report(&mut self.problems, &mut self.shared_conflicts, &name),
+                Err(conflicts) => match before_edit.take() {
+                    Some(before) => {
+                        revert_stop_edit(
+                            doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                            &mut self.reverted_edits, &name, before, conflicts, Vec::new(),
+                        );
+                        self.shown = None;
+                    }
+                    None => refuse_shared_write(
+                        &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                        &trip.name, trip.stations.clone(), track, links, false, false, self.net_key, conflicts, Vec::new(),
+                    ),
+                },
+            }
+            self.routed.insert(lower(&name), self.net_key);
         }
+    }
+
+    /// The route of `name` was written: nothing is left to report about it.
+    fn route_written(&mut self, name: &str) {
+        clear_route_report(&mut self.problems, &mut self.shared_conflicts, name);
+    }
+
+    /// The way of `name` picked by hand was written (or refused): `w` carries what the
+    /// gate made of it, so a refusal keeps the hand-picked way and its track as they were.
+    fn hand_route_written(&mut self, name: &str, w: way::HandWrite, net_key: u64, was_hand: bool) {
+        if w.conflicts.is_empty() {
+            if w.route.problems.is_empty() {
+                self.route_written(name);
+            } else {
+                self.problems.insert(lower(name), w.route.problems.clone());
+                self.shared_conflicts.remove(&lower(name));
+            }
+        } else {
+            self.shared_write_refused(name, w.stations, w.track, w.links, true, was_hand, net_key, w.conflicts, w.route.problems.clone());
+        }
+    }
+
+    /// A route found for `name` was not written: keep it (with what it would overwrite) for
+    /// the trip's page, and log both the old and the new link in full.
+    #[allow(clippy::too_many_arguments)]
+    fn shared_write_refused(
+        &mut self, name: &str, stations: Vec<i64>, track: Vec<omsi_timetable::TrackEntry>, links: Vec<omsi_timetable::StnLink>,
+        by_hand: bool, was_hand: bool, net_key: u64, conflicts: Vec<SharedLinkConflict>, problems: Vec<Problem>,
+    ) {
+        refuse_shared_write(
+            &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+            name, stations, track, links, by_hand, was_hand, net_key, conflicts, problems,
+        );
     }
 
     /// Explicitly reroute all station-link trips, even when their saved .ttr still fits.
     /// The normal stale-trip check cannot be used for this: it prefers an existing .ttr.
     /// Calculate everything first, then avoid replacing shared links inconsistently.
     fn recalculate_all(&mut self, doc: &mut Document, overwrite_hand: bool) -> String {
+        self.recalculate_trips(doc, overwrite_hand, None)
+    }
+
+    /// [`recalculate_all`](Self::recalculate_all), limited to `only` (lower-case trip names;
+    /// None: every trip). A trip's scope is grown to every trip sharing a station pair with
+    /// it first, so the batch keeps its propagation protection over all of them.
+    fn recalculate_trips(&mut self, doc: &mut Document, overwrite_hand: bool, only: Option<&HashSet<String>>) -> String {
         let Some(net) = &self.net else {
             return "Road and track network unavailable / 道路與軌道網路無法使用".to_string();
         };
         let stop_positions: HashMap<i64, DVec3> = self.stops.iter().map(|s| (s.id, s.pos)).collect();
-        self.bulk_blocked.clear();
+        match only {
+            Some(only) => {
+                self.bulk_blocked.retain(|name| !only.contains(name));
+                // (the batch recalculates these trips: an earlier single write's conflict is spent)
+                self.shared_conflicts.retain(|name, _| !only.contains(name));
+                self.reverted_edits.retain(|name, _| !only.contains(name));
+            }
+            None => {
+                self.bulk_blocked.clear();
+                self.shared_conflicts.clear();
+                self.reverted_edits.clear();
+            }
+        }
         self.bulk_conflicts.clear();
         let mut planned: Vec<PlannedRoute> = Vec::new();
         let mut protected: HashSet<(i64, i64)> = HashSet::new();
@@ -831,18 +1036,21 @@ impl TimetableUi {
         let mut skipped = 0;
         let mut kept_hand = 0;
         for trip in &doc.timetable.trips {
+            if only.is_some_and(|only| !only.contains(&lower(&trip.name))) {
+                continue;
+            }
             // A legacy [station] trip specifies a track and its own stop records.
             // Never convert it to [station_typ2] as a side effect of this action.
             if !eligible_for_batch(trip) {
                 skipped += 1;
-                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                protected.extend(links::station_pairs(trip));
                 continue;
             }
             if !overwrite_hand && doc.timetable.by_hand(&trip.name) {
                 skipped += 1;
                 kept_hand += 1;
                 self.bulk_blocked.insert(lower(&trip.name));
-                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                protected.extend(links::station_pairs(trip));
                 continue;
             }
             let positions: Vec<Option<DVec3>> = trip.stations.iter()
@@ -850,11 +1058,13 @@ impl TimetableUi {
                 .collect();
             let route = route::find(net, &positions, doc.global.left_hand_traffic, ways_for(&self.ways, doc, net, &trip.name));
             if route.ok() {
-                planned.push((trip.name.clone(), route.track(net, &doc.order), route.links(net, &doc.order, &trip.stations)));
+                let (track, links) = (route.track(net, &doc.order), route.links(net, &doc.order, &trip.stations));
+                links::log_route(&trip.name, &trip.stations, &positions, &track, &links, &route.problems);
+                planned.push((trip.name.clone(), track, links));
             } else {
                 failures.push(trip.name.clone());
                 self.bulk_blocked.insert(lower(&trip.name));
-                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                protected.extend(links::station_pairs(trip));
                 self.problems.insert(lower(&trip.name), route.problems.clone());
                 log::warn!("timetable: batch route for {} not found: {:?}", trip.name, route.problems);
             }
@@ -870,11 +1080,41 @@ impl TimetableUi {
                 }
             }
         }
-        let (conflicts, causes) = conflicting_batch_routes(&planned, &doc.timetable.links, &protected, &stop_names);
+        // A protected trip (a Type 1 one, a hand-picked one, a failed one) may use a pair the
+        // map has no StnLink for yet. The batch must not assume writing one is safe: a
+        // synthetic link stands in for the missing one so `conflicting_batch_routes` protects
+        // those pairs and propagates through the trips it already rejects, exactly as it does
+        // for the links that are on the map. The synthetic links never reach the report.
+        let mut missing: HashSet<(i64, i64)> = HashSet::new();
+        let mut original = doc.timetable.links.clone();
+        for (_, _, links) in &planned {
+            for link in links {
+                let pair = (link.from_id, link.to_id);
+                if !original.iter().any(|l| (l.from_id, l.to_id) == pair) && missing.insert(pair) {
+                    original.push(missing_stnlink(pair.0, pair.1));
+                }
+            }
+        }
+        let (conflicts, mut causes) = conflicting_batch_routes(&planned, &original, &protected, &stop_names);
+        for cause in &mut causes {
+            if missing.contains(&(cause.from_id, cause.to_id)) {
+                cause.original = None;
+                // (the differences are the trips' own; nothing was on the map to compare with)
+                let mut diffs = Vec::new();
+                if let Some(first) = cause.trips.first() {
+                    for t in cause.trips.iter().skip(1) {
+                        if t.link != first.link {
+                            diffs.extend(link_diffs(&first.name, &first.link, &t.name, &t.link));
+                        }
+                    }
+                }
+                cause.diffs = diffs;
+            }
+        }
         let conflicting = conflicts.len();
         // (every cause, root causes first: the set is already sorted that way)
         for cause in &causes {
-            log::warn!("timetable: conflict {}", cause.log_text());
+            log::warn!("timetable: conflict {}", cause.log_text(&missing));
         }
         let mut cause_of_trip: HashMap<usize, usize> = HashMap::new();
         for (ci, cause) in causes.iter().enumerate() {
@@ -887,11 +1127,16 @@ impl TimetableUi {
             .map(|(_, (name, _, _))| name.clone()).take(5).collect();
         // (overwritten every time, so it can be attached to a bug report as it is now)
         let report_path = doc.dir.join("openmapper_conflicts.txt");
-        match write_conflict_report(&doc.dir, &planned, &conflicts, &causes) {
+        match write_conflict_report(&doc.dir, &planned, &conflicts, &causes, &missing) {
             Ok(path) => log::warn!("timetable: conflicts written to {}", path.display()),
             Err(e) => log::warn!("timetable: could not write {}: {e}", report_path.display()),
         }
         let mut completed = 0;
+        // (the trips this batch writes: their links were compared with each other above)
+        let peers: HashSet<String> = planned.iter().enumerate()
+            .filter(|(index, _)| !conflicts.contains(index))
+            .map(|(_, plan)| lower(&plan.0))
+            .collect();
         for (index, (name, track, links)) in planned.into_iter().enumerate() {
             if conflicts.contains(&index) {
                 self.bulk_blocked.insert(lower(&name));
@@ -908,11 +1153,23 @@ impl TimetableUi {
                 }
                 continue;
             }
-            doc.timetable.set_automatic_route(&name, track, links);
-            doc.timetable.reroute.remove(&lower(&name));
-            self.problems.remove(&lower(&name));
-            self.routed.insert(lower(&name), self.net_key);
-            completed += 1;
+            match doc.timetable.set_automatic_route_among(&name, track, links, &peers) {
+                Ok(()) => {
+                    doc.timetable.reroute.remove(&lower(&name));
+                    self.route_written(&name);
+                    self.routed.insert(lower(&name), self.net_key);
+                    completed += 1;
+                }
+                // (the batch's own check should have caught this: keep the trip's data)
+                Err(conflicts) => {
+                    log::warn!("timetable: the gate refused the batch route of {name}: {} shared link(s)", conflicts.len());
+                    for c in &conflicts {
+                        log::warn!("timetable: {name}: {}", c.log_text());
+                    }
+                    self.problems.insert(lower(&name), vec![Problem::SharedLink]);
+                    self.bulk_blocked.insert(lower(&name));
+                }
+            }
         }
         if !failures.is_empty() {
             log::warn!("timetable: batch route failures: {}", failures.join(", "));
@@ -1150,12 +1407,17 @@ impl TimetableUi {
             return;
         }
         let terminus = self.stop_name(&doc.timetable, id);
+        let files = doc.timetable.trip_file_state(&trip);
+        let type2_converted = doc.timetable.type2_converted.contains(&lower(&trip));
         if let Some(t) = doc.timetable.trip_mut(&trip) {
             if t.stations.last() == Some(&id) {
                 return;
             }
+            let before = t.clone();
             t.stations.push(id);
             t.terminus = terminus;
+            // (an edit whose way conflicts or is not found is undone as a whole)
+            self.stop_edits.entry(lower(&trip)).or_insert(StopEdit { trip: before, files, type2_converted });
         }
         doc.timetable.touch_route(&trip);
     }
@@ -1365,8 +1627,172 @@ impl TimetableUi {
         self.pending_insert = None;
     }
 
+    /// Check a stop ID replacement without changing anything: every affected trip's new way
+    /// must be found, the group must agree on every shared station link, and no outside trip
+    /// may need a link the map does not have. The result is committed separately.
+    #[allow(clippy::too_many_arguments)]
+    fn prepare_replace_stop_ids(
+        &self, tt: &Timetable, order: &[TileKey], left: bool, positions: &HashMap<i64, DVec3>, current: &str,
+        index: usize, old: i64, new: i64, all: bool, old_names: &[&str], new_name: &str,
+    ) -> Result<PreparedStopReplacement, String> {
+        let mut preview = tt.clone();
+        let affected = replace_station_id(&mut preview.trips, current, index, old, new, all, old_names, new_name);
+        if affected.is_empty() {
+            return Ok(PreparedStopReplacement {
+                affected,
+                old: Vec::new(),
+                new_trips: Vec::new(),
+                routes: Vec::new(),
+                peers: HashSet::new(),
+                net_key: self.net_key,
+                links_basis: tt.links.clone(),
+                tracks_basis: tt.tracks.clone(),
+            });
+        }
+        let Some(net) = &self.net else {
+            // (without the roads the new ways cannot be checked: refuse rather than leave a
+            // half-changed stop list with the old ways)
+            return Err("the roads are unavailable: the replacement cannot be checked".to_string());
+        };
+        let peers: HashSet<String> = affected.iter().map(|(name, _)| lower(name)).collect();
+        let mut routes = Vec::new();
+        // (all affected trips must calculate the same link for a station pair: the map has
+        // only one link per pair, and this group writes it in one go)
+        let mut by_pair: HashMap<(i64, i64), (String, omsi_timetable::StnLink)> = HashMap::new();
+        for (name, _) in &affected {
+            let Some(trip) = preview.trip(name) else { continue };
+            if trip.stations.len() < 2 {
+                continue;
+            }
+            // (the same places the reroute uses: the map's stop objects, not the list's marks)
+            let pos: Vec<Option<DVec3>> = trip.stations.iter().map(|id| positions.get(id).copied()).collect();
+            let r = if tt.by_hand(name) {
+                // (a hand-picked way stays the way it was picked, as it does in a reroute)
+                let lanes = preview.track(name)
+                    .map(|t| crate::timetable::way::lanes_of_track(net, &t.entries, order))
+                    .and_then(|v| v.into_iter().collect::<Option<Vec<usize>>>());
+                match lanes {
+                    Some(lanes) => crate::timetable::way::along(net, &lanes, &pos, left),
+                    None => return Err(format!("{name}: its hand-picked way is no longer on the map")),
+                }
+            } else {
+                let ways = self.ways.get(&lower(name)).copied().or_else(|| route::ways_of(&preview, name, net, order));
+                route::find(net, &pos, left, ways)
+            };
+            if !r.ok() {
+                log::warn!("timetable: the stop ID change of {current} would leave {name} without a way: {:?}", r.problems);
+                return Err(format!("{name}: {:?}", r.problems));
+            }
+            let links = if r.stops.len() == trip.stations.len() && trip.stations.len() >= 2 {
+                r.links(net, order, &trip.stations)
+            } else {
+                Vec::new()
+            };
+            let conflicts = links::link_conflicts_among(&preview, name, &links, &peers);
+            if !conflicts.is_empty() {
+                for c in &conflicts {
+                    log::warn!("timetable: {name}: {}", c.log_text());
+                }
+                return Err(conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", "));
+            }
+            for link in &links {
+                let pair = (link.from_id, link.to_id);
+                if let Some((other, first)) = by_pair.get(&pair) {
+                    if *first != *link {
+                        log::warn!("timetable: {name} and {other} calculate different links for {pair:?}");
+                        return Err(format!("{name} and {other} disagree about {pair:?}"));
+                    }
+                } else {
+                    by_pair.insert(pair, (name.clone(), link.clone()));
+                }
+            }
+            let track = r.track(net, order);
+            routes.push((name.clone(), track, links));
+        }
+        let old = affected.iter()
+            .filter_map(|(name, _)| tt.trip(name).map(|t| {
+                let key = lower(name);
+                (key.clone(), StopEdit {
+                    trip: t.clone(),
+                    files: tt.trip_file_state(name),
+                    type2_converted: tt.type2_converted.contains(&key),
+                })
+            }))
+            .collect();
+        let new_trips = affected.iter().filter_map(|(name, _)| preview.trip(name).map(|t| (lower(name), t.clone()))).collect();
+        Ok(PreparedStopReplacement {
+            affected, old, new_trips, routes, peers, net_key: self.net_key,
+            links_basis: tt.links.clone(),
+            tracks_basis: tt.tracks.clone(),
+        })
+    }
+
+    /// Write a prepared replacement: all its stop lists and all its routes, or nothing. The
+    /// network, each trip and the links it would replace must still be the ones checked at
+    /// prepare time; a route write that fails puts every trip and the whole route state back.
+    fn commit_replace_stop_ids(
+        &self, tt: &mut Timetable, prepared: PreparedStopReplacement,
+    ) -> Result<Vec<(String, Vec<usize>)>, String> {
+        if prepared.affected.is_empty() {
+            return Ok(prepared.affected);
+        }
+        if self.net_key != prepared.net_key {
+            return Err("the road network changed since the replacement was checked".to_string());
+        }
+        if tt.links != prepared.links_basis || tt.tracks != prepared.tracks_basis {
+            return Err("the routes or shared station links changed since the replacement was checked".to_string());
+        }
+        for (name, old) in &prepared.old {
+            let Some(t) = tt.trip(name) else {
+                return Err(format!("{name} changed since the replacement was checked"));
+            };
+            if t != &old.trip {
+                return Err(format!("{name} changed since the replacement was checked"));
+            }
+            if tt.trip_file_state(name) != old.files || tt.type2_converted.contains(&lower(name)) != old.type2_converted {
+                return Err(format!("the files of {name} changed since the replacement was checked"));
+            }
+        }
+        let route_state = tt.route_state();
+        for (name, trip) in &prepared.new_trips {
+            if let Some(t) = tt.trip_mut(name) {
+                let name_now = t.name.clone();
+                *t = trip.clone();
+                t.name = name_now;
+            }
+        }
+        for (name, track, links) in &prepared.routes {
+            if let Err(conflicts) = tt.set_route_among(name, track.clone(), links.clone(), &prepared.peers) {
+                for (n, old) in &prepared.old {
+                    tt.restore_stop_edit(n, old.trip.clone(), old.files, old.type2_converted);
+                }
+                tt.restore_route_state(route_state);
+                let why = conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", ");
+                return Err(format!("{name}: shared station link changed: {why}"));
+            }
+        }
+        for (name, _) in &prepared.affected {
+            tt.touch_trip(name);
+            tt.reroute.remove(&lower(name));
+            tt.type2_converted.remove(&lower(name));
+        }
+        Ok(prepared.affected)
+    }
+
+    /// [`prepare_replace_stop_ids`](Self::prepare_replace_stop_ids) and
+    /// [`commit_replace_stop_ids`](Self::commit_replace_stop_ids) in one step.
+    #[allow(clippy::too_many_arguments)]
+    fn try_replace_stop_ids(
+        &self, tt: &mut Timetable, order: &[TileKey], left: bool, positions: &HashMap<i64, DVec3>, current: &str,
+        index: usize, old: i64, new: i64, all: bool, old_names: &[&str], new_name: &str,
+    ) -> Result<Vec<(String, Vec<usize>)>, String> {
+        let prepared = self.prepare_replace_stop_ids(tt, order, left, positions, current, index, old, new, all, old_names, new_name)?;
+        self.commit_replace_stop_ids(tt, prepared)
+    }
+
     fn replace_stop_id_panel(
-        &mut self, ui: &mut egui::Ui, tt: &mut Timetable, current: &str, toasts: &mut Vec<crate::editor::Toast>,
+        &mut self, ui: &mut egui::Ui, tt: &mut Timetable, order: &[TileKey], left: bool,
+        positions: &HashMap<i64, DVec3>, current: &str, toasts: &mut Vec<crate::editor::Toast>,
     ) -> bool {
         let mut edit = self.replace_id.take().unwrap();
         let other_count = tt.trips.iter().filter(|t| other_trip_uses_id(t, current, edit.old_id)).count();
@@ -1409,9 +1835,29 @@ impl TimetableUi {
         let old_name = self.stop_name(tt, old);
         let timetable_name = tt.stop_name(old).unwrap_or_default().trim().to_string();
         let old_names = [old_name.trim(), timetable_name.as_str()];
-        let affected = replace_station_id(&mut tt.trips, current, edit.index, old, new, edit.all, &old_names, &stop.name);
+        let affected = match self.try_replace_stop_ids(tt, order, left, positions, current, edit.index, old, new, edit.all, &old_names, &stop.name) {
+            Ok(affected) => affected,
+            Err(why) => {
+                log::warn!("timetable: the stop ID change {old} -> {new} ({:?}) was not applied: {why}", stop.name);
+                toasts.push(crate::editor::Toast {
+                    text: tr(
+                        "The stop ID change was not applied: a trip's way would not be found or a shared station link differs. Nothing was changed.",
+                        "Замена ID остановки не применена: путь рейса не найден или общий участок отличается. Ничего не изменено."
+                    ).to_string(),
+                    at: std::time::Instant::now(),
+                    error: true,
+                });
+                self.replace_id = Some(edit);
+                return false;
+            }
+        };
         for (trip, indices) in &affected {
-            tt.touch_route(trip);
+            self.route_written(trip);
+            self.stop_edits.remove(&lower(trip));
+            self.reverted_edits.remove(&lower(trip));
+            self.bulk_blocked.remove(&lower(trip));
+            self.routed.insert(lower(trip), self.net_key);
+            self.shown = None;
             log::info!("timetable: replaced stop ID {old} with {new} ({:?}) in trip {trip:?} at indices {indices:?}", stop.name);
         }
         if !affected.is_empty() {
@@ -1542,7 +1988,135 @@ impl TimetableUi {
 
     }
 
+    /// A stop edit that was undone because its way would have changed a shared link or could
+    /// not be found.
+    fn reverted_edit_section(&self, ui: &mut egui::Ui, name: &str) {
+        let Some(reverted) = self.reverted_edits.get(&lower(name)) else { return };
+        ui.add_space(4.0);
+        for c in &reverted.conflicts {
+            let text = tr(
+                "The stop change of {trip} was not applied: its way would change the shared station link {from} → {to} used by {trips}. The stops and the way of the trip are as they were.",
+                "Изменение остановок рейса {trip} не применено: его путь изменил бы общий участок {from} → {to}, которым пользуются {trips}. Остановки и путь рейса остались прежними."
+            )
+            .replace("{trip}", name)
+            .replace("{from}", &c.from_id.to_string())
+            .replace("{to}", &c.to_id.to_string())
+            .replace("{trips}", &c.users());
+            let details = c.diffs.iter().map(|d| format!("{}: {}", d.field, d.detail)).collect::<Vec<_>>().join("\n");
+            let response = ui.label(coloured(icons::labelled(Icon::Warning, &text), pal().warn));
+            if !details.is_empty() {
+                response.on_hover_text(details);
+            }
+        }
+        if reverted.conflicts.is_empty() && !reverted.problems.is_empty() {
+            let text = tr(
+                "The stop change of {trip} was not applied: no way was found for the new stops. The stops and the way of the trip are as they were.",
+                "Изменение остановок рейса {trip} не применено: для новых остановок путь не найден. Остановки и путь рейса остались прежними."
+            ).replace("{trip}", name);
+            let details = reverted.problems.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join("\n");
+            ui.label(coloured(icons::labelled(Icon::Warning, &text), pal().warn)).on_hover_text(details);
+        }
+    }
+
+    /// Why this trip's way was not written (a station link it would change is shared), with
+    /// the pairs and the trips on them, and the overwrite the user may confirm.
+    fn shared_link_section(&mut self, ui: &mut egui::Ui, doc: &mut Document, name: &str, toasts: &mut Vec<crate::editor::Toast>) {
+        let key = lower(name);
+        let Some(mut pending) = self.shared_conflicts.remove(&key) else { return };
+        // (the stops changed since: the kept write no longer belongs to this trip)
+        let current = doc.timetable.trip(name).map(|t| t.stations.clone()).unwrap_or_default();
+        if current != pending.stations {
+            self.problems.remove(&key);
+            return;
+        }
+        let mut keep = true;
+        ui.add_space(4.0);
+        for c in &pending.conflicts {
+            let text = if c.existing.is_some() {
+                tr(
+                    "Trip {trip}'s {from} → {to} is shared with {trips}, but the new AI path differs from the existing StnLink. The original data was not changed.",
+                    "Участок рейса {trip} {from} → {to} общий с {trips}, но новый путь ИИ отличается от существующего StnLink. Исходные данные не изменены."
+                )
+                .replace("{trip}", &pending.trip)
+                .replace("{from}", &c.from_id.to_string())
+                .replace("{to}", &c.to_id.to_string())
+                .replace("{trips}", &c.users())
+            } else {
+                tr(
+                    "The map has no StnLink for {from} → {to} yet, and {trips} also drive between these stops. The original data was not changed.",
+                    "На карте ещё нет StnLink для {from} → {to}, а {trips} тоже едут между этими остановками. Исходные данные не изменены."
+                )
+                .replace("{from}", &c.from_id.to_string())
+                .replace("{to}", &c.to_id.to_string())
+                .replace("{trips}", &c.users())
+            };
+            let details = c.diffs.iter().map(|d| format!("{}: {}", d.field, d.detail)).collect::<Vec<_>>().join("\n");
+            let response = ui.label(coloured(icons::labelled(Icon::Warning, &text), pal().warn));
+            if !details.is_empty() {
+                response.on_hover_text(details);
+            }
+        }
+        if pending.confirm {
+            ui.label(tr("This replaces the shared station links for:", "Это заменит общие участки для:"));
+            for c in &pending.conflicts {
+                ui.label(format!("{} → {}: {}", c.from_id, c.to_id, c.users()));
+            }
+            ui.horizontal(|ui| {
+                if ui.button(icons::labelled(Icon::Link, tr("Confirm overwrite", "Подтвердить замену"))).clicked() {
+                    // (the route and the links it would replace must still be the ones the
+                    // user was shown; a change since means a fresh recalculation)
+                    let fresh = shared_write_is_fresh(&doc.timetable, &pending, self.net_key);
+                    if !fresh {
+                        log::warn!(
+                            "timetable: the overwrite of {} was dropped: its trip, network or shared links changed since it was found",
+                            pending.trip
+                        );
+                        doc.timetable.reroute.insert(key.clone());
+                        self.problems.remove(&key);
+                        self.bulk_blocked.remove(&key);
+                        self.shown = None;
+                        toasts.push(crate::editor::Toast {
+                            text: tr("The trip or its shared station links changed since; the old overwrite was dropped and the trip is recalculated.", "Рейс или его общие участки изменились; старая замена отменена, рейс пересчитывается.").to_string(),
+                            at: std::time::Instant::now(),
+                            error: true,
+                        });
+                        keep = false;
+                    } else {
+                        let affected = doc.timetable.overwrite_route(&pending.trip, pending.track.clone(), pending.links.clone(), pending.by_hand);
+                        log::info!(
+                            "timetable: the user confirmed overwriting {} shared station link(s) of {} (affected trips: {})",
+                            affected.len(), pending.trip, affected.iter().flat_map(|c| c.trips.iter().cloned()).collect::<Vec<_>>().join(", ")
+                        );
+                        doc.timetable.reroute.remove(&key);
+                        self.problems.remove(&key);
+                        self.shown = None;
+                        self.routed.insert(key.clone(), self.net_key);
+                        keep = false;
+                    }
+                }
+                if ui.button(tr("Cancel", "Отмена")).clicked() {
+                    pending.confirm = false;
+                }
+            });
+        } else if ui.button(icons::labelled(Icon::Link, tr("Overwrite shared links", "Заменить общие участки"))).clicked() {
+            pending.confirm = true;
+        }
+        if keep {
+            self.shared_conflicts.insert(key, pending);
+        }
+    }
+
     fn trip_panel(&mut self, ui: &mut egui::Ui, doc: &mut Document, line: &str, trip: &str, toasts: &mut Vec<crate::editor::Toast>, actions: &mut Vec<Action>) {
+        // (the places the reroute uses for the stops: their objects, when a stop ID is being
+        // replaced; a stop on a spline's attachment is not one of them)
+        let replace_positions: HashMap<i64, DVec3> = if self.replace_id.is_some() {
+            doc.tiles.iter().flat_map(|(k, t)| {
+                let org = crate::doc::tile_origin(*k);
+                t.tile.objects.iter().map(move |o| (o.id, DVec3::new(org.x + o.pos[0], org.y + o.pos[1], o.pos[2])))
+            }).collect()
+        } else {
+            HashMap::new()
+        };
         let tt = &mut doc.timetable;
         ui.horizontal_wrapped(|ui| {
             ui.label(tr("Trip", "Рейс"));
@@ -1618,6 +2192,8 @@ impl TimetableUi {
                 if ui.selectable_label(ways == w, label).clicked() && ways != w {
                     self.ways.insert(lower(&name), w);
                     tt.touch_route(&name);
+                    // (the kept route was found for the other kind of way)
+                    self.shared_conflicts.remove(&lower(&name));
                     self.shown = None;
                 }
             }
@@ -1686,7 +2262,7 @@ impl TimetableUi {
                 self.clear_stop_edits();
                 break;
             }
-            if self.replace_id.as_ref().is_some_and(|edit| edit.index == i) && self.replace_stop_id_panel(ui, tt, &name, toasts) {
+            if self.replace_id.as_ref().is_some_and(|edit| edit.index == i) && self.replace_stop_id_panel(ui, tt, &doc.order, doc.global.left_hand_traffic, &replace_positions, &name, toasts) {
                 return;
             }
         }
@@ -1740,6 +2316,11 @@ impl TimetableUi {
             ui.label(RichText::new(hint).color(pal().accent));
         }
         if changed {
+            // (the trip as it was before this edit: an edit whose way conflicts or is not
+            // found is undone, with its file bookkeeping)
+            let files = tt.trip_file_state(&name);
+            let type2_converted = tt.type2_converted.contains(&lower(&name));
+            self.stop_edits.entry(lower(&name)).or_insert(StopEdit { trip: t.clone(), files, type2_converted });
             let terminus = stations.last().map(|id| self.stop_name(tt, *id));
             let tm = tt.trip_mut(&name).unwrap();
             // (the sign follows the last stop while it showed the last stop's name)
@@ -1754,6 +2335,8 @@ impl TimetableUi {
             });
             tm.stations.clone_from(&stations);
             tt.touch_route(&name);
+            // (a route kept from before the edit does not belong to these stops)
+            self.shared_conflicts.remove(&lower(&name));
         }
 
         // the route
@@ -1788,11 +2371,40 @@ impl TimetableUi {
                         Problem::NoRoad(i) => format!("«{}»: {}", name_of(*i), tr("no road with car lanes within 15 m", "в 15 м нет дороги с полосами для машин")),
                         Problem::NoWay(i) if rail => format!("{} «{}» – «{}»: {}", tr("No way", "Нет пути"), name_of(*i), name_of(*i + 1), tr("the tracks are not joined, or run the other way (see View > AI lanes)", "рельсы не соединены или идут в другую сторону (Вид > Полосы ИИ)")),
                         Problem::NoWay(i) => format!("{} «{}» – «{}»: {}", tr("No way", "Нет пути"), name_of(*i), name_of(*i + 1), tr("the roads are not joined, or run the other way (see View > AI lanes)", "дороги не соединены или идут в другую сторону (Вид > Полосы ИИ)")),
+                        Problem::SharedLink => tr("A shared station link differs: this trip's way was not written, and the saved data is unchanged.", "Общий участок отличается: путь этого рейса не записан, сохранённые данные не изменены.").to_string(),
                     };
                     ui.label(coloured(icons::labelled(Icon::Warning, &text), pal().warn)).on_hover_text(tr("The trip is saved, but its way is not until this is mended", "Рейс сохранится, а его путь: когда это будет исправлено"));
                 }
             }
         }
+
+        // this trip's recalculation: alone, or with every trip sharing a station pair
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            let can = self.net.is_some();
+            if ui.add_enabled(can, egui::Button::new(icons::labelled(Icon::Route, tr("Recalculate this trip", "Пересчитать этот рейс"))))
+                .on_hover_text(tr("Find this trip's way again, checking the shared station links before writing", "Снова найти путь этого рейса, проверив общие участки перед записью"))
+                .clicked()
+            {
+                let key = lower(&name);
+                doc.timetable.reroute.insert(key.clone());
+                self.bulk_blocked.remove(&key);
+                self.shared_conflicts.remove(&key);
+                self.problems.remove(&key);
+                self.shown = None;
+            }
+            if ui.add_enabled(can, egui::Button::new(icons::labelled(Icon::Route, tr("Recalculate this trip and the trips sharing its station pairs", "Пересчитать этот рейс и рейсы с общими участками"))))
+                .on_hover_text(tr("A batch over this trip and every trip it shares a station pair with, with the batch's shared-link protection", "Пакетный пересчёт этого рейса и всех рейсов с общими участками, с защитой общих участков"))
+                .clicked()
+            {
+                let scope = links::sharing_trips(&doc.timetable, &name);
+                log::info!("timetable: recalculating the trips sharing station pairs with {name}: {:?}", scope);
+                let report = self.recalculate_trips(doc, false, Some(&scope));
+                self.bulk_report = Some(report);
+            }
+        });
+        self.reverted_edit_section(ui, &name);
+        self.shared_link_section(ui, doc, &name, toasts);
 
         // the way, picked by hand or found
         self.way_section(ui, doc, &name, actions);
@@ -2647,8 +3259,10 @@ mod batch_route_tests {
             doc.timetable.reroute.remove(name);
         }
         let original = omsi_timetable::TrackEntry { values: vec![99.0, 0.0, 0.0, 0.0, 80.0, 0.0] };
-        doc.timetable.set_by_hand("hand", Some((vec![original.clone()], vec![link(1, 2, 99.0)])));
-        doc.timetable.set_by_hand("broken", Some((vec![original], vec![link(1, 3, 100.0)])));
+        // (the pair is already in the map's links, so marking the trip by hand agrees)
+        doc.timetable.links.push(link(1, 2, 99.0));
+        doc.timetable.set_by_hand("hand", Some((vec![original.clone()], vec![link(1, 2, 99.0)]))).unwrap();
+        doc.timetable.set_by_hand("broken", Some((vec![original], vec![link(1, 3, 100.0)]))).unwrap();
         let track = |tt: &Timetable, name| timetable::track_text_of(tt.track(name).unwrap(), tt.by_hand(name));
         let before = track(&doc.timetable, "hand");
         let broken = track(&doc.timetable, "broken");
@@ -2666,6 +3280,121 @@ mod batch_route_tests {
         assert_ne!(track(&doc.timetable, "hand"), before);
         assert_eq!(track(&doc.timetable, "broken"), broken);
         assert!(doc.timetable.links.contains(&link(1, 3, 100.0)));
+    }
+
+    /// A Type 1 trip's `[station]` records use its station pairs too: when the batch rejects
+    /// it, another trip must not replace the shared link it drives on.
+    #[test]
+    fn a_rejected_legacy_trips_shared_link_is_not_replaced_by_another_trip() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("legacy-protected", &[(1, 10.0), (2, 90.0)], &[("auto", vec![1, 2])]);
+        doc.timetable.trips.push(omsi_timetable::Trip {
+            name: "Legacy".into(),
+            stations_legacy: vec![vec!["1".into()], vec!["2".into()]],
+            display_name: "Legacy".into(),
+            ..Default::default()
+        });
+        let existing = link(1, 2, 99.0);
+        doc.timetable.links.push(existing.clone());
+        let legacy_before = doc.timetable.trip("Legacy").cloned();
+        let report = ui.recalculate_trips(&mut doc, false, None);
+        println!("{report}\nlinks: {:?}\nproblems: {:?}", doc.timetable.links, ui.problems);
+        assert_eq!(doc.timetable.links, vec![existing], "the rejected legacy trip's link is untouched");
+        assert!(doc.timetable.track("auto").is_none(), "the trip that would change it is skipped");
+        assert_eq!(doc.timetable.trip("Legacy").cloned(), legacy_before, "the legacy trip itself is unchanged");
+        assert!(
+            ui.bulk_conflicts.iter().any(|c| c.kind == ConflictKind::Protected && (c.from_id, c.to_id) == (1, 2)),
+            "the cause is the protected pair: {:?}",
+            ui.bulk_conflicts
+        );
+    }
+
+    /// A kept overwrite is only written when the trip, the network and the shared links are
+    /// still the ones it was calculated on; anything else drops it for a fresh recalculation.
+    #[test]
+    fn an_overwrite_is_not_written_from_a_stale_calculation() {
+        let mut tt = Timetable::default();
+        tt.add_trip("", "a", vec![100, 200]);
+        tt.add_trip("", "b", vec![100, 200]);
+        let existing = lane_link(100, 200, 120.0, &[10]);
+        tt.links.push(existing);
+        let new = lane_link(100, 200, 140.0, &[10, 11]);
+        let conflicts = links::link_conflicts(&tt, "a", std::slice::from_ref(&new));
+        assert!(!conflicts.is_empty());
+        let write = SharedWrite {
+            trip: "a".into(),
+            stations: vec![100, 200],
+            track: Vec::new(),
+            links: vec![new.clone()],
+            by_hand: false,
+            was_hand: false,
+            net_key: 7,
+            conflicts,
+            confirm: true,
+        };
+        assert!(shared_write_is_fresh(&tt, &write, 7));
+        assert!(!shared_write_is_fresh(&tt, &write, 8), "a rebuilt network");
+        // the other trip's link is now the new one: nothing conflicts any more
+        tt.links = vec![new];
+        assert!(!shared_write_is_fresh(&tt, &write, 7), "the shared links changed");
+        tt.links = vec![lane_link(100, 200, 120.0, &[10])];
+        tt.trip_mut("a").unwrap().stations.push(300);
+        assert!(!shared_write_is_fresh(&tt, &write, 7), "the stops changed");
+        tt.trip_mut("a").unwrap().stations.pop();
+        tt.set_by_hand("a", Some((Vec::new(), Vec::new()))).unwrap();
+        assert!(!shared_write_is_fresh(&tt, &write, 7), "the hand-picked state changed");
+        tt.set_by_hand("a", None).unwrap();
+        // a third trip on the pair changes whom the overwrite would affect
+        tt.add_trip("", "c", vec![100, 200]);
+        assert!(!shared_write_is_fresh(&tt, &write, 7), "the trips using the link changed");
+    }
+
+    /// A Type 1 trip may use a pair the map has no StnLink for yet: the batch must not
+    /// create one for another trip on the assumption that it is safe.
+    #[test]
+    fn a_legacy_trips_missing_link_is_not_created_by_a_batch() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("legacy-missing-link", &[(1, 10.0), (2, 90.0)], &[("auto", vec![1, 2])]);
+        doc.timetable.trips.push(omsi_timetable::Trip {
+            name: "Legacy".into(),
+            stations_legacy: vec![vec!["1".into()], vec!["2".into()]],
+            display_name: "Legacy".into(),
+            ..Default::default()
+        });
+        let legacy_before = doc.timetable.trip("Legacy").cloned();
+        let scope = links::sharing_trips(&doc.timetable, "auto");
+        let report = ui.recalculate_trips(&mut doc, false, Some(&scope));
+        println!("{report}\nlinks: {:?}\nconflicts: {:?}", doc.timetable.links, ui.bulk_conflicts);
+        assert!(doc.timetable.links.is_empty(), "no link was created");
+        assert!(doc.timetable.track("auto").is_none(), "the trip that would create it is skipped");
+        assert_eq!(doc.timetable.trip("Legacy").cloned(), legacy_before);
+        let cause = ui.bulk_conflicts.iter().find(|c| (c.from_id, c.to_id) == (1, 2)).expect("the protected pair is reported");
+        assert_eq!(cause.kind, ConflictKind::Protected);
+        assert!(cause.original.is_none(), "there is no link on the map to show");
+        assert!(report.contains("Conflicts"), "{report}");
+    }
+
+    /// A skipped trip's other pairs are protected in the next round even when the map has no
+    /// link for them: the chain is not broken by the missing link.
+    #[test]
+    fn a_missing_link_protection_propagates_through_skipped_trips() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "missing-link-chain",
+            &[(1, 10.0), (2, 50.0), (3, 90.0)],
+            &[("hand", vec![1, 2]), ("a", vec![1, 2, 3]), ("b", vec![2, 3])],
+        );
+        let hand_track = omsi_timetable::TrackEntry { values: vec![1.0, 0.0, 0.0, 0.0, 50.0, 0.0] };
+        doc.timetable.set_by_hand("hand", Some((vec![hand_track], Vec::new()))).unwrap();
+        let report = ui.recalculate_trips(&mut doc, false, None);
+        println!("{report}\nlinks: {:?}\nconflicts: {:?}", doc.timetable.links, ui.bulk_conflicts);
+        assert!(doc.timetable.links.is_empty(), "neither missing pair was created");
+        assert!(doc.timetable.track("a").is_none(), "the trip on the protected missing pair is skipped");
+        assert!(doc.timetable.track("b").is_none(), "its other missing pair protects b in the next round");
+        assert!(doc.timetable.track("hand").is_some(), "the hand-picked trip is untouched");
+        let cause = ui.bulk_conflicts.iter().find(|c| (c.from_id, c.to_id) == (2, 3)).expect("the propagated pair is reported");
+        assert_eq!(cause.kind, ConflictKind::Propagated, "{:?}", ui.bulk_conflicts);
+        assert!(cause.original.is_none());
     }
 
     #[test]
@@ -2765,7 +3494,7 @@ mod batch_route_tests {
         ];
         let original = vec![lane_link(2, 3, 100.0, &[999])];
         let (conflicts, causes) = conflicting_batch_routes(&plans, &original, &HashSet::new(), &names());
-        let text = conflict_report(std::path::Path::new("/maps/test"), &plans, &conflicts, &causes);
+        let text = conflict_report(std::path::Path::new("/maps/test"), &plans, &conflicts, &causes, &HashSet::new());
         println!("{text}");
         let root = text.find("round 0 | Disagree").expect("the root cause is listed");
         let propagated = text.find("round 1 | Propagated").expect("the propagated cause is listed");
@@ -2780,7 +3509,7 @@ mod batch_route_tests {
     fn a_batch_without_conflicts_writes_that_nothing_conflicted() {
         let plans = vec![plan("a", vec![link(1, 2, 120.0)])];
         let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
-        let text = conflict_report(std::path::Path::new("/maps/test"), &plans, &conflicts, &causes);
+        let text = conflict_report(std::path::Path::new("/maps/test"), &plans, &conflicts, &causes, &HashSet::new());
         assert!(text.contains("No shared station link conflicted"), "{text}");
         assert!(text.contains("conflicting trips: 0"), "{text}");
     }
@@ -2791,15 +3520,397 @@ mod batch_route_tests {
         std::fs::create_dir_all(&dir).unwrap();
         let plans = vec![plan("a", vec![link(1, 2, 120.0)]), plan("b", vec![link(1, 2, 200.0)])];
         let (conflicts, causes) = conflicting_batch_routes(&plans, &[], &HashSet::new(), &names());
-        let path = write_conflict_report(&dir, &plans, &conflicts, &causes).unwrap();
+        let path = write_conflict_report(&dir, &plans, &conflicts, &causes, &HashSet::new()).unwrap();
         let first = std::fs::read_to_string(&path).unwrap();
         assert!(first.contains("Disagree"), "{first}");
         // the next batch has nothing to report: the old text must not stay behind
         let (clean, none) = conflicting_batch_routes(&plans[..1], &[], &HashSet::new(), &names());
-        write_conflict_report(&dir, &plans[..1], &clean, &none).unwrap();
+        write_conflict_report(&dir, &plans[..1], &clean, &none, &HashSet::new()).unwrap();
         let second = std::fs::read_to_string(&path).unwrap();
         assert!(second.contains("No shared station link conflicted"), "{second}");
         assert!(!second.contains("Disagree"), "the previous batch's text is gone:\n{second}");
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The stop places the reroute uses in these tests (the lane_map objects).
+    fn stop_positions(ui: &TimetableUi) -> HashMap<i64, DVec3> {
+        ui.stops.iter().map(|s| (s.id, s.pos)).collect()
+    }
+
+    /// A document and a Lines window with one straight lane and stops on it (the objects
+    /// are in the map too, so a single trip's reroute finds their places).
+    fn lane_map(name: &str, stops: &[(i64, f64)], trips: &[(&str, Vec<i64>)]) -> (Document, TimetableUi) {
+        let root = std::env::temp_dir().join(format!("openmapper-{name}"));
+        let roots = Roots { omsi: root.join("omsi"), content: root.join("content") };
+        let mut doc = Document::new_map(&roots, name, name, 1);
+        let key = PathKey { tile: doc.order[0], id: 50, path: 0 };
+        let lane = Lane {
+            key, pts: vec![DVec3::ZERO, DVec3::X * 100.0], along: vec![0.0, 100.0],
+            file_length: 100.0, internal: 0, next: Vec::new(), side: Vec::new(),
+            against: false, spline: true, rail: false,
+        };
+        let mut ui = TimetableUi::new();
+        ui.net = Some(Network { lanes: vec![lane], by_key: HashMap::from([(key, vec![0])]), ..Default::default() });
+        ui.stops = stops.iter().map(|&(id, x)| MapStop {
+            tile: doc.order[0], id, name: format!("Stop {id}"), pos: DVec3::X * x,
+            kind: crate::stops::StopKind::Regular,
+        }).collect();
+        for &(id, x) in stops {
+            let k = doc.order[0];
+            let t = &mut doc.tiles.get_mut(&k).unwrap().tile;
+            t.objects.push(omsi_map::MapObject {
+                file: "Sceneryobjects\\Generic\\bus_stop.sco".into(),
+                id, pos: [x, 0.0, 0.0], flag: 7,
+                extra: vec![format!("Stop {id}"), "0".into(), "0".into(), "10".into()],
+                ..Default::default()
+            });
+        }
+        for (name, stations) in trips {
+            let name = *name;
+            doc.timetable.add_trip("", name, stations.to_vec());
+            doc.timetable.reroute.remove(name);
+        }
+        (doc, ui)
+    }
+
+    /// A single trip's recalculation that would change a shared link writes nothing and
+    /// leaves the conflict on the trip's page, with the write to make if the user confirms.
+    #[test]
+    fn a_single_reroute_reports_a_shared_link_instead_of_writing() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("single-shared", &[(1, 10.0), (2, 90.0)], &[("a", vec![1, 2]), ("b", vec![1, 2])]);
+        let existing = link(1, 2, 99.0);
+        doc.timetable.links.push(existing.clone());
+        doc.timetable.reroute.insert("a".into());
+        ui.reroute(&mut doc);
+        println!("problems: {:?}\nlinks: {:?}\ntracks: {:?}", ui.problems, doc.timetable.links, doc.timetable.tracks.len());
+        assert!(doc.timetable.track("a").is_none(), "no .ttr was made");
+        assert_eq!(doc.timetable.links, vec![existing], "the shared link is unchanged");
+        assert!(!doc.timetable.by_hand("a"));
+        assert_eq!(ui.problems.get("a"), Some(&vec![Problem::SharedLink]));
+        let pending = ui.shared_conflicts.get("a").expect("the refused write is kept for the trip's page");
+        assert_eq!(pending.conflicts.len(), 1);
+        assert_eq!(pending.conflicts[0].trips, vec!["b".to_string()]);
+        assert!(!pending.conflicts.is_empty() && !pending.links.is_empty());
+        assert!(ui.bulk_blocked.contains("a"), "the pre-save pass must not try another way");
+    }
+
+    /// A stop edit (a stop added) whose way would change a shared link is undone: the trip
+    /// keeps its old stops and its old way, and nothing of the route is written.
+    #[test]
+    fn a_stop_edit_whose_way_conflicts_is_undone() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("stop-edit-revert", &[(1, 10.0), (2, 90.0)], &[("a", vec![1]), ("b", vec![1, 2])]);
+        let existing = link(1, 2, 99.0);
+        doc.timetable.links.push(existing.clone());
+        let before = doc.timetable.trip("a").unwrap().clone();
+        let before_text = timetable::trip_text(&before);
+        // (what the Lines window does when a stop is clicked or inserted)
+        doc.timetable.trip_mut("a").unwrap().stations.push(2);
+        let files = doc.timetable.trip_file_state("a");
+        let type2_converted = doc.timetable.type2_converted.contains(&lower("a"));
+        ui.stop_edits.insert("a".into(), StopEdit { trip: before.clone(), files, type2_converted });
+        doc.timetable.touch_route("a");
+        ui.reroute(&mut doc);
+        println!("reverted: {:?}\nlinks: {:?}", ui.reverted_edits, doc.timetable.links);
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, before.stations, "the stops are as they were");
+        assert_eq!(timetable::trip_text(doc.timetable.trip("a").unwrap()), before_text, "the .ttp is as it was");
+        assert_eq!(doc.timetable.links, vec![existing], "the old shared link is untouched");
+        assert!(doc.timetable.track("a").is_none(), "no route of the edit was written");
+        assert!(ui.reverted_edits.contains_key("a"));
+        assert!(ui.shared_conflicts.is_empty(), "an undone edit leaves no overwrite to confirm");
+        assert!(!ui.bulk_blocked.contains("a"));
+        assert!(!ui.stop_edits.contains_key("a"), "the snapshot is spent");
+    }
+
+    /// `replace_station_id` is checked on a preview: a conflict or a way that cannot be
+    /// found refuses the whole replacement before anything is changed.
+    #[test]
+    fn a_replaced_stop_id_that_conflicts_is_not_applied_at_all() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("replace-id-refuse", &[(1, 10.0), (2, 90.0), (4, 50.0)], &[("a", vec![1, 2]), ("b", vec![4, 2])]);
+        doc.timetable.links.push(link(4, 2, 99.0));
+        let old_track = omsi_timetable::TrackEntry { values: vec![1.0, 0.0, 0.0, 0.0, 50.0, 0.0] };
+        doc.timetable.set_route("a", vec![old_track], vec![link(1, 2, 120.0)]).unwrap();
+        let links_before = doc.timetable.links.clone();
+        let track_before = doc.timetable.track("a").cloned();
+        let before = doc.timetable.trip("a").unwrap().clone();
+        let before_text = timetable::trip_text(&before);
+        let positions = stop_positions(&ui);
+        let err = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, false, &["Stop 1"], "Stop 4").unwrap_err();
+        println!("refused: {err}");
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, before.stations, "the replaced stop ID is not applied");
+        assert_eq!(timetable::trip_text(doc.timetable.trip("a").unwrap()), before_text, "the .ttp is as it was");
+        assert_eq!(doc.timetable.links, links_before, "the old shared and own links are as they were");
+        assert_eq!(doc.timetable.track("a").cloned(), track_before, "the old .ttr is as it was");
+        assert!(ui.stop_edits.is_empty(), "a refused operation leaves no snapshot");
+        assert!(ui.reverted_edits.is_empty());
+        assert!(!doc.timetable.reroute.contains("a"), "nothing was queued");
+    }
+
+    /// Replacing one stop ID in several trips is one operation: a conflict in any of them
+    /// leaves every trip as it was (no partial ID replacement).
+    #[test]
+    fn a_multi_trip_stop_id_replacement_is_atomic() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "replace-all-atomic",
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 70.0)],
+            &[("a", vec![1, 2]), ("b", vec![1, 3]), ("c", vec![4, 2])],
+        );
+        doc.timetable.links.push(link(4, 2, 99.0));
+        let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
+        let links_before = doc.timetable.links.clone();
+        let positions = stop_positions(&ui);
+        let err = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap_err();
+        println!("refused: {err}");
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, a_before.stations, "a is not partly changed");
+        assert_eq!(doc.timetable.trip("b").unwrap().stations, b_before.stations, "b is not partly changed");
+        assert_eq!(doc.timetable.links, links_before);
+        assert!(ui.stop_edits.is_empty(), "no trip was snapshotted for a refused operation");
+        assert!(!doc.timetable.reroute.contains("a") && !doc.timetable.reroute.contains("b"));
+    }
+
+    /// A replacement whose new stops have no way is refused before it is applied.
+    #[test]
+    fn a_stop_id_replacement_without_a_way_is_not_applied() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("replace-no-road", &[(1, 10.0), (2, 90.0)], &[("a", vec![1, 2])]);
+        ui.stops.push(MapStop {
+            tile: doc.order[0], id: 9, name: "Far".into(), pos: DVec3::new(500.0, 0.0, 0.0),
+            kind: crate::stops::StopKind::Regular,
+        });
+        let before = doc.timetable.trip("a").unwrap().clone();
+        let positions = stop_positions(&ui);
+        let err = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 9, false, &["Stop 1"], "Far").unwrap_err();
+        println!("refused: {err}");
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, before.stations);
+        assert!(ui.stop_edits.is_empty());
+        assert!(doc.timetable.track("a").is_none());
+    }
+
+    /// Two affected trips on the same new pair with no StnLink yet are committed together:
+    /// one route and one link per pair, and every stop list written.
+    #[test]
+    fn a_multi_trip_replacement_with_no_link_on_the_new_pair_commits_together() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "replace-all-missing",
+            &[(1, 10.0), (2, 50.0), (4, 70.0)],
+            &[("a", vec![1, 2]), ("b", vec![1, 2])],
+        );
+        let positions = stop_positions(&ui);
+        let affected = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        println!("affected: {affected:?}\nlinks: {:?}", doc.timetable.links);
+        assert_eq!(affected.len(), 2);
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, vec![4, 2]);
+        assert_eq!(doc.timetable.trip("b").unwrap().stations, vec![4, 2]);
+        assert!(doc.timetable.track("a").is_some() && doc.timetable.track("b").is_some(), "both routes are written");
+        assert_eq!(doc.timetable.links.len(), 1, "one link for the pair, not one per trip");
+        assert_eq!(doc.timetable.trip_file_state("a"), (true, false), "a's .ttp is queued");
+        assert_eq!(doc.timetable.trip_file_state("b"), (true, false), "b's .ttp is queued");
+        assert!(!doc.timetable.reroute.contains("a") && !doc.timetable.reroute.contains("b"));
+        assert!(ui.stop_edits.is_empty(), "the group commit needs no later revert");
+    }
+
+    /// A prepared replacement is not written when the network changes before the commit:
+    /// every trip, route and queue is as it was.
+    #[test]
+    fn a_prepared_replacement_aborts_when_the_network_changes() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "replace-network-changed",
+            &[(1, 10.0), (2, 50.0), (4, 70.0)],
+            &[("a", vec![1, 2]), ("b", vec![1, 3])],
+        );
+        let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
+        let (a_files, b_files) = (doc.timetable.trip_file_state("a"), doc.timetable.trip_file_state("b"));
+        let positions = stop_positions(&ui);
+        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        ui.net_key = ui.net_key.wrapping_add(1);
+        let err = ui.commit_replace_stop_ids(&mut doc.timetable, prepared).unwrap_err();
+        println!("refused: {err}");
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, a_before.stations);
+        assert_eq!(doc.timetable.trip("b").unwrap().stations, b_before.stations);
+        assert!(doc.timetable.tracks.is_empty() && doc.timetable.links.is_empty());
+        assert_eq!(doc.timetable.trip_file_state("a"), a_files);
+        assert_eq!(doc.timetable.trip_file_state("b"), b_files);
+    }
+
+    /// A prepared replacement is not written when a shared link (or its users) changes
+    /// before the commit: every trip, route, file queue and saved byte stays as it was.
+    #[test]
+    fn a_prepared_replacement_aborts_when_the_shared_links_change() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "replace-links-changed",
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 70.0)],
+            &[("a", vec![1, 2]), ("b", vec![1, 3])],
+        );
+        let out = std::env::temp_dir().join(format!("openmapper-replace-links-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&out);
+        std::fs::create_dir_all(out.join("TTData")).unwrap();
+        crate::timetable::save_to(&mut doc.timetable, &out, &[]).unwrap();
+        let a_path = out.join("TTData").join("a.ttp");
+        let b_path = out.join("TTData").join("b.ttp");
+        let (a_bytes, b_bytes) = (std::fs::read(&a_path).unwrap(), std::fs::read(&b_path).unwrap());
+        let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
+        let positions = stop_positions(&ui);
+        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        // (an outside trip starts using b's new pair with a link b's prepared route differs
+        // from: the route basis changed, so the commit stops before writing anything)
+        doc.timetable.add_trip("", "c", vec![4, 3]);
+        doc.timetable.links.push(link(4, 3, 99.0));
+        let err = ui.commit_replace_stop_ids(&mut doc.timetable, prepared).unwrap_err();
+        println!("refused: {err}\nlinks: {:?}", doc.timetable.links);
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, a_before.stations);
+        assert_eq!(doc.timetable.trip("b").unwrap().stations, b_before.stations);
+        assert!(doc.timetable.track("a").is_none() && doc.timetable.track("b").is_none());
+        assert_eq!(doc.timetable.links, vec![link(4, 3, 99.0)], "the outside link is untouched");
+        assert_eq!(doc.timetable.trip_file_state("a"), (false, false));
+        assert_eq!(doc.timetable.trip_file_state("b"), (false, false));
+        crate::timetable::save_to(&mut doc.timetable, &out, &[]).unwrap();
+        assert_eq!(std::fs::read(&a_path).unwrap(), a_bytes, "a.ttp bytes are unchanged");
+        assert_eq!(std::fs::read(&b_path).unwrap(), b_bytes, "b.ttp bytes are unchanged");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A route written for the first trip is rolled back when a later trip in the group
+    /// fails (an outside trip now needs the same new pair, with no link to compare).
+    #[test]
+    fn a_prepared_replacement_rolls_back_a_route_written_before_a_later_failure() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "replace-late-failure",
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 70.0)],
+            &[("a", vec![1, 2]), ("b", vec![1, 3])],
+        );
+        let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
+        let positions = stop_positions(&ui);
+        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        // (a new user of b's pair, with no link and no route of its own: the route/link basis
+        // is unchanged, so the commit starts writing and must roll the first route back)
+        doc.timetable.add_trip("", "c", vec![4, 3]);
+        let err = ui.commit_replace_stop_ids(&mut doc.timetable, prepared).unwrap_err();
+        println!("refused: {err}\nlinks: {:?}\ntracks: {}", doc.timetable.links, doc.timetable.tracks.len());
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, a_before.stations);
+        assert_eq!(doc.timetable.trip("b").unwrap().stations, b_before.stations);
+        assert!(doc.timetable.track("a").is_none() && doc.timetable.track("b").is_none(), "a's first-written route is rolled back");
+        assert!(doc.timetable.links.is_empty(), "no group link is left");
+        assert_eq!(doc.timetable.trip_file_state("a"), (true, false), "the .ttp queue is as before the commit");
+        assert_eq!(doc.timetable.trip_file_state("b"), (true, false));
+    }
+
+    /// A stop edit whose new stop has no way is undone too, not left with the old way.
+    #[test]
+    fn a_stop_edit_without_a_way_is_undone() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("stop-edit-no-road", &[(1, 10.0), (2, 90.0)], &[("a", vec![1]), ("b", vec![1, 2])]);
+        let k = doc.order[0];
+        ui.stops.push(MapStop {
+            tile: k, id: 9, name: "Far".into(), pos: DVec3::new(500.0, 0.0, 0.0),
+            kind: crate::stops::StopKind::Regular,
+        });
+        doc.tiles.get_mut(&k).unwrap().tile.objects.push(omsi_map::MapObject {
+            file: "Sceneryobjects\\Generic\\bus_stop.sco".into(), id: 9, pos: [500.0, 0.0, 0.0], flag: 7,
+            extra: vec!["Far".into(), "0".into(), "0".into(), "10".into()], ..Default::default()
+        });
+        let before = doc.timetable.trip("a").unwrap().clone();
+        let files = doc.timetable.trip_file_state("a");
+        let type2_converted = doc.timetable.type2_converted.contains(&lower("a"));
+        doc.timetable.trip_mut("a").unwrap().stations.push(9);
+        ui.stop_edits.insert("a".into(), StopEdit { trip: before.clone(), files, type2_converted });
+        doc.timetable.touch_route("a");
+        ui.reroute(&mut doc);
+        let reverted = ui.reverted_edits.get("a").expect("the edit is undone");
+        println!("problems: {:?}", reverted.problems);
+        assert_eq!(doc.timetable.trip("a").unwrap().stations, before.stations);
+        assert!(reverted.conflicts.is_empty() && !reverted.problems.is_empty());
+        assert!(doc.timetable.track("a").is_none());
+        assert!(!ui.bulk_blocked.contains("a"));
+    }
+
+    /// An undone stop edit does not queue an untouched `.ttp`: saving writes the same bytes.
+    #[test]
+    fn an_undone_stop_edit_keeps_the_original_ttp_bytes() {
+        let out = std::env::temp_dir().join(format!("openmapper-stop-edit-bytes-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&out);
+        std::fs::create_dir_all(out.join("TTData")).unwrap();
+        let mut tt = Timetable::default();
+        let line = tt.add_line("4");
+        let trip = tt.add_trip(&line, "4_A", vec![1, 2]);
+        crate::timetable::save_to(&mut tt, &out, &[]).unwrap();
+        let path = out.join("TTData").join("4_A.ttp");
+        let before = std::fs::read(&path).unwrap();
+        let state = tt.trip_file_state(&trip);
+        assert_eq!(state, (false, false), "saved: the .ttp is not queued");
+        let trip_before = tt.trip(&trip).unwrap().clone();
+        let type2_converted = tt.type2_converted.contains(&lower(&trip));
+        tt.trip_mut(&trip).unwrap().stations.push(3);
+        tt.touch_route(&trip);
+        assert_ne!(tt.trip_file_state(&trip), (false, false), "the edit queues the .ttp");
+        tt.restore_stop_edit(&trip, trip_before, state, type2_converted);
+        assert_eq!(tt.trip_file_state(&trip), state, "the queue is back as it was");
+        crate::timetable::save_to(&mut tt, &out, &[]).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), before, "the .ttp bytes are unchanged");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// The synthetic link used for a missing pair is never equal to a calculated one (its
+    /// NaN parameters make the comparison false): the batch's protection identifies it.
+    #[test]
+    fn a_missing_link_sentinel_is_never_equal_to_a_calculated_link() {
+        let sentinel = missing_stnlink(1, 2);
+        let calculated = lane_link(1, 2, 120.0, &[100]);
+        let plain = omsi_timetable::StnLink { from_id: 1, to_id: 2, ..Default::default() };
+        assert_ne!(sentinel, calculated);
+        assert_ne!(sentinel, plain, "even a link with default numbers differs (NaN)");
+        assert!(!link_diffs("existing", &sentinel, "new", &calculated).is_empty());
+        // (the batch, fed this as the protected pair's original link, treats it as a change)
+        let plans = vec![plan("a", vec![calculated])];
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[sentinel], &HashSet::from([(1, 2)]), &names());
+        assert_eq!(conflicts, HashSet::from([0]));
+        assert_eq!(causes[0].kind, ConflictKind::Protected);
+    }
+
+    /// The button's scoped batch recalculates the trip and every trip sharing a station pair
+    /// with it, and leaves the others untouched.
+    #[test]
+    fn the_scoped_batch_recalculates_only_the_trips_sharing_pairs() {
+        let _map = crate::doc::one_map();
+        // (two lanes, so a trip on the second one shares nothing with the first two)
+        let root = std::env::temp_dir().join("openmapper-scoped-batch");
+        let roots = Roots { omsi: root.join("omsi"), content: root.join("content") };
+        let mut doc = Document::new_map(&roots, "scoped-batch", "scoped-batch", 1);
+        let key0 = PathKey { tile: doc.order[0], id: 50, path: 0 };
+        let key1 = PathKey { tile: doc.order[0], id: 51, path: 0 };
+        let lane = |key: PathKey, x0: f64| Lane {
+            key, pts: vec![DVec3::X * x0, DVec3::X * (x0 + 100.0)], along: vec![0.0, 100.0],
+            file_length: 100.0, internal: 0, next: Vec::new(), side: Vec::new(),
+            against: false, spline: true, rail: false,
+        };
+        let mut ui = TimetableUi::new();
+        ui.net = Some(Network {
+            lanes: vec![lane(key0, 0.0), lane(key1, 200.0)],
+            by_key: HashMap::from([(key0, vec![0]), (key1, vec![1])]),
+            ..Default::default()
+        });
+        ui.stops = [(1, 10.0), (2, 90.0), (3, 210.0), (4, 290.0)].into_iter().map(|(id, x)| MapStop {
+            tile: doc.order[0], id, name: format!("Stop {id}"), pos: DVec3::X * x,
+            kind: crate::stops::StopKind::Regular,
+        }).collect();
+        for (name, stations) in [("a", vec![1, 2]), ("b", vec![1, 2]), ("d", vec![3, 4])] {
+            doc.timetable.add_trip("", name, stations);
+            doc.timetable.reroute.remove(name);
+        }
+        let scope = links::sharing_trips(&doc.timetable, "a");
+        let expected: HashSet<String> = ["a".to_string(), "b".to_string()].into_iter().collect();
+        assert_eq!(scope, expected);
+        let report = ui.recalculate_trips(&mut doc, false, Some(&scope));
+        println!("{report}\nlinks: {:?}", doc.timetable.links);
+        assert!(doc.timetable.track("a").is_some() && doc.timetable.track("b").is_some());
+        assert!(doc.timetable.track("d").is_none(), "a trip sharing no pair is left alone");
+        assert!(ui.bulk_blocked.is_empty());
+        assert!(!doc.timetable.links.is_empty());
     }
 }

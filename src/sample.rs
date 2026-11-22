@@ -7,8 +7,9 @@ use omsi_map::{EntryPoint, MapObject};
 use omsi_timetable::{Tour, TourTrip};
 
 use crate::assets::Assets;
-use crate::doc::{tile_of, tile_origin, Document};
+use crate::doc::{tile_of, tile_origin, Document, Sel, TileDoc, TileKey};
 use crate::editor::{Editor, Tool};
+use crate::history::History;
 use crate::i18n::tr;
 use crate::install::Roots;
 use crate::library::Library;
@@ -27,6 +28,78 @@ const KERB: f64 = 4.5;
 
 /// Build the sample on the open (new) map, around `centre`. Returns what went wrong.
 pub fn build(ed: &mut Editor, assets: &mut Assets, lib: &Library, roots: &Roots, centre: DVec2) -> Result<(), String> {
+    // (a sample that fails half-way leaves nothing of it behind: the map, its file bookkeeping
+    // and the window's undo history come back exactly as they were)
+    let before = snapshot(ed);
+    let result = build_inner(ed, assets, lib, roots, centre);
+    if result.is_err() {
+        restore(ed, before);
+    }
+    result
+}
+
+/// Everything a sample build may change, as it was before it began. The tiles are cloned too:
+/// it draws roads and places stops and a start point, and a failure must not leave those.
+struct SampleState {
+    tiles: std::collections::BTreeMap<TileKey, TileDoc>,
+    global: omsi_map::GlobalCfg,
+    order: Vec<TileKey>,
+    global_dirty: bool,
+    global_rev: u64,
+    timetable: crate::timetable::Timetable,
+    traffic: crate::traffic::Traffic,
+    history: History,
+    tool: Tool,
+    road_type: Option<String>,
+    keep_drawing: bool,
+    selected: Option<Sel>,
+    also: Vec<Sel>,
+    hover: Option<Sel>,
+}
+
+fn snapshot(ed: &Editor) -> Option<SampleState> {
+    let doc = ed.doc.as_ref()?;
+    Some(SampleState {
+        tiles: doc.tiles.clone(),
+        global: doc.global.clone(),
+        order: doc.order.clone(),
+        global_dirty: doc.global_dirty,
+        global_rev: doc.global_rev,
+        timetable: doc.timetable.clone(),
+        traffic: doc.traffic.clone(),
+        history: ed.history.clone(),
+        tool: ed.tool,
+        road_type: ed.road_type.clone(),
+        keep_drawing: ed.keep_drawing,
+        selected: ed.selected,
+        also: ed.also.clone(),
+        hover: ed.hover,
+    })
+}
+
+/// Put everything a failed sample build changed back: its roads, objects, start point,
+/// timetable, traffic, global settings, and the undo history and tool state.
+fn restore(ed: &mut Editor, before: Option<SampleState>) {
+    let Some(before) = before else { return };
+    if let Some(doc) = ed.doc.as_mut() {
+        doc.tiles = before.tiles;
+        doc.global = before.global;
+        doc.order = before.order;
+        doc.global_dirty = before.global_dirty;
+        doc.global_rev = before.global_rev;
+        doc.timetable = before.timetable;
+        doc.traffic = before.traffic;
+    }
+    ed.history = before.history;
+    ed.tool = before.tool;
+    ed.road_type = before.road_type;
+    ed.keep_drawing = before.keep_drawing;
+    ed.selected = before.selected;
+    ed.also = before.also;
+    ed.hover = before.hover;
+}
+
+fn build_inner(ed: &mut Editor, assets: &mut Assets, lib: &Library, roots: &Roots, centre: DVec2) -> Result<(), String> {
     // the road: four clicks round and back to the start, which joins the ring
     let keep_left = ed.doc.as_ref().map(|d| d.global.left_hand_traffic).unwrap_or(false);
     let road = lib.find(if keep_left { ROAD_LEFT } else { ROAD }).map(|a| a.rel.clone()).or_else(|| lib.assets.iter().find(|a| a.category == crate::library::Category::Roads && a.rel.to_lowercase().contains("2spur")).map(|a| a.rel.clone())).ok_or("no road type")?;
@@ -114,7 +187,14 @@ pub fn build(ed: &mut Editor, assets: &mut Assets, lib: &Library, roots: &Roots,
         }
         let m = ((r.length() / 1000.0 / 22.0 * 60.0) + 1.0).ceil().max(2.0) as f32;
         let tt = &mut doc.timetable;
-        tt.set_route(t, r.track(&net, &doc.order), r.links(&net, &doc.order, &ids));
+        let (track, links) = (r.track(&net, &doc.order), r.links(&net, &doc.order, &ids));
+        crate::timetable::links::log_route(t, &ids, &pos, &track, &links, &r.problems);
+        if let Err(conflicts) = tt.set_route(t, track, links) {
+            for c in &conflicts {
+                log::warn!("timetable: {t}: {}", c.log_text());
+            }
+            return Err(format!("trip {t}: a shared station link differs ({})", conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", ")));
+        }
         if let Some(p) = tt.trip_mut(t).and_then(|x| x.profiles.first_mut()) {
             p.factor = m;
         }
@@ -294,5 +374,157 @@ mod tests {
             assert!(roots.content.join("HOFs").join(format!("{hof}.hof")).is_file());
         }
         let _ = std::fs::remove_dir_all(&roots.content);
+    }
+
+    /// A sample that stops with an error puts back everything it changed: its roads, objects,
+    /// start point, timetable, traffic, global settings, undo history and tool state. Existing
+    /// data is not touched.
+    #[test]
+    fn a_failed_sample_restores_everything_it_changed() {
+        let _map = crate::timetable::tests::one_map();
+        let nowhere = std::env::temp_dir().join("openmapper-sample-restore");
+        let roots = Roots { omsi: nowhere.clone(), content: nowhere };
+        let mut doc = Document::new_map(&roots, "sample-restore", "sample-restore", 1);
+        let k = doc.order[0];
+        doc.tiles.get_mut(&k).unwrap().tile.objects.push(MapObject {
+            id: 500, file: "Sceneryobjects\\keep.sco".into(), pos: [10.0, 10.0, 0.0], ..Default::default()
+        });
+        doc.global.entry_points.push(EntryPoint { object_id: 500, name: "Keep".into(), ..Default::default() });
+        doc.timetable.add_line("keep");
+        let keep_trip = doc.timetable.add_trip("keep", "keep_a", vec![1, 2]);
+        doc.timetable.set_route(
+            &keep_trip,
+            vec![omsi_timetable::TrackEntry { values: vec![1.0, 0.0, 0.0, 0.0, 50.0, 0.0] }],
+            vec![omsi_timetable::StnLink { from_id: 1, to_id: 2, ..Default::default() }],
+        ).unwrap();
+        let mut ed = Editor::default();
+        ed.open(doc);
+        let state = snapshot(&ed).unwrap();
+        let before = ed.doc.as_ref().unwrap();
+        let (objects, splines) = (before.tiles[&k].tile.objects.len(), before.tiles[&k].tile.splines.len());
+        let keep_text = crate::timetable::trip_text(before.timetable.trip("keep_a").unwrap());
+        let traffic = before.traffic.clone();
+        let (next_id, entries, order) = (before.global.next_id_code, before.global.entry_points.len(), before.order.clone());
+        let global_dirty = before.global_dirty;
+        let (undo, tool) = (ed.history.can_undo(), ed.tool);
+        let (road_type, keep_drawing) = (ed.road_type.clone(), ed.keep_drawing);
+        let (selected, also, hover) = (ed.selected, ed.also.clone(), ed.hover);
+        // (what a sample that stopped half-way may have made)
+        {
+            let doc = ed.doc.as_mut().unwrap();
+            let t = &mut doc.tiles.get_mut(&k).unwrap().tile;
+            t.splines.push(omsi_map::MapSpline { file: "Splines\\sample.sli".into(), id: 900, ..Default::default() });
+            t.objects.push(MapObject { id: 901, file: "Sceneryobjects\\sample.sco".into(), pos: [20.0, 20.0, 0.0], ..Default::default() });
+            doc.global.next_id_code += 5;
+            add_start(doc, DVec2::new(30.0, 30.0), 0.0, "Sample");
+            doc.global_dirty = !doc.global_dirty;
+            doc.timetable.add_line("half");
+            let trip = doc.timetable.add_trip("half", "half_a", vec![1, 2]);
+            doc.timetable.set_route(&trip, vec![Default::default()], Vec::new()).unwrap();
+            doc.traffic.registrations.push("SAMPLE".into());
+            ed.history.begin("sample");
+            ed.history.touch_tile(doc, k);
+            ed.history.commit();
+        }
+        ed.tool = Tool::Roads;
+        ed.road_type = Some("Splines\\sample.sli".into());
+        ed.keep_drawing = true;
+        ed.selected = Some(Sel::Object(k, 901));
+        ed.also = vec![Sel::Object(k, 901)];
+        ed.hover = Some(Sel::Object(k, 901));
+        restore(&mut ed, Some(state));
+        let doc = ed.doc.as_ref().unwrap();
+        assert_eq!(doc.tiles[&k].tile.objects.len(), objects, "the sample's object is gone");
+        assert_eq!(doc.tiles[&k].tile.splines.len(), splines, "the sample's road is gone");
+        assert!(doc.tiles[&k].tile.objects.iter().any(|o| o.id == 500 && o.file == "Sceneryobjects\\keep.sco"));
+        assert_eq!(doc.global.next_id_code, next_id);
+        assert_eq!(doc.global.entry_points.len(), entries, "the sample's start point is gone");
+        assert_eq!(doc.global_dirty, global_dirty);
+        assert_eq!(doc.order, order);
+        assert_eq!(doc.timetable.lines.len(), 1);
+        assert!(doc.timetable.trip("half_a").is_none() && doc.timetable.track("half_a").is_none());
+        assert_eq!(crate::timetable::trip_text(doc.timetable.trip("keep_a").unwrap()), keep_text);
+        assert_eq!(doc.traffic, traffic);
+        assert_eq!(ed.history.can_undo(), undo, "the undo history is as it was");
+        assert_eq!(ed.tool, tool);
+        assert_eq!(ed.road_type, road_type);
+        assert_eq!(ed.keep_drawing, keep_drawing);
+        assert_eq!(ed.selected, selected);
+        assert_eq!(ed.also, also);
+        assert_eq!(ed.hover, hover);
+    }
+
+    /// `build_inner` fails for real after it has drawn the ring (a one-way road has no
+    /// second lane beside it): the roads it made are rolled back, with the rest.
+    #[test]
+    fn a_real_mid_build_failure_rolls_the_roads_back() {
+        let _map = crate::timetable::tests::one_map();
+        let content = std::env::temp_dir().join(format!("openmapper-sample-mid-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&content);
+        let roots = Roots { omsi: content.join("omsi"), content: content.clone() };
+        let road = content.join("Splines").join("Marcel").join("str_2spur_8m_borkumer1.sli");
+        std::fs::create_dir_all(road.parent().unwrap()).unwrap();
+        // (the fixture with its second car lane taken out: the ring can be drawn, but has no
+        // lane beside its first one)
+        let fixture = include_str!("../tests/fixtures/sli-marcel/2spur_11m_altonaer_d.sli");
+        let mut one_way = String::new();
+        let lines: Vec<&str> = fixture.lines().collect();
+        let mut i = 0;
+        while i < lines.len() {
+            if lines[i].trim() == "[path]" && lines.get(i + 1).map(|l| l.trim()) == Some("0") && lines.get(i + 2).map(|l| l.trim()) == Some("2") {
+                i += 3;
+                while i < lines.len() && !lines[i].trim_start().starts_with('[') {
+                    i += 1;
+                }
+                continue;
+            }
+            one_way.push_str(lines[i]);
+            one_way.push('\n');
+            i += 1;
+        }
+        std::fs::write(&road, one_way).unwrap();
+        let mut lib = Library::default();
+        lib.start_scan(&roots);
+        while lib.scanning {
+            lib.poll();
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        assert!(lib.assets.iter().any(|a| a.rel.to_lowercase().contains("str_2spur_8m_borkumer1")), "the fixture road is in the library");
+        assert!(lib.find(ROAD).is_some(), "the fixture road is found by the sample's path");
+        let mut assets = Assets::new(roots.omsi.clone(), roots.content.clone());
+        let mut tries = 0;
+        while assets.spline(ROAD).is_none() && !assets.spline_failed(ROAD) && tries < 500 {
+            assets.poll();
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            tries += 1;
+        }
+        assert!(assets.spline(ROAD).is_some(), "the fixture road loads");
+        let mut doc = Document::new_map(&roots, "sample-mid", "sample-mid", 3);
+        let mut ed = Editor::default();
+        ed.open(doc);
+        let before = snapshot(&ed).unwrap();
+        let err = build(&mut ed, &mut assets, &lib, &roots, DVec2::new(150.0, 150.0)).unwrap_err();
+        println!("mid-build failure: {err}");
+        assert!(
+            err.contains("one-way") || err.contains("ring") || err.contains("too short"),
+            "the failure is after the roads were drawn: {err}"
+        );
+        let doc = ed.doc.as_ref().unwrap();
+        assert_eq!(doc.tiles.len(), before.tiles.len());
+        for (k, t) in &before.tiles {
+            let now = doc.tiles.get(k).expect("the tile is back");
+            assert_eq!(now.tile.splines.len(), t.tile.splines.len(), "the drawn roads are gone");
+            assert_eq!(now.tile.objects.len(), t.tile.objects.len(), "no sample object is left");
+        }
+        assert!(doc.timetable.lines.is_empty() && doc.timetable.trips.is_empty() && doc.timetable.tracks.is_empty());
+        assert_eq!(doc.traffic, before.traffic);
+        assert_eq!(doc.global.next_id_code, before.global.next_id_code);
+        assert_eq!(doc.order, before.order);
+        assert_eq!(ed.tool, before.tool);
+        assert_eq!(ed.road_type, before.road_type);
+        assert_eq!(ed.selected, before.selected);
+        assert_eq!(ed.also, before.also);
+        assert_eq!(ed.history.can_undo(), before.history.can_undo());
+        let _ = std::fs::remove_dir_all(&content);
     }
 }

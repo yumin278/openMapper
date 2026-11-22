@@ -6,6 +6,7 @@
 
 pub mod caruse;
 mod convert;
+pub mod links;
 pub mod network;
 pub mod profile;
 pub mod route;
@@ -190,6 +191,18 @@ pub(crate) fn reread_short_station_records(trips: &mut [Trip]) {
     }
 }
 
+/// Everything a group of route writes can change, for an operation that must be all or
+/// nothing: the tracks, the station links, and what saving would write for them.
+pub(crate) struct RouteState {
+    tracks: Vec<Track>,
+    links: Vec<StnLink>,
+    changed: BTreeSet<String>,
+    removed: BTreeSet<String>,
+    links_changed: bool,
+    reroute: BTreeSet<String>,
+    type2_converted: BTreeSet<String>,
+}
+
 impl Timetable {
     /// Read `TTData` of the map folder `dir`; `order` is global.cfg's tile list.
     pub fn load(dir: &Path, order: &[TileKey]) -> Timetable {
@@ -221,15 +234,23 @@ impl Timetable {
 
     /// The trip's way as picked by hand (`track`, and the station links between its stops
     /// along it), or (None) found along the roads again from now on.
-    pub fn set_by_hand(&mut self, trip: &str, way: Option<(Vec<TrackEntry>, Vec<StnLink>)>) {
+    ///
+    /// The links are checked like every other write: when one of them would change a link
+    /// other trips drive on, nothing is written and the trip is not marked by hand.
+    pub fn set_by_hand(&mut self, trip: &str, way: Option<(Vec<TrackEntry>, Vec<StnLink>)>) -> Result<(), Vec<links::SharedLinkConflict>> {
         match way {
             Some((track, links)) => {
+                self.set_route(trip, track, links)?;
                 self.hand.insert(key(trip));
-                self.set_route(trip, track, links);
+                self.mark();
+                log::info!("timetable: the way of {trip} is kept by hand");
+                Ok(())
             }
             None => {
                 self.hand.remove(&key(trip));
                 self.touch_route(trip);
+                log::info!("timetable: the way of {trip} is found automatically again");
+                Ok(())
             }
         }
     }
@@ -275,10 +296,65 @@ impl Timetable {
         self.reroute.insert(key(name));
     }
 
+    /// Whether the trip's `.ttp` was already to be written or taken away, before an edit.
+    pub(crate) fn trip_file_state(&self, name: &str) -> (bool, bool) {
+        let k = key(&format!("{name}.ttp"));
+        (self.changed.contains(&k), self.removed.contains(&k))
+    }
+
+    /// Put a trip's stops and its file bookkeeping back after an edit that was undone: the
+    /// `.ttp` is written only when it was to be written before the edit, so an untouched
+    /// file keeps its bytes.
+    pub(crate) fn restore_stop_edit(&mut self, name: &str, trip: Trip, files: (bool, bool), type2_converted: bool) {
+        if let Some(t) = self.trip_mut(name) {
+            let name_now = t.name.clone();
+            *t = trip;
+            t.name = name_now;
+        }
+        let k = key(&format!("{name}.ttp"));
+        if files.0 {
+            self.changed.insert(k.clone());
+        } else {
+            self.changed.remove(&k);
+        }
+        if files.1 {
+            self.removed.insert(k);
+        } else {
+            self.removed.remove(&k);
+        }
+        if type2_converted {
+            self.type2_converted.insert(key(name));
+        } else {
+            self.type2_converted.remove(&key(name));
+        }
+    }
+
+    /// The route state before a group of writes, to put back if one of them fails.
+    pub(crate) fn route_state(&self) -> RouteState {
+        RouteState {
+            tracks: self.tracks.clone(),
+            links: self.links.clone(),
+            changed: self.changed.clone(),
+            removed: self.removed.clone(),
+            links_changed: self.links_changed,
+            reroute: self.reroute.clone(),
+            type2_converted: self.type2_converted.clone(),
+        }
+    }
+
+    pub(crate) fn restore_route_state(&mut self, state: RouteState) {
+        self.tracks = state.tracks;
+        self.links = state.links;
+        self.changed = state.changed;
+        self.removed = state.removed;
+        self.links_changed = state.links_changed;
+        self.reroute = state.reroute;
+        self.type2_converted = state.type2_converted;
+    }
+
     /// Put back as it was (undo, redo) in place of `replaced`: every file of it is written
     /// again on the next save, and those only `replaced` had are taken away.
-    pub fn restored(&mut self, replaced: &Timetable) {
-        self.type2_exclusions_changed |= self.type2_exclusions != replaced.type2_exclusions;
+    pub fn restored(&mut self, replaced: &Timetable) {        self.type2_exclusions_changed |= self.type2_exclusions != replaced.type2_exclusions;
         let names = |t: &Timetable| -> BTreeSet<String> {
             t.lines.iter().map(|l| key(&format!("{}.ttl", l.name))).chain(t.trips.iter().map(|x| key(&format!("{}.ttp", x.name)))).chain(t.tracks.iter().map(|x| key(&format!("{}.ttr", track_name(x))))).collect()
         };
@@ -488,14 +564,74 @@ impl Timetable {
     }
 
     /// Replace a hand-picked track only after its automatic route was found and accepted.
-    pub fn set_automatic_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) {
-        self.hand.remove(&key(trip));
-        self.set_route(trip, track, links);
+    /// A conflicting shared link leaves the hand-picked way and its track as they were.
+    pub fn set_automatic_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) -> Result<(), Vec<links::SharedLinkConflict>> {
+        self.set_automatic_route_among(trip, track, links, &std::collections::HashSet::new())
+    }
+
+    /// The automatic route of a trip written together with a batch (`peers`: the trips the
+    /// batch writes, by lower-case name; its own check already compared their links).
+    pub(crate) fn set_automatic_route_among(
+        &mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, peers: &std::collections::HashSet<String>,
+    ) -> Result<(), Vec<links::SharedLinkConflict>> {
+        self.set_route_among(trip, track, links, peers)?;
+        if self.hand.remove(&key(trip)) {
+            log::info!("timetable: the way of {trip} is no longer picked by hand");
+            self.mark();
+        }
+        Ok(())
     }
 
     /// The route found for a trip: its track (`<trip>.ttr`) and the station links between
-    /// its stops (`StnLinks.cfg`, which OMSI 2 drives a bus trip by).
-    pub fn set_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) {
+    /// its stops (`StnLinks.cfg`, which OMSI 2 drives a bus trip by). The single write gate:
+    /// when a link would change one other trips drive on, nothing of the route is written.
+    pub fn set_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) -> Result<(), Vec<links::SharedLinkConflict>> {
+        self.set_route_among(trip, track, links, &std::collections::HashSet::new())
+    }
+
+    /// [`set_route`](Self::set_route) for a batch that has already compared the links of the
+    /// trips it writes together (`peers`).
+    pub(crate) fn set_route_among(
+        &mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, peers: &std::collections::HashSet<String>,
+    ) -> Result<(), Vec<links::SharedLinkConflict>> {
+        let conflicts = links::link_conflicts_among(self, trip, &links, peers);
+        if !conflicts.is_empty() {
+            log::warn!("timetable: the route of {trip} was not written: {} shared station link(s) would change", conflicts.len());
+            for c in &conflicts {
+                log::warn!("timetable: {}", c.log_text());
+            }
+            return Err(conflicts);
+        }
+        self.write_route(trip, track, links);
+        Ok(())
+    }
+
+    /// Write the links although other trips drive on them: only after the user confirmed the
+    /// overwrite. Returns what was overwritten (the affected trips are logged).
+    pub fn overwrite_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, by_hand: bool) -> Vec<links::SharedLinkConflict> {
+        let conflicts = links::link_conflicts(self, trip, &links);
+        log::info!("timetable: the user overwrites the shared station links of {trip}; {} link(s) affected", conflicts.len());
+        for c in &conflicts {
+            log::info!("timetable: overwritten by the user: {}", c.log_text());
+        }
+        self.write_route(trip, track, links);
+        if by_hand {
+            self.hand.insert(key(trip));
+            self.mark();
+        } else if self.hand.remove(&key(trip)) {
+            self.mark();
+        }
+        conflicts
+    }
+
+    fn write_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) {
+        log::info!(
+            "timetable: writing the route of {trip}: track [{}]",
+            track.iter().map(|e| e.values.iter().map(|v| format!("{v:.3}")).collect::<Vec<_>>().join("/")).collect::<Vec<_>>().join(", ")
+        );
+        for l in &links {
+            log::info!("timetable: writing the route of {trip}: StnLink {}", links::describe_link("new", l));
+        }
         match self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(trip)) {
             Some(t) => t.entries = track,
             None => self.tracks.push(Track { path: format!("{trip}.ttr").into(), entries: track }),
