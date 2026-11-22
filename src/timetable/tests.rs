@@ -1542,4 +1542,37 @@ mod automatic_tracks {
         show("Batch after reload", &back, "B");
         let _ = std::fs::remove_dir_all(&out);
     }
+
+    /// A group write's rollback snapshot must carry the hand markers as well as the tracks
+    /// and links: an actual automatic switch drops the marker, and restoring only the `.ttr`
+    /// would leave a hand-picked track that the window then treats as automatic.
+    #[test]
+    fn route_state_restores_the_hand_marker_with_the_hand_track() {
+        let mut tt = Timetable::default();
+        tt.stops = stops();
+        tt.add_trip("", "A", vec![1, 2]);
+        let hand = vec![entry(10.0), entry(11.0)];
+        let hand_link = link(1, 2, 99.0);
+        tt.set_by_hand("A", Some((hand.clone(), vec![hand_link.clone()]))).unwrap();
+        assert!(tt.by_hand("A"), "the setup is a hand-picked way");
+        let state = tt.route_state();
+        let tracks = tt.tracks.clone();
+        let links = tt.links.clone();
+        let changed = tt.changed.clone();
+        let removed = tt.removed.clone();
+        // (the actual hand -> automatic switch takes the hand mark and the .ttr away)
+        tt.set_automatic_route("A", vec![entry(20.0)], vec![link(1, 2, 120.0)]).unwrap();
+        assert!(!tt.by_hand("A"), "the automatic switch dropped the hand marker");
+        assert!(tt.track("A").is_none(), "the automatic switch dropped the .ttr");
+        // (a later route in the same group fails: the snapshot puts the hand marker back with
+        // the track, links and queues; without it the restored .ttr reads as automatic)
+        tt.restore_route_state(state);
+        assert!(tt.by_hand("A"), "the restored .ttr is hand-picked again");
+        assert_eq!(tt.tracks, tracks);
+        assert_eq!(tt.links, links);
+        assert_eq!(tt.changed, changed);
+        assert_eq!(tt.removed, removed);
+        assert_eq!(tt.track("A").unwrap().entries, hand);
+        assert_eq!(tt.links, vec![hand_link]);
+    }
 }

@@ -193,10 +193,12 @@ pub(crate) fn reread_short_station_records(trips: &mut [Trip]) {
 }
 
 /// Everything a group of route writes can change, for an operation that must be all or
-/// nothing: the tracks, the station links, and what saving would write for them.
+/// nothing: the tracks, the station links, the hand markers, and what saving would write
+/// for them.
 pub(crate) struct RouteState {
     tracks: Vec<Track>,
     links: Vec<StnLink>,
+    hand: BTreeSet<String>,
     changed: BTreeSet<String>,
     removed: BTreeSet<String>,
     links_changed: bool,
@@ -342,6 +344,7 @@ impl Timetable {
         RouteState {
             tracks: self.tracks.clone(),
             links: self.links.clone(),
+            hand: self.hand.clone(),
             changed: self.changed.clone(),
             removed: self.removed.clone(),
             links_changed: self.links_changed,
@@ -353,6 +356,7 @@ impl Timetable {
     pub(crate) fn restore_route_state(&mut self, state: RouteState) {
         self.tracks = state.tracks;
         self.links = state.links;
+        self.hand = state.hand;
         self.changed = state.changed;
         self.removed = state.removed;
         self.links_changed = state.links_changed;
