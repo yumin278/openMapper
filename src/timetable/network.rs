@@ -355,3 +355,27 @@ impl Network {
         }
     }
 }
+
+
+#[cfg(test)]
+mod bus_rule_tests {
+    use super::*;
+
+    fn rule(path_index: i32, kind: &str, kill: bool) -> omsi_map::MapRule {
+        omsi_map::MapRule { path_index, kind: kind.into(), kill, ..Default::default() }
+    }
+
+    #[test]
+    fn only_live_bus_and_no_cars_rules_mark_the_exact_path() {
+        let rules = vec![
+            rule(0, "bus", false), rule(0, "no_cars", false),
+            rule(1, "bus", false), rule(1, "no_cars", true),
+            rule(2, "no_cars", false),
+        ];
+        for (path, expected) in [(0, true), (1, false), (2, false), (3, false)] {
+            println!("BEFORE: path={path} rules=[] bus_only=false");
+            println!("AFTER: path={path} rules={:?} bus_only={}", rules.iter().filter(|r| r.path_index == path).collect::<Vec<_>>(), is_bus_only(&rules, path as usize));
+            assert_eq!(is_bus_only(&rules, path as usize), expected);
+        }
+    }
+}
