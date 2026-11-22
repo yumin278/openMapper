@@ -4367,4 +4367,65 @@ mod type1_track_preview_tests {
         assert_eq!(paths.unwrap(), vec![Some(2)]);
         assert!(tt.same_content(&before), "reading a fallback track must also be read-only");
     }
+
+    /// Selecting a Type 1 trip must actually populate the same shown route used
+    /// by the map overlay, without editing the trip or invoking automatic search.
+    #[test]
+    fn selecting_type1_trip_shows_the_saved_way_without_writing_anything() {
+        let _map = crate::doc::one_map();
+        let root = std::env::temp_dir().join("openmapper-type1-readonly-preview");
+        let roots = Roots { omsi: root.join("omsi"), content: root.join("content") };
+        let mut doc = Document::new_map(&roots, "readonly-preview", "readonly-preview", 1);
+        let tile = doc.order[0];
+        let stop_id = 123;
+        doc.timetable.trips.push(Trip {
+            path: "legacy.ttp".into(),
+            name: "legacy".into(),
+            display_name: "separate-track".into(),
+            terminus: String::new(),
+            line: String::new(),
+            train_reverse: false,
+            stations: Vec::new(),
+            stations_legacy: vec![vec![stop_id.to_string(), "0".into()]],
+            profiles: Vec::new(),
+        });
+        doc.timetable.tracks.push(Track {
+            path: "separate-track.ttr".into(),
+            entries: vec![TrackEntry { values: vec![42.0, 0.0, 0.0, 0.0, 30.0, 0.0] }],
+        });
+        let before = doc.timetable.clone();
+        let key = PathKey { tile, id: 42, path: 0 };
+        let lane = Lane {
+            key,
+            pts: vec![DVec3::ZERO, DVec3::X * 30.0],
+            along: vec![0.0, 30.0],
+            file_length: 30.0,
+            internal: 0,
+            next: Vec::new(),
+            side: Vec::new(),
+            against: false,
+            spline: true,
+            rail: false,
+        };
+        let mut ed = Editor::default();
+        ed.doc = Some(doc);
+        let mut ui = TimetableUi::new();
+        ui.net = Some(Network {
+            lanes: vec![lane],
+            by_key: HashMap::from([(key, vec![0])]),
+            ..Default::default()
+        });
+        ui.stops.push(MapStop {
+            tile, id: stop_id, name: "Legacy stop".into(),
+            pos: DVec3::X * 5.0, kind: crate::stops::StopKind::Regular,
+        });
+        ui.trip = Some("legacy".into());
+        ui.update_shown(&ed);
+        let shown = ui.shown.as_ref().expect("selected Type 1 track is visible in the overlay");
+        assert_eq!(shown.0, "legacy");
+        assert_eq!(shown.1, vec![stop_id]);
+        assert_eq!(shown.3.lanes, vec![0]);
+        assert!(shown.3.by_hand, "track geometry is displayed as saved, not automatically found");
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&before));
+    }
 }
