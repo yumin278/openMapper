@@ -1790,20 +1790,26 @@ mod single_type2_conversion {
         assert_eq!(steps_source(&back, "bus").0, "links");
 
         // (a pending change to the shared track belongs to the other trip; converting bus
-        // must not drop it from the changed queue or write the old entries over it)
-        let mut tt = Timetable::load(&out, &[]);
+        // must not drop it from the changed queue or write the old entries over it. This
+        // starts from a fresh copy of the original Type 1 fixture: `out` now holds the
+        // already converted bus.)
+        let pending = scratch("single-type2-shared-bytes-pending");
+        write_all(&stock, &pending);
+        let mut tt = Timetable::load(&pending, &[]);
+        assert!(is_type1(tt.trip("bus").unwrap()), "the pending-write fixture starts Type 1");
         tt.tracks.iter_mut().find(|t| track_name(t) == "shared-way").unwrap().entries = vec![entry(91.0)];
         tt.changed.insert("shared-way.ttr".into());
         let converted = tt.convert_trip_to_type2("bus").unwrap();
         assert_eq!(converted.kept_shared_track.as_deref(), Some("shared-way"));
         assert!(tt.changed.contains("shared-way.ttr"), "the pending write is kept");
         assert!(!tt.removed.contains("shared-way.ttr"));
-        save_to(&mut tt, &out, &[]).unwrap();
-        let text = std::fs::read_to_string(out.join("TTData").join("shared-way.ttr")).unwrap().replace("\r\n", "\n");
+        save_to(&mut tt, &pending, &[]).unwrap();
+        let text = std::fs::read_to_string(pending.join("TTData").join("shared-way.ttr")).unwrap().replace("\r\n", "\n");
         println!("Shared track with the pending change after save:\n{text}");
         assert_eq!(text, track_text(&track("shared-way", &[91.0])));
-        let back = Timetable::load(&out, &[]);
+        let back = Timetable::load(&pending, &[]);
         assert_eq!(back.track("shared-way").unwrap().entries, vec![entry(91.0)]);
+        let _ = std::fs::remove_dir_all(pending);
         let _ = std::fs::remove_dir_all(out);
     }
 
