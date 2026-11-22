@@ -189,11 +189,9 @@ fn build_inner(ed: &mut Editor, assets: &mut Assets, lib: &Library, roots: &Root
         let tt = &mut doc.timetable;
         let (track, links) = (r.track(&net, &doc.order), r.links(&net, &doc.order, &ids));
         crate::timetable::links::log_route(t, &ids, &pos, &track, &links, &r.problems);
-        if let Err(conflicts) = tt.set_route(t, track, links) {
-            for c in &conflicts {
-                log::warn!("timetable: {t}: {}", c.log_text());
-            }
-            return Err(format!("trip {t}: a shared station link differs ({})", conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", ")));
+        if let Err(refusal) = tt.set_route(t, track, links) {
+            refusal.log(t);
+            return Err(format!("trip {t}: route not written ({})", refusal.summary()));
         }
         if let Some(p) = tt.trip_mut(t).and_then(|x| x.profiles.first_mut()) {
             p.factor = m;
@@ -344,8 +342,12 @@ mod tests {
             let doc = ed.doc.as_mut().unwrap();
             let tt = &doc.timetable;
             assert_eq!(tt.trips.len(), 2);
-            assert_eq!(tt.tracks.len(), 2, "both trips routed");
-            assert!(tt.tracks.iter().all(|t| t.entries.len() >= 2));
+            assert_eq!(tt.tracks.len(), 0, "automatic Type 2 trips write station links, not tracks");
+            for trip in &tt.trips {
+                for pair in crate::timetable::links::station_pairs(trip) {
+                    assert!(tt.links.iter().any(|l| (l.from_id, l.to_id) == pair), "{trip:?}: link {pair:?}");
+                }
+            }
             assert!(tt.lines[0].tours[0].trips.len() > 50);
             assert_eq!(doc.global.entry_points.len(), 1);
             // (a map with none gets one on a lane before a stop, facing along it)
@@ -364,7 +366,8 @@ mod tests {
             crate::doc::save(doc).unwrap();
             assert!(!doc.is_dirty());
             let back = omsi_timetable::TimetableData::load(&doc.dir);
-            assert_eq!((back.lines.len(), back.trips.len(), back.tracks.len(), back.bus_stops.len()), (1, 2, 2, 4));
+            assert_eq!((back.lines.len(), back.trips.len(), back.tracks.len(), back.bus_stops.len()), (1, 2, 0, 4), "no automatic .ttr is reloaded");
+            assert!(!back.stn_links.is_empty(), "the trips drive by their station links");
             let ai = omsi_map::AiLists::load(&doc.dir.join("ailists.cfg")).unwrap();
             assert!(ai.groups.iter().any(|g| g.is_depot) && ai.groups.iter().any(|g| g.name == "NormalCars"));
             // (its buses with the map's own depot file, in its folder and for openOMSI)

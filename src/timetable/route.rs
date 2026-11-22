@@ -77,6 +77,9 @@ pub enum Problem {
     /// The way calculated for the trip was not written: a station link it would replace is
     /// shared with other trips and differs from theirs (or the map has none to compare).
     SharedLink,
+    /// The trip's old `.ttr` is still used by another trip, so it could not be repaired away
+    /// from an automatic Type 2 route (or a hand-picked one could not be written over it).
+    TrackInUse,
 }
 
 impl Route {
@@ -186,7 +189,8 @@ pub fn stale_trips(tt: &super::Timetable, net: &Network, order: &[TileKey], on_m
     };
     let mut out = Vec::new();
     for trip in &tt.trips {
-        let fits: Vec<Fit> = match tt.track(&trip.name) {
+        let saved = super::tracks::source(tt, &trip.name).1;
+        let fits: Vec<Fit> = match saved {
             Some(t) => t.entries.iter().filter_map(|e| match e.values[..] {
                 [id, path, tile, _, len, ..] => Some(fit(id, path, tile, len)),
                 _ => None,
@@ -372,7 +376,10 @@ pub fn find(net: &Network, positions: &[Option<DVec3>], left_hand: bool, ways: O
 /// stops), as the network holds those paths: a trip found on the tracks is found there again.
 pub fn ways_of(tt: &super::Timetable, name: &str, net: &Network, order: &[TileKey]) -> Option<Ways> {
     let trip = tt.trip(name)?;
-    let paths: Vec<(f64, f64, f64)> = match tt.track(name) {
+    // (the same source the game reads: a track named by a nonempty display_name, else one
+    // named like the trip; no track of that name means the station links)
+    let saved = super::tracks::source(tt, name).1;
+    let paths: Vec<(f64, f64, f64)> = match saved {
         Some(t) => t.entries.iter().filter_map(|e| match e.values[..] {
             [id, path, tile, ..] => Some((id, path, tile)),
             _ => None,

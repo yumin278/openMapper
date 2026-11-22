@@ -10,6 +10,7 @@ pub mod links;
 pub mod network;
 pub mod profile;
 pub mod route;
+pub(crate) mod tracks;
 pub mod way;
 
 pub(crate) use convert::is_type1;
@@ -235,21 +236,28 @@ impl Timetable {
     /// The trip's way as picked by hand (`track`, and the station links between its stops
     /// along it), or (None) found along the roads again from now on.
     ///
-    /// The links are checked like every other write: when one of them would change a link
-    /// other trips drive on, nothing is written and the trip is not marked by hand.
-    pub fn set_by_hand(&mut self, trip: &str, way: Option<(Vec<TrackEntry>, Vec<StnLink>)>) -> Result<(), Vec<links::SharedLinkConflict>> {
+    /// A hand-picked way is the only one that writes `<trip>.ttr`. Its links are checked like
+    /// every other write, and the track name is checked against the other trips and the other
+    /// hand-picked tracks: when anything refuses, no link, track or hand state is changed.
+    pub fn set_by_hand(&mut self, trip: &str, way: Option<(Vec<TrackEntry>, Vec<StnLink>)>) -> Result<(), links::RouteRefusal> {
         match way {
             Some((track, links)) => {
-                self.set_route(trip, track, links)?;
-                self.hand.insert(key(trip));
-                self.mark();
-                log::info!("timetable: the way of {trip} is kept by hand");
+                let conflicts = links::link_conflicts(self, trip, &links);
+                if !conflicts.is_empty() {
+                    let refusal = links::RouteRefusal::links(conflicts);
+                    refusal.log(trip);
+                    return Err(refusal);
+                }
+                let plan = tracks::hand_plan(self, trip).map_err(links::RouteRefusal::track)?;
+                log_route_input(self, trip, &track, &links, true);
+                self.write_hand_route(trip, track, links, plan.clear_display);
+                log::info!("timetable: the way of {trip} is kept by hand; its .ttr and its station links were written");
                 Ok(())
             }
             None => {
                 self.hand.remove(&key(trip));
                 self.touch_route(trip);
-                log::info!("timetable: the way of {trip} is found automatically again");
+                log::info!("timetable: the way of {trip} is found automatically again (its old .ttr is kept until the new route is written)");
                 Ok(())
             }
         }
@@ -433,13 +441,31 @@ impl Timetable {
             };
             let copy = self.unique(&base, |tt, n| tt.trips.iter().any(|x| x.name.eq_ignore_ascii_case(n)));
             let line = if old.line.trim() == name { new.clone() } else { old.line.clone() };
-            self.trips.push(Trip { name: copy.clone(), line, path: Default::default(), ..old });
+            let legacy = is_type1(&old);
+            let mut copy_trip = Trip { name: copy.clone(), line, path: Default::default(), ..old };
+            // (a first line that names the original's track would make an automatic copy read
+            // that track; the copy's own <name>.ttr or its station links are what it should
+            // use. A Type 1 copy keeps its records as they are.)
+            if !legacy {
+                let display = copy_trip.display_name.trim().to_string();
+                if !display.is_empty() && self.tracks.iter().any(|x| track_name(x).eq_ignore_ascii_case(&display)) {
+                    copy_trip.display_name.clear();
+                }
+            }
+            self.trips.push(copy_trip);
             self.touch_trip(&copy);
-            if let Some(track) = self.track(&t).map(|x| x.entries.clone()) {
-                self.tracks.push(Track { path: format!("{copy}.ttr").into(), entries: track });
-                self.changed.insert(key(&format!("{copy}.ttr")));
-                if self.by_hand(&t) {
-                    self.hand.insert(key(&copy));
+            // (a hand-picked way is copied with its track; a Type 1 trip keeps its own track
+            // too; an automatic Type 2 trip keeps no .ttr and the copy's station links are
+            // calculated again)
+            if self.by_hand(&t) || legacy {
+                if let Some(track) = self.track(&t).map(|x| x.entries.clone()) {
+                    self.tracks.push(Track { path: format!("{copy}.ttr").into(), entries: track });
+                    self.changed.insert(key(&format!("{copy}.ttr")));
+                    if self.by_hand(&t) {
+                        self.hand.insert(key(&copy));
+                    }
+                } else {
+                    self.reroute.insert(key(&copy));
                 }
             } else {
                 self.reroute.insert(key(&copy));
@@ -512,12 +538,33 @@ impl Timetable {
             self.removed.insert(key(&format!("{old}.{ext}")));
             self.changed.remove(&key(&format!("{old}.{ext}")));
         }
-        if let Some(t) = self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(old)) {
-            t.path = format!("{new}.ttr").into();
-            self.changed.insert(key(&format!("{new}.ttr")));
+        // (a track of the old name is renamed with the trip; a track another trip still
+        // names must not be moved or taken away)
+        let old_track = self.tracks.iter().any(|t| track_name(t).eq_ignore_ascii_case(old));
+        let shared = tracks::other_trip_naming(self, new, old).is_some();
+        let mut hand_track = false;
+        if old_track && shared {
+            self.removed.remove(&key(&format!("{old}.ttr")));
+            self.changed.remove(&key(&format!("{old}.ttr")));
+            log::warn!("timetable: the track {old}.ttr is still named by another trip; it is left as it is");
+        } else if old_track {
+            if let Some(t) = self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(old)) {
+                t.path = format!("{new}.ttr").into();
+                self.changed.insert(key(&format!("{new}.ttr")));
+                hand_track = self.by_hand(old);
+            }
         }
-        if self.hand.remove(&key(old)) {
+        if self.hand.remove(&key(old)) && hand_track {
             self.hand.insert(key(new));
+        }
+        // (a first line that named the old track would keep the game looking for that name;
+        // clear it so the renamed trip's own track or its station links are read)
+        if !(old_track && shared) {
+            if let Some(t) = self.trip_mut(new) {
+                if t.display_name.trim().eq_ignore_ascii_case(old) {
+                    t.display_name.clear();
+                }
+            }
         }
         for l in &mut self.lines {
             let mut hit = false;
@@ -537,11 +584,18 @@ impl Timetable {
 
     /// Take a trip away, its track and the departures of it.
     pub fn delete_trip(&mut self, name: &str) {
+        // (a track another retained trip still names is that trip's way, not this one's)
+        let shared = tracks::other_trip_naming(self, name, name).is_some();
         self.trips.retain(|t| !t.name.eq_ignore_ascii_case(name));
-        self.tracks.retain(|t| !track_name(t).eq_ignore_ascii_case(name));
-        for ext in ["ttp", "ttr"] {
-            self.removed.insert(key(&format!("{name}.{ext}")));
-            self.changed.remove(&key(&format!("{name}.{ext}")));
+        self.removed.insert(key(&format!("{name}.ttp")));
+        self.changed.remove(&key(&format!("{name}.ttp")));
+        if shared {
+            log::warn!("timetable: the track {name}.ttr is still named by another trip; it is left as it is");
+            self.changed.remove(&key(&format!("{name}.ttr")));
+        } else {
+            self.tracks.retain(|t| !track_name(t).eq_ignore_ascii_case(name));
+            self.removed.insert(key(&format!("{name}.ttr")));
+            self.changed.remove(&key(&format!("{name}.ttr")));
         }
         let mut touched = Vec::new();
         for l in &mut self.lines {
@@ -563,9 +617,10 @@ impl Timetable {
         self.mark();
     }
 
-    /// Replace a hand-picked track only after its automatic route was found and accepted.
-    /// A conflicting shared link leaves the hand-picked way and its track as they were.
-    pub fn set_automatic_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) -> Result<(), Vec<links::SharedLinkConflict>> {
+    /// Replace a hand-picked way with the automatic route found for it. The new links and the
+    /// track repair are both checked first: a failure leaves the hand-picked way, its track,
+    /// the station list, the links and the queues exactly as they were.
+    pub fn set_automatic_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) -> Result<(), links::RouteRefusal> {
         self.set_automatic_route_among(trip, track, links, &std::collections::HashSet::new())
     }
 
@@ -573,19 +628,16 @@ impl Timetable {
     /// batch writes, by lower-case name; its own check already compared their links).
     pub(crate) fn set_automatic_route_among(
         &mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, peers: &std::collections::HashSet<String>,
-    ) -> Result<(), Vec<links::SharedLinkConflict>> {
-        self.set_route_among(trip, track, links, peers)?;
-        if self.hand.remove(&key(trip)) {
-            log::info!("timetable: the way of {trip} is no longer picked by hand");
-            self.mark();
-        }
-        Ok(())
+    ) -> Result<(), links::RouteRefusal> {
+        self.write_route_among(trip, track, links, peers, false)
     }
 
-    /// The route found for a trip: its track (`<trip>.ttr`) and the station links between
-    /// its stops (`StnLinks.cfg`, which OMSI 2 drives a bus trip by). The single write gate:
-    /// when a link would change one other trips drive on, nothing of the route is written.
-    pub fn set_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) -> Result<(), Vec<links::SharedLinkConflict>> {
+    /// The route found for a trip: its station links (`StnLinks.cfg`, which OMSI 2 drives a
+    /// Type 2 bus trip by). An automatic route writes no `.ttr`; a same-name or `display_name`
+    /// track that would intercept the links is repaired away first. The single write gate:
+    /// when a link would change one other trips drive on, or the track cannot be repaired
+    /// safely, nothing of the route is written.
+    pub fn set_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) -> Result<(), links::RouteRefusal> {
         self.set_route_among(trip, track, links, &std::collections::HashSet::new())
     }
 
@@ -593,51 +645,141 @@ impl Timetable {
     /// trips it writes together (`peers`).
     pub(crate) fn set_route_among(
         &mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, peers: &std::collections::HashSet<String>,
-    ) -> Result<(), Vec<links::SharedLinkConflict>> {
+    ) -> Result<(), links::RouteRefusal> {
+        self.write_route_among(trip, track, links, peers, false)
+    }
+
+    /// A route written with its mode chosen: `by_hand` writes `<trip>.ttr`, otherwise only the
+    /// station links are written and an intercepting track is repaired away.
+    pub(crate) fn write_route_among(
+        &mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, peers: &std::collections::HashSet<String>, by_hand: bool,
+    ) -> Result<(), links::RouteRefusal> {
         let conflicts = links::link_conflicts_among(self, trip, &links, peers);
         if !conflicts.is_empty() {
-            log::warn!("timetable: the route of {trip} was not written: {} shared station link(s) would change", conflicts.len());
-            for c in &conflicts {
-                log::warn!("timetable: {}", c.log_text());
-            }
-            return Err(conflicts);
+            let refusal = links::RouteRefusal::links(conflicts);
+            refusal.log(trip);
+            return Err(refusal);
         }
-        self.write_route(trip, track, links);
+        log_route_input(self, trip, &track, &links, by_hand);
+        if by_hand {
+            let plan = tracks::hand_plan(self, trip).map_err(links::RouteRefusal::track)?;
+            log::info!("timetable: hand route of {trip}: clear display_name = {}", plan.clear_display);
+            self.write_hand_route(trip, track, links, plan.clear_display);
+        } else {
+            let plan = tracks::automatic_plan(self, trip).map_err(links::RouteRefusal::track)?;
+            log::info!("timetable: automatic route of {trip}: remove {plan:?}");
+            self.write_automatic_route(trip, track, links, &plan);
+        }
         Ok(())
     }
 
     /// Write the links although other trips drive on them: only after the user confirmed the
-    /// overwrite. Returns what was overwritten (the affected trips are logged).
-    pub fn overwrite_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, by_hand: bool) -> Vec<links::SharedLinkConflict> {
+    /// overwrite. Returns what was overwritten (the affected trips are logged). A track that
+    /// cannot be written or repaired safely is still refused: the user confirmed the links,
+    /// not another trip's loss of its way.
+    pub fn overwrite_route(
+        &mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, by_hand: bool,
+    ) -> Result<Vec<links::SharedLinkConflict>, links::RouteRefusal> {
         let conflicts = links::link_conflicts(self, trip, &links);
         log::info!("timetable: the user overwrites the shared station links of {trip}; {} link(s) affected", conflicts.len());
         for c in &conflicts {
             log::info!("timetable: overwritten by the user: {}", c.log_text());
         }
-        self.write_route(trip, track, links);
+        log_route_input(self, trip, &track, &links, by_hand);
         if by_hand {
-            self.hand.insert(key(trip));
-            self.mark();
-        } else if self.hand.remove(&key(trip)) {
-            self.mark();
+            let plan = tracks::hand_plan(self, trip).map_err(links::RouteRefusal::track)?;
+            log::info!("timetable: overwritten hand route of {trip}: clear display_name = {}", plan.clear_display);
+            self.write_hand_route(trip, track, links, plan.clear_display);
+        } else {
+            let plan = tracks::automatic_plan(self, trip).map_err(links::RouteRefusal::track)?;
+            log::info!("timetable: overwritten automatic route of {trip}: remove {plan:?}");
+            self.write_automatic_route(trip, track, links, &plan);
         }
-        conflicts
+        Ok(conflicts)
     }
 
-    fn write_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>) {
-        log::info!(
-            "timetable: writing the route of {trip}: track [{}]",
-            track.iter().map(|e| e.values.iter().map(|v| format!("{v:.3}")).collect::<Vec<_>>().join("/")).collect::<Vec<_>>().join(", ")
-        );
-        for l in &links {
-            log::info!("timetable: writing the route of {trip}: StnLink {}", links::describe_link("new", l));
+    /// Write a hand-picked way: the trip's `<trip>.ttr` with the hand header, its station
+    /// links, and the hand mark. A nonempty `display_name` that is not the trip's own name is
+    /// cleared: the game would look only for that name instead of `<trip>.ttr`.
+    fn write_hand_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, clear_display: bool) {
+        if clear_display {
+            if let Some(t) = self.trip_mut(trip) {
+                if !t.display_name.is_empty() {
+                    log::info!("timetable: clearing the display_name {:?} of {trip}: its hand-picked track is {trip}.ttr", t.display_name);
+                    t.display_name.clear();
+                }
+            }
+            self.touch_trip(trip);
         }
         match self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(trip)) {
             Some(t) => t.entries = track,
             None => self.tracks.push(Track { path: format!("{trip}.ttr").into(), entries: track }),
         }
-        self.changed.insert(key(&format!("{trip}.ttr")));
-        self.removed.remove(&key(&format!("{trip}.ttr")));
+        let name = key(&format!("{trip}.ttr"));
+        self.changed.insert(name.clone());
+        self.removed.remove(&name);
+        self.hand.insert(key(trip));
+        for l in &links {
+            log::info!("timetable: writing the hand route of {trip}: StnLink {}", links::describe_link("new", l));
+        }
+        let count = links.len();
+        self.write_links(links);
+        log::info!("timetable: the way of {trip} is kept by hand: {trip}.ttr and {count} station link(s) were written");
+        self.mark();
+    }
+
+    /// Write an automatic Type 2 route: the station links only. The tracks in the plan are
+    /// taken away (and their files queued for removal) and a `display_name` that would make
+    /// the game read a track is cleared. The hand mark is dropped.
+    fn write_automatic_route(&mut self, trip: &str, track: Vec<TrackEntry>, links: Vec<StnLink>, plan: &tracks::AutomaticPlan) {
+        if plan.clear_display {
+            let before = self.trip(trip).map(|t| t.display_name.clone()).unwrap_or_default();
+            if let Some(t) = self.trip_mut(trip) {
+                t.display_name.clear();
+            }
+            log::info!("timetable: cleared the display_name {before:?} of {trip}: the game reads its station links now");
+            self.touch_trip(trip);
+        }
+        for name in &plan.remove {
+            log::info!("timetable: repairing {trip}: removing the intercepting track {name}.ttr");
+            self.drop_track(name);
+        }
+        for name in &plan.left_shared {
+            log::info!("timetable: {trip}: the track {name}.ttr is left for another trip that still names it");
+        }
+        for name in &plan.left {
+            log::info!("timetable: {trip}: the old track {name}.ttr is left in place; it no longer intercepts");
+        }
+        if self.hand.remove(&key(trip)) {
+            log::info!("timetable: the way of {trip} is no longer picked by hand");
+        }
+        for l in &links {
+            log::info!("timetable: writing the automatic route of {trip}: StnLink {}", links::describe_link("new", l));
+        }
+        let count = links.len();
+        self.write_links(links);
+        log::info!(
+            "timetable: automatic route of {trip} written: {count} station link(s), {} track(s) removed, {} left for another trip, {} old track(s) left in place; the calculated track has {} entry(ies) and is not written",
+            plan.remove.len(),
+            plan.left_shared.len(),
+            plan.left.len(),
+            track.len()
+        );
+    }
+
+    /// Remove a track from the timetable and queue its file for removal on the next save.
+    fn drop_track(&mut self, stem: &str) {
+        self.tracks.retain(|t| !track_name(t).eq_ignore_ascii_case(stem));
+        let file = key(&format!("{stem}.ttr"));
+        self.changed.remove(&file);
+        self.removed.insert(file);
+        // (the hand mark names the track, so it goes with it)
+        self.hand.remove(&key(stem));
+        self.mark();
+    }
+
+    /// Write the links (one per pair, replacing the map's) and mark the stop links changed.
+    fn write_links(&mut self, links: Vec<StnLink>) {
         for l in links {
             self.links.retain(|x| !(x.from_id == l.from_id && x.to_id == l.to_id));
             self.links.push(l);
@@ -712,6 +854,25 @@ impl Timetable {
         self.stops_changed = true;
         self.links_changed = true;
         self.order = order.to_vec();
+    }
+}
+
+/// The whole input of a route write: what the game would read now, the calculated track and
+/// every station link, so the log holds both sides of the decision.
+fn log_route_input(tt: &Timetable, trip: &str, track: &[TrackEntry], links: &[StnLink], by_hand: bool) {
+    let (name, existing) = tracks::source(tt, trip);
+    log::info!(
+        "timetable: route input for {trip} ({}): the game reads {name:?} ({}) with {} track entry(ies); {} calculated track entry(ies), {} station link(s)",
+        if by_hand { "hand" } else { "automatic" },
+        if existing.is_some() { "a track" } else { "the station links" },
+        existing.map(|t| t.entries.len()).unwrap_or(0),
+        track.len(),
+        links.len()
+    );
+    let entries: Vec<String> = track.iter().map(|e| e.values.iter().map(|v| format!("{v:.3}")).collect::<Vec<_>>().join("/")).collect();
+    log::info!("timetable: route input for {trip}: calculated track entries [{}]", entries.join(", "));
+    for l in links {
+        log::info!("timetable: route input for {trip}: StnLink {}", links::describe_link("new", l));
     }
 }
 

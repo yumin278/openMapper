@@ -1573,14 +1573,9 @@ impl Server {
             let tt = &mut doc.timetable;
             let (track, links) = (r.track(&net, &doc.order), r.links(&net, &doc.order, stops));
             crate::timetable::links::log_route(&trip, stops, &pos, &track, &links, &r.problems);
-            if let Err(conflicts) = tt.set_route(&trip, track, links) {
-                for c in &conflicts {
-                    log::warn!("timetable: {}", c.log_text());
-                }
-                problems.push(format!(
-                    "trip {trip}: shared station link not written: {}",
-                    conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", ")
-                ));
+            if let Err(refusal) = tt.set_route(&trip, track, links) {
+                refusal.log(&trip);
+                problems.push(format!("trip {trip}: route not written: {}", refusal.summary()));
                 continue;
             }
             if let Some(p) = tt.trip_mut(&trip).and_then(|x| x.profiles.first_mut()) {

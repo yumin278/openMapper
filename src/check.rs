@@ -877,6 +877,7 @@ fn timetable_issues(d: &Document, roots: &[PathBuf], out: &mut Vec<Issue>) {
                 Some(Problem::OffWay(i)) => (*i, format!("{} {}", tr("its way does not pass", "его путь не проходит у"), stop_name(trip.stations[*i]))),
                 Some(Problem::NoWay(i)) =>(*i, format!("{} {} -> {}", tr("no way", "нет пути"), stop_name(trip.stations[*i]), trip.stations.get(i + 1).map(|s| stop_name(*s)).unwrap_or_default())),
                 Some(Problem::SharedLink) => (0, tr("its shared station link was not written", "его общий участок не был записан").to_string()),
+                Some(Problem::TrackInUse) => (0, tr("its old track is still used by another trip", "его старый путь всё ещё используется другим рейсом").to_string()),
                 None => (0, tr("no way found", "путь не найден").to_string()),
             };
             let (at, sel) = trip.stations.get(i).map(|id| place(&mut files, *id)).unwrap_or((None, None));

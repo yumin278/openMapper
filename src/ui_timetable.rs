@@ -59,7 +59,7 @@ struct PreparedStopReplacement {
     affected: Vec<(String, Vec<usize>)>,
     old: Vec<(String, StopEdit)>,
     new_trips: Vec<(String, omsi_timetable::Trip)>,
-    routes: Vec<(String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>)>,
+    routes: Vec<(String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>, bool)>,
     peers: HashSet<String>,
     net_key: u64,
     /// The route basis the prepared ways were found on (a change aborts the commit).
@@ -897,7 +897,22 @@ impl TimetableUi {
                 // (paths picked by hand stay: the stops are found along them again)
                 if let Some(lanes) = way::saved_lanes(net, doc, &name) {
                     let w = way::keep_by_hand(net, &mut self.files, doc, &name, &lanes);
-                    if !w.conflicts.is_empty() {
+                    if let Some(why) = &w.track_refusal {
+                        log::warn!("timetable: {name} stays picked by hand: its old track was not repaired: {why}");
+                        match before_edit.take() {
+                            Some(before) => {
+                                revert_stop_edit(
+                                    doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                                    &mut self.reverted_edits, &name, before, Vec::new(), vec![Problem::TrackInUse],
+                                );
+                                self.shown = None;
+                            }
+                            None => {
+                                self.problems.insert(lower(&name), vec![Problem::TrackInUse]);
+                                self.shared_conflicts.remove(&lower(&name));
+                            }
+                        }
+                    } else if !w.conflicts.is_empty() {
                         match before_edit.take() {
                             Some(before) => revert_stop_edit(
                                 doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
@@ -950,19 +965,41 @@ impl TimetableUi {
             links::log_route(&trip.name, &trip.stations, &pos, &track, &links, &r.problems);
             match doc.timetable.set_route(&trip.name, track.clone(), links.clone()) {
                 Ok(()) => clear_route_report(&mut self.problems, &mut self.shared_conflicts, &name),
-                Err(conflicts) => match before_edit.take() {
+                Err(refusal) if !refusal.conflicts.is_empty() => match before_edit.take() {
                     Some(before) => {
                         revert_stop_edit(
                             doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
-                            &mut self.reverted_edits, &name, before, conflicts, Vec::new(),
+                            &mut self.reverted_edits, &name, before, refusal.conflicts, Vec::new(),
                         );
                         self.shown = None;
                     }
                     None => refuse_shared_write(
                         &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
-                        &trip.name, trip.stations.clone(), track, links, false, false, self.net_key, conflicts, Vec::new(),
+                        &trip.name, trip.stations.clone(), track, links, false, false, self.net_key, refusal.conflicts, Vec::new(),
                     ),
                 },
+                Err(refusal) => {
+                    // (the links were fine, but the old track is still another trip's: the
+                    // stops and the way stay together rather than half-changing the trip)
+                    log::warn!(
+                        "timetable: {name} was not rerouted automatically: {}; the old track was not repaired",
+                        refusal.track.as_deref().unwrap_or("its track could not be repaired")
+                    );
+                    match before_edit.take() {
+                        Some(before) => {
+                            revert_stop_edit(
+                                doc, &mut self.problems, &mut self.shared_conflicts, &mut self.bulk_blocked,
+                                &mut self.reverted_edits, &name, before, Vec::new(), vec![Problem::TrackInUse],
+                            );
+                            self.shown = None;
+                        }
+                        None => {
+                            self.problems.insert(lower(&name), vec![Problem::TrackInUse]);
+                            self.shared_conflicts.remove(&lower(&name));
+                            self.bulk_blocked.insert(lower(&name));
+                        }
+                    }
+                }
             }
             self.routed.insert(lower(&name), self.net_key);
         }
@@ -976,6 +1013,12 @@ impl TimetableUi {
     /// The way of `name` picked by hand was written (or refused): `w` carries what the
     /// gate made of it, so a refusal keeps the hand-picked way and its track as they were.
     fn hand_route_written(&mut self, name: &str, w: way::HandWrite, net_key: u64, was_hand: bool) {
+        if let Some(why) = &w.track_refusal {
+            log::warn!("timetable: the hand-picked way of {name} was not written: {why}; the old track was not repaired");
+            self.problems.insert(lower(name), vec![Problem::TrackInUse]);
+            self.shared_conflicts.remove(&lower(name));
+            return;
+        }
         if w.conflicts.is_empty() {
             if w.route.problems.is_empty() {
                 self.route_written(name);
@@ -1060,7 +1103,25 @@ impl TimetableUi {
             if route.ok() {
                 let (track, links) = (route.track(net, &doc.order), route.links(net, &doc.order, &trip.stations));
                 links::log_route(&trip.name, &trip.stations, &positions, &track, &links, &route.problems);
-                planned.push((trip.name.clone(), track, links));
+                // (the track repair is preflighted with the route: a trip whose old .ttr
+                // another trip still needs must not be written, and its station pairs are
+                // protected for the propagation before anything is written)
+                match timetable::tracks::automatic_plan(&doc.timetable, &trip.name) {
+                    Ok(plan) => {
+                        log::info!("timetable: batch plan for {}: automatic, remove {plan:?}", trip.name);
+                        planned.push((trip.name.clone(), track, links));
+                    }
+                    Err(why) => {
+                        failures.push(trip.name.clone());
+                        self.bulk_blocked.insert(lower(&trip.name));
+                        protected.extend(links::station_pairs(trip));
+                        self.problems.insert(lower(&trip.name), vec![Problem::TrackInUse]);
+                        log::warn!(
+                            "timetable: batch route for {} not written: {why}; its old track was not repaired and its station pairs are protected",
+                            trip.name
+                        );
+                    }
+                }
             } else {
                 failures.push(trip.name.clone());
                 self.bulk_blocked.insert(lower(&trip.name));
@@ -1161,12 +1222,12 @@ impl TimetableUi {
                     completed += 1;
                 }
                 // (the batch's own check should have caught this: keep the trip's data)
-                Err(conflicts) => {
-                    log::warn!("timetable: the gate refused the batch route of {name}: {} shared link(s)", conflicts.len());
-                    for c in &conflicts {
-                        log::warn!("timetable: {name}: {}", c.log_text());
-                    }
-                    self.problems.insert(lower(&name), vec![Problem::SharedLink]);
+                Err(refusal) => {
+                    refusal.log(&name);
+                    self.problems.insert(
+                        lower(&name),
+                        vec![if refusal.conflicts.is_empty() { Problem::TrackInUse } else { Problem::SharedLink }],
+                    );
                     self.bulk_blocked.insert(lower(&name));
                 }
             }
@@ -1508,7 +1569,7 @@ impl TimetableUi {
             });
             if self.confirm_recalculate {
                 egui::Frame::group(ui.style()).show(ui, |ui| {
-                    ui.label("Recalculate all station-link trips and replace successful trips' .ttr and shared StnLinks.cfg. Unroutable/conflicting trips retain their data; save the map afterward. / 批次重算所有站間連結路線，成功的班次會更新 .ttr 與共用 StnLinks.cfg；失敗或路徑衝突的班次保留原資料。完成後請存檔。");
+                    ui.label("Recalculate all station-link trips and write their StnLinks.cfg (an automatic route keeps no .ttr, and an intercepting one is removed). Unroutable/conflicting trips retain their data; save the map afterward. / 批次重算所有站間連結路線，成功的班次會寫入 StnLinks.cfg（自動路線不再寫 .ttr，會移除攔截的舊 .ttr）；失敗或路徑衝突的班次保留原資料。完成後請存檔。");
                     if doc.timetable.trips.iter().any(|t| eligible_for_batch(t) && doc.timetable.by_hand(&t.name)) {
                         ui.checkbox(&mut self.overwrite_hand_routes, tr("Overwrite hand-picked routes", "Заменить пути, выбранные вручную"));
                     }
@@ -1666,7 +1727,8 @@ impl TimetableUi {
             }
             // (the same places the reroute uses: the map's stop objects, not the list's marks)
             let pos: Vec<Option<DVec3>> = trip.stations.iter().map(|id| positions.get(id).copied()).collect();
-            let r = if tt.by_hand(name) {
+            let by_hand = tt.by_hand(name);
+            let r = if by_hand {
                 // (a hand-picked way stays the way it was picked, as it does in a reroute)
                 let lanes = preview.track(name)
                     .map(|t| crate::timetable::way::lanes_of_track(net, &t.entries, order))
@@ -1707,7 +1769,22 @@ impl TimetableUi {
                 }
             }
             let track = r.track(net, order);
-            routes.push((name.clone(), track, links));
+            // (the track repair or the hand write is preflighted with the group: a track
+            // another trip still needs refuses the whole replacement before anything is
+            // written, so no stop list is left half-changed)
+            let track_plan = if by_hand {
+                timetable::tracks::hand_plan(&preview, name).map(|p| format!("clear display_name = {}", p.clear_display))
+            } else {
+                timetable::tracks::automatic_plan(&preview, name).map(|p| format!("remove {p:?}"))
+            };
+            match track_plan {
+                Ok(what) => log::info!("timetable: stop replacement plan for {name} ({}): {what}", if by_hand { "hand" } else { "automatic" }),
+                Err(why) => {
+                    log::warn!("timetable: the stop ID change of {current} would leave {name}'s track unrepaired: {why}");
+                    return Err(format!("{name}: {why}"));
+                }
+            }
+            routes.push((name.clone(), track, links, by_hand));
         }
         let old = affected.iter()
             .filter_map(|(name, _)| tt.trip(name).map(|t| {
@@ -1761,14 +1838,14 @@ impl TimetableUi {
                 t.name = name_now;
             }
         }
-        for (name, track, links) in &prepared.routes {
-            if let Err(conflicts) = tt.set_route_among(name, track.clone(), links.clone(), &prepared.peers) {
+        for (name, track, links, by_hand) in &prepared.routes {
+            if let Err(refusal) = tt.write_route_among(name, track.clone(), links.clone(), &prepared.peers, *by_hand) {
                 for (n, old) in &prepared.old {
                     tt.restore_stop_edit(n, old.trip.clone(), old.files, old.type2_converted);
                 }
                 tt.restore_route_state(route_state);
-                let why = conflicts.iter().map(|c| c.pair()).collect::<Vec<_>>().join(", ");
-                return Err(format!("{name}: shared station link changed: {why}"));
+                let why = refusal.summary();
+                return Err(format!("{name}: route not written: {why}"));
             }
         }
         for (name, _) in &prepared.affected {
@@ -2011,10 +2088,17 @@ impl TimetableUi {
             }
         }
         if reverted.conflicts.is_empty() && !reverted.problems.is_empty() {
-            let text = tr(
-                "The stop change of {trip} was not applied: no way was found for the new stops. The stops and the way of the trip are as they were.",
-                "Изменение остановок рейса {trip} не применено: для новых остановок путь не найден. Остановки и путь рейса остались прежними."
-            ).replace("{trip}", name);
+            let text = if reverted.problems.iter().any(|p| matches!(p, Problem::TrackInUse)) {
+                tr(
+                    "The stop change of {trip} was not applied: its old track is still used by another trip, so it was not repaired. The stops and the way of the trip are as they were.",
+                    "Изменение остановок рейса {trip} не применено: его старый путь всё ещё используется другим рейсом и не был исправлен. Остановки и путь рейса остались прежними."
+                )
+            } else {
+                tr(
+                    "The stop change of {trip} was not applied: no way was found for the new stops. The stops and the way of the trip are as they were.",
+                    "Изменение остановок рейса {trip} не применено: для новых остановок путь не найден. Остановки и путь рейса остались прежними."
+                )
+            }.replace("{trip}", name);
             let details = reverted.problems.iter().map(|p| format!("{p:?}")).collect::<Vec<_>>().join("\n");
             ui.label(coloured(icons::labelled(Icon::Warning, &text), pal().warn)).on_hover_text(details);
         }
@@ -2084,15 +2168,33 @@ impl TimetableUi {
                         });
                         keep = false;
                     } else {
-                        let affected = doc.timetable.overwrite_route(&pending.trip, pending.track.clone(), pending.links.clone(), pending.by_hand);
-                        log::info!(
-                            "timetable: the user confirmed overwriting {} shared station link(s) of {} (affected trips: {})",
-                            affected.len(), pending.trip, affected.iter().flat_map(|c| c.trips.iter().cloned()).collect::<Vec<_>>().join(", ")
-                        );
-                        doc.timetable.reroute.remove(&key);
-                        self.problems.remove(&key);
-                        self.shown = None;
-                        self.routed.insert(key.clone(), self.net_key);
+                        match doc.timetable.overwrite_route(&pending.trip, pending.track.clone(), pending.links.clone(), pending.by_hand) {
+                            Ok(affected) => {
+                                log::info!(
+                                    "timetable: the user confirmed overwriting {} shared station link(s) of {} (affected trips: {})",
+                                    affected.len(), pending.trip, affected.iter().flat_map(|c| c.trips.iter().cloned()).collect::<Vec<_>>().join(", ")
+                                );
+                                doc.timetable.reroute.remove(&key);
+                                self.problems.remove(&key);
+                                self.shown = None;
+                                self.routed.insert(key.clone(), self.net_key);
+                            }
+                            Err(refusal) => {
+                                // (the links were confirmed, but another trip still needs the
+                                // track: nothing was written, so the trip keeps its old way)
+                                refusal.log(&pending.trip);
+                                self.problems.insert(key.clone(), vec![Problem::TrackInUse]);
+                                toasts.push(crate::editor::Toast {
+                                    text: tr(
+                                        "The overwrite was not written: the trip's old track is still used by another trip, so it was not repaired. The saved data is unchanged.",
+                                        "Замена не записана: старый путь рейса всё ещё используется другим рейсом и не был исправлен. Сохранённые данные не изменены."
+                                    ).to_string(),
+                                    at: std::time::Instant::now(),
+                                    error: true,
+                                });
+                                pending.confirm = false;
+                            }
+                        }
                         keep = false;
                     }
                 }
@@ -2374,6 +2476,7 @@ impl TimetableUi {
                         Problem::NoWay(i) if rail => format!("{} «{}» – «{}»: {}", tr("No way", "Нет пути"), name_of(*i), name_of(*i + 1), tr("the tracks are not joined, or run the other way (see View > AI lanes)", "рельсы не соединены или идут в другую сторону (Вид > Полосы ИИ)")),
                         Problem::NoWay(i) => format!("{} «{}» – «{}»: {}", tr("No way", "Нет пути"), name_of(*i), name_of(*i + 1), tr("the roads are not joined, or run the other way (see View > AI lanes)", "дороги не соединены или идут в другую сторону (Вид > Полосы ИИ)")),
                         Problem::SharedLink => tr("A shared station link differs: this trip's way was not written, and the saved data is unchanged.", "Общий участок отличается: путь этого рейса не записан, сохранённые данные не изменены.").to_string(),
+                        Problem::TrackInUse => tr("The trip's old track is still used by another trip: it was not repaired, so this trip's way is still read from that track. The saved data is unchanged.", "Старый путь рейса всё ещё используется другим рейсом: он не был исправлен, и путь этого рейса по-прежнему читается из этого файла. Сохранённые данные не изменены.").to_string(),
                     };
                     ui.label(coloured(icons::labelled(Icon::Warning, &text), pal().warn)).on_hover_text(tr("The trip is saved, but its way is not until this is mended", "Рейс сохранится, а его путь: когда это будет исправлено"));
                 }
@@ -3219,9 +3322,15 @@ mod station_edit_tests {
         print_trips("After Confirm", &replaced.trips);
         assert_eq!(replaced.trip("current").unwrap().stations, [10, 12, 11, 12]);
         assert_eq!(replaced.trip("other").unwrap().stations, [12, 12]);
-        // (the group commit writes both routes; the old stop lists are not left waiting for a
-        // later recalculation)
-        assert!(replaced.track("current").is_some() && replaced.track("other").is_some(), "both routes are written");
+        // (the group commit writes both routes' station links; the old stop lists are not left
+        // waiting for a later recalculation, and an automatic route writes no .ttr)
+        for name in ["current", "other"] {
+            let trip = replaced.trip(name).unwrap();
+            for pair in crate::timetable::links::station_pairs(trip) {
+                assert!(replaced.links.iter().any(|l| (l.from_id, l.to_id) == pair), "{name}: link {pair:?}");
+            }
+            assert!(replaced.track(name).is_none(), "{name}: no automatic .ttr");
+        }
         assert!(!replaced.reroute.contains("current") && !replaced.reroute.contains("other"));
         assert_eq!(ed.history.undo_label(), Some(tr("Change ID", "Заменить ID")));
         ed.undo();
@@ -3337,12 +3446,13 @@ mod batch_route_tests {
         assert!(doc.timetable.links.contains(&link(1, 2, 99.0)));
 
         let overwrite = ui.recalculate_all(&mut doc, true);
-        println!("Overwrite mode: {overwrite}\n{}\n{}\n{:?}", track(&doc.timetable, "hand"), track(&doc.timetable, "broken"), doc.timetable.links);
+        println!("Overwrite mode: {overwrite}\n{:?}\nlinks: {:?}", doc.timetable.track("hand").map(|t| timetable::track_text_of(t, false)), doc.timetable.links);
         assert!(!doc.timetable.by_hand("hand"));
-        assert!(doc.timetable.track("auto").is_some());
-        assert_ne!(track(&doc.timetable, "hand"), before);
+        assert!(doc.timetable.track("auto").is_none(), "an automatic batch route writes no .ttr");
+        assert!(doc.timetable.track("hand").is_none(), "the hand-picked track is gone once the way is automatic");
         assert_eq!(track(&doc.timetable, "broken"), broken);
         assert!(doc.timetable.links.contains(&link(1, 3, 100.0)));
+        assert!(doc.timetable.links.contains(&link(1, 2, 99.0)));
     }
 
     /// A Type 1 trip's `[station]` records use its station pairs too: when the batch rejects
@@ -3769,7 +3879,7 @@ mod batch_route_tests {
         assert_eq!(affected.len(), 2);
         assert_eq!(doc.timetable.trip("a").unwrap().stations, vec![4, 2]);
         assert_eq!(doc.timetable.trip("b").unwrap().stations, vec![4, 2]);
-        assert!(doc.timetable.track("a").is_some() && doc.timetable.track("b").is_some(), "both routes are written");
+        assert!(doc.timetable.track("a").is_none() && doc.timetable.track("b").is_none(), "automatic routes write no .ttr");
         assert_eq!(doc.timetable.links.len(), 1, "one link for the pair, not one per trip");
         assert_eq!(doc.timetable.trip_file_state("a"), (true, false), "a's .ttp is queued");
         assert_eq!(doc.timetable.trip_file_state("b"), (true, false), "b's .ttp is queued");
@@ -3976,9 +4086,60 @@ mod batch_route_tests {
         assert_eq!(scope, expected);
         let report = ui.recalculate_trips(&mut doc, false, Some(&scope));
         println!("{report}\nlinks: {:?}", doc.timetable.links);
-        assert!(doc.timetable.track("a").is_some() && doc.timetable.track("b").is_some());
+        assert!(doc.timetable.track("a").is_none() && doc.timetable.track("b").is_none(), "automatic routes write no .ttr");
         assert!(doc.timetable.track("d").is_none(), "a trip sharing no pair is left alone");
         assert!(ui.bulk_blocked.is_empty());
-        assert!(!doc.timetable.links.is_empty());
+        assert!(doc.timetable.links.iter().any(|l| (l.from_id, l.to_id) == (1, 2)));
+    }
+
+    /// A batch route whose old `.ttr` is still another trip's is rejected before any write;
+    /// its station pairs enter the existing protection, so the other trip on the pair is
+    /// rejected too and no link is written.
+    #[test]
+    fn a_batch_route_with_a_shared_old_track_is_rejected_and_protects_its_links() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map("batch-shared-track", &[(1, 10.0), (2, 90.0)], &[("a", vec![1, 2]), ("b", vec![1, 2])]);
+        doc.timetable.trip_mut("b").unwrap().display_name = "a".into();
+        let stale = omsi_timetable::TrackEntry { values: vec![99.0, 0.0, 0.0, 0.0, 90.0, 0.0] };
+        doc.timetable.tracks.push(omsi_timetable::Track { path: "a.ttr".into(), entries: vec![stale.clone()] });
+        let report = ui.recalculate_trips(&mut doc, false, None);
+        println!("{report}\nlinks: {:?}\nproblems: {:?}\nconflicts: {:?}", doc.timetable.links, ui.problems, ui.bulk_conflicts);
+        assert!(doc.timetable.links.is_empty(), "the protected pair is not written");
+        assert_eq!(doc.timetable.track("a").unwrap().entries, vec![stale], "A's old track is left unrepaired");
+        assert_eq!(ui.problems.get("a"), Some(&vec![Problem::TrackInUse]));
+        assert!(ui.bulk_blocked.contains("a") && ui.bulk_blocked.contains("b"));
+        let cause = ui.bulk_conflicts.iter().find(|c| (c.from_id, c.to_id) == (1, 2)).expect("the protected pair is reported");
+        assert_eq!(cause.kind, ConflictKind::Protected);
+    }
+
+    /// The group stop-ID replacement preflights the track repair too: when one affected
+    /// trip's old track is another trip's, the whole replacement is refused before any stop
+    /// list, link, track or queue changes.
+    #[test]
+    fn a_group_replacement_is_refused_when_a_track_cannot_be_repaired() {
+        let _map = crate::doc::one_map();
+        let (mut doc, mut ui) = lane_map(
+            "replace-track-refused",
+            &[(1, 10.0), (2, 50.0), (4, 30.0)],
+            &[("a", vec![1, 2]), ("b", vec![1, 2])],
+        );
+        doc.timetable.trip_mut("b").unwrap().display_name = "a".into();
+        let stale = omsi_timetable::TrackEntry { values: vec![99.0, 0.0, 0.0, 0.0, 90.0, 0.0] };
+        doc.timetable.tracks.push(omsi_timetable::Track { path: "a.ttr".into(), entries: vec![stale.clone()] });
+        let (stations, links, tracks) = (
+            (doc.timetable.trip("a").unwrap().stations.clone(), doc.timetable.trip("b").unwrap().stations.clone()),
+            doc.timetable.links.clone(),
+            doc.timetable.tracks.clone(),
+        );
+        let files = (doc.timetable.trip_file_state("a"), doc.timetable.trip_file_state("b"));
+        let positions = stop_positions(&ui);
+        let err = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap_err();
+        println!("refused: {err}");
+        assert!(err.contains("a.ttr"), "{err}");
+        assert_eq!((doc.timetable.trip("a").unwrap().stations.clone(), doc.timetable.trip("b").unwrap().stations.clone()), stations);
+        assert_eq!(doc.timetable.links, links, "no link is written");
+        assert_eq!(doc.timetable.tracks, tracks, "no track is removed");
+        assert_eq!((doc.timetable.trip_file_state("a"), doc.timetable.trip_file_state("b")), files, "the .ttp queues are unchanged");
+        assert!(ui.stop_edits.is_empty());
     }
 }

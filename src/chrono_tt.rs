@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use omsi_timetable::TimetableData;
 
 use crate::doc::Document;
-use crate::timetable::{busstops_text, encode, line_text, stnlinks_text, track_name, track_text, trip_text, Timetable};
+use crate::timetable::{busstops_text, encode, line_text, stnlinks_text, track_name, track_text_of, trip_text, Timetable};
 
 pub struct TtSession {
     /// The scenario's folder (in the map's own copy).
@@ -82,7 +82,15 @@ pub fn diff(map: &Timetable, t: &Timetable) -> (Vec<(String, String)>, Vec<Strin
         put(format!("{}.ttp", tr.name), trip_text(tr), map.trips.iter().find(|x| x.name.eq_ignore_ascii_case(&tr.name)).map(trip_text));
     }
     for tr in &t.tracks {
-        put(format!("{}.ttr", track_name(tr)), track_text(tr), map.tracks.iter().find(|x| track_name(x).eq_ignore_ascii_case(&track_name(tr))).map(track_text));
+        let name = track_name(tr);
+        put(
+            format!("{name}.ttr"),
+            track_text_of(tr, t.by_hand(&name)),
+            map.tracks
+                .iter()
+                .find(|x| track_name(x).eq_ignore_ascii_case(&name))
+                .map(|x| track_text_of(x, map.by_hand(&track_name(x)))),
+        );
     }
     put("Busstops.cfg".into(), busstops_text(&t.stops), Some(busstops_text(&map.stops)));
     put("StnLinks.cfg".into(), stnlinks_text(&t.links, &t.stops), Some(stnlinks_text(&map.links, &map.stops)));

@@ -3402,3 +3402,7 @@ The stop change of {trip} was not applied: its way would change the shared stati
 The trip or its shared station links changed since; the old overwrite was dropped and the trip is recalculated.	班次或其共用站间链接已经改变；旧的覆盖已取消，班次会重新计算。
 The stop ID change was not applied: a trip's way would not be found or a shared station link differs. Nothing was changed.	站点 ID 变更没有套用：有班次的路线找不到，或共用站间链接不一致。所有数据维持不变。
 The stop change of {trip} was not applied: no way was found for the new stops. The stops and the way of the trip are as they were.	班次 {trip} 的站点变更没有套用：新站点找不到路线。这个班次的站点与路线维持原状。
+its old track is still used by another trip	其旧轨道仍被另一个班次使用
+The stop change of {trip} was not applied: its old track is still used by another trip, so it was not repaired. The stops and the way of the trip are as they were.	班次 {trip} 的站点变更没有应用：其旧轨道仍被另一个班次使用，因此没有修复。这个班次的站点与路线维持原状。
+The overwrite was not written: the trip's old track is still used by another trip, so it was not repaired. The saved data is unchanged.	覆写没有写入：这个班次的旧轨道仍被另一个班次使用，因此没有修复。已保存的数据保持不变。
+The trip's old track is still used by another trip: it was not repaired, so this trip's way is still read from that track. The saved data is unchanged.	这个班次的旧轨道仍被另一个班次使用：因此没有修复，这个班次的路线仍然读取该轨道。已保存的数据保持不变。

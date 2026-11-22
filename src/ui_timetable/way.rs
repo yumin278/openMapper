@@ -24,6 +24,8 @@ pub(super) struct HandWrite {
     pub track: Vec<omsi_timetable::TrackEntry>,
     pub links: Vec<omsi_timetable::StnLink>,
     pub conflicts: Vec<SharedLinkConflict>,
+    /// Why the trip's own `.ttr` could not be written (another trip still uses it).
+    pub track_refusal: Option<String>,
 }
 
 pub(super) fn keep_by_hand(net: &Network, files: &mut Files, doc: &mut Document, name: &str, lanes: &[usize]) -> HandWrite {
@@ -33,11 +35,11 @@ pub(super) fn keep_by_hand(net: &Network, files: &mut Files, doc: &mut Document,
     let links = if r.stops.len() == stations.len() && stations.len() >= 2 { r.links(net, &doc.order, &stations) } else { Vec::new() };
     let track = r.track(net, &doc.order);
     links::log_route(name, &stations, &pos, &track, &links, &r.problems);
-    let conflicts = match doc.timetable.set_by_hand(name, Some((track.clone(), links.clone()))) {
-        Ok(()) => Vec::new(),
-        Err(conflicts) => conflicts,
+    let (conflicts, track_refusal) = match doc.timetable.set_by_hand(name, Some((track.clone(), links.clone()))) {
+        Ok(()) => (Vec::new(), None),
+        Err(refusal) => (refusal.conflicts, refusal.track),
     };
-    HandWrite { route: r, stations, track, links, conflicts }
+    HandWrite { route: r, stations, track, links, conflicts, track_refusal }
 }
 
 impl TimetableUi {
@@ -85,7 +87,19 @@ impl TimetableUi {
                 self.way_edit = false;
                 self.shown = None;
             }
-            Err(conflicts) => self.shared_write_refused(name, trip.stations.clone(), track, links, false, true, self.net_key, conflicts, Vec::new()),
+            Err(refusal) if !refusal.conflicts.is_empty() => {
+                self.shared_write_refused(name, trip.stations.clone(), track, links, false, true, self.net_key, refusal.conflicts, Vec::new())
+            }
+            Err(refusal) => {
+                // (the old hand-picked track is still another trip's: it was not repaired,
+                // so the trip stays picked by hand and nothing of it was written)
+                log::warn!(
+                    "timetable: {name} stays picked by hand: {}; the old track was not repaired",
+                    refusal.track.as_deref().unwrap_or("its track could not be repaired")
+                );
+                self.problems.insert(lower(name), vec![Problem::TrackInUse]);
+                self.shared_conflicts.remove(&lower(name));
+            }
         }
     }
 

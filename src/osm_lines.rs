@@ -143,12 +143,10 @@ pub fn add(doc: &mut Document, roots: Vec<std::path::PathBuf>, routes: &[(String
                     tt.reroute.remove(&trip.to_lowercase());
                     added.routed += 1;
                 }
-                Err(conflicts) => {
-                    for c in &conflicts {
-                        log::warn!("timetable: {trip}: {}", c.log_text());
-                    }
+                Err(refusal) => {
+                    refusal.log(&trip);
                     // (a refused route leaves no trip, and no line made only for it)
-                    log::warn!("timetable: the OSM import takes {trip} back: a shared station link differs");
+                    log::warn!("timetable: the OSM import takes {trip} back: {}", refusal.summary());
                     if take_back(tt, &trip, &line, new_line) {
                         added.lines = added.lines.saturating_sub(1);
                     }

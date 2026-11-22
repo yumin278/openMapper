@@ -465,7 +465,15 @@ fn a_new_line_on_grundorf_saves_and_reads_back() {
     let pos: Vec<Option<DVec3>> = stops.iter().map(|id| stop_world(&doc, &mut files, *id)).collect();
     let r = route::find(&net, &pos, false, None);
     assert!(r.ok(), "{:?}", r.problems);
-    tt.set_route(&trip, r.track(&net, &doc.order), r.links(&net, &doc.order, &stops)).unwrap_or_else(|c| panic!("the new line's route was refused: {c:?}"));
+    let route_track = r.track(&net, &doc.order);
+    // (the way found is where line 76's stock track runs: the automatic Type 2 write keeps
+    // the station links, not a .ttr, so compare the calculated track with the stock one now)
+    let stock = tt.track("76_BH-Kk").map(|t| t.entries.clone()).unwrap();
+    let key = |e: &TrackEntry| (e.values[0], e.values[1], e.values[2], e.values[3]);
+    let n = route_track.len();
+    assert!(n > 5);
+    assert_eq!(route_track.iter().map(key).collect::<Vec<_>>(), stock[..n].iter().map(key).collect::<Vec<_>>());
+    tt.set_route(&trip, route_track, r.links(&net, &doc.order, &stops)).unwrap_or_else(|c| panic!("the new line's route was refused: {c:?}"));
     tt.lines.iter_mut().find(|l| l.name == line).unwrap().tours.push(omsi_timetable::Tour {
         number: "1".into(),
         ai_group: "Busses".into(),
@@ -482,14 +490,9 @@ fn a_new_line_on_grundorf_saves_and_reads_back() {
     let l = back.lines.iter().find(|l| l.name == "99").unwrap();
     assert_eq!(l.tours[0].trips[0].trip, "99_test");
     assert_eq!(back.trip("99_test").unwrap().stations, stops);
-    // openOMSI drives a trip by the track named like it: the stock line's first lanes
-    let track = back.tracks.iter().find(|t| track_name(t) == "99_test").unwrap();
-    let stock = back.tracks.iter().find(|t| track_name(t) == "76_BH-Kk").unwrap();
-    let key = |e: &TrackEntry| (e.values[0], e.values[1], e.values[2], e.values[3]);
-    let n = track.entries.len();
-    assert!(n > 5);
-    assert_eq!(track.entries.iter().map(key).collect::<Vec<_>>(), stock.entries[..n].iter().map(key).collect::<Vec<_>>());
-    // and OMSI 2 by the station links
+    // the stock line's first lanes are where the new route was found
+    assert!(!back.tracks.iter().any(|t| track_name(t) == "99_test"), "an automatic Type 2 trip writes no .ttr");
+    // and OMSI 2 drives it by the station links
     for w in stops.windows(2) {
         assert!(back.stn_links.iter().any(|x| x.from_id == w[0] && x.to_id == w[1]), "link {w:?}");
     }
@@ -651,8 +654,9 @@ fn a_line_copied_drives_copies_of_its_trips() {
     assert_eq!(driven, vec![format!("{copy}_A-B"), format!("{copy}_B-A")]);
     assert_eq!(tt.trip(&format!("{copy}_A-B")).unwrap().stations, vec![1, 2]);
     assert_eq!(tt.trip(&format!("{copy}_A-B")).unwrap().line, copy);
-    // (the way found for the first copied along; the second is found again)
-    assert!(tt.track(&format!("{copy}_A-B")).is_some());
+    // (an automatic Type 2 trip keeps no track: the copy's station links are found again)
+    assert!(tt.track(&format!("{copy}_A-B")).is_none());
+    assert!(tt.reroute.contains(&format!("{copy}_A-B").to_lowercase()));
     // the original as it was
     assert_eq!(tt.lines.iter().find(|x| x.name == l).unwrap().tours[0].trips[0].trip, a);
     assert_eq!(tt.trips.len(), 4);
@@ -1081,7 +1085,8 @@ mod shared_links {
         let existing = lane_link(100, 200, 120.0, &[10, 11]);
         tt.links.push(existing.clone());
         let track_before = tt.tracks.len();
-        let conflicts = tt.set_by_hand("A", Some((vec![entry(1.0)], vec![lane_link(100, 200, 140.0, &[10, 11])]))).unwrap_err();
+        let refusal = tt.set_by_hand("A", Some((vec![entry(1.0)], vec![lane_link(100, 200, 140.0, &[10, 11])]))).unwrap_err();
+        let conflicts = refusal.conflicts;
         println!("refused: {conflicts:#?}");
         assert_eq!(tt.links, vec![existing], "the map's link is unchanged");
         assert_eq!(tt.tracks.len(), track_before, "no track was made");
@@ -1104,8 +1109,8 @@ mod shared_links {
         tt.links.push(same.clone());
         tt.set_route("A", vec![entry(1.0)], vec![same.clone()]).unwrap();
         assert_eq!(tt.links, vec![same.clone()]);
-        assert!(tt.track("A").is_some(), "the route's track is written");
-        assert!(tt.changed.contains("a.ttr"));
+        assert!(tt.track("A").is_none(), "an automatic route writes no .ttr");
+        assert!(!tt.changed.contains("a.ttr"));
     }
 
     /// A pair only this trip drives between may always be written.
@@ -1126,7 +1131,7 @@ mod shared_links {
     #[test]
     fn a_missing_link_on_a_shared_pair_is_a_conflict() {
         let mut tt = two_trips();
-        let conflicts = tt.set_route("A", vec![entry(1.0)], vec![link(100, 200, 120.0)]).unwrap_err();
+        let conflicts = tt.set_route("A", vec![entry(1.0)], vec![link(100, 200, 120.0)]).unwrap_err().conflicts;
         assert_eq!(tt.links.len(), 0, "nothing was written");
         assert_eq!(conflicts.len(), 1);
         assert!(conflicts[0].existing.is_none());
@@ -1145,7 +1150,7 @@ mod shared_links {
             ..Default::default()
         });
         tt.links.push(link(100, 200, 120.0));
-        let conflicts = tt.set_route("A", vec![entry(1.0)], vec![lane_link(100, 200, 140.0, &[10])]).unwrap_err();
+        let conflicts = tt.set_route("A", vec![entry(1.0)], vec![lane_link(100, 200, 140.0, &[10])]).unwrap_err().conflicts;
         assert_eq!(conflicts.len(), 1);
         assert_eq!(conflicts[0].trips, vec!["Legacy".to_string()]);
         assert_eq!(tt.links.len(), 1);
@@ -1158,11 +1163,12 @@ mod shared_links {
         let existing = lane_link(100, 200, 120.0, &[10]);
         tt.links.push(existing.clone());
         let new = lane_link(100, 200, 140.0, &[10, 11]);
-        let affected = tt.overwrite_route("A", vec![entry(2.0)], vec![new.clone()], false);
+        let affected = tt.overwrite_route("A", vec![entry(2.0)], vec![new.clone()], false).unwrap();
         assert_eq!(affected.len(), 1);
         assert_eq!(affected[0].trips, vec!["B".to_string()]);
         assert_eq!(tt.links, vec![new], "the user's link replaced the old one");
-        assert!(tt.track("A").is_some());
+        assert!(tt.track("A").is_none(), "the automatic overwrite writes no .ttr");
+        assert!(!tt.changed.contains("a.ttr"));
     }
 
     /// The batch writes several trips together: a pair only they use may be created even
@@ -1175,7 +1181,7 @@ mod shared_links {
         tt.set_automatic_route_among("A", vec![entry(1.0)], vec![same.clone()], &peers).unwrap();
         tt.set_automatic_route_among("B", vec![entry(2.0)], vec![same.clone()], &peers).unwrap();
         assert_eq!(tt.links, vec![same]);
-        assert!(tt.track("A").is_some() && tt.track("B").is_some());
+        assert!(tt.track("A").is_none() && tt.track("B").is_none(), "automatic batch routes write no .ttr");
     }
 
     /// A scoped batch grows along every shared station pair until nothing new is reached.
@@ -1191,5 +1197,349 @@ mod shared_links {
         names.sort_unstable();
         assert_eq!(names, vec!["a", "b", "c"]);
         assert_eq!(links::sharing_trips(&tt, "D"), ["d".to_string()].into_iter().collect());
+    }
+}
+
+/// Automatic Type 2 routes write station links only. A stale same-name `.ttr` (the map's own
+/// or one an older build wrote) is repaired away, but never one another trip still names.
+mod automatic_tracks {
+    use super::*;
+    use omsi_timetable::{BusStopEntry, StnLink, Track, TrackEntry, Trip};
+
+    fn entry(id: f64) -> TrackEntry {
+        TrackEntry { values: vec![id, 0.0, 0.0, 0.0, 50.0, 0.0] }
+    }
+
+    fn track(file: &str, ids: &[f64]) -> Track {
+        Track { path: format!("{file}.ttr").into(), entries: ids.iter().map(|id| entry(*id)).collect() }
+    }
+
+    fn link(from: i64, to: i64, length: f64) -> StnLink {
+        StnLink { from_id: from, to_id: to, length, ..Default::default() }
+    }
+
+    fn stops() -> Vec<BusStopEntry> {
+        [1, 2, 3].into_iter().map(|id| BusStopEntry {
+            name: format!("Stop {id}"), group: 0, object_id: id, ..Default::default()
+        }).collect()
+    }
+
+    /// The source openOMSI's `steps_of` would read: a track named by the trimmed
+    /// `display_name` when it exists, else one named like the trip; otherwise the StnLinks.
+    /// Every path entry of the chosen source is printed by the caller.
+    fn steps_source(tt: &Timetable, trip: &str) -> (&'static str, Vec<String>) {
+        let t = tt.trip(trip).unwrap();
+        let display = t.display_name.trim();
+        let name = if display.is_empty() { t.name.as_str() } else { display };
+        if let Some(track) = tt.tracks.iter().find(|x| track_name(x).eq_ignore_ascii_case(name)) {
+            return ("track", track.entries.iter().map(|e| format!("{:?}", e.values)).collect());
+        }
+        let mut out = Vec::new();
+        for (a, b) in links::station_pairs(t) {
+            for l in tt.links.iter().filter(|l| l.from_id == a && l.to_id == b) {
+                for e in &l.entries {
+                    out.push(format!("{a}->{b}: {:?}", e.values));
+                }
+            }
+        }
+        ("links", out)
+    }
+
+    fn show(label: &str, tt: &Timetable, trip: &str) {
+        let (source, entries) = steps_source(tt, trip);
+        println!(
+            "{label}: steps_of reads {source} for {trip} (display_name {:?}), {} entry(ies):\n  {}",
+            tt.trip(trip).map(|t| t.display_name.clone()).unwrap_or_default(),
+            entries.len(),
+            entries.join("\n  ")
+        );
+    }
+
+    /// A stale automatic `.ttr` beside the map is removed on the automatic write, the links
+    /// are written, and a save and reload does not bring the `.ttr` back (nor does a second
+    /// save).
+    #[test]
+    fn automatic_repair_removes_a_stale_same_name_track_and_survives_save_reload() {
+        let out = scratch("auto-repair");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("A", &[77.0, 78.0]));
+        stock.links.push(link(1, 2, 120.0));
+        // (a Type 1 trip and its own track: nothing of the repair may touch them)
+        stock.trips.push(Trip {
+            name: "Legacy".into(), display_name: "Legacy".into(),
+            stations_legacy: vec![vec!["1".into()], vec!["2".into()]], ..Default::default()
+        });
+        stock.tracks.push(track("Legacy", &[79.0]));
+        write_all(&stock, &out);
+        let legacy_ttp = std::fs::read(out.join("TTData").join("Legacy.ttp")).unwrap();
+        let legacy_ttr = std::fs::read(out.join("TTData").join("Legacy.ttr")).unwrap();
+
+        let mut tt = Timetable::load(&out, &[]);
+        show("Before repair", &tt, "A");
+        assert!(tt.track("A").is_some(), "the stale track is on the map");
+        let links = vec![link(1, 2, 120.0)];
+        tt.set_route("A", vec![entry(1.0)], links.clone()).unwrap();
+        println!("After repair: tracks {:?}, links {:?}, removed {:?}", tt.tracks.iter().map(track_name).collect::<Vec<_>>(), tt.links, tt.removed);
+        assert!(tt.track("A").is_none(), "the intercepting track was removed");
+        assert!(tt.removed.contains("a.ttr"));
+        assert!(tt.track("Legacy").is_some(), "the Type 1 trip's track is untouched");
+        show("After repair", &tt, "A");
+        assert_eq!(steps_source(&tt, "A").0, "links");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        assert!(!out.join("TTData").join("A.ttr").is_file(), "the stale .ttr file is gone");
+        assert!(out.join("TTData").join("Legacy.ttr").is_file(), "the Type 1 track file is kept");
+        assert_eq!(std::fs::read(out.join("TTData").join("Legacy.ttr")).unwrap(), legacy_ttr, "the Type 1 track bytes are untouched");
+        assert_eq!(std::fs::read(out.join("TTData").join("Legacy.ttp")).unwrap(), legacy_ttp, "the Type 1 trip bytes are untouched");
+        let back = Timetable::load(&out, &[]);
+        assert!(back.track("A").is_none(), "reload does not recreate the automatic .ttr");
+        assert_eq!(back.links, links);
+        show("After reload", &back, "A");
+
+        save_to(&mut Timetable::load(&out, &[]), &out, &[]).unwrap();
+        assert!(!out.join("TTData").join("A.ttr").is_file(), "a second save writes nothing back");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A track another trip still names is the other trip's way: the automatic repair is
+    /// refused as a whole, and nothing of the trip, its links or its queues changes.
+    #[test]
+    fn automatic_repair_is_refused_when_another_trip_still_names_the_track() {
+        let out = scratch("auto-shared-name");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), stations: vec![1, 2], ..Default::default() });
+        stock.trips.push(Trip { name: "B".into(), display_name: "A".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("A", &[77.0]));
+        stock.links.push(link(1, 2, 120.0));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        show("Before refused repair", &tt, "B");
+        let tracks = tt.tracks.clone();
+        let trip_before = tt.trip("A").cloned();
+        let links_before = tt.links.clone();
+        let refusal = tt.set_route("A", vec![entry(1.0)], vec![link(1, 2, 120.0)]).unwrap_err();
+        println!("refused: {refusal:?}");
+        assert!(refusal.conflicts.is_empty());
+        assert!(refusal.track.as_deref().unwrap_or_default().contains("B"), "{refusal:?}");
+        assert_eq!(tt.tracks, tracks, "no track is removed or changed");
+        assert_eq!(tt.trip("A").cloned(), trip_before, "display_name and stations are unchanged");
+        assert_eq!(tt.links, links_before, "no link is written");
+        assert!(!tt.changed.contains("a.ttr") && !tt.removed.contains("a.ttr"));
+        assert_eq!(steps_source(&tt, "B").0, "track", "the other trip still reads its track");
+        // (a save after the refusal leaves the shared track beside the map)
+        save_to(&mut tt, &out, &[]).unwrap();
+        let back = Timetable::load(&out, &[]);
+        assert!(back.track("A").is_some(), "the refused repair is not carried out by a save");
+        assert_eq!(steps_source(&back, "B").0, "track");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A `display_name` that names a track shared with another trip is cleared, the shared
+    /// track is left for that trip, and the repaired trip falls back to its station links.
+    #[test]
+    fn a_shared_display_name_track_is_left_and_the_display_name_is_cleared() {
+        let out = scratch("auto-shared-display");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), display_name: "Shared".into(), stations: vec![1, 2], ..Default::default() });
+        stock.trips.push(Trip { name: "B".into(), display_name: "Shared".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("Shared", &[55.0]));
+        stock.links.push(link(1, 2, 120.0));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        show("Before shared repair", &tt, "A");
+        tt.set_route("A", vec![entry(1.0)], vec![link(1, 2, 120.0)]).unwrap();
+        show("After shared repair", &tt, "A");
+        assert!(tt.trip("A").unwrap().display_name.is_empty(), "A's display_name is cleared");
+        assert_eq!(tt.trip("B").unwrap().display_name, "Shared", "B still names the track");
+        assert!(tt.track("Shared").is_some(), "the shared track is left");
+        assert_eq!(steps_source(&tt, "A").0, "links");
+        assert_eq!(steps_source(&tt, "B").0, "track");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        let back = Timetable::load(&out, &[]);
+        assert!(back.track("Shared").is_some());
+        assert!(back.trip("A").unwrap().display_name.is_empty());
+        show("After reload", &back, "A");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A `display_name` track no other trip names is left alone (it is no longer this trip's
+    /// way once the name is cleared, but it is not the repair's to delete).
+    #[test]
+    fn an_unshared_display_name_track_is_left_in_place() {
+        let out = scratch("auto-old-display");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), display_name: "Old".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("Old", &[44.0]));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        tt.set_route("A", vec![entry(1.0)], vec![link(1, 2, 120.0)]).unwrap();
+        assert!(tt.trip("A").unwrap().display_name.is_empty());
+        assert!(tt.track("Old").is_some(), "the old track is not deleted");
+        assert_eq!(steps_source(&tt, "A").0, "links");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A hand-picked way writes its `.ttr`; finding the way automatically again is one write
+    /// that removes that `.ttr` and writes the links, and a reload keeps it gone.
+    #[test]
+    fn hand_track_is_written_then_removed_by_the_automatic_route() {
+        let out = scratch("hand-then-auto");
+        let mut tt = Timetable::default();
+        tt.stops = stops();
+        tt.add_trip("", "A", vec![1, 2]);
+        let hand = vec![entry(10.0), entry(11.0)];
+        tt.set_by_hand("A", Some((hand.clone(), vec![link(1, 2, 99.0)]))).unwrap();
+        assert!(tt.by_hand("A"));
+        assert_eq!(tt.track("A").unwrap().entries, hand);
+        save_to(&mut tt, &out, &[]).unwrap();
+        let text = std::fs::read_to_string(out.join("TTData").join("A.ttr")).unwrap();
+        assert!(text.contains(BY_HAND));
+        let back = Timetable::load(&out, &[]);
+        assert!(back.by_hand("A"));
+        assert_eq!(steps_source(&back, "A").0, "track");
+        show("Hand route after reload", &back, "A");
+
+        let mut back = back;
+        back.set_automatic_route("A", vec![entry(20.0)], vec![link(1, 2, 120.0)]).unwrap();
+        assert!(!back.by_hand("A"));
+        assert!(back.track("A").is_none());
+        assert!(back.removed.contains("a.ttr"));
+        assert_eq!(steps_source(&back, "A").0, "links");
+        save_to(&mut back, &out, &[]).unwrap();
+        assert!(!out.join("TTData").join("A.ttr").is_file());
+        let again = Timetable::load(&out, &[]);
+        assert!(!again.by_hand("A") && again.track("A").is_none());
+        assert_eq!(again.links, vec![link(1, 2, 120.0)]);
+        show("Automatic route after reload", &again, "A");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A hand route becoming automatic is refused as a whole when its old track is another
+    /// trip's: the hand mark, the track, the links and the queues stay as they were.
+    #[test]
+    fn hand_to_automatic_keeps_the_old_track_and_mode_when_it_is_shared() {
+        let mut tt = Timetable::default();
+        tt.stops = stops();
+        tt.add_trip("", "A", vec![1, 2]);
+        let hand = vec![entry(10.0)];
+        tt.set_by_hand("A", Some((hand.clone(), vec![link(1, 2, 99.0)]))).unwrap();
+        tt.add_trip("", "B", vec![2, 3]);
+        tt.trip_mut("B").unwrap().display_name = "A".into();
+        let tracks = tt.tracks.clone();
+        let links = tt.links.clone();
+        let reroute = tt.reroute.clone();
+        let refusal = tt.set_automatic_route("A", vec![entry(20.0)], vec![link(1, 2, 120.0)]).unwrap_err();
+        println!("refused: {refusal:?}");
+        assert!(refusal.track.is_some());
+        assert!(tt.by_hand("A"), "the trip stays picked by hand");
+        assert_eq!(tt.tracks, tracks, "the old track is unchanged");
+        assert_eq!(tt.links, links, "no link is written");
+        assert_eq!(tt.reroute, reroute, "the queue is unchanged");
+        assert_eq!(steps_source(&tt, "A").0, "track");
+    }
+
+    /// A nonempty `display_name` that names no track still makes the game look only for that
+    /// name: a hand route must clear it, or `<trip>.ttr` is never read.
+    #[test]
+    fn a_hand_route_clears_a_display_name_that_names_no_track() {
+        let mut tt = Timetable::default();
+        tt.stops = stops();
+        tt.add_trip("", "A", vec![1, 2]);
+        tt.trip_mut("A").unwrap().display_name = "A human name".into();
+        tt.set_by_hand("A", Some((vec![entry(10.0)], vec![link(1, 2, 99.0)]))).unwrap();
+        assert!(tt.trip("A").unwrap().display_name.is_empty(), "the game reads A.ttr now");
+        assert_eq!(steps_source(&tt, "A").0, "track");
+    }
+
+    /// An automatic Type 2 trip keeps no same-name `.ttr`, even while a `display_name` that
+    /// names no track makes the game read the station links already.
+    #[test]
+    fn an_automatic_route_removes_a_stale_fallback_track_even_with_a_display_name() {
+        let out = scratch("auto-human-display");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), display_name: "A human name".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("A", &[66.0]));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        tt.set_route("A", vec![entry(1.0)], vec![link(1, 2, 120.0)]).unwrap();
+        assert_eq!(tt.trip("A").unwrap().display_name, "A human name", "the display name is kept");
+        assert!(tt.track("A").is_none(), "an automatic trip keeps no same-name .ttr");
+        assert!(tt.removed.contains("a.ttr"));
+        assert_eq!(steps_source(&tt, "A").0, "links");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// A same-name track another trip still names is left for it while the repaired trip's
+    /// `display_name` stands (it does not intercept then), and the repair still succeeds.
+    #[test]
+    fn a_shared_fallback_track_is_left_when_the_display_name_stands() {
+        let out = scratch("auto-human-shared");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), display_name: "A human name".into(), stations: vec![1, 2], ..Default::default() });
+        stock.trips.push(Trip { name: "B".into(), display_name: "A".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("A", &[66.0]));
+        stock.links.push(link(1, 2, 120.0));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        tt.set_route("A", vec![entry(1.0)], vec![link(1, 2, 120.0)]).unwrap();
+        assert_eq!(tt.trip("A").unwrap().display_name, "A human name");
+        assert!(tt.track("A").is_some(), "the track is the other trip's way");
+        assert!(tt.removed.is_empty(), "nothing is queued for removal");
+        assert_eq!(steps_source(&tt, "A").0, "links");
+        assert_eq!(steps_source(&tt, "B").0, "track");
+        let _ = std::fs::remove_dir_all(&out);
+    }
+
+    /// Even a confirmed shared-link overwrite does not write over another trip's track.
+    #[test]
+    fn a_hand_overwrite_is_refused_when_another_trip_names_the_track() {
+        let mut tt = Timetable::default();
+        tt.stops = stops();
+        tt.add_trip("", "A", vec![1, 2]);
+        tt.add_trip("", "B", vec![1, 2]);
+        tt.trip_mut("B").unwrap().display_name = "A".into();
+        let refusal = tt.overwrite_route("A", vec![entry(10.0)], vec![link(1, 2, 120.0)], true).unwrap_err();
+        println!("refused: {refusal:?}");
+        assert!(refusal.track.is_some());
+        assert!(tt.track("A").is_none() && !tt.by_hand("A"));
+        assert!(tt.links.is_empty());
+    }
+
+    /// A batch writes several automatic routes, each repairing its own stale track; a save
+    /// and reload has no automatic `.ttr` and drives all of them by the shared StnLink.
+    #[test]
+    fn a_batch_automatic_write_removes_stale_tracks_and_reload_has_none() {
+        let out = scratch("batch-auto-repair");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(Trip { name: "A".into(), stations: vec![1, 2], ..Default::default() });
+        stock.trips.push(Trip { name: "B".into(), stations: vec![1, 2], ..Default::default() });
+        stock.tracks.push(track("A", &[71.0]));
+        stock.tracks.push(track("B", &[72.0]));
+        stock.links.push(link(1, 2, 120.0));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        let peers: std::collections::HashSet<String> = ["a".to_string(), "b".to_string()].into_iter().collect();
+        let shared = link(1, 2, 120.0);
+        tt.set_automatic_route_among("A", vec![entry(1.0)], vec![shared.clone()], &peers).unwrap();
+        tt.set_automatic_route_among("B", vec![entry(2.0)], vec![shared.clone()], &peers).unwrap();
+        assert!(tt.track("A").is_none() && tt.track("B").is_none(), "both stale tracks are repaired away");
+        assert!(tt.removed.contains("a.ttr") && tt.removed.contains("b.ttr"));
+        save_to(&mut tt, &out, &[]).unwrap();
+        assert!(!out.join("TTData").join("A.ttr").is_file() && !out.join("TTData").join("B.ttr").is_file());
+        let back = Timetable::load(&out, &[]);
+        assert!(back.tracks.is_empty(), "the reload has no automatic .ttr");
+        assert_eq!(back.links, vec![shared]);
+        show("Batch after reload", &back, "A");
+        show("Batch after reload", &back, "B");
+        let _ = std::fs::remove_dir_all(&out);
     }
 }

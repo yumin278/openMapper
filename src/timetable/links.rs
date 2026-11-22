@@ -116,6 +116,55 @@ pub fn sharing_trips(tt: &Timetable, trip: &str) -> HashSet<String> {
     scope
 }
 
+/// Why a route was not written: station links other trips drive on would change, or the
+/// trip's own `.ttr` cannot be written or taken away without taking another trip's track.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RouteRefusal {
+    /// Shared station links that would have changed (empty when only the track refused).
+    pub conflicts: Vec<SharedLinkConflict>,
+    /// Why the trip's track could not be repaired or written.
+    pub track: Option<String>,
+}
+
+impl RouteRefusal {
+    pub fn links(conflicts: Vec<SharedLinkConflict>) -> Self {
+        RouteRefusal { conflicts, track: None }
+    }
+
+    pub fn track(why: String) -> Self {
+        RouteRefusal { conflicts: Vec::new(), track: Some(why) }
+    }
+
+    /// Write the whole refusal to the log: every conflicting link in full and the track's
+    /// reason, so the input and the output of a refused write are both in the log.
+    pub fn log(&self, trip: &str) {
+        if !self.conflicts.is_empty() {
+            log::warn!("timetable: the route of {trip} was not written: {} shared station link(s) would change", self.conflicts.len());
+            for c in &self.conflicts {
+                log::warn!("timetable: {trip}: {}", c.log_text());
+            }
+        }
+        if let Some(why) = &self.track {
+            log::warn!("timetable: the route of {trip} was not written: {why}");
+        }
+    }
+
+    /// One-line reason for a caller's own message (file imports, MCP).
+    pub fn summary(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.conflicts.is_empty() {
+            parts.push(format!(
+                "shared station links would change: {}",
+                self.conflicts.iter().map(SharedLinkConflict::pair).collect::<Vec<_>>().join(", ")
+            ));
+        }
+        if let Some(why) = &self.track {
+            parts.push(why.clone());
+        }
+        parts.join("; ")
+    }
+}
+
 /// Why a shared station link was not written.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SharedLinkConflict {
