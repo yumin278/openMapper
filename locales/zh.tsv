@@ -3389,3 +3389,11 @@ The default roadway texture str_asphdrk.bmp was not found; choose a roadway text
 The imported height profile is not usable	导入的高度剖面无法使用
 Split in half	对半拆分
 Split only this spline into two equal-length pieces, not the whole connected road	只将当前这条曲线对半拆分，不拆分整条相连道路
+Original Type 1 track (read-only)	原始 Type 1 轨迹（只读）
+Track not found: {name}.ttr	找不到轨迹：{name}.ttr
+Map AI paths are not loaded yet	地图 AI 路径尚未加载
+Mapped {mapped} of {total} original track entries	已匹配 {mapped}／{total} 条原始 TrackEntry
+Show start of original track	在地图上显示原始轨迹的起点
+{count} original paths are missing from the current map; no replacement route was calculated.	当前地图缺少 {count} 段原始路径；没有重新寻路替代。
+Locate the tile; the missing path's exact position is unknown	定位所在图块（缺失路径的精确位置未知）
+Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	仅显示已保存的 TrackEntry 路径，不重新寻路或修改班次。
