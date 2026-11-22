@@ -1576,3 +1576,446 @@ mod automatic_tracks {
         assert_eq!(tt.links, vec![hand_link]);
     }
 }
+
+/// A single Type 1 trip becomes a Type 2 trip by format alone: its stop records and track
+/// reference change, no route is found and no station link is written.
+mod single_type2_conversion {
+    use super::*;
+    use super::convert;
+    use crate::doc::Document;
+    use crate::history::{History, Snapshot};
+    use omsi_timetable::{BusStopEntry, Track, TrackEntry, Trip};
+
+    fn entry(id: f64) -> TrackEntry {
+        TrackEntry { values: vec![id, 0.0, 0.0, 0.0, 50.0, 0.0] }
+    }
+
+    fn track(file: &str, ids: &[f64]) -> Track {
+        Track { path: format!("{file}.ttr").into(), entries: ids.iter().map(|id| entry(*id)).collect() }
+    }
+
+    fn legacy(ids: &[&str]) -> Vec<Vec<String>> {
+        ids.iter().enumerate().map(|(i, id)| {
+            vec![id.to_string(), (i * 10).to_string(), format!("Stop {id}"), "0".into(), "0.500".into(), format!("{}.000", i * 100), "3.000".into(), "0.000".into()]
+        }).collect()
+    }
+
+    fn type1(name: &str, display: &str, ids: &[&str]) -> Trip {
+        Trip {
+            name: name.into(),
+            display_name: display.into(),
+            terminus: "Terminus".into(),
+            line: "1".into(),
+            stations_legacy: legacy(ids),
+            ..Default::default()
+        }
+    }
+
+    fn type2(name: &str, display: &str, stations: &[i64]) -> Trip {
+        Trip {
+            name: name.into(),
+            display_name: display.into(),
+            terminus: "Terminus".into(),
+            line: "1".into(),
+            stations: stations.to_vec(),
+            ..Default::default()
+        }
+    }
+
+    fn stops() -> Vec<BusStopEntry> {
+        [1, 2, 3, 4].into_iter().map(|id| BusStopEntry {
+            name: format!("Stop {id}"), group: 0, object_id: id, ..Default::default()
+        }).collect()
+    }
+
+    /// The source openOMSI's `steps_of` reads: a track named by the trimmed `display_name`
+    /// when that is nonempty, else a track named like the trip; otherwise the StnLinks.
+    fn steps_source(tt: &Timetable, trip: &str) -> (&'static str, Vec<String>) {
+        let t = tt.trip(trip).unwrap();
+        let display = t.display_name.trim();
+        let name = if display.is_empty() { t.name.as_str() } else { display };
+        if let Some(track) = tt.tracks.iter().find(|x| track_name(x).eq_ignore_ascii_case(name)) {
+            return ("track", track.entries.iter().map(|e| format!("{:?}", e.values)).collect());
+        }
+        let mut out = Vec::new();
+        for (a, b) in links::station_pairs(t) {
+            for l in tt.links.iter().filter(|l| l.from_id == a && l.to_id == b) {
+                for e in &l.entries {
+                    out.push(format!("{a}->{b}: {:?}", e.values));
+                }
+            }
+        }
+        ("links", out)
+    }
+
+    fn show(label: &str, tt: &Timetable, trip: &str) {
+        let (source, entries) = steps_source(tt, trip);
+        println!(
+            "{label}: steps_of reads {source} for {trip} (display_name {:?}), {} entry(ies):\n  {}",
+            tt.trip(trip).map(|t| t.display_name.clone()).unwrap_or_default(),
+            entries.len(),
+            entries.join("\n  ")
+        );
+    }
+
+    fn read(dir: &std::path::Path, file: &str) -> Vec<u8> {
+        std::fs::read(dir.join("TTData").join(file)).unwrap_or_else(|e| panic!("{file}: {e}"))
+    }
+
+    /// Only the chosen trip changes; the other Type 1 trip, its track and its exclusion stay
+    /// byte-for-byte as they were, and the chosen trip's unused old track is deleted on save.
+    #[test]
+    fn single_conversion_changes_only_the_chosen_trip_and_removes_its_unused_track() {
+        let out = scratch("single-type2-only");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("chosen", "chosen-way", &["1", "2", "3"]));
+        stock.trips.push(type1("other", "other-way", &["1", "4"]));
+        stock.tracks.push(track("chosen-way", &[71.0, 72.0]));
+        stock.tracks.push(track("other-way", &[73.0]));
+        stock.links.push(omsi_timetable::StnLink { from_id: 1, to_id: 2, length: 100.0, ..Default::default() });
+        write_all(&stock, &out);
+
+        let mut tt = Timetable::load(&out, &[]);
+        let chosen = tt.trip("chosen").unwrap().clone();
+        let other = tt.trip("other").unwrap().clone();
+        tt.set_type2_exclusion(&chosen, true);
+        tt.set_type2_exclusion(&other, true);
+        save_to(&mut tt, &out, &[]).unwrap();
+        let other_ttp = read(&out, "other.ttp");
+        let other_ttr = read(&out, "other-way.ttr");
+        let links_before = read(&out, "StnLinks.cfg");
+        let links_data = tt.links.clone();
+        let chosen_ttr_path = out.join("TTData").join("chosen-way.ttr");
+        assert!(chosen_ttr_path.is_file());
+        let exclusions_before = std::fs::read_to_string(convert::exclusions_path(&out)).unwrap();
+        println!("Exclusions before single conversion:\n{exclusions_before}");
+
+        let converted = tt.convert_trip_to_type2("chosen").unwrap();
+        println!("Single conversion result: {converted:?}");
+        assert_eq!(converted.trip, "chosen");
+        assert_eq!(converted.stops, 3);
+        assert_eq!(converted.removed_track.as_deref(), Some("chosen-way"));
+        assert_eq!(converted.kept_shared_track, None);
+        let chosen = tt.trip("chosen").unwrap();
+        assert!(!is_type1(chosen), "the chosen trip is Type 2");
+        assert_eq!(chosen.stations, [1, 2, 3]);
+        assert!(chosen.stations_legacy.is_empty() && chosen.display_name.is_empty());
+        assert!(!tt.excludes_type2(chosen), "the explicit conversion cleared its exclusion");
+        assert!(!tt.type2_exclusions.contains_key("chosen"), "the chosen trip's override is removed");
+        assert_eq!(tt.trip("other").unwrap(), &other, "the other trip is unchanged");
+        assert!(tt.excludes_type2(tt.trip("other").unwrap()), "the other trip's exclusion is unchanged");
+        assert!(tt.track("chosen-way").is_none(), "the old track left the timetable");
+        assert!(tt.track("other-way").is_some(), "the other trip's track stays");
+        assert!(tt.removed.contains("chosen-way.ttr") && !tt.removed.contains("other-way.ttr"));
+        assert!(tt.changed.contains("chosen.ttp") && !tt.changed.contains("other.ttp"));
+        assert_eq!(tt.links, links_data, "no station link is changed");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        let chosen_text = std::fs::read_to_string(out.join("TTData").join("chosen.ttp")).unwrap().replace("\r\n", "\n");
+        println!("chosen.ttp after the single conversion:\n{chosen_text}");
+        assert_eq!(chosen_text.matches("[station_typ2]").count(), 3);
+        assert!(!chosen_text.contains("[station]\n"), "no legacy station record is left");
+        assert!(!chosen_ttr_path.is_file(), "the unused old track is deleted on save");
+        assert_eq!(read(&out, "other.ttp"), other_ttp, "the other trip's bytes are unchanged");
+        assert_eq!(read(&out, "other-way.ttr"), other_ttr, "the other trip's track bytes are unchanged");
+        assert_eq!(read(&out, "StnLinks.cfg"), links_before, "StnLinks.cfg is not written");
+        let exclusions_after = std::fs::read_to_string(convert::exclusions_path(&out)).unwrap();
+        println!("Exclusions after single conversion:\n{exclusions_after}");
+        let json: serde_json::Value = serde_json::from_str(&exclusions_after).unwrap();
+        assert_eq!(json, serde_json::json!({ "excluded": ["other"], "overrides": { "other": true } }));
+
+        let back = Timetable::load(&out, &[]);
+        show("After reload", &back, "chosen");
+        assert!(!is_type1(back.trip("chosen").unwrap()));
+        assert_eq!(back.trip("chosen").unwrap().stations, [1, 2, 3]);
+        assert!(back.track("chosen-way").is_none());
+        assert!(is_type1(back.trip("other").unwrap()));
+        assert!(back.excludes_type2(back.trip("other").unwrap()));
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// A one-stop Type 1 trip is excluded by default from the batch, but the explicit
+    /// single conversion still formats it and clears any override it had.
+    #[test]
+    fn an_explicit_conversion_bypasses_the_default_short_trip_exclusion() {
+        let out = scratch("single-type2-short");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("short", "short-way", &["1"]));
+        stock.tracks.push(track("short-way", &[50.0]));
+        write_all(&stock, &out);
+        let mut tt = Timetable::load(&out, &[]);
+        assert!(tt.excludes_type2(tt.trip("short").unwrap()), "the batch would skip it by default");
+        let converted = tt.convert_trip_to_type2("short").unwrap();
+        assert_eq!(converted.stops, 1);
+        assert!(!is_type1(tt.trip("short").unwrap()));
+        assert_eq!(tt.trip("short").unwrap().stations, [1]);
+        save_to(&mut tt, &out, &[]).unwrap();
+        let back = Timetable::load(&out, &[]);
+        assert!(!is_type1(back.trip("short").unwrap()));
+        assert!(!back.excludes_type2(back.trip("short").unwrap()));
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// The old track another trip still names is that trip's way: its bytes stay, and a
+    /// pending change to it is written by the next save rather than lost.
+    #[test]
+    fn a_shared_old_track_keeps_its_bytes_and_pending_changes() {
+        let out = scratch("single-type2-shared-bytes");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("bus", "shared-way", &["1", "2"]));
+        stock.trips.push(type2("holder", "shared-way", &[1, 2]));
+        stock.tracks.push(track("shared-way", &[90.0]));
+        write_all(&stock, &out);
+
+        let mut tt = Timetable::load(&out, &[]);
+        let original = read(&out, "shared-way.ttr");
+        let converted = tt.convert_trip_to_type2("bus").unwrap();
+        println!("Shared track conversion result: {converted:?}");
+        assert_eq!(converted.kept_shared_track.as_deref(), Some("shared-way"));
+        assert_eq!(converted.removed_track, None);
+        assert!(tt.track("shared-way").is_some(), "the track is left for the other trip");
+        assert!(!tt.removed.contains("shared-way.ttr"));
+        assert!(tt.trip("bus").unwrap().display_name.is_empty(), "the trip's own reference is gone");
+        assert_eq!(steps_source(&tt, "bus").0, "links");
+        assert_eq!(steps_source(&tt, "holder").0, "track");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        assert_eq!(read(&out, "shared-way.ttr"), original, "the shared track's bytes are untouched");
+        let back = Timetable::load(&out, &[]);
+        assert_eq!(back.track("shared-way").unwrap().entries, vec![entry(90.0)]);
+        assert!(!is_type1(back.trip("bus").unwrap()));
+        assert_eq!(steps_source(&back, "bus").0, "links");
+
+        // (a pending change to the shared track belongs to the other trip; converting bus
+        // must not drop it from the changed queue or write the old entries over it)
+        let mut tt = Timetable::load(&out, &[]);
+        tt.tracks.iter_mut().find(|t| track_name(t) == "shared-way").unwrap().entries = vec![entry(91.0)];
+        tt.changed.insert("shared-way.ttr".into());
+        let converted = tt.convert_trip_to_type2("bus").unwrap();
+        assert_eq!(converted.kept_shared_track.as_deref(), Some("shared-way"));
+        assert!(tt.changed.contains("shared-way.ttr"), "the pending write is kept");
+        assert!(!tt.removed.contains("shared-way.ttr"));
+        save_to(&mut tt, &out, &[]).unwrap();
+        let text = std::fs::read_to_string(out.join("TTData").join("shared-way.ttr")).unwrap().replace("\r\n", "\n");
+        println!("Shared track with the pending change after save:\n{text}");
+        assert_eq!(text, track_text(&track("shared-way", &[91.0])));
+        let back = Timetable::load(&out, &[]);
+        assert_eq!(back.track("shared-way").unwrap().entries, vec![entry(91.0)]);
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// A shared source whose filename equals the selected trip's name must not be read after
+    /// conversion: the trip gets a persistent nonmatching first line instead of falling back
+    /// to that name.
+    #[test]
+    fn a_shared_source_named_like_the_trip_cannot_drive_the_converted_trip() {
+        let out = scratch("single-type2-shared-name");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("A", "A", &["1", "2"]));
+        stock.trips.push(type2("holder", "A", &[1, 2]));
+        stock.tracks.push(track("A", &[77.0]));
+        write_all(&stock, &out);
+        // (the shared track says its paths were picked by hand: the marker belongs to the
+        // track, not to the converted trip reading it by name)
+        std::fs::write(out.join("TTData").join("A.ttr"), encode(&track_text_of(&track("A", &[77.0]), true))).unwrap();
+        let original = read(&out, "A.ttr");
+
+        let mut tt = Timetable::load(&out, &[]);
+        assert!(tt.by_hand("A"), "the shared track is marked by hand");
+        let converted = tt.convert_trip_to_type2("A").unwrap();
+        println!("Shared same-name conversion result: {converted:?}");
+        assert_eq!(converted.kept_shared_track.as_deref(), Some("A"));
+        assert!(!converted.display_name.is_empty(), "the fallback to A would read the shared track");
+        assert!(!converted.display_name.eq_ignore_ascii_case("A"));
+        assert!(tt.tracks.iter().all(|t| !track_name(t).eq_ignore_ascii_case(&converted.display_name)));
+        assert_eq!(steps_source(&tt, "A").0, "links");
+        assert_eq!(steps_source(&tt, "holder").0, "track");
+        assert!(!tt.by_hand("A"), "the converted trip no longer reads the shared hand track");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        assert_eq!(read(&out, "A.ttr"), original, "the shared track is not touched");
+        let back = Timetable::load(&out, &[]);
+        show("Shared same-name after reload", &back, "A");
+        assert!(!is_type1(back.trip("A").unwrap()));
+        assert!(!back.by_hand("A"), "the reloaded trip does not inherit the shared track's hand marker");
+        assert_eq!(steps_source(&back, "A").0, "links");
+        assert_eq!(steps_source(&back, "holder").0, "track");
+        assert_eq!(back.trip("A").unwrap().display_name, converted.display_name, "the nonmatching first line is persisted");
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// A track-only Type 1 trip with no `[station]` records has no Type 2 form while it must
+    /// keep a nonmatching first line: it is refused rather than left looking converted.
+    #[test]
+    fn a_zero_stop_trip_with_a_shared_same_name_track_is_refused_without_changes() {
+        let mut tt = Timetable::default();
+        tt.trips.push(Trip { name: "A".into(), display_name: "A".into(), ..Default::default() });
+        tt.trips.push(type2("holder", "A", &[1]));
+        tt.tracks.push(track("A", &[1.0]));
+        let before = tt.clone();
+        let error = tt.convert_trip_to_type2("A").unwrap_err();
+        println!("Refused zero-stop conversion: {error}");
+        assert!(error.contains("no [station] records"), "{error}");
+        assert!(tt.same_content(&before), "nothing changes");
+        assert!(tt.removed.is_empty() && tt.changed.is_empty());
+        assert!(is_type1(tt.trip("A").unwrap()));
+    }
+
+    /// An unrelated same-name `.ttr` is not the selected trip's old track: it is neither
+    /// deleted nor allowed to intercept the converted trip.
+    #[test]
+    fn an_unrelated_same_name_track_is_kept_and_does_not_intercept() {
+        let out = scratch("single-type2-unrelated-name");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("B", "b-way", &["1", "2"]));
+        stock.tracks.push(track("b-way", &[80.0]));
+        stock.tracks.push(track("B", &[81.0]));
+        write_all(&stock, &out);
+        let unrelated = read(&out, "B.ttr");
+
+        let mut tt = Timetable::load(&out, &[]);
+        let converted = tt.convert_trip_to_type2("B").unwrap();
+        println!("Unrelated same-name conversion result: {converted:?}");
+        assert_eq!(converted.removed_track.as_deref(), Some("b-way"));
+        assert!(converted.kept_shared_track.is_none());
+        assert!(!converted.display_name.is_empty(), "the fallback to B would read the unrelated track");
+        assert!(tt.track("B").is_some(), "the unrelated track is not deleted");
+        assert!(!tt.removed.contains("b.ttr"));
+        assert_eq!(steps_source(&tt, "B").0, "links");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        assert!(!out.join("TTData").join("b-way.ttr").is_file(), "the trip's old track is deleted");
+        assert_eq!(read(&out, "B.ttr"), unrelated, "the unrelated track's bytes are untouched");
+        let back = Timetable::load(&out, &[]);
+        show("Unrelated same-name after reload", &back, "B");
+        assert!(!is_type1(back.trip("B").unwrap()));
+        assert_eq!(steps_source(&back, "B").0, "links");
+        assert!(back.track("B").is_some());
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// No StnLinks file is needed or created: the format conversion only writes the trip.
+    #[test]
+    fn single_conversion_needs_no_station_links_and_reloads_as_type2() {
+        let out = scratch("single-type2-no-links");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("only", "only-way", &["1", "2"]));
+        stock.tracks.push(track("only-way", &[70.0]));
+        write_all(&stock, &out);
+        std::fs::remove_file(out.join("TTData").join("StnLinks.cfg")).unwrap();
+
+        let mut tt = Timetable::load(&out, &[]);
+        assert!(tt.links.is_empty());
+        tt.convert_trip_to_type2("only").unwrap();
+        save_to(&mut tt, &out, &[]).unwrap();
+        assert!(!out.join("TTData").join("StnLinks.cfg").is_file(), "no station links are written");
+        assert!(!out.join("TTData").join("only-way.ttr").is_file(), "the old track is deleted");
+        let back = Timetable::load(&out, &[]);
+        show("No links after reload", &back, "only");
+        assert!(!is_type1(back.trip("only").unwrap()));
+        assert_eq!(back.trip("only").unwrap().stations, [1, 2]);
+        assert_eq!(steps_source(&back, "only"), ("links", Vec::new()));
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// A technical omission refuses before anything changes, and a save after the refusal
+    /// writes none of the files.
+    #[test]
+    fn an_invalid_stop_id_leaves_the_trip_tracks_and_exclusions_untouched() {
+        let out = scratch("single-type2-invalid");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("bad", "bad-way", &["1", "not-an-id", "3"]));
+        stock.tracks.push(track("bad-way", &[60.0]));
+        write_all(&stock, &out);
+        let files = ["bad.ttp", "bad-way.ttr", "Busstops.cfg", "StnLinks.cfg"];
+
+        let mut tt = Timetable::load(&out, &[]);
+        let bad = tt.trip("bad").unwrap().clone();
+        tt.set_type2_exclusion(&bad, true);
+        save_to(&mut tt, &out, &[]).unwrap();
+        let before = tt.clone();
+        let before_files: Vec<(&str, Vec<u8>)> = files.iter().map(|f| (*f, read(&out, *f))).collect();
+        let exclusions_before = std::fs::read(convert::exclusions_path(&out)).unwrap();
+
+        let error = tt.convert_trip_to_type2("bad").unwrap_err();
+        println!("Refused single conversion: {error}");
+        assert!(error.contains("stop 2") && error.contains("not-an-id"), "{error}");
+        assert!(tt.same_content(&before), "trip, tracks and exclusions are unchanged");
+        assert_eq!(tt.changed, before.changed);
+        assert_eq!(tt.removed, before.removed);
+        assert!(tt.excludes_type2(tt.trip("bad").unwrap()), "the exclusion stays");
+
+        save_to(&mut tt, &out, &[]).unwrap();
+        for (file, bytes) in &before_files {
+            assert_eq!(&read(&out, *file), bytes, "{file} is unchanged");
+        }
+        assert_eq!(std::fs::read(convert::exclusions_path(&out)).unwrap(), exclusions_before);
+        let _ = std::fs::remove_dir_all(out);
+    }
+
+    /// Undo puts the Type 1 trip, its old track and its exclusion back on disk; redo removes
+    /// them again. The restored change/removal queues are what make the files follow.
+    #[test]
+    fn single_conversion_undoes_and_redoes_through_saved_files() {
+        let _map = one_map();
+        let out = scratch("single-type2-undo");
+        let mut stock = Timetable::default();
+        stock.stops = stops();
+        stock.trips.push(type1("chosen", "chosen-way", &["1", "2"]));
+        stock.tracks.push(track("chosen-way", &[55.0]));
+        write_all(&stock, &out);
+
+        let roots = crate::install::Roots::new(out.clone());
+        let mut doc = Document::new_map(&roots, "single-type2-undo", "single-type2-undo", 1);
+        doc.dir = out.clone();
+        doc.source = None;
+        doc.fresh = false;
+        doc.timetable = Timetable::load(&out, &doc.order);
+        let chosen = doc.timetable.trip("chosen").unwrap().clone();
+        doc.timetable.set_type2_exclusion(&chosen, true);
+        save_to(&mut doc.timetable, &out, &doc.order).unwrap();
+        let track_bytes = read(&out, "chosen-way.ttr");
+        let before = doc.timetable.clone();
+        let mut history = History::default();
+
+        let converted = doc.timetable.convert_trip_to_type2("chosen").unwrap();
+        println!("Undo test conversion: {converted:?}");
+        history.push_snapshot("Convert this trip to Type 2", Snapshot { timetable: Some(before), ..Default::default() });
+        assert!(doc.timetable.removed.contains("chosen-way.ttr"));
+        save_to(&mut doc.timetable, &out, &doc.order).unwrap();
+        assert!(!out.join("TTData").join("chosen-way.ttr").is_file());
+        assert_eq!(Timetable::load(&out, &[]).trip("chosen").unwrap().stations, [1, 2]);
+
+        history.undo(&mut doc);
+        let restored = &doc.timetable;
+        assert!(is_type1(restored.trip("chosen").unwrap()), "undo brings the Type 1 records back");
+        assert!(restored.excludes_type2(restored.trip("chosen").unwrap()), "undo brings the exclusion back");
+        assert!(restored.changed.contains("chosen.ttp") && restored.changed.contains("chosen-way.ttr"));
+        assert!(!restored.removed.contains("chosen-way.ttr"));
+        save_to(&mut doc.timetable, &out, &doc.order).unwrap();
+        assert_eq!(read(&out, "chosen-way.ttr"), track_bytes, "undo writes the old track bytes back");
+        let back = Timetable::load(&out, &[]);
+        assert!(is_type1(back.trip("chosen").unwrap()));
+        assert!(back.excludes_type2(back.trip("chosen").unwrap()));
+
+        history.redo(&mut doc);
+        let redone = &doc.timetable;
+        assert!(!is_type1(redone.trip("chosen").unwrap()), "redo makes it Type 2 again");
+        assert!(!redone.excludes_type2(redone.trip("chosen").unwrap()));
+        assert!(redone.removed.contains("chosen-way.ttr") && !redone.changed.contains("chosen-way.ttr"));
+        save_to(&mut doc.timetable, &out, &doc.order).unwrap();
+        assert!(!out.join("TTData").join("chosen-way.ttr").is_file(), "redo removes the old track again");
+        let back = Timetable::load(&out, &[]);
+        show("After redo reload", &back, "chosen");
+        assert!(!is_type1(back.trip("chosen").unwrap()));
+        assert_eq!(steps_source(&back, "chosen").0, "links");
+        let _ = std::fs::remove_dir_all(out);
+    }
+}

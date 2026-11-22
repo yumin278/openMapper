@@ -3419,3 +3419,9 @@ Show start of original track	在地圖上顯示原始軌跡的起點
 {count} original paths are missing from the current map; no replacement route was calculated.	目前地圖缺少 {count} 段原始路徑；沒有重新尋路代替。
 Locate the tile; the missing path's exact position is unknown	定位所在圖塊（缺失路徑的精確位置未知）
 Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	只顯示已儲存的 TrackEntry 路徑，不重新尋路或修改班次。
+Convert this trip to Type 2	將這個班次轉成 Type 2
+Convert only this trip's records. No route is calculated and no station link is changed.	只轉換這個班次的記錄。不會計算路線，也不會變更站間連結。
+Convert the Type 1 trip {trip} to a Type 2 trip? Its legacy station records become stop IDs; no route is calculated and no station link is changed. Save the map to write the trip and remove its unused old track.	要將 Type 1 班次 {trip} 轉成 Type 2 班次嗎？它的舊站點記錄會變成站牌 ID；不會計算路線，也不會變更站間連結。請儲存地圖以寫入班次並移除不再使用的舊路徑。
+Converted {trip} to Type 2 ({count} stops). Save the map to write it.	已將班次 {trip} 轉成 Type 2（{count} 個站牌）。請儲存地圖以寫入。
+The old track {track}.ttr is still used by another trip, so it stays.	舊路徑 {track}.ttr 仍被另一個班次使用，因此會保留。
+Could not convert {trip}: {error}	無法轉換 {trip}：{error}

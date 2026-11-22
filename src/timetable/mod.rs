@@ -13,7 +13,7 @@ pub mod route;
 pub(crate) mod tracks;
 pub mod way;
 
-pub(crate) use convert::is_type1;
+pub(crate) use convert::{is_type1, Type2TripConversion};
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -232,7 +232,10 @@ impl Timetable {
 
     /// The trip's paths were picked by hand.
     pub fn by_hand(&self, trip: &str) -> bool {
+        // (the marker is the track's, not only the trip's: a trip whose saved reading is a
+        // different, nonmatching track must not inherit it after a format conversion)
         self.hand.contains(&key(trip))
+            && self.trip(trip).is_some_and(|t| tracks::referenced_name(t).eq_ignore_ascii_case(trip))
     }
 
     /// The trip's way as picked by hand (`track`, and the station links between its stops

@@ -3416,3 +3416,9 @@ Show start of original track	在地图上显示原始轨迹的起点
 {count} original paths are missing from the current map; no replacement route was calculated.	当前地图缺少 {count} 段原始路径；没有重新寻路替代。
 Locate the tile; the missing path's exact position is unknown	定位所在图块（缺失路径的精确位置未知）
 Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	仅显示已保存的 TrackEntry 路径，不重新寻路或修改班次。
+Convert this trip to Type 2	将这个班次转为 Type 2
+Convert only this trip's records. No route is calculated and no station link is changed.	只转换这个班次的记录。不会计算路线，也不会更改站间链接。
+Convert the Type 1 trip {trip} to a Type 2 trip? Its legacy station records become stop IDs; no route is calculated and no station link is changed. Save the map to write the trip and remove its unused old track.	要将 Type 1 班次 {trip} 转为 Type 2 班次吗？它的旧站点记录会变成公交站 ID；不会计算路线，也不会更改站间链接。请保存地图以写入班次并移除不再使用的旧路径。
+Converted {trip} to Type 2 ({count} stops). Save the map to write it.	已将班次 {trip} 转为 Type 2（{count} 个公交站）。请保存地图以写入。
+The old track {track}.ttr is still used by another trip, so it stays.	旧路径 {track}.ttr 仍被另一个班次使用，因此会保留。
+Could not convert {trip}: {error}	无法转换 {trip}：{error}

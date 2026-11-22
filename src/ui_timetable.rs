@@ -151,6 +151,10 @@ pub struct TimetableUi {
     /// The map the state belongs to.
     map: Option<std::path::PathBuf>,
     confirm_type2_conversion: bool,
+    /// The Type 1 trip a single conversion was asked for; the confirmation names it.
+    confirm_single_type2: Option<String>,
+    /// The label of the single conversion that happened this frame, for its Undo step.
+    type2_conversion_undo: Option<String>,
     want_line: Option<String>,
     /// The line's tours are shown (else its trips).
     tours_tab: bool,
@@ -182,6 +186,10 @@ pub struct TimetableUi {
 
 fn type2_conversion_label() -> &'static str {
     tr("Convert all Type 1 trips to Type 2", "Преобразовать все рейсы типа 1 в тип 2")
+}
+
+fn type2_single_conversion_label() -> &'static str {
+    tr("Convert this trip to Type 2", "Преобразовать этот рейс в тип 2")
 }
 
 fn lower(s: &str) -> String {
@@ -1399,6 +1407,7 @@ impl TimetableUi {
             self.way_edit = false;
             ed.pick_mode = false;
             self.confirm_type2_conversion = false;
+            self.confirm_single_type2 = None;
             self.confirm_recalculate = false;
             return;
         }
@@ -1438,6 +1447,7 @@ impl TimetableUi {
         self.open = open;
         if !open {
             self.confirm_type2_conversion = false;
+            self.confirm_single_type2 = None;
             self.confirm_recalculate = false;
             self.picking = false;
             self.clear_stop_edits();
@@ -1448,9 +1458,11 @@ impl TimetableUi {
             ed.set_tool(Tool::Select);
         }
         let doc = ed.doc.as_ref().unwrap();
-        if doc.timetable.type2_converted.len() > before.type2_converted.len() {
+        let single_undo = self.type2_conversion_undo.take();
+        if single_undo.is_some() || doc.timetable.type2_converted.len() > before.type2_converted.len() {
             let traffic = (traffic_before != doc.traffic).then_some(traffic_before);
-            ed.history.push_snapshot(type2_conversion_label(), crate::history::Snapshot { timetable: Some(before), traffic, ..Default::default() });
+            let label = single_undo.as_deref().unwrap_or_else(type2_conversion_label);
+            ed.history.push_snapshot(label, crate::history::Snapshot { timetable: Some(before), traffic, ..Default::default() });
             self.update_shown(ed);
             return;
         }
@@ -1743,6 +1755,7 @@ impl TimetableUi {
         self.picking = false;
         self.way_edit = false;
         self.profile = 0;
+        self.confirm_single_type2 = None;
         self.clear_stop_edits();
     }
 
@@ -2344,8 +2357,75 @@ impl TimetableUi {
         if timetable::is_type1(&t) {
             self.clear_stop_edits();
             let mut excluded = tt.excludes_type2(&t);
-            if ui.checkbox(&mut excluded, tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2")).changed() {
-                tt.set_type2_exclusion(&t, excluded);
+            ui.horizontal_wrapped(|ui| {
+                if ui.checkbox(&mut excluded, tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2")).changed() {
+                    tt.set_type2_exclusion(&t, excluded);
+                }
+                if ui.button(icons::labelled(Icon::Route, type2_single_conversion_label()))
+                    .on_hover_text(tr("Convert only this trip's records. No route is calculated and no station link is changed.", "Преобразовать записи только этого рейса. Маршрут не рассчитывается, общие участки не изменяются."))
+                    .clicked()
+                {
+                    self.confirm_single_type2 = Some(t.name.clone());
+                }
+            });
+            let mut converted = false;
+            if let Some(captured) = self.confirm_single_type2.clone() {
+                if !captured.eq_ignore_ascii_case(&t.name) {
+                    self.confirm_single_type2 = None;
+                } else {
+                    let modal = egui::Modal::new(egui::Id::new("timetable single type 2 conversion")).show(ui.ctx(), |ui| {
+                        ui.set_max_width(440.0);
+                        let text = tr(
+                            "Convert the Type 1 trip {trip} to a Type 2 trip? Its legacy station records become stop IDs; no route is calculated and no station link is changed. Save the map to write the trip and remove its unused old track.",
+                            "Преобразовать рейс типа 1 {trip} в рейс типа 2? Старые записи остановок станут ID остановок; маршрут не рассчитывается, общие участки не изменяются. Сохраните карту, чтобы записать рейс и удалить его неиспользуемый старый путь."
+                        ).replace("{trip}", &captured);
+                        ui.label(text);
+                        ui.horizontal(|ui| {
+                            if ui.button(tr("Cancel", "Отмена")).clicked() {
+                                ui.close();
+                            }
+                            ui.button(type2_single_conversion_label()).clicked()
+                        }).inner
+                    });
+                    if modal.inner {
+                        self.confirm_single_type2 = None;
+                        match tt.convert_trip_to_type2(&captured) {
+                            Ok(out) => {
+                                log::info!("timetable: single Type 2 conversion of {:?} finished in the window: {out:?}", out.trip);
+                                let key = lower(&captured);
+                                self.problems.remove(&key);
+                                self.shared_conflicts.remove(&key);
+                                self.stop_edits.remove(&key);
+                                self.reverted_edits.remove(&key);
+                                self.routed.remove(&key);
+                                self.bulk_blocked.remove(&key);
+                                self.shown = None;
+                                self.type2_conversion_undo = Some(format!("{}: {}", type2_single_conversion_label(), out.trip));
+                                let mut text = tr("Converted {trip} to Type 2 ({count} stops). Save the map to write it.", "Рейс {trip} преобразован в тип 2 ({count} остановок). Сохраните карту, чтобы записать его.")
+                                    .replace("{trip}", &captured)
+                                    .replace("{count}", &out.stops.to_string());
+                                if let Some(track) = &out.kept_shared_track {
+                                    text.push(' ');
+                                    text.push_str(&tr("The old track {track}.ttr is still used by another trip, so it stays.", "Старый путь {track}.ttr всё ещё используется другим рейсом и остаётся.").replace("{track}", track));
+                                }
+                                toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: false });
+                                converted = true;
+                            }
+                            Err(error) => {
+                                log::warn!("timetable: single Type 2 conversion of {captured:?} failed: {error}");
+                                let text = tr("Could not convert {trip}: {error}", "Не удалось преобразовать {trip}: {error}")
+                                    .replace("{trip}", &captured)
+                                    .replace("{error}", &error);
+                                toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: true });
+                            }
+                        }
+                    } else if modal.should_close() {
+                        self.confirm_single_type2 = None;
+                    }
+                }
+            }
+            if converted {
+                return;
             }
             let (track_name, track) = timetable::tracks::source(tt, &t.name);
             ui.add_space(4.0);
@@ -3390,6 +3470,79 @@ mod station_edit_tests {
         println!("After undo:\n{}", timetable::trip_text(restored));
         assert!(timetable::is_type1(restored));
         assert!(restored.stations.is_empty() && !ed.pick_mode);
+    }
+
+    /// The selected Type 1 trip has its own button beside the exclusion checkbox and the
+    /// read-only preview; the confirmation names that trip and only it is converted.
+    #[test]
+    fn the_single_type2_button_names_the_trip_and_changes_only_it() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        {
+            let tt = &mut ed.doc.as_mut().unwrap().timetable;
+            let current = tt.trip_mut("current").unwrap();
+            current.display_name = "current-track".into();
+            current.stations.clear();
+            current.stations_legacy = vec![vec!["10".into(), "0".into()], vec!["11".into(), "0".into()]];
+            tt.tracks.push(omsi_timetable::Track {
+                path: "current-track.ttr".into(),
+                entries: vec![omsi_timetable::TrackEntry { values: vec![10.0, 0.0, 0.0, 0.0, 5.0, 0.0] }],
+            });
+        }
+        let other_before = ed.doc.as_ref().unwrap().timetable.trip("other").unwrap().clone();
+        ui.select_trip(Some("current".into()));
+        let text_center = |output: &egui::FullOutput, label: &str| {
+            output.shapes.iter().rev().find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.text().contains(label) => Some(text.pos + text.galley.size() * 0.5),
+                _ => None,
+            })
+        };
+        let texts = |output: &egui::FullOutput| -> Vec<String> {
+            output.shapes.iter().filter_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) => Some(text.galley.text().to_string()),
+                _ => None,
+            }).collect()
+        };
+        let click = |ui: &mut TimetableUi, ed: &mut Editor, pos| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default(),
+            };
+            frame(&ctx, ui, ed, vec![egui::Event::PointerMoved(pos), button(true)]);
+            frame(&ctx, ui, ed, vec![button(false)])
+        };
+
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let label = type2_single_conversion_label();
+        let button = text_center(&output, label).expect("the single conversion button is shown");
+        let preview = tr("Original Type 1 track (read-only)", "Исходный путь типа 1 (только просмотр)");
+        assert!(text_center(&output, tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2")).is_some(), "the exclusion checkbox stays beside it");
+        assert!(text_center(&output, preview).is_some(), "the read-only preview stays beside it");
+        click(&mut ui, &mut ed, button);
+        assert_eq!(ui.confirm_single_type2.as_deref(), Some("current"));
+
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        assert!(texts(&output).iter().any(|t| t.contains("current") && t.contains("Type 2")), "the confirmation names the captured trip");
+        let modal_button = text_center(&output, label).expect("the modal's confirm button");
+        assert_ne!(modal_button, button);
+        click(&mut ui, &mut ed, modal_button);
+        assert!(ui.confirm_single_type2.is_none());
+        let tt = &ed.doc.as_ref().unwrap().timetable;
+        let current = tt.trip("current").unwrap();
+        assert!(!timetable::is_type1(current));
+        assert_eq!(current.stations, [10, 11]);
+        assert_eq!(tt.trip("other").unwrap(), &other_before, "no other trip changes");
+        assert!(ed.toasts.last().unwrap().text.contains("current"), "the window reports the converted trip");
+
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        assert!(text_center(&output, label).is_none(), "a Type 2 trip has no single conversion button");
+        assert!(text_center(&output, preview).is_none(), "the Type 1 preview is gone");
+        assert!(texts(&output).iter().any(|t| t.contains(tr("Drives on", "Ездит по"))), "the Type 2 trip details are shown");
+        ed.undo();
+        let current = ed.doc.as_ref().unwrap().timetable.trip("current").unwrap();
+        assert!(timetable::is_type1(current), "the conversion is one Undo step");
+        assert_eq!(current.display_name, "current-track");
+        assert_eq!(current.stations_legacy.len(), 2);
     }
 
     /// Without a road network the replacement cannot be checked, so it is refused and the
