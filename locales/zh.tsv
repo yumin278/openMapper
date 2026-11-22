@@ -3406,3 +3406,5 @@ its old track is still used by another trip	其旧轨道仍被另一个班次使
 The stop change of {trip} was not applied: its old track is still used by another trip, so it was not repaired. The stops and the way of the trip are as they were.	班次 {trip} 的站点变更没有应用：其旧轨道仍被另一个班次使用，因此没有修复。这个班次的站点与路线维持原状。
 The overwrite was not written: the trip's old track is still used by another trip, so it was not repaired. The saved data is unchanged.	覆写没有写入：这个班次的旧轨道仍被另一个班次使用，因此没有修复。已保存的数据保持不变。
 The trip's old track is still used by another trip: it was not repaired, so this trip's way is still read from that track. The saved data is unchanged.	这个班次的旧轨道仍被另一个班次使用：因此没有修复，这个班次的路线仍然读取该轨道。已保存的数据保持不变。
+Split in half	对半拆分
+Split only this spline into two equal-length pieces, not the whole connected road	只将当前这条曲线对半拆分，不拆分整条相连道路

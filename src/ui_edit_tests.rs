@@ -275,3 +275,70 @@ fn an_object_only_the_installation_has_is_named_by_the_installation() {
     assert!(asset.rel.eq_ignore_ascii_case(rel), "its path is relative to the installation: {}", asset.rel);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+
+/// The Windows branch workflow runs tests matching "junction"; the selected piece here is
+/// linked to the next road piece on its way to a junction. Only that selected piece is split.
+#[test]
+fn junction_connected_single_spline_split_in_half_keeps_the_following_piece() {
+    use crate::doc::tile_origin;
+    use crate::selection::tests::{add_spline, flat_map};
+
+    let k = (0, 0);
+    let mut doc = flat_map(1);
+    add_spline(&mut doc, k, 1, 50.0, 100.0, 90.0, 40.0, 0, 2);
+    add_spline(&mut doc, k, 2, 90.0, 100.0, 90.0, 15.0, 1, 0);
+    {
+        let s = &mut doc.tiles.get_mut(&k).unwrap().tile.splines[0];
+        s.grad_start = 1.0;
+        s.grad_end = 3.0;
+        s.cant_start = 0.1;
+        s.cant_end = 0.3;
+        s.tex_offset = 7.5;
+        s.rules.push(omsi_map::MapRule {
+            path_index: 0, kind: "speedlimit".into(), value: 30.0, extra: 0.0, kill: false,
+        });
+    }
+    let before = doc.spline(k, 1).unwrap().clone();
+    let next_before = doc.spline(k, 2).unwrap().clone();
+    let curve_before = omsi_geometry::SplineCurve::from_map(&before, tile_origin(k));
+    let midpoint_before = curve_before.point_at(before.length / 2.0);
+    let endpoint_before = curve_before.end_point();
+    println!("INPUT selected spline before split:\n{before:#?}\nINPUT following spline before split:\n{next_before:#?}\nINPUT midpoint: {midpoint_before:?}, endpoint: {endpoint_before:?}");
+
+    let mut ed = Editor::default();
+    ed.open(doc);
+    ed.set_selection(vec![Sel::Spline(k, 1)]);
+    split_selected_spline_in_half(&mut ed);
+
+    let doc = ed.doc.as_ref().unwrap();
+    let first = doc.spline(k, 1).unwrap().clone();
+    let second = doc.find_spline(first.next_id).map(|(_, s)| s.clone()).unwrap();
+    let following = doc.spline(k, 2).unwrap().clone();
+    let second_curve = omsi_geometry::SplineCurve::from_map(&second, tile_origin(k));
+    println!("OUTPUT first half:\n{first:#?}\nOUTPUT second half:\n{second:#?}\nOUTPUT following spline:\n{following:#?}\nOUTPUT selected IDs: {:?}", ed.selection());
+    println!("OUTPUT midpoint: {:?}, endpoint: {:?}", second_curve.point_at(0.0), second_curve.end_point());
+
+    assert_eq!(first.length, 20.0);
+    assert_eq!(second.length, 20.0);
+    assert_eq!(first.id, 1, "first half retains original ID");
+    assert_ne!(second.id, first.id, "second half gets a new ID");
+    assert_eq!(second.prev_id, first.id);
+    assert_eq!(second.next_id, 2);
+    assert_eq!(following.prev_id, second.id, "following piece relinked to second half");
+    assert_eq!(following.length, next_before.length, "following piece is not itself split");
+    assert!((second_curve.point_at(0.0) - midpoint_before).length() < 1e-6);
+    assert!((second_curve.end_point() - endpoint_before).length() < 1e-6);
+    assert!((second.tex_offset - (before.tex_offset + 20.0)).abs() < 1e-6, "texture remains continuous");
+    assert_eq!(first.rules.len(), before.rules.len());
+    assert_eq!(second.rules.len(), before.rules.len());
+    assert_eq!(ed.selection(), vec![Sel::Spline(k, first.id), Sel::Spline(k, second.id)]);
+
+    ed.undo();
+    let restored = ed.doc.as_ref().unwrap().spline(k, 1).unwrap();
+    let next_restored = ed.doc.as_ref().unwrap().spline(k, 2).unwrap();
+    println!("UNDO restored selected spline:\n{restored:#?}\nUNDO restored following spline:\n{next_restored:#?}");
+    assert_eq!(restored.length, before.length);
+    assert_eq!(restored.next_id, next_before.id);
+    assert_eq!(next_restored.prev_id, before.id);
+}
