@@ -188,6 +188,18 @@ fn lower(s: &str) -> String {
     s.to_lowercase()
 }
 
+/// Resolve the *saved* Type 1 track exactly as openOMSI would: an explicit
+/// display_name does not fall back to the trip name when its file is absent.
+/// Keep unmapped entries as None so the preview never silently joins across a
+/// deleted road or substitutes a newly found route.
+fn type1_track_lanes(
+    tt: &Timetable, trip: &Trip, net: &Network, order: &[TileKey],
+) -> (String, Option<Vec<Option<usize>>>) {
+    let (track_name, track) = timetable::tracks::source(tt, &trip.name);
+    let mapped = track.map(|t| timetable::way::lanes_of_track(net, &t.entries, order));
+    (track_name, mapped)
+}
+
 /// A newly calculated trip track and the station links between its stops.
 type PlannedRoute = (String, Vec<omsi_timetable::TrackEntry>, Vec<omsi_timetable::StnLink>);
 
@@ -1298,15 +1310,52 @@ impl TimetableUi {
         let (Some(doc), Some(net)) = (&ed.doc, &self.net) else { return };
         let w = (cam.distance * 0.004).clamp(0.08, 6.0) as f32;
         if let Some((name, stations, _, r)) = &self.shown {
-            let pts = r.polyline(net);
             let lift = DVec3::Z * 0.45;
-            for s in pts.windows(2) {
-                crate::editor::line(&mut x.overlay, cam, s[0] + lift, s[1] + lift, w * 1.2, ROUTE);
-            }
-            // where the way breaks
-            for (k, _) in crate::timetable::way::gaps(net, &r.lanes) {
-                let end = *net.lanes[r.lanes[k]].pts.last().unwrap();
-                crate::editor::disc(&mut x.overlay, cam, end + DVec3::Z * 0.5, w * 7.0, [1.0, 0.25, 0.2, 0.95]);
+            if let Some(trip) = doc.timetable.trip(name).filter(|t| timetable::is_type1(t)) {
+                // Draw each original path individually: a missing TrackEntry must
+                // *not* be connected by a made-up straight line or a new search.
+                let (_, mapped) = type1_track_lanes(&doc.timetable, trip, net, &doc.order);
+                let mut previous: Option<usize> = None;
+                let mut after_missing = false;
+                for lane in mapped.into_iter().flatten() {
+                    match lane {
+                        Some(i) => {
+                            let pts = &net.lanes[i].pts;
+                            for pair in pts.windows(2) {
+                                crate::editor::line(&mut x.overlay, cam, pair[0] + lift, pair[1] + lift, w * 1.2, ROUTE);
+                            }
+                            if after_missing {
+                                crate::editor::disc(&mut x.overlay, cam, pts[0] + lift, w * 7.0, [1.0, 0.25, 0.2, 0.95]);
+                            }
+                            if let Some(p) = previous {
+                                if crate::timetable::way::gap(net, p, i) > 0.0 {
+                                    let end = *net.lanes[p].pts.last().unwrap();
+                                    crate::editor::disc(&mut x.overlay, cam, end + lift, w * 7.0, [1.0, 0.25, 0.2, 0.95]);
+                                    crate::editor::disc(&mut x.overlay, cam, pts[0] + lift, w * 7.0, [1.0, 0.25, 0.2, 0.95]);
+                                }
+                            }
+                            previous = Some(i);
+                            after_missing = false;
+                        }
+                        None => {
+                            if let Some(p) = previous {
+                                let end = *net.lanes[p].pts.last().unwrap();
+                                crate::editor::disc(&mut x.overlay, cam, end + lift, w * 7.0, [1.0, 0.25, 0.2, 0.95]);
+                            }
+                            previous = None;
+                            after_missing = true;
+                        }
+                    }
+                }
+            } else {
+                let pts = r.polyline(net);
+                for pair in pts.windows(2) {
+                    crate::editor::line(&mut x.overlay, cam, pair[0] + lift, pair[1] + lift, w * 1.2, ROUTE);
+                }
+                for (k, _) in crate::timetable::way::gaps(net, &r.lanes) {
+                    let end = *net.lanes[r.lanes[k]].pts.last().unwrap();
+                    crate::editor::disc(&mut x.overlay, cam, end + DVec3::Z * 0.5, w * 7.0, [1.0, 0.25, 0.2, 0.95]);
+                }
             }
             let n = stations.len();
             for (i, id) in stations.iter().enumerate() {
@@ -1490,6 +1539,21 @@ impl TimetableUi {
             self.shown = None;
             return;
         };
+        if timetable::is_type1(trip) {
+            let (_, mapped) = type1_track_lanes(&doc.timetable, trip, net, &doc.order);
+            self.shown = mapped.map(|mapped| {
+                let ids: Vec<i64> = trip.stations_legacy.iter()
+                    .filter_map(|row| row.first().and_then(|v| v.trim().parse::<i64>().ok()))
+                    .collect();
+                let pos: Vec<Option<DVec3>> = ids.iter()
+                    .map(|id| self.stops.iter().find(|s| s.id == *id).map(|s| s.pos))
+                    .collect();
+                let lanes: Vec<usize> = mapped.into_iter().flatten().collect();
+                let route = crate::timetable::way::along(net, &lanes, &pos, doc.global.left_hand_traffic);
+                (trip.name.clone(), ids, self.net_key, route)
+            });
+            return;
+        }
         if let Some((n, s, k, _)) = &self.shown {
             if n == &trip.name && s == &trip.stations && *k == self.net_key && !doc.timetable.by_hand(&trip.name) {
                 return;
@@ -2283,7 +2347,80 @@ impl TimetableUi {
             if ui.checkbox(&mut excluded, tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2")).changed() {
                 tt.set_type2_exclusion(&t, excluded);
             }
-            ui.label(RichText::new(tr("This trip runs on a track of its own (a train): its stops are kept as they are.", "Этот рейс идёт по своему пути (поезд): его остановки остаются как есть.")).color(pal().text_dim));
+            let (track_name, track) = timetable::tracks::source(tt, &t.name);
+            ui.add_space(4.0);
+            ui.label(RichText::new(format!("{}: {}.ttr", tr("Original Type 1 track (read-only)", "Исходный путь типа 1 (только просмотр)"), track_name)).color(pal().accent));
+            match (track, self.net.as_ref()) {
+                (None, _) => {
+                    let message = tr("Track not found: {name}.ttr", "Путь не найден: {name}.ttr")
+                        .replace("{name}", &track_name);
+                    ui.label(coloured(icons::labelled(Icon::Warning, &message), pal().warn));
+                }
+                (Some(_), None) => {
+                    ui.label(RichText::new(tr("Map AI paths are not loaded yet", "Пути ИИ на карте ещё не загружены")).color(pal().text_dim));
+                }
+                (Some(track), Some(net)) => {
+                    let (_, Some(mapped)) = type1_track_lanes(tt, &t, net, &doc.order) else { unreachable!() };
+                    let valid = mapped.iter().flatten().count();
+                    let total = track.entries.len();
+                    let status = tr("Mapped {mapped} of {total} original track entries", "Найдено {mapped} из {total} исходных участков пути")
+                        .replace("{mapped}", &valid.to_string()).replace("{total}", &total.to_string());
+                    ui.label(status);
+                    if let Some(&first) = mapped.iter().flatten().next() {
+                        if ui.button(icons::labelled(Icon::Focus, tr("Show start of original track", "Показать начало исходного пути"))).clicked() {
+                            actions.push(Action::LookAt(net.lanes[first].pts[0].truncate()));
+                        }
+                    }
+                    let missing = total - valid;
+                    if missing > 0 {
+                        let warning = tr("{count} original paths are missing from the current map; no replacement route was calculated.", "{count} исходных участков отсутствуют на карте; новый маршрут не рассчитывался.")
+                            .replace("{count}", &missing.to_string());
+                        ui.label(coloured(icons::labelled(Icon::Warning, &warning), pal().warn));
+                    }
+                    egui::CollapsingHeader::new(icons::labelled(Icon::Route, &format!("{} ({total})", tr("Paths of the way", "Пути маршрута"))))
+                        .id_salt(("type1 track entries", lower(&t.name)))
+                        .default_open(missing > 0)
+                        .show(ui, |ui| {
+                            egui::ScrollArea::vertical().max_height(270.0).show(ui, |ui| {
+                                for (i, (entry, lane)) in track.entries.iter().zip(&mapped).enumerate() {
+                                    ui.horizontal_wrapped(|ui| {
+                                        let (id, path, tile) = match entry.values.as_slice() {
+                                            [id, path, tile, ..] => (*id as i64, *path as i64, *tile as i64),
+                                            _ => (-1, -1, -1),
+                                        };
+                                        let label = format!("{:>3}. ID {id}, path {path}, tile {tile} · {:?}", i + 1, entry.values);
+                                        ui.label(RichText::new(label).monospace().color(if lane.is_some() { pal().text } else { pal().warn }));
+                                        if let Some(l) = lane {
+                                            let path = &net.lanes[*l];
+                                            if small_button(ui, Icon::Focus, tr("Show on the map", "Показать на карте")) {
+                                                actions.push(Action::LookAt(path.point_at(path.length() * 0.5).truncate()));
+                                            }
+                                        } else if tile >= 0 && doc.order.get(tile as usize).is_some() {
+                                            let origin = crate::doc::tile_origin(doc.order[tile as usize]);
+                                            if small_button(ui, Icon::Focus, tr("Locate the tile; the missing path's exact position is unknown", "Показать плитку; точное место отсутствующего пути неизвестно")) {
+                                                actions.push(Action::LookAt(origin + glam::DVec2::splat(crate::doc::tile_size() * 0.5)));
+                                            }
+                                        }
+                                    });
+                                    if i > 0 {
+                                        if let (Some(a), Some(b)) = (mapped[i - 1], *lane) {
+                                            let gap = crate::timetable::way::gap(net, a, b);
+                                            if gap > 0.0 {
+                                                ui.horizontal(|ui| {
+                                                    ui.label(coloured(icons::labelled(Icon::Warning, &format!("{} {} ({gap:.1} m)", tr("The way breaks after path", "Путь обрывается после участка"), i)), pal().warn));
+                                                    if small_button(ui, Icon::Focus, tr("Show on the map", "Показать на карте")) {
+                                                        actions.push(Action::LookAt(net.lanes[a].pts.last().unwrap().truncate()));
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        });
+                }
+            }
+            ui.label(RichText::new(tr("Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.", "Показаны только сохранённые TrackEntry; маршрут не пересчитывается и не изменяется.")).small().color(pal().text_dim));
             return;
         }
         let _ = line;
@@ -4158,5 +4295,142 @@ mod batch_route_tests {
         assert_eq!(doc.timetable.tracks, tracks, "no track is removed");
         assert_eq!((doc.timetable.trip_file_state("a"), doc.timetable.trip_file_state("b")), files, "the .ttp queues are unchanged");
         assert!(ui.stop_edits.is_empty());
+    }
+}
+
+
+#[cfg(test)]
+mod type1_track_preview_tests {
+    use super::*;
+    use crate::timetable::network::{Lane, PathKey};
+    use omsi_timetable::{Track, TrackEntry};
+
+    /// The saved Type 1 track is looked up by its explicit display_name, not by
+    /// trip name, and lost paths stay as missing entries instead of being routed.
+    #[test]
+    fn legacy_track_preview_resolves_exact_source_and_keeps_missing_entries() {
+        let trip = Trip {
+            path: "line.ttp".into(),
+            name: "trip-A".into(),
+            display_name: "original-way".into(),
+            terminus: String::new(),
+            line: String::new(),
+            train_reverse: false,
+            stations: Vec::new(),
+            stations_legacy: vec![vec!["10".into(), "0".into()]],
+            profiles: Vec::new(),
+        };
+        let entry = |id: i64| TrackEntry { values: vec![id as f64, 0.0, 0.0, 0.0, 10.0, 0.0] };
+        let mut tt = Timetable::default();
+        tt.trips.push(trip.clone());
+        tt.tracks.extend([
+            Track { path: "original-way.ttr".into(), entries: vec![entry(10), entry(999), entry(20)] },
+            Track { path: "trip-A.ttr".into(), entries: vec![entry(30)] },
+        ]);
+        let key = |id| PathKey { tile: (0, 0), id, path: 0 };
+        let lane = |id, x: f64| Lane {
+            key: key(id),
+            pts: vec![DVec3::new(x, 0.0, 0.0), DVec3::new(x + 10.0, 0.0, 0.0)],
+            along: vec![0.0, 10.0],
+            file_length: 10.0,
+            internal: 0,
+            next: Vec::new(),
+            side: Vec::new(),
+            against: false,
+            spline: true,
+            rail: false,
+        };
+        let net = Network {
+            lanes: vec![lane(10, 0.0), lane(20, 20.0), lane(30, 30.0)],
+            by_key: HashMap::from([(key(10), vec![0]), (key(20), vec![1]), (key(30), vec![2])]),
+            ..Default::default()
+        };
+        let order = [(0, 0)];
+        let before = tt.clone();
+        let (name, paths) = type1_track_lanes(&tt, &trip, &net, &order);
+        assert_eq!(name, "original-way");
+        assert_eq!(paths.unwrap(), vec![Some(0), None, Some(1)]);
+        assert!(tt.same_content(&before), "preview must not modify timetable data");
+
+        // source() resolves the Trip retained by Timetable, rather than an
+        // unrelated cloned Trip value: change that retained record for each case.
+        tt.trip_mut("trip-A").unwrap().display_name = "no-such-track".into();
+        let missing = tt.trip("trip-A").unwrap().clone();
+        let unchanged = tt.clone();
+        let (name, paths) = type1_track_lanes(&tt, &missing, &net, &order);
+        assert_eq!(name, "no-such-track");
+        assert!(paths.is_none(), "an explicit missing name must not fall back to trip-A.ttr");
+        assert!(tt.same_content(&unchanged), "a failed lookup must not modify timetable data");
+
+        tt.trip_mut("trip-A").unwrap().display_name.clear();
+        let fallback = tt.trip("trip-A").unwrap().clone();
+        let unchanged = tt.clone();
+        let (name, paths) = type1_track_lanes(&tt, &fallback, &net, &order);
+        assert_eq!(name, "trip-A");
+        assert_eq!(paths.unwrap(), vec![Some(2)]);
+        assert!(tt.same_content(&unchanged), "reading a fallback track must be read-only");
+        tt.trip_mut("trip-A").unwrap().display_name = trip.display_name;
+        assert!(tt.same_content(&before));
+    }
+
+    /// Selecting a Type 1 trip must actually populate the same shown route used
+    /// by the map overlay, without editing the trip or invoking automatic search.
+    #[test]
+    fn selecting_type1_trip_shows_the_saved_way_without_writing_anything() {
+        let _map = crate::doc::one_map();
+        let root = std::env::temp_dir().join("openmapper-type1-readonly-preview");
+        let roots = Roots { omsi: root.join("omsi"), content: root.join("content") };
+        let mut doc = Document::new_map(&roots, "readonly-preview", "readonly-preview", 1);
+        let tile = doc.order[0];
+        let stop_id = 123;
+        doc.timetable.trips.push(Trip {
+            path: "legacy.ttp".into(),
+            name: "legacy".into(),
+            display_name: "separate-track".into(),
+            terminus: String::new(),
+            line: String::new(),
+            train_reverse: false,
+            stations: Vec::new(),
+            stations_legacy: vec![vec![stop_id.to_string(), "0".into()]],
+            profiles: Vec::new(),
+        });
+        doc.timetable.tracks.push(Track {
+            path: "separate-track.ttr".into(),
+            entries: vec![TrackEntry { values: vec![42.0, 0.0, 0.0, 0.0, 30.0, 0.0] }],
+        });
+        let before = doc.timetable.clone();
+        let key = PathKey { tile, id: 42, path: 0 };
+        let lane = Lane {
+            key,
+            pts: vec![DVec3::ZERO, DVec3::X * 30.0],
+            along: vec![0.0, 30.0],
+            file_length: 30.0,
+            internal: 0,
+            next: Vec::new(),
+            side: Vec::new(),
+            against: false,
+            spline: true,
+            rail: false,
+        };
+        let mut ed = Editor::default();
+        ed.doc = Some(doc);
+        let mut ui = TimetableUi::new();
+        ui.net = Some(Network {
+            lanes: vec![lane],
+            by_key: HashMap::from([(key, vec![0])]),
+            ..Default::default()
+        });
+        ui.stops.push(MapStop {
+            tile, id: stop_id, name: "Legacy stop".into(),
+            pos: DVec3::X * 5.0, kind: crate::stops::StopKind::Regular,
+        });
+        ui.trip = Some("legacy".into());
+        ui.update_shown(&ed);
+        let shown = ui.shown.as_ref().expect("selected Type 1 track is visible in the overlay");
+        assert_eq!(shown.0, "legacy");
+        assert_eq!(shown.1, vec![stop_id]);
+        assert_eq!(shown.3.lanes, vec![0]);
+        assert!(shown.3.by_hand, "track geometry is displayed as saved, not automatically found");
+        assert!(ed.doc.as_ref().unwrap().timetable.same_content(&before));
     }
 }
