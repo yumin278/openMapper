@@ -4352,17 +4352,24 @@ mod type1_track_preview_tests {
         assert_eq!(paths.unwrap(), vec![Some(0), None, Some(1)]);
         assert!(tt.same_content(&before), "preview must not modify timetable data");
 
-        let mut missing = trip.clone();
-        missing.display_name = "no-such-track".into();
+        // source() resolves the Trip retained by Timetable, rather than an
+        // unrelated cloned Trip value: change that retained record for each case.
+        tt.trip_mut("trip-A").unwrap().display_name = "no-such-track".into();
+        let missing = tt.trip("trip-A").unwrap().clone();
+        let unchanged = tt.clone();
         let (name, paths) = type1_track_lanes(&tt, &missing, &net, &order);
         assert_eq!(name, "no-such-track");
         assert!(paths.is_none(), "an explicit missing name must not fall back to trip-A.ttr");
+        assert!(tt.same_content(&unchanged), "a failed lookup must not modify timetable data");
 
-        let mut fallback = trip;
-        fallback.display_name.clear();
+        tt.trip_mut("trip-A").unwrap().display_name.clear();
+        let fallback = tt.trip("trip-A").unwrap().clone();
+        let unchanged = tt.clone();
         let (name, paths) = type1_track_lanes(&tt, &fallback, &net, &order);
         assert_eq!(name, "trip-A");
         assert_eq!(paths.unwrap(), vec![Some(2)]);
-        assert!(tt.same_content(&before), "reading a fallback track must also be read-only");
+        assert!(tt.same_content(&unchanged), "reading a fallback track must be read-only");
+        tt.trip_mut("trip-A").unwrap().display_name = trip.display_name;
+        assert!(tt.same_content(&before));
     }
 }
