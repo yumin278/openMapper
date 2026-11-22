@@ -386,6 +386,8 @@ mod tests {
             content: dir.clone(),
         };
         std::fs::write(dir.join("asphalt.bmp"), []).unwrap();
+        // The maker needs its default asphalt only when the user explicitly saves a new SLI.
+        std::fs::write(dir.join("str_asphdrk.bmp"), []).unwrap();
         for (name, lo, hi, x, y, w, v, left, right) in [
             ("Symmetric", -3.0, 3.0, -1.5, 1.5, 3.0, 3.0, 0.0, 0.0),
             ("Asymmetric", -4.0, 3.0, -2.0, 1.5, 4.0, 3.0, 0.0, 0.0),
