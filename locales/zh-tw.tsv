@@ -3390,3 +3390,5 @@ The road surface has a gap without cross-section data	路面有缺口，且缺�
 The central divider cannot be represented by an existing strip	中央分隔帶無法用現有積木表示
 The default roadway texture str_asphdrk.bmp was not found; choose a roadway texture from the list	找不到預設行車道貼圖 str_asphdrk.bmp；請從清單中選擇行車道貼圖
 The imported height profile is not usable	匯入的高度剖面無法使用
+Split in half	對半拆分
+Split only this spline into two equal-length pieces, not the whole connected road	只將目前這條曲線對半拆分，不拆分整條相連道路
