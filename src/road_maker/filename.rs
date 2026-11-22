@@ -24,8 +24,13 @@ impl MakerTarget {
     }
 
     fn owns(&self, path: &Path) -> bool {
+        if !std::fs::read(path.with_extension("road.json")).is_ok_and(|bytes| bytes == self.metadata) {
+            return false;
+        }
+        // An imported draft has metadata, but no SLI until the user saves it.
+        if !path.exists() { return self.source == path; }
         let (Ok(source), Ok(path)) = (self.source.canonicalize(), path.canonicalize()) else { return false };
-        source == path && std::fs::read(path.with_extension("road.json")).is_ok_and(|bytes| bytes == self.metadata)
+        source == path
     }
 }
 
@@ -49,7 +54,9 @@ impl RoadSpec {
     pub(super) fn check_maker_target(&self, content: &Path, edit: Option<&MakerTarget>) -> anyhow::Result<()> {
         let rel = self.maker_filename(edit);
         let path = own_path(content, &rel);
-        if path.try_exists()? && !edit.is_some_and(|target| target.owns(&path)) {
+        if (path.try_exists()? || path.with_extension("road.json").try_exists()?)
+            && !edit.is_some_and(|target| target.owns(&path))
+        {
             return Err(conflict(&rel));
         }
 
@@ -72,6 +79,41 @@ mod tests {
         let tex = root.join("asphalt.png");
         image::RgbaImage::from_pixel(4, 4, image::Rgba([80, 80, 80, 255])).save(&tex).unwrap();
         (root, RoadSpec { roadway_tex: tex, pocket: 3.0, marked: true, ..Default::default() })
+    }
+
+    #[test]
+    fn json_only_import_can_be_saved_once_without_clobbering_other_drafts() {
+        let (root, template) = fixture("json-only");
+        let mut draft = RoadSpec {
+            name: "Imported".into(),
+            imported_sli: true,
+            advanced: true,
+            pocket: 0.0,
+            marked: false,
+            hand: None,
+            roadway_tex: template.roadway_tex,
+            ..Default::default()
+        };
+        draft.rebuild_strips(false);
+        let rel = draft.maker_filename(None);
+        let sli = own_path(&root, &rel);
+        std::fs::create_dir_all(sli.parent().unwrap()).unwrap();
+        let json = sli.with_extension("road.json");
+        let original = serde_json::to_vec_pretty(&draft).unwrap();
+        std::fs::write(&json, &original).unwrap();
+
+        assert!(!sli.exists(), "import must save JSON only");
+        assert!(draft.write_in_maker(&root, false, None).is_err(), "another save must not overwrite this JSON draft");
+        assert_eq!(std::fs::read(&json).unwrap(), original);
+
+        let target = MakerTarget::open(rel.clone(), sli.clone()).unwrap();
+        assert_eq!(draft.write_in_maker(&root, false, Some(&target)).unwrap(), rel);
+        assert!(sli.is_file(), "the SLI appears only on explicit maker save");
+        assert!(json.is_file());
+        println!("Before maker save: {}\\n{}\\nAfter maker save: {}\\n{}", rel,
+            String::from_utf8_lossy(&original), sli.display(),
+            String::from_utf8_lossy(&std::fs::read(&json).unwrap()));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

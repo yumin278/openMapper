@@ -41,6 +41,29 @@ fn file_name(p: &Path) -> String {
     p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default()
 }
 
+/// Imported JSON-only road designs are selectable before the maker creates an SLI.
+fn imported_drafts(content: &Path, map_left_hand: bool) -> Vec<(String, RoadSpec, MakerTarget)> {
+    let folder = content.join("Splines").join("openMapper");
+    let Ok(entries) = std::fs::read_dir(folder) else { return Vec::new() };
+    let mut drafts = Vec::new();
+    for entry in entries.flatten() {
+        let json = entry.path();
+        let Some(stem) = json.file_name().and_then(|name| name.to_str())
+            .and_then(|name| name.strip_suffix(".road.json")) else { continue };
+        let sli = json.with_file_name(format!("{stem}.sli"));
+        if sli.exists() { continue; }
+        let rel = format!("Splines\\openMapper\\{stem}.sli");
+        if let (Some(spec), Some(target)) = (
+            RoadSpec::of_with_traffic(&sli, map_left_hand),
+            MakerTarget::open(rel.clone(), sli),
+        ) {
+            if spec.imported_sli { drafts.push((rel, spec, target)); }
+        }
+    }
+    drafts.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+    drafts
+}
+
 /// The road seen from above, a stretch of it running up the picture: footways and kerbs, the
 /// roadway with its lane lines (dashed between lanes of one way, solid at the middle), the
 /// middle strip, the pocket, and arrows for the ways the lanes go.
@@ -151,6 +174,23 @@ impl RoadTypes {
                                     self.maker = None;
                                     self.maker_target = None;
                                 }
+                            }
+                        }
+                        let query = self.search.to_lowercase();
+                        for (rel, draft, target) in imported_drafts(&roots.content, left_hand) {
+                            if !query.is_empty()
+                                && !draft.name.to_lowercase().contains(&query)
+                                && !rel.to_lowercase().contains(&query)
+                            {
+                                continue;
+                            }
+                            let on = self.picked.as_deref().is_some_and(|p| p.eq_ignore_ascii_case(&rel));
+                            if ui.selectable_label(on, format!("{} (.road.json)", draft.name))
+                                .on_hover_text(&rel).clicked()
+                            {
+                                self.picked = Some(rel);
+                                self.maker = Some(draft);
+                                self.maker_target = Some(target);
                             }
                         }
                     });
@@ -502,6 +542,47 @@ impl RoadTypes {
         ui.label(RichText::new(tr("The roadway texture is laid once across all its lanes (as OMSI 2's lane textures are painted: pick one with as many lanes); the footway texture's right end is the kerb.", "Текстура проезжей части ложится один раз поперёк всех полос (как нарисованы полосные текстуры OMSI 2: берите с тем же числом полос); правый край текстуры тротуара: бордюр.")).small().color(pal().text_dim));
         // Leave room for the last line's pixel rounding at the scroll area's clip edge.
         ui.add_space(ui.spacing().item_spacing.y);
+    }
+}
+
+#[cfg(test)]
+mod imported_draft_tests {
+    use super::*;
+    use crate::road_maker::{Direction, Strip};
+
+    #[test]
+    fn imported_json_without_sli_reopens_as_an_editable_maker_draft() {
+        let root = std::env::temp_dir().join(format!("om-maker-json-draft-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let folder = root.join("Splines").join("openMapper");
+        std::fs::create_dir_all(&folder).unwrap();
+        let sli = folder.join("Draft_road.sli");
+        let json = sli.with_extension("road.json");
+        let spec = RoadSpec {
+            name: "Draft road".into(),
+            imported_sli: true,
+            advanced: true,
+            left_hand: Some(false),
+            strips: vec![Strip::Lane {
+                dir: Direction::Fwd,
+                width: 3.5,
+                bus_only: false,
+                path_offset: 0.0,
+            }],
+            ..Default::default()
+        };
+        std::fs::write(&json, serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
+        let mut drafts = imported_drafts(&root, false);
+        assert_eq!(drafts.len(), 1);
+        let (rel, loaded, _target) = drafts.pop().unwrap();
+        println!("JSON-only draft: {}\n{}\nReopened: {loaded:#?}", json.display(), std::fs::read_to_string(&json).unwrap());
+        assert_eq!(rel, spec.maker_filename(None));
+        assert_eq!(loaded.strips, spec.strips);
+        assert!(loaded.imported_sli && loaded.advanced);
+        assert!(!sli.exists(), "listing a draft must never generate its SLI");
+        std::fs::write(&sli, "already saved").unwrap();
+        assert!(imported_drafts(&root, false).is_empty(), "a saved SLI appears in the normal road list");
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
 
