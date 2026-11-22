@@ -1832,13 +1832,15 @@ impl TimetableUi {
 
         let old = edit.old_id;
         let new = stop.id;
+        // (take the name out of the map-stop borrow before `self` is borrowed mutably below)
+        let stop_name = stop.name.clone();
         let old_name = self.stop_name(tt, old);
         let timetable_name = tt.stop_name(old).unwrap_or_default().trim().to_string();
         let old_names = [old_name.trim(), timetable_name.as_str()];
-        let affected = match self.try_replace_stop_ids(tt, order, left, positions, current, edit.index, old, new, edit.all, &old_names, &stop.name) {
+        let affected = match self.try_replace_stop_ids(tt, order, left, positions, current, edit.index, old, new, edit.all, &old_names, &stop_name) {
             Ok(affected) => affected,
             Err(why) => {
-                log::warn!("timetable: the stop ID change {old} -> {new} ({:?}) was not applied: {why}", stop.name);
+                log::warn!("timetable: the stop ID change {old} -> {new} ({stop_name:?}) was not applied: {why}");
                 toasts.push(crate::editor::Toast {
                     text: tr(
                         "The stop ID change was not applied: a trip's way would not be found or a shared station link differs. Nothing was changed.",
@@ -1858,12 +1860,12 @@ impl TimetableUi {
             self.bulk_blocked.remove(&lower(trip));
             self.routed.insert(lower(trip), self.net_key);
             self.shown = None;
-            log::info!("timetable: replaced stop ID {old} with {new} ({:?}) in trip {trip:?} at indices {indices:?}", stop.name);
+            log::info!("timetable: replaced stop ID {old} with {new} ({stop_name:?}) in trip {trip:?} at indices {indices:?}");
         }
         if !affected.is_empty() {
             let text = tr("Changed stop ID {old} to {new} ({name}) in {count} trip(s)", "ID остановки {old} заменён на {new} ({name}) в рейсах: {count}")
                 .replace("{old}", &old.to_string()).replace("{new}", &new.to_string())
-                .replace("{count}", &affected.len().to_string()).replace("{name}", &stop.name);
+                .replace("{count}", &affected.len().to_string()).replace("{name}", &stop_name);
             toasts.push(crate::editor::Toast { text, at: std::time::Instant::now(), error: false });
             self.stop_edit_undo = Some(tr("Change ID", "Заменить ID"));
         }
@@ -3868,7 +3870,8 @@ mod batch_route_tests {
         assert!(!link_diffs("existing", &sentinel, "new", &calculated).is_empty());
         // (the batch, fed this as the protected pair's original link, treats it as a change)
         let plans = vec![plan("a", vec![calculated])];
-        let (conflicts, causes) = conflicting_batch_routes(&plans, &[sentinel], &HashSet::from([(1, 2)]), &names());
+        let protected: HashSet<(i64, i64)> = HashSet::from([(1, 2)]);
+        let (conflicts, causes) = conflicting_batch_routes(&plans, &[sentinel], &protected, &names());
         assert_eq!(conflicts, HashSet::from([0]));
         assert_eq!(causes[0].kind, ConflictKind::Protected);
     }
