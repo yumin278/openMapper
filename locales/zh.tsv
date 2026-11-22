@@ -3422,3 +3422,4 @@ Convert the Type 1 trip {trip} to a Type 2 trip? Its legacy station records beco
 Converted {trip} to Type 2 ({count} stops). Save the map to write it.	已将班次 {trip} 转为 Type 2（{count} 个公交站）。请保存地图以写入。
 The old track {track}.ttr is still used by another trip, so it stays.	旧路径 {track}.ttr 仍被另一个班次使用，因此会保留。
 Could not convert {trip}: {error}	无法转换 {trip}：{error}
+The stop records were converted. No route was calculated; use Recalculate this trip when you want one.	站点记录已转换。没有计算路线；需要时请使用“重算此班次”。

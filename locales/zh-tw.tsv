@@ -3425,3 +3425,4 @@ Convert the Type 1 trip {trip} to a Type 2 trip? Its legacy station records beco
 Converted {trip} to Type 2 ({count} stops). Save the map to write it.	已將班次 {trip} 轉成 Type 2（{count} 個站牌）。請儲存地圖以寫入。
 The old track {track}.ttr is still used by another trip, so it stays.	舊路徑 {track}.ttr 仍被另一個班次使用，因此會保留。
 Could not convert {trip}: {error}	無法轉換 {trip}：{error}
+The stop records were converted. No route was calculated; use Recalculate this trip when you want one.	站點記錄已轉換。沒有計算路線；需要時請使用「重算此班次」。

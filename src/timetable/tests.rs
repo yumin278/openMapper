@@ -859,7 +859,7 @@ fn a_track_picked_by_hand_reads_back() {
     let trip = tt.add_trip(&line, "4_A", vec![1, 2]);
     let entries = vec![TrackEntry { values: vec![10.0, 0.0, 0.0, 3.0, 50.0, 0.0] }, TrackEntry { values: vec![11.0, 1.0, 0.0, 7.0, 12.5, 0.0] }];
     tt.set_by_hand(&trip, Some((entries.clone(), Vec::new()))).unwrap();
-    assert!(tt.by_hand(&trip));
+    assert!(tt.by_hand(&trip) && tt.by_hand_track(&trip));
     save_to(&mut tt, &out, &[]).unwrap();
     let text = std::fs::read_to_string(out.join("TTData").join("4_A.ttr")).unwrap();
     assert!(text.contains(BY_HAND));
@@ -867,7 +867,7 @@ fn a_track_picked_by_hand_reads_back() {
     assert!(back.errors.is_empty(), "{:?}", back.errors);
     assert_eq!(back.tracks[0].entries, entries);
     let again = Timetable::load(&out, &[]);
-    assert!(again.by_hand("4_a"));
+    assert!(again.by_hand("4_a") && again.by_hand_track("4_a"));
     // renamed, it stays picked by hand; found automatically again, it is not
     tt.rename_trip(&trip, "4_B").unwrap();
     assert!(tt.by_hand("4_B") && !tt.by_hand("4_A"));
@@ -1826,6 +1826,8 @@ mod single_type2_conversion {
 
         let mut tt = Timetable::load(&out, &[]);
         assert!(tt.by_hand("A"), "the shared track is marked by hand");
+        let holder_was_hand = tt.by_hand("holder");
+        assert_eq!(steps_source(&tt, "holder").0, "track");
         let converted = tt.convert_trip_to_type2("A").unwrap();
         println!("Shared same-name conversion result: {converted:?}");
         assert_eq!(converted.kept_shared_track.as_deref(), Some("A"));
@@ -1834,16 +1836,20 @@ mod single_type2_conversion {
         assert!(tt.tracks.iter().all(|t| !track_name(t).eq_ignore_ascii_case(&converted.display_name)));
         assert_eq!(steps_source(&tt, "A").0, "links");
         assert_eq!(steps_source(&tt, "holder").0, "track");
+        assert!(tt.hand.contains("a"), "the retained shared track keeps its hand marker");
         assert!(!tt.by_hand("A"), "the converted trip no longer reads the shared hand track");
+        assert_eq!(tt.by_hand("holder"), holder_was_hand, "the other trip's mode is unchanged");
 
         save_to(&mut tt, &out, &[]).unwrap();
         assert_eq!(read(&out, "A.ttr"), original, "the shared track is not touched");
         let back = Timetable::load(&out, &[]);
         show("Shared same-name after reload", &back, "A");
         assert!(!is_type1(back.trip("A").unwrap()));
+        assert!(back.hand.contains("a"), "the reloaded shared track keeps its marker");
         assert!(!back.by_hand("A"), "the reloaded trip does not inherit the shared track's hand marker");
         assert_eq!(steps_source(&back, "A").0, "links");
         assert_eq!(steps_source(&back, "holder").0, "track");
+        assert_eq!(back.by_hand("holder"), holder_was_hand, "the other trip's mode is unchanged after reload");
         assert_eq!(back.trip("A").unwrap().display_name, converted.display_name, "the nonmatching first line is persisted");
         let _ = std::fs::remove_dir_all(out);
     }
@@ -1865,6 +1871,62 @@ mod single_type2_conversion {
         assert!(is_type1(tt.trip("A").unwrap()));
     }
 
+    /// A source stem with two tracks that differ only by ASCII case is ambiguous: the save
+    /// removes by a folded name, so conversion refuses before touching anything.
+    #[test]
+    fn duplicate_case_source_tracks_are_refused_before_changes() {
+        let mut tt = Timetable::default();
+        tt.trips.push(type1("dup", "dup-way", &["1", "2"]));
+        tt.tracks.push(track("dup-way", &[40.0]));
+        tt.tracks.push(track("DUP-WAY", &[41.0]));
+        let before = tt.clone();
+        let error = tt.convert_trip_to_type2("dup").unwrap_err();
+        println!("Refused duplicate source: {error}");
+        assert!(error.contains("more than one") && error.contains("folded name"), "{error}");
+        assert!(tt.same_content(&before), "nothing changes");
+        assert!(tt.removed.is_empty() && tt.changed.is_empty());
+        assert!(is_type1(tt.trip("dup").unwrap()));
+    }
+
+    /// The engine compares stems with ASCII case folding while the save planner folds the
+    /// whole file name: non-ASCII case variants could be removed instead of the source, so
+    /// they are refused too.
+    #[test]
+    fn non_ascii_case_variants_of_the_source_track_are_refused() {
+        let mut tt = Timetable::default();
+        tt.trips.push(type1("nonascii", "Ä", &["1", "2"]));
+        tt.tracks.push(track("Ä", &[42.0]));
+        tt.tracks.push(track("ä", &[43.0]));
+        let before = tt.clone();
+        let error = tt.convert_trip_to_type2("nonascii").unwrap_err();
+        println!("Refused non-ASCII fold: {error}");
+        assert!(error.contains("more than one") && error.contains("folded name"), "{error}");
+        assert!(tt.same_content(&before), "nothing changes");
+        assert!(tt.removed.is_empty() && tt.changed.is_empty());
+        assert!(is_type1(tt.trip("nonascii").unwrap()));
+    }
+
+    /// A hand marker applies only while the game actually reads `<trip>.ttr`; a display
+    /// naming another track or no track leaves the trip on that other source.
+    #[test]
+    fn by_hand_requires_the_game_to_read_the_trips_own_track() {
+        let mut tt = Timetable::default();
+        tt.trips.push(Trip { name: "A".into(), display_name: "other".into(), stations: vec![1, 2], ..Default::default() });
+        tt.tracks.push(track("A", &[1.0]));
+        tt.tracks.push(track("other", &[2.0]));
+        tt.hand.insert("a".into());
+        assert_eq!(steps_source(&tt, "A").0, "track", "the display reads the other track");
+        assert!(!tt.by_hand("A"), "the game does not read A.ttr, so its hand marker does not apply");
+        assert!(tt.by_hand_track("a"), "the track's own marker is still there for the file writer");
+        tt.trip_mut("A").unwrap().display_name = "missing".into();
+        assert_eq!(steps_source(&tt, "A").0, "links", "a missing display track reads the links");
+        assert!(!tt.by_hand("A"));
+        assert!(tt.by_hand_track("a"));
+        tt.trip_mut("A").unwrap().display_name.clear();
+        assert_eq!(steps_source(&tt, "A").0, "track", "the fallback reads A.ttr");
+        assert!(tt.by_hand("A"), "a normal hand-picked trip is still by hand");
+    }
+
     /// An unrelated same-name `.ttr` is not the selected trip's old track: it is neither
     /// deleted nor allowed to intercept the converted trip.
     #[test]
@@ -1876,15 +1938,19 @@ mod single_type2_conversion {
         stock.tracks.push(track("b-way", &[80.0]));
         stock.tracks.push(track("B", &[81.0]));
         write_all(&stock, &out);
+        // (the unrelated track is hand-marked: its marker must stay with it)
+        std::fs::write(out.join("TTData").join("B.ttr"), encode(&track_text_of(&track("B", &[81.0]), true))).unwrap();
         let unrelated = read(&out, "B.ttr");
 
         let mut tt = Timetable::load(&out, &[]);
+        assert!(tt.hand.contains("b"), "the unrelated track's marker is loaded");
         let converted = tt.convert_trip_to_type2("B").unwrap();
         println!("Unrelated same-name conversion result: {converted:?}");
         assert_eq!(converted.removed_track.as_deref(), Some("b-way"));
         assert!(converted.kept_shared_track.is_none());
         assert!(!converted.display_name.is_empty(), "the fallback to B would read the unrelated track");
         assert!(tt.track("B").is_some(), "the unrelated track is not deleted");
+        assert!(tt.hand.contains("b"), "the unrelated track keeps its marker");
         assert!(!tt.removed.contains("b.ttr"));
         assert_eq!(steps_source(&tt, "B").0, "links");
 
@@ -1894,6 +1960,7 @@ mod single_type2_conversion {
         let back = Timetable::load(&out, &[]);
         show("Unrelated same-name after reload", &back, "B");
         assert!(!is_type1(back.trip("B").unwrap()));
+        assert!(back.hand.contains("b"), "the unrelated track's marker survives the reload");
         assert_eq!(steps_source(&back, "B").0, "links");
         assert!(back.track("B").is_some());
         let _ = std::fs::remove_dir_all(out);

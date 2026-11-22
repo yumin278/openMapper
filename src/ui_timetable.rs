@@ -155,6 +155,9 @@ pub struct TimetableUi {
     confirm_single_type2: Option<String>,
     /// The label of the single conversion that happened this frame, for its Undo step.
     type2_conversion_undo: Option<String>,
+    /// Trips converted by the single format action while no route was calculated: no route
+    /// is sought for them on the conversion or the following frames.
+    type2_no_route: HashSet<String>,
     want_line: Option<String>,
     /// The line's tours are shown (else its trips).
     tours_tab: bool,
@@ -1566,6 +1569,13 @@ impl TimetableUi {
             });
             return;
         }
+        let key = lower(&trip.name);
+        if self.type2_no_route.contains(&key) && doc.timetable.type2_converted.contains(&key) {
+            // (the format-only conversion must not seek a route, on this action or while
+            // its converted state is still the one being shown)
+            self.shown = None;
+            return;
+        }
         if let Some((n, s, k, _)) = &self.shown {
             if n == &trip.name && s == &trip.stations && *k == self.net_key && !doc.timetable.by_hand(&trip.name) {
                 return;
@@ -2399,6 +2409,7 @@ impl TimetableUi {
                                 self.reverted_edits.remove(&key);
                                 self.routed.remove(&key);
                                 self.bulk_blocked.remove(&key);
+                                self.type2_no_route.insert(key.clone());
                                 self.shown = None;
                                 self.type2_conversion_undo = Some(format!("{}: {}", type2_single_conversion_label(), out.trip));
                                 let mut text = tr("Converted {trip} to Type 2 ({count} stops). Save the map to write it.", "Рейс {trip} преобразован в тип 2 ({count} остановок). Сохраните карту, чтобы записать его.")
@@ -2664,6 +2675,13 @@ impl TimetableUi {
         ui.add_space(4.0);
         let shown = self.shown.as_ref().filter(|(n, s, _, _)| n == &name && s == &stations).map(|x| x.3.clone());
         let shown = shown.as_ref();
+        let no_route = self.type2_no_route.contains(&lower(&name)) && tt.type2_converted.contains(&lower(&name));
+        if no_route {
+            ui.label(RichText::new(tr(
+                "The stop records were converted. No route was calculated; use Recalculate this trip when you want one.",
+                "Записи остановок преобразованы. Маршрут не рассчитывался; используйте «Пересчитать этот рейс», когда он понадобится."
+            )).color(pal().text_dim));
+        } else {
         match shown {
             _ if stations.len() < 2 => {
                 ui.label(RichText::new(tr("Add two stops or more: the way between them is found along the roads.", "Добавьте две остановки или больше: путь между ними найдётся по дорогам.")).color(pal().text_dim));
@@ -2699,6 +2717,7 @@ impl TimetableUi {
                 }
             }
         }
+        }
 
         // this trip's recalculation: alone, or with every trip sharing a station pair
         ui.add_space(4.0);
@@ -2709,6 +2728,9 @@ impl TimetableUi {
                 .clicked()
             {
                 let key = lower(&name);
+                if self.type2_no_route.remove(&key) {
+                    doc.timetable.type2_converted.remove(&key);
+                }
                 doc.timetable.reroute.insert(key.clone());
                 self.bulk_blocked.remove(&key);
                 self.shared_conflicts.remove(&key);
@@ -2719,6 +2741,10 @@ impl TimetableUi {
                 .on_hover_text(tr("A batch over this trip and every trip it shares a station pair with, with the batch's shared-link protection", "Пакетный пересчёт этого рейса и всех рейсов с общими участками, с защитой общих участков"))
                 .clicked()
             {
+                let key = lower(&name);
+                if self.type2_no_route.remove(&key) {
+                    doc.timetable.type2_converted.remove(&key);
+                }
                 let scope = links::sharing_trips(&doc.timetable, &name);
                 log::info!("timetable: recalculating the trips sharing station pairs with {name}: {:?}", scope);
                 let report = self.recalculate_trips(doc, false, Some(&scope));
@@ -3478,18 +3504,20 @@ mod station_edit_tests {
     fn the_single_type2_button_names_the_trip_and_changes_only_it() {
         let _map = crate::doc::one_map();
         let (mut ed, mut ui, ctx) = editor_fixture();
+        add_ring(&mut ed, &mut ui);
         {
             let tt = &mut ed.doc.as_mut().unwrap().timetable;
             let current = tt.trip_mut("current").unwrap();
             current.display_name = "current-track".into();
             current.stations.clear();
-            current.stations_legacy = vec![vec!["10".into(), "0".into()], vec!["11".into(), "0".into()]];
+            current.stations_legacy = vec![vec!["11".into(), "0".into()], vec!["12".into(), "0".into()]];
             tt.tracks.push(omsi_timetable::Track {
                 path: "current-track.ttr".into(),
                 entries: vec![omsi_timetable::TrackEntry { values: vec![10.0, 0.0, 0.0, 0.0, 5.0, 0.0] }],
             });
         }
         let other_before = ed.doc.as_ref().unwrap().timetable.trip("other").unwrap().clone();
+        let links_before = ed.doc.as_ref().unwrap().timetable.links.clone();
         ui.select_trip(Some("current".into()));
         let text_center = |output: &egui::FullOutput, label: &str| {
             output.shapes.iter().rev().find_map(|shape| match &shape.shape {
@@ -3522,7 +3550,11 @@ mod station_edit_tests {
         assert_eq!(ui.confirm_single_type2.as_deref(), Some("current"));
 
         let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
-        assert!(texts(&output).iter().any(|t| t.contains("current") && t.contains("Type 2")), "the confirmation names the captured trip");
+        let confirmation = tr(
+            "Convert the Type 1 trip {trip} to a Type 2 trip? Its legacy station records become stop IDs; no route is calculated and no station link is changed. Save the map to write the trip and remove its unused old track.",
+            "Преобразовать рейс типа 1 {trip} в рейс типа 2? Старые записи остановок станут ID остановок; маршрут не рассчитывается, общие участки не изменяются. Сохраните карту, чтобы записать рейс и удалить его неиспользуемый старый путь."
+        ).replace("{trip}", "current");
+        assert!(texts(&output).iter().any(|t| t.contains(&confirmation)), "the confirmation names the captured trip");
         let modal_button = text_center(&output, label).expect("the modal's confirm button");
         assert_ne!(modal_button, button);
         click(&mut ui, &mut ed, modal_button);
@@ -3530,14 +3562,26 @@ mod station_edit_tests {
         let tt = &ed.doc.as_ref().unwrap().timetable;
         let current = tt.trip("current").unwrap();
         assert!(!timetable::is_type1(current));
-        assert_eq!(current.stations, [10, 11]);
+        assert_eq!(current.stations, [11, 12]);
         assert_eq!(tt.trip("other").unwrap(), &other_before, "no other trip changes");
-        assert!(ed.toasts.last().unwrap().text.contains("current"), "the window reports the converted trip");
+        assert_eq!(tt.links, links_before, "conversion writes no station links");
+        assert!(ui.type2_no_route.contains("current"), "the conversion suppresses automatic routing");
+        assert!(ui.shown.is_none(), "the conversion does not seek a route");
+        let success = tr("Converted {trip} to Type 2 ({count} stops). Save the map to write it.", "Рейс {trip} преобразован в тип 2 ({count} остановок). Сохраните карту, чтобы записать его.")
+            .replace("{trip}", "current")
+            .replace("{count}", "2");
+        assert!(ed.toasts.last().unwrap().text.contains(&success), "the window reports the converted trip");
 
         let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
         assert!(text_center(&output, label).is_none(), "a Type 2 trip has no single conversion button");
         assert!(text_center(&output, preview).is_none(), "the Type 1 preview is gone");
         assert!(texts(&output).iter().any(|t| t.contains(tr("Drives on", "Ездит по"))), "the Type 2 trip details are shown");
+        assert!(ui.shown.is_none(), "the next frame also does not seek a route");
+        assert_eq!(ed.doc.as_ref().unwrap().timetable.links, links_before, "the refresh writes no station links");
+        assert!(texts(&output).iter().any(|t| t.contains(tr(
+            "The stop records were converted. No route was calculated; use Recalculate this trip when you want one.",
+            "Записи остановок преобразованы. Маршрут не рассчитывался; используйте «Пересчитать этот рейс», когда он понадобится."
+        ))), "the Type 2 panel says no route was calculated");
         ed.undo();
         let current = ed.doc.as_ref().unwrap().timetable.trip("current").unwrap();
         assert!(timetable::is_type1(current), "the conversion is one Undo step");

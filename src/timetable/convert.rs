@@ -86,6 +86,22 @@ fn apply_type2_format(trip: &mut Trip, ids: Vec<i64>, display_name: String) {
     trip.display_name = display_name;
 }
 
+/// The `.ttr` files of the trip's folder whose names fold to `stem` as the save planner's
+/// `find_file` folds them. A second name means a removal by folded name could take the wrong
+/// file.
+fn track_files_folding_to(trip: &Trip, stem: &str) -> Vec<String> {
+    let Some(dir) = trip.path.parent() else { return Vec::new() };
+    let wanted = format!("{}.ttr", stem.to_lowercase());
+    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    entries
+        .flatten()
+        .filter_map(|e| {
+            let name = e.file_name().to_string_lossy().into_owned();
+            (name.to_lowercase() == wanted).then_some(name)
+        })
+        .collect()
+}
+
 /// A nonempty `display_name` that names no track and no other trip's track: openOMSI then
 /// reads the station links even while a track of the trip's own name must stay on disk for
 /// another trip.
@@ -220,9 +236,25 @@ impl Timetable {
         // The old track is the one that name resolves to now.)
         let old_ref = tracks::referenced_name(&trip);
         let other = tracks::other_trip_naming(self, &exact, &old_ref).map(|t| t.name.clone());
-        let source_tracks: Vec<String> = self.tracks.iter().filter(|t| same(&track_name(t), &old_ref)).map(track_name).collect();
-        let source_index = self.tracks.iter().position(|t| same(&track_name(t), &old_ref));
+        let source_indices: Vec<usize> = self.tracks.iter().enumerate().filter(|(_, t)| same(&track_name(t), &old_ref)).map(|(i, _)| i).collect();
+        let source_tracks: Vec<String> = source_indices.iter().map(|&i| track_name(&self.tracks[i])).collect();
+        let source_index = source_indices.first().copied();
         let removed_index = source_index.filter(|_| other.is_none());
+        if let Some(i) = removed_index {
+            // (a save removes by a folded file name: a second name that folds the same could
+            // be the one removed instead. Refuse before any trip, track or queue changes.)
+            let stem = track_name(&self.tracks[i]);
+            let wanted = format!("{}.ttr", stem.to_lowercase());
+            let mut folded: Vec<String> = self.tracks.iter().map(|t| format!("{}.ttr", track_name(t))).filter(|name| name.to_lowercase() == wanted).collect();
+            folded.extend(track_files_folding_to(&trip, &stem));
+            folded.sort();
+            folded.dedup();
+            if source_indices.len() > 1 || folded.len() > 1 {
+                let why = format!("trip {exact:?}: its old track {stem:?} matches more than one track or .ttr file by folded name ({folded:?}); the save could remove the wrong file");
+                log::warn!("timetable: single Type 2 conversion refused: {why}");
+                return Err(why);
+            }
+        }
         // (an empty display_name falls back to the trip's name: a track of that name, whether
         // this trip's old source or an unrelated one, would intercept the station links)
         let fallback_taken = self.tracks.iter().enumerate().any(|(i, t)| Some(i) != removed_index && same(&track_name(t), &exact));
@@ -255,7 +287,8 @@ impl Timetable {
             None
         };
         let kept_shared_track = (!source_tracks.is_empty() && other.is_some()).then_some(old_ref);
-        self.hand.remove(&key(&exact));
+        // (a retained track keeps its hand marker: only the source track removed below gives
+        // its own marker up)
         self.reroute.remove(&key(&exact));
         self.touch_trip(&exact);
         let exclusion_cleared = self.type2_exclusions.remove(&key(&exact)).is_some();

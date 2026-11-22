@@ -85,11 +85,11 @@ pub fn diff(map: &Timetable, t: &Timetable) -> (Vec<(String, String)>, Vec<Strin
         let name = track_name(tr);
         put(
             format!("{name}.ttr"),
-            track_text_of(tr, t.by_hand(&name)),
+            track_text_of(tr, t.by_hand_track(&name)),
             map.tracks
                 .iter()
                 .find(|x| track_name(x).eq_ignore_ascii_case(&name))
-                .map(|x| track_text_of(x, map.by_hand(&track_name(x)))),
+                .map(|x| track_text_of(x, map.by_hand_track(&track_name(x)))),
         );
     }
     put("Busstops.cfg".into(), busstops_text(&t.stops), Some(busstops_text(&map.stops)));

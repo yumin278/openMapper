@@ -232,10 +232,20 @@ impl Timetable {
 
     /// The trip's paths were picked by hand.
     pub fn by_hand(&self, trip: &str) -> bool {
-        // (the marker is the track's, not only the trip's: a trip whose saved reading is a
-        // different, nonmatching track must not inherit it after a format conversion)
-        self.hand.contains(&key(trip))
-            && self.trip(trip).is_some_and(|t| tracks::referenced_name(t).eq_ignore_ascii_case(trip))
+        // (the marker is the track's; openOMSI reads the trimmed display_name and, when it is
+        // nonempty, does not fall back to the trip's name. The marker therefore describes the
+        // trip only while the game reads <trip>.ttr, not another track or the station links.)
+        if !self.hand.contains(&key(trip)) {
+            return false;
+        }
+        let (name, source) = tracks::source(self, trip);
+        source.is_some() && name.eq_ignore_ascii_case(trip)
+    }
+
+    /// The hand marker of a track file, by its stem. This is the marker itself, not a trip's
+    /// mode (a track can be named by a differently named trip's display_name).
+    pub fn by_hand_track(&self, track: &str) -> bool {
+        self.hand.contains(&key(track))
     }
 
     /// The trip's way as picked by hand (`track`, and the station links between its stops
@@ -464,11 +474,12 @@ impl Timetable {
             // (a hand-picked way is copied with its track; a Type 1 trip keeps its own track
             // too; an automatic Type 2 trip keeps no .ttr and the copy's station links are
             // calculated again)
-            if self.by_hand(&t) || legacy {
+            let hand_track = self.by_hand_track(&t);
+            if hand_track || legacy {
                 if let Some(track) = self.track(&t).map(|x| x.entries.clone()) {
                     self.tracks.push(Track { path: format!("{copy}.ttr").into(), entries: track });
                     self.changed.insert(key(&format!("{copy}.ttr")));
-                    if self.by_hand(&t) {
+                    if hand_track {
                         self.hand.insert(key(&copy));
                     }
                 } else {
@@ -558,7 +569,7 @@ impl Timetable {
             if let Some(t) = self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(old)) {
                 t.path = format!("{new}.ttr").into();
                 self.changed.insert(key(&format!("{new}.ttr")));
-                hand_track = self.by_hand(old);
+                hand_track = self.by_hand_track(old);
             }
         }
         if self.hand.remove(&key(old)) && hand_track {
