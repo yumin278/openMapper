@@ -1464,7 +1464,7 @@ impl TimetableUi {
         let single_undo = self.type2_conversion_undo.take();
         if single_undo.is_some() || doc.timetable.type2_converted.len() > before.type2_converted.len() {
             let traffic = (traffic_before != doc.traffic).then_some(traffic_before);
-            let label = single_undo.as_deref().unwrap_or_else(type2_conversion_label);
+            let label = single_undo.as_deref().unwrap_or(type2_conversion_label());
             ed.history.push_snapshot(label, crate::history::Snapshot { timetable: Some(before), traffic, ..Default::default() });
             self.update_shown(ed);
             return;

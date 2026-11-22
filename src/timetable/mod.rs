@@ -13,7 +13,7 @@ pub mod route;
 pub(crate) mod tracks;
 pub mod way;
 
-pub(crate) use convert::{is_type1, Type2TripConversion};
+pub(crate) use convert::is_type1;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
