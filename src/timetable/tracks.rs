@@ -27,7 +27,7 @@ pub(crate) fn referenced_name(trip: &Trip) -> String {
     }
 }
 
-fn tracks_named(tt: &Timetable, name: &str) -> Vec<&Track> {
+fn tracks_named<'a>(tt: &'a Timetable, name: &str) -> Vec<&'a Track> {
     tt.tracks.iter().filter(|t| same(&track_name(t), name)).collect()
 }
 
