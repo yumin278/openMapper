@@ -4297,3 +4297,74 @@ mod batch_route_tests {
         assert!(ui.stop_edits.is_empty());
     }
 }
+
+
+#[cfg(test)]
+mod type1_track_preview_tests {
+    use super::*;
+    use crate::timetable::network::{Lane, PathKey};
+    use omsi_timetable::{Track, TrackEntry};
+
+    /// The saved Type 1 track is looked up by its explicit display_name, not by
+    /// trip name, and lost paths stay as missing entries instead of being routed.
+    #[test]
+    fn legacy_track_preview_resolves_exact_source_and_keeps_missing_entries() {
+        let trip = Trip {
+            path: "line.ttp".into(),
+            name: "trip-A".into(),
+            display_name: "original-way".into(),
+            terminus: String::new(),
+            line: String::new(),
+            train_reverse: false,
+            stations: Vec::new(),
+            stations_legacy: vec![vec!["10".into(), "0".into()]],
+            profiles: Vec::new(),
+        };
+        let entry = |id: i64| TrackEntry { values: vec![id as f64, 0.0, 0.0, 0.0, 10.0, 0.0] };
+        let tt = Timetable {
+            trips: vec![trip.clone()],
+            tracks: vec![
+                Track { path: "original-way.ttr".into(), entries: vec![entry(10), entry(999), entry(20)] },
+                Track { path: "trip-A.ttr".into(), entries: vec![entry(30)] },
+            ],
+            ..Default::default()
+        };
+        let key = |id| PathKey { tile: (0, 0), id, path: 0 };
+        let lane = |id, x: f64| Lane {
+            key: key(id),
+            pts: vec![DVec3::new(x, 0.0, 0.0), DVec3::new(x + 10.0, 0.0, 0.0)],
+            along: vec![0.0, 10.0],
+            file_length: 10.0,
+            internal: 0,
+            next: Vec::new(),
+            side: Vec::new(),
+            against: false,
+            spline: true,
+            rail: false,
+        };
+        let net = Network {
+            lanes: vec![lane(10, 0.0), lane(20, 20.0), lane(30, 30.0)],
+            by_key: HashMap::from([(key(10), vec![0]), (key(20), vec![1]), (key(30), vec![2])]),
+            ..Default::default()
+        };
+        let order = [(0, 0)];
+        let before = tt.clone();
+        let (name, paths) = type1_track_lanes(&tt, &trip, &net, &order);
+        assert_eq!(name, "original-way");
+        assert_eq!(paths.unwrap(), vec![Some(0), None, Some(1)]);
+        assert!(tt.same_content(&before), "preview must not modify timetable data");
+
+        let mut missing = trip.clone();
+        missing.display_name = "no-such-track".into();
+        let (name, paths) = type1_track_lanes(&tt, &missing, &net, &order);
+        assert_eq!(name, "no-such-track");
+        assert!(paths.is_none(), "an explicit missing name must not fall back to trip-A.ttr");
+
+        let mut fallback = trip;
+        fallback.display_name.clear();
+        let (name, paths) = type1_track_lanes(&tt, &fallback, &net, &order);
+        assert_eq!(name, "trip-A");
+        assert_eq!(paths.unwrap(), vec![Some(2)]);
+        assert!(tt.same_content(&before), "reading a fallback track must also be read-only");
+    }
+}
