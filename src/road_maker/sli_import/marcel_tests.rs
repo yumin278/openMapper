@@ -102,6 +102,13 @@ fn install(
     (roots, source, dir)
 }
 
+/// The maker's future SLI path for a JSON-only imported draft.
+fn draft_sli(json: &Path) -> std::path::PathBuf {
+    let name = json.file_name().unwrap().to_str().unwrap();
+    let stem = name.strip_suffix(".road.json").unwrap();
+    json.with_file_name(format!("{stem}.sli"))
+}
+
 /// Everything an implementer needs when a regression fails.
 fn report(stock: &Stock, source: &Spline, spec: &RoadSpec, json: &Path) {
     println!("== {} ==", stock.name);
@@ -167,7 +174,11 @@ fn check_source_after_save_as(
     let sidecar_before = std::fs::read(json).unwrap();
     println!("{}: source bytes after import identical: {}", stock.name, before == stock.text.as_bytes());
     assert_eq!(before, stock.text.as_bytes());
-    let target = MakerTarget::open(stock.rel.to_string(), path.to_owned()).unwrap();
+    let draft = draft_sli(json);
+    assert_eq!(draft, crate::doc::safe::own_path(&roots.content, &spec.maker_filename(None)));
+    assert!(!draft.exists(), "import must not create the generated SLI");
+    assert!(!path.with_extension("road.json").exists(), "import must not create a source sidecar");
+    let target = MakerTarget::open(spec.maker_filename(None), draft.clone()).unwrap();
     let mut copy = spec.clone();
     copy.name = format!("{} copy", stock.name);
     let rel = copy.write_in_maker_as_new(&roots.content, stock.map_left_hand, &target).unwrap();
@@ -182,6 +193,7 @@ fn check_source_after_save_as(
     );
     assert_eq!(before, after);
     assert_eq!(sidecar_before, sidecar_after);
+    assert!(!draft.exists(), "Save As must not create the original draft's SLI");
 }
 
 /// The fixture is what the test thinks it is, and the import reproduces every path.
@@ -324,7 +336,7 @@ fn wilhelm2_import_keeps_every_lane_path_where_the_stock_spline_put_it() {
         stock.map_left_hand,
     )
     .unwrap_or_else(|error| panic!("{}: stock spline must import: {error:#}", stock.name));
-    let spec = RoadSpec::of_with_traffic(&source, stock.map_left_hand)
+    let spec = RoadSpec::of_with_traffic(&draft_sli(&json), stock.map_left_hand)
         .unwrap_or_else(|| panic!("{}: the sidecar must reopen", stock.name));
     let loaded = Spline::load(&source).unwrap();
     report(stock, &loaded, &spec, &json);
@@ -398,7 +410,7 @@ fn zeppelin1_import_keeps_the_raised_median_and_every_lane_path() {
         stock.map_left_hand,
     )
     .unwrap_or_else(|error| panic!("{}: stock spline must import: {error:#}", stock.name));
-    let spec = RoadSpec::of_with_traffic(&source, stock.map_left_hand)
+    let spec = RoadSpec::of_with_traffic(&draft_sli(&json), stock.map_left_hand)
         .unwrap_or_else(|| panic!("{}: the sidecar must reopen", stock.name));
     let loaded = Spline::load(&source).unwrap();
     report(stock, &loaded, &spec, &json);
@@ -482,7 +494,7 @@ fn zeppelin1_finds_its_plain_asphalt_texture_by_name() {
             stock.name
         )
     });
-    let spec = RoadSpec::of_with_traffic(&source, stock.map_left_hand)
+    let spec = RoadSpec::of_with_traffic(&draft_sli(&json), stock.map_left_hand)
         .unwrap_or_else(|| panic!("{}: the sidecar must reopen", stock.name));
     let found = spec
         .roadway_tex
@@ -497,6 +509,8 @@ fn zeppelin1_finds_its_plain_asphalt_texture_by_name() {
         stock.name
     );
     assert!(json.is_file());
+    assert_eq!(json, roots.content.join("Splines").join("openMapper").join(format!("{}.road.json", stock.name)));
+    assert!(!source.with_extension("road.json").exists());
     std::fs::remove_dir_all(dir).unwrap();
 }
 
@@ -652,7 +666,7 @@ fn altonaer_import_keeps_the_visible_pavement_and_the_source_height_profile() {
 
     let json = create(&roots, stock.rel, stock.name.to_string(), stock.map_left_hand)
         .unwrap_or_else(|error| panic!("{}: the stock spline must import: {error:#}", stock.name));
-    let spec = RoadSpec::of_with_traffic(&source, stock.map_left_hand)
+    let spec = RoadSpec::of_with_traffic(&draft_sli(&json), stock.map_left_hand)
         .unwrap_or_else(|| panic!("{}: the sidecar must reopen", stock.name));
 
     println!("inferred strips: {:#?}", spec.strips);
