@@ -1,0 +1,43 @@
+# Standalone packaging branch for a user-testable Type 1 track preview.
+# Kept out of the feature PR; this branch is not to be merged into integration.
+name: Windows x64 Type 1 track preview test build
+
+on:
+  push:
+    branches:
+      - ci/type1-preview-windows
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-type1-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows-x64:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-x64-type1-preview
+      - name: Type 1 track preview regression test
+        run: cargo test --release --locked type1_track_preview_tests
+      - name: Build portable Windows x64 ZIP
+        shell: pwsh
+        run: ./tools/package-windows.ps1 -Target x86_64-pc-windows-msvc
+      - name: Upload portable Windows x64 build
+        uses: actions/upload-artifact@v7
+        with:
+          name: openMapper-type1-track-preview-windows-x64
+          path: target/package/openMapper-*-windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
