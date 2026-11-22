@@ -4321,14 +4321,12 @@ mod type1_track_preview_tests {
             profiles: Vec::new(),
         };
         let entry = |id: i64| TrackEntry { values: vec![id as f64, 0.0, 0.0, 0.0, 10.0, 0.0] };
-        let tt = Timetable {
-            trips: vec![trip.clone()],
-            tracks: vec![
-                Track { path: "original-way.ttr".into(), entries: vec![entry(10), entry(999), entry(20)] },
-                Track { path: "trip-A.ttr".into(), entries: vec![entry(30)] },
-            ],
-            ..Default::default()
-        };
+        let mut tt = Timetable::default();
+        tt.trips.push(trip.clone());
+        tt.tracks.extend([
+            Track { path: "original-way.ttr".into(), entries: vec![entry(10), entry(999), entry(20)] },
+            Track { path: "trip-A.ttr".into(), entries: vec![entry(30)] },
+        ]);
         let key = |id| PathKey { tile: (0, 0), id, path: 0 };
         let lane = |id, x: f64| Lane {
             key: key(id),
