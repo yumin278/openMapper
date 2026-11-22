@@ -2964,7 +2964,10 @@ mod station_edit_tests {
         ];
         ui.net = Some(Network { lanes, by_key: HashMap::new(), ..Default::default() });
         let stops = [(10, 50.0, 0.0), (12, 200.0, 0.0), (11, 300.0, 150.0)];
-        ui.stops = stops.iter().map(|&(id, x, y)| MapStop {
+        // (stop 10 is on the map for the route, but deliberately not in the window's stop list:
+        // the Change ID editor is for a stop ID that is not on the map, as the original test
+        // arranged; the route uses the objects below through stop_world)
+        ui.stops = [(12, 200.0, 0.0), (11, 300.0, 150.0)].into_iter().map(|(id, x, y)| MapStop {
             tile, id, name: format!("Stop {id}"), pos: DVec3::new(x, y, 0.0), kind: crate::stops::StopKind::Regular,
         }).collect();
         let tile = &mut ed.doc.as_mut().unwrap().tiles.get_mut(&tile).unwrap().tile;
@@ -3202,6 +3205,7 @@ mod station_edit_tests {
 
         ui.replace_id = Some(ReplaceStopId { index: 3, old_id: 10, input: "12".into(), all: true });
         let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        assert!(ui.replace_id.as_ref().is_some_and(|e| e.index == 3 && e.old_id == 10), "the replacement editor stays open for a stop that is not in the window's list");
         let confirm = output.shapes.iter().find_map(|shape| match &shape.shape {
             egui::Shape::Text(text) if text.galley.text() == tr("Confirm", "Подтвердить") => Some(text.pos + text.galley.size() * 0.5),
             _ => None,
@@ -3759,7 +3763,8 @@ mod batch_route_tests {
             &[("a", vec![1, 2]), ("b", vec![1, 2])],
         );
         let positions = stop_positions(&ui);
-        let affected = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        let affected = ui.try_replace_stop_ids(&mut doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4")
+            .unwrap_or_else(|why| panic!("the group replacement must commit: {why}"));
         println!("affected: {affected:?}\nlinks: {:?}", doc.timetable.links);
         assert_eq!(affected.len(), 2);
         assert_eq!(doc.timetable.trip("a").unwrap().stations, vec![4, 2]);
@@ -3779,13 +3784,14 @@ mod batch_route_tests {
         let _map = crate::doc::one_map();
         let (mut doc, mut ui) = lane_map(
             "replace-network-changed",
-            &[(1, 10.0), (2, 50.0), (4, 30.0)],
+            &[(1, 10.0), (2, 50.0), (3, 90.0), (4, 30.0)],
             &[("a", vec![1, 2]), ("b", vec![1, 3])],
         );
         let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
         let (a_files, b_files) = (doc.timetable.trip_file_state("a"), doc.timetable.trip_file_state("b"));
         let positions = stop_positions(&ui);
-        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4")
+            .unwrap_or_else(|why| panic!("the prepared replacement must succeed before the network change: {why}"));
         ui.net_key = ui.net_key.wrapping_add(1);
         let err = ui.commit_replace_stop_ids(&mut doc.timetable, prepared).unwrap_err();
         println!("refused: {err}");
@@ -3815,7 +3821,8 @@ mod batch_route_tests {
         let (a_bytes, b_bytes) = (std::fs::read(&a_path).unwrap(), std::fs::read(&b_path).unwrap());
         let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
         let positions = stop_positions(&ui);
-        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4")
+            .unwrap_or_else(|why| panic!("the prepared replacement must succeed before the shared links change: {why}"));
         // (an outside trip starts using b's new pair with a link b's prepared route differs
         // from: the route basis changed, so the commit stops before writing anything)
         doc.timetable.add_trip("", "c", vec![4, 3]);
@@ -3846,7 +3853,8 @@ mod batch_route_tests {
         );
         let (a_before, b_before) = (doc.timetable.trip("a").unwrap().clone(), doc.timetable.trip("b").unwrap().clone());
         let positions = stop_positions(&ui);
-        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4").unwrap();
+        let prepared = ui.prepare_replace_stop_ids(&doc.timetable, &doc.order, false, &positions, "a", 0, 1, 4, true, &["Stop 1"], "Stop 4")
+            .unwrap_or_else(|why| panic!("the prepared replacement must succeed before the late failure: {why}"));
         // (a new user of b's pair, with no link and no route of its own: the route/link basis
         // is unchanged, so the commit starts writing and must roll the first route back)
         doc.timetable.add_trip("", "c", vec![4, 3]);
