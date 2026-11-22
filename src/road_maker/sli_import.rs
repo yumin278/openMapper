@@ -102,7 +102,18 @@ pub(crate) fn create(
         json.as_object_mut().unwrap().remove(field);
     }
     let bytes = serde_json::to_vec_pretty(&json)?;
-    let path = source.with_extension("road.json");
+    // Import is a JSON-only Road Maker draft, not a sidecar for the original SLI.
+    // The user explicitly creates the new spline later in the maker.
+    let rel = spec.maker_filename(None);
+    let draft_sli = crate::doc::safe::own_path(&roots.content, &rel);
+    ensure!(
+        !draft_sli.try_exists()?,
+        "{}",
+        tr("Another road already uses this file: {file}", "Другая дорога уже использует этот файл: {file}")
+            .replace("{file}", &rel)
+    );
+    let path = draft_sli.with_extension("road.json");
+    std::fs::create_dir_all(path.parent().unwrap())?;
     std::fs::File::create_new(&path)?.write_all(&bytes)?;
     Ok(path)
 }
@@ -395,15 +406,19 @@ mod tests {
             );
             std::fs::write(&source, &input).unwrap();
             let json_path = create(&roots, &rel, name.into(), true).unwrap();
+            let draft_sli = crate::doc::safe::own_path(&roots.content, &format!("Splines\\openMapper\\{name}.sli"));
             let json = std::fs::read_to_string(&json_path).unwrap();
-            let spec = RoadSpec::of_with_traffic(&source, true).unwrap();
+            assert_eq!(json_path, draft_sli.with_extension("road.json"));
+            assert!(!draft_sli.exists(), "import must not generate an SLI");
+            assert!(!source.with_extension("road.json").exists(), "no metadata beside the source");
+            let spec = RoadSpec::of_with_traffic(&draft_sli, true).unwrap();
             println!(
                 "{name} input:\n{input}\nInferred strips: {:#?}\nJSON:\n{json}\nGenerated preview SLI:\n{}",
                 spec.strips,
                 spec.sli(true)
             );
             assert_eq!(std::fs::read(&source).unwrap(), input.as_bytes());
-            assert!(MakerTarget::open(rel.clone(), source.clone()).is_some());
+            assert!(MakerTarget::open(spec.maker_filename(None), draft_sli.clone()).is_some());
             assert!(spec.advanced && spec.imported_sli);
             assert_eq!(spec.left_hand, Some(false));
             assert_eq!(spec.sli(true), super::super::free_layout::emit(&spec));
@@ -439,6 +454,14 @@ mod tests {
             assert_eq!(spec.strips, expected);
             assert!(create(&roots, &rel, name.into(), true).is_err());
             assert_eq!(std::fs::read_to_string(&json_path).unwrap(), json);
+            let target = MakerTarget::open(spec.maker_filename(None), draft_sli.clone()).unwrap();
+            assert_eq!(
+                spec.write_in_maker(&roots.content, true, Some(&target)).unwrap(),
+                spec.maker_filename(None)
+            );
+            assert!(draft_sli.is_file(), "only the maker's save should create the SLI");
+            assert_eq!(std::fs::read(&source).unwrap(), input.as_bytes());
+            assert!(!source.with_extension("road.json").exists());
         }
         std::fs::remove_dir_all(dir).unwrap();
     }
