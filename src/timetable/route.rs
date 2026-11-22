@@ -233,8 +233,27 @@ pub fn candidates(net: &Network, p: DVec3, left_hand: bool, ways: Ways) -> Vec<(
         c.push((StopOn { lane: i, along, off }, score));
     }
     c.sort_by(|a, b| a.1.total_cmp(&b.1));
+    // Bus bays/lanes that are explicitly marked bus + no_cars are not merely a
+    // cheaper alternative to a general lane. Keep them ahead of general lanes
+    // for a stop, while retaining general lanes if no bus lane is reachable.
+    if ways == Ways::Road && c.iter().any(|(stop, _)| berth_bus_only(net, p, left_hand, *stop)) {
+        let (mut buses, mut others): (Vec<_>, Vec<_>) = c.into_iter()
+            .partition(|(stop, _)| berth_bus_only(net, p, left_hand, *stop));
+        buses.truncate(CANDIDATES);
+        others.truncate(CANDIDATES);
+        buses.extend(others);
+        return buses;
+    }
     c.truncate(CANDIDATES);
     c
+}
+
+/// A bus-only path can serve this stop only if it runs forward and the stop is
+/// on the kerb side. Do not prefer an oncoming or opposite-side bus lane.
+fn berth_bus_only(net: &Network, p: DVec3, left_hand: bool, stop: StopOn) -> bool {
+    let lane = &net.lanes[stop.lane];
+    net.bus_only.contains(&stop.lane) && !lane.against
+        && lane.project(p.truncate()).2 != left_hand
 }
 
 fn bounds(l: &Lane) -> (DVec3, DVec3) {
@@ -393,8 +412,31 @@ pub fn ways_of(tt: &super::Timetable, name: &str, net: &Network, order: &[TileKe
     }
 }
 
-/// The way through the stops on `ways`, the lanes chosen for all stops at once so that the
-/// whole trip is shortest.
+/// A bus-only stop berth is a routing constraint, not an arbitrary metre
+/// discount. Among routes that serve as many marked berths as possible, prefer
+/// the nearer berth before optimising the driving cost.
+#[derive(Clone, Copy, Debug)]
+struct RouteScore {
+    missed_bus: usize,
+    berth_off: f64,
+    total: f64,
+}
+
+impl RouteScore {
+    fn better_than(self, other: Self, prefer_bus: bool) -> bool {
+        if prefer_bus {
+            self.missed_bus.cmp(&other.missed_bus)
+                .then(self.berth_off.total_cmp(&other.berth_off))
+                .then(self.total.total_cmp(&other.total)).is_lt()
+        } else {
+            // Maps without bus-only paths retain the previous shortest-route behaviour.
+            self.total < other.total
+        }
+    }
+}
+
+/// The way through the stops on `ways`, choosing bus-only berths first when
+/// available and reachable, then the least costly connection between stops.
 fn find_on(net: &Network, positions: &[Option<DVec3>], left_hand: bool, ways: Ways) -> Route {
     let mut r = Route { ways: Some(ways), ..Default::default() };
     let mut cands: Vec<Vec<(StopOn, f64)>> = Vec::new();
@@ -413,8 +455,21 @@ fn find_on(net: &Network, positions: &[Option<DVec3>], left_hand: bool, ways: Wa
     if !r.problems.is_empty() || cands.is_empty() {
         return r;
     }
-    // best[i][c]: (cost, previous candidate, leg length) of reaching stop i on candidate c
-    let mut best: Vec<Vec<Option<(f64, usize, f64)>>> = vec![cands[0].iter().map(|c| Some((c.1, 0, 0.0))).collect()];
+    let bus_stops: Vec<bool> = cands.iter().enumerate().map(|(i, row)| {
+        ways == Ways::Road && row.iter().any(|(s, _)| berth_bus_only(net, positions[i].unwrap(), left_hand, *s))
+    }).collect();
+    let prefer_bus = bus_stops.iter().any(|b| *b);
+    // best[i][c]: (bus-berth priority + distance + route cost, predecessor, leg length).
+    let rank = |i: usize, stop: StopOn, cost: f64| {
+        let at_bus = bus_stops[i] && berth_bus_only(net, positions[i].unwrap(), left_hand, stop);
+        RouteScore {
+            missed_bus: usize::from(bus_stops[i] && !at_bus),
+            berth_off: if at_bus { stop.off } else { 0.0 },
+            total: cost,
+        }
+    };
+    let mut best: Vec<Vec<Option<(RouteScore, usize, f64)>>> =
+        vec![cands[0].iter().map(|&(stop, score)| Some((rank(0, stop, score), 0, 0.0))).collect()];
     let mut ways: Vec<HashMap<(usize, usize), Vec<usize>>> = Vec::new();
     for i in 1..cands.len() {
         let mut row = vec![None; cands[i].len()];
@@ -432,8 +487,13 @@ fn find_on(net: &Network, positions: &[Option<DVec3>], left_hand: bool, ways: Wa
                     found.get(&cur.0.lane).map(|r| (r.cost + cost(lane, cur.0.along), r.metres + cur.0.along, way(&found, prev.0.lane, cur.0.lane)))
                 };
                 let Some((c, len, w)) = leg else { continue };
-                let total = cost0 + c + cur.1;
-                if row[cc].map(|(c, _, _)| total < c).unwrap_or(true) {
+                let add = rank(i, cur.0, cur.1);
+                let total = RouteScore {
+                    missed_bus: cost0.missed_bus + add.missed_bus,
+                    berth_off: cost0.berth_off + add.berth_off,
+                    total: cost0.total + c + cur.1,
+                };
+                if row[cc].map(|(old, _, _)| total.better_than(old, prefer_bus)).unwrap_or(true) {
                     row[cc] = Some((total, pc, len));
                     leg_ways.insert((pc, cc), w);
                 }
@@ -448,7 +508,14 @@ fn find_on(net: &Network, positions: &[Option<DVec3>], left_hand: bool, ways: Wa
     }
     // back from the cheapest last stop
     let last = cands.len() - 1;
-    let mut c = (0..best[last].len()).filter(|&c| best[last][c].is_some()).min_by(|&a, &b| best[last][a].unwrap().0.total_cmp(&best[last][b].unwrap().0)).unwrap();
+    let mut c = (0..best[last].len()).filter(|&c| best[last][c].is_some())
+        .min_by(|&a, &b| {
+            let sa = best[last][a].unwrap().0;
+            let sb = best[last][b].unwrap().0;
+            if sa.better_than(sb, prefer_bus) { Ordering::Less }
+            else if sb.better_than(sa, prefer_bus) { Ordering::Greater }
+            else { Ordering::Equal }
+        }).unwrap();
     let mut picks = vec![c; cands.len()];
     let mut legs = vec![0.0; last];
     for i in (1..=last).rev() {
