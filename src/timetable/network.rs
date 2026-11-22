@@ -3,7 +3,7 @@
 //! drives it and linked to the lanes it runs on into, as openOMSI links them (ends within
 //! 1.5 m, headings within 40°): a lane only to lanes, a track only to tracks.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -163,6 +163,9 @@ impl Lane {
 pub struct Network {
     pub lanes: Vec<Lane>,
     pub by_key: HashMap<PathKey, Vec<usize>>,
+    /// Lanes whose map-instance [rule]s explicitly mark buses only (bus + no_cars).
+    /// Both travel directions of one [path] share the same rule.
+    pub bus_only: HashSet<usize>,
     /// Bus stop objects: (tile, IDCode, world position).
     pub stops: Vec<(TileKey, i64, DVec3)>,
     /// Files still to be found (paths of them are missing).
@@ -184,7 +187,21 @@ fn lane_of(key: PathKey, mut pts: Vec<DVec3>, file_length: f64, internal: usize,
     Lane { key, pts, along, file_length, internal, next: Vec::new(), side: Vec::new(), against, spline, rail }
 }
 
+/// Classify the actual map instance's path rules, not the spline file name.
+fn is_bus_only(rules: &[omsi_map::MapRule], path: usize) -> bool {
+    ["bus", "no_cars"].iter().all(|kind| rules.iter().any(|r| {
+        !r.kill && r.path_index == path as i32 && r.kind == *kind
+    }))
+}
+
 impl Network {
+    /// Mark the lanes just added for one path when the map instance makes it bus-only.
+    fn mark_bus_only(&mut self, start: usize, rules: &[omsi_map::MapRule], path: usize) {
+        if is_bus_only(rules, path) {
+            self.bus_only.extend(start..self.lanes.len());
+        }
+    }
+
     pub fn build(doc: &Document, files: &mut Files) -> Network {
         let mut net = Network::default();
         let rows = crate::place::row_index(doc);
@@ -210,7 +227,9 @@ impl Network {
                             (1, true) => 0,
                             (d, _) => d,
                         };
+                        let before = net.lanes.len();
                         net.add(PathKey { tile: *k, id: s.id, path: pi }, pts, s.length, internal + pi, dir, (true, p.kind == RAIL));
+                        net.mark_bus_only(before, &s.rules, pi);
                     }
                 }
                 internal += info.paths.len();
@@ -244,7 +263,9 @@ impl Network {
                     }
                     let n = (c.length / 2.0).ceil().clamp(1.0, 200.0) as usize;
                     let pts = (0..=n).map(|i| crate::object_paths::world_point(&c, c.length * i as f64 / n as f64, &pose, info.deform.as_ref())).collect();
+                    let before = net.lanes.len();
                     net.add(PathKey { tile: *k, id: o.id, path: pi }, pts, c.length, internal + pi, p.direction, (false, p.kind == RAIL));
+                    net.mark_bus_only(before, &o.rules, pi);
                 }
                 internal += info.paths.len();
             }
@@ -331,6 +352,30 @@ impl Network {
         }
         for (l, s) in self.lanes.iter_mut().zip(side) {
             l.side = s;
+        }
+    }
+}
+
+
+#[cfg(test)]
+mod bus_rule_tests {
+    use super::*;
+
+    fn rule(path_index: i32, kind: &str, kill: bool) -> omsi_map::MapRule {
+        omsi_map::MapRule { path_index, kind: kind.into(), kill, ..Default::default() }
+    }
+
+    #[test]
+    fn only_live_bus_and_no_cars_rules_mark_the_exact_path() {
+        let rules = vec![
+            rule(0, "bus", false), rule(0, "no_cars", false),
+            rule(1, "bus", false), rule(1, "no_cars", true),
+            rule(2, "no_cars", false),
+        ];
+        for (path, expected) in [(0, true), (1, false), (2, false), (3, false)] {
+            println!("BEFORE: path={path} rules=[] bus_only=false");
+            println!("AFTER: path={path} rules={:?} bus_only={}", rules.iter().filter(|r| r.path_index == path).collect::<Vec<_>>(), is_bus_only(&rules, path as usize));
+            assert_eq!(is_bus_only(&rules, path as usize), expected);
         }
     }
 }

@@ -1038,3 +1038,69 @@ fn type2_conversion_keeps_every_stop_of_short_legacy_records() {
         let _ = std::fs::remove_dir_all(out);
     }
 }
+
+
+/// A stop at 0.866 m from its designated bus lane must not use a general lane
+/// 6.820 m away just because the general lane makes the trip shorter.
+#[test]
+fn bus_only_stop_berth_wins_over_a_shorter_general_lane() {
+    let tile = (0, 0);
+    let mut net = Network::default();
+    let p = |xy: &[(f64, f64)]| xy.iter().map(|&(x, y)| DVec3::new(x, y, 0.0)).collect::<Vec<_>>();
+    let general = PathKey { tile, id: 501, path: 0 };
+    let bus = PathKey { tile, id: 502, path: 0 };
+    net.add(general, p(&[(-6.820, 0.0), (-6.820, 100.0)]), 100.0, 0, 0, (true, false));
+    // Both lanes are reachable from both stops. The bus lane takes a longer bend.
+    net.add(bus, p(&[(-0.866, 0.0), (-0.866, 40.0), (-20.0, 50.0), (-0.866, 60.0), (-0.866, 100.0)]), 124.0, 1, 0, (true, false));
+    net.link();
+    let stops = [Some(DVec3::new(0.0, 10.0, 0.0)), Some(DVec3::new(0.0, 90.0, 0.0))];
+    let describe = |n: &Network| {
+        stops.iter().enumerate().map(|(index, s)| {
+            let cs = route::candidates(n, s.unwrap(), false, route::Ways::Road);
+            format!("stop {index}: {}", cs.iter().map(|(at, cost)| {
+                let l = &n.lanes[at.lane];
+                format!("id={} path={} against={} bus_only={} off={:.3} along={:.3} score={:.3}",
+                    l.key.id, l.key.path, l.against, n.bus_only.contains(&at.lane), at.off, at.along, cost)
+            }).collect::<Vec<_>>().join(" | "))
+        }).collect::<Vec<_>>().join("\n")
+    };
+    let before_candidates = describe(&net);
+    let before = route::find(&net, &stops, false, Some(route::Ways::Road));
+    assert!(before.ok(), "before: {:?} {before_candidates}", before.problems);
+    let before_paths: Vec<i64> = before.lanes.iter().map(|&i| net.lanes[i].key.id).collect();
+    assert_eq!(before_paths, vec![501], "without rules shortest route should take the general lane; {before_candidates}");
+    net.bus_only.extend(net.by_key[&bus].iter().copied());
+    let after_candidates = describe(&net);
+    let after = route::find(&net, &stops, false, Some(route::Ways::Road));
+    let after_paths: Vec<i64> = after.lanes.iter().map(|&i| net.lanes[i].key.id).collect();
+    println!("BEFORE (no bus rules):\n{before_candidates}\nroute={before_paths:?}\nlinks={:#?}\nAFTER (bus + no_cars on id 502):\n{after_candidates}\nroute={after_paths:?}\nlinks={:#?}",
+        before.links(&net, &[tile], &[10, 11]), after.links(&net, &[tile], &[10, 11]));
+    assert!(after.ok(), "after: {:?}", after.problems);
+    assert_eq!(after_paths, vec![502], "a valid bus-only berth must win, despite the longer road");
+    assert!((after.stops[0].1.off - 0.866).abs() < 0.01, "{after:?}");
+    assert!((before.stops[0].1.off - 6.820).abs() < 0.01, "{before:?}");
+}
+
+/// A disconnected bus-only berth must not make an otherwise drivable trip fail.
+/// Keep ordinary lanes in the candidate set as a genuine fallback.
+#[test]
+fn disconnected_bus_berth_falls_back_to_reachable_general_lane() {
+    let tile = (0, 0);
+    let mut net = Network::default();
+    let p = |x: f64, from: f64, to: f64| vec![DVec3::new(x, from, 0.0), DVec3::new(x, to, 0.0)];
+    let general = PathKey { tile, id: 601, path: 0 };
+    let bus = PathKey { tile, id: 602, path: 0 };
+    net.add(general, p(-6.820, 0.0, 100.0), 100.0, 0, 0, (true, false));
+    net.add(bus, p(-0.866, 0.0, 30.0), 30.0, 1, 0, (true, false));
+    net.bus_only.extend(net.by_key[&bus].iter().copied());
+    net.link();
+    let stops = [Some(DVec3::new(0.0, 10.0, 0.0)), Some(DVec3::new(0.0, 90.0, 0.0))];
+    let candidates = route::candidates(&net, stops[0].unwrap(), false, route::Ways::Road);
+    let route = route::find(&net, &stops, false, Some(route::Ways::Road));
+    let ids: Vec<i64> = route.lanes.iter().map(|&l| net.lanes[l].key.id).collect();
+    println!("bus rules: id=602 bus + no_cars, id=601 none; candidates={:?}; selected={ids:?}; stops={:?}; links={:#?}",
+        candidates.iter().map(|(stop, score)| (net.lanes[stop.lane].key.id, stop.off, score)).collect::<Vec<_>>(),
+        route.stops, route.links(&net, &[tile], &[10, 11]));
+    assert!(route.ok(), "{:?}", route.problems);
+    assert_eq!(ids, vec![601], "only the general lane reaches both stops");
+}
