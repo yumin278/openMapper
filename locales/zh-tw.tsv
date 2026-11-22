@@ -3411,3 +3411,11 @@ The overwrite was not written: the trip's old track is still used by another tri
 The trip's old track is still used by another trip: it was not repaired, so this trip's way is still read from that track. The saved data is unchanged.	這個班次的舊軌道仍被另一個班次使用：因此沒有修復，這個班次的路線仍然讀取該軌道。已儲存的資料維持不變。
 Split in half	對半拆分
 Split only this spline into two equal-length pieces, not the whole connected road	只將目前這條曲線對半拆分，不拆分整條相連道路
+Original Type 1 track (read-only)	原始 Type 1 軌跡（唯讀）
+Track not found: {name}.ttr	找不到軌跡：{name}.ttr
+Map AI paths are not loaded yet	地圖 AI 路徑尚未載入
+Mapped {mapped} of {total} original track entries	已對應 {mapped}／{total} 筆原始 TrackEntry
+Show start of original track	在地圖上顯示原始軌跡的起點
+{count} original paths are missing from the current map; no replacement route was calculated.	目前地圖缺少 {count} 段原始路徑；沒有重新尋路代替。
+Locate the tile; the missing path's exact position is unknown	定位所在圖塊（缺失路徑的精確位置未知）
+Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	只顯示已儲存的 TrackEntry 路徑，不重新尋路或修改班次。
