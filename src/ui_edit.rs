@@ -158,7 +158,8 @@ pub fn linked_steps(ui: &mut egui::Ui, has_prev: bool, has_next: bool) -> Option
 /// Split exactly one selected map spline at half its own length (not the linked chain).
 /// The existing cut operation keeps the shape, connections and undo history.
 pub fn split_selected_spline_in_half(ed: &mut Editor) {
-    let [Sel::Spline(k, id)] = ed.selection().as_slice() else { return };
+    let selection = ed.selection();
+    let [Sel::Spline(k, id)] = selection.as_slice() else { return };
     let (k, id) = (*k, *id);
     let Some(length) = ed.doc.as_ref().and_then(|d| d.spline(k, id)).map(|s| s.length) else { return };
     ed.cut_spline(k, id, length * 0.5);
