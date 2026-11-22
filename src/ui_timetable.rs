@@ -3452,7 +3452,24 @@ mod batch_route_tests {
         assert!(doc.timetable.track("hand").is_none(), "the hand-picked track is gone once the way is automatic");
         assert_eq!(track(&doc.timetable, "broken"), broken);
         assert!(doc.timetable.links.contains(&link(1, 3, 100.0)));
-        assert!(doc.timetable.links.contains(&link(1, 2, 99.0)));
+        // (with the hand way explicitly overwritten, both trips are automatic and write the
+        // link calculated along the lane: 80 m from stop 1 at 10 m to stop 2 at 90 m, not the
+        // old 99 m hand link. The protected broken pair above is untouched.)
+        let calculated = omsi_timetable::StnLink {
+            from_id: 1,
+            to_id: 2,
+            length: 80.0,
+            params: [0.0, 0.0, 10.0, 90.0, 0.0, 0.0],
+            entries: vec![omsi_timetable::StnLinkEntry {
+                values: [50.0, 0.0, 0.0, 100.0, -1.0, 0.0, 0.0],
+            }],
+        };
+        assert_eq!(
+            doc.timetable.links.iter().filter(|l| (l.from_id, l.to_id) == (1, 2)).collect::<Vec<_>>(),
+            vec![&calculated],
+            "the explicit recalculation writes the calculated link, not the old hand one"
+        );
+        assert!(!doc.timetable.links.contains(&link(1, 2, 99.0)), "the old hand link is replaced");
     }
 
     /// A Type 1 trip's `[station]` records use its station pairs too: when the batch rejects
