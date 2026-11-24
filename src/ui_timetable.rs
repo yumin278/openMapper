@@ -1685,6 +1685,11 @@ impl TimetableUi {
                 tt.trip_mut(&name).unwrap().line = l;
                 tt.touch_trip(&name);
             }
+            if ui.button(format!("{} + _", tr("Line", "Линия")))
+                .on_hover_text(format!("{} + _ + {}", tr("Line", "Линия"), tr("Destination sign", "Табличка")))
+                .clicked() {
+                prefix_trip_destination(tt, &name);
+            }
         });
         let legacy = tt.is_type1(&t);
         let draft = tt.is_type2_draft(&t);
@@ -3159,5 +3164,46 @@ mod type1_track_preview_tests {
         assert_eq!(shown.3.lanes, vec![0]);
         assert!(shown.3.by_hand, "track geometry is displayed as saved, not automatically found");
         assert!(ed.doc.as_ref().unwrap().timetable.same_content(&before));
+    }
+}
+
+fn prefix_trip_destination(tt: &mut Timetable, name: &str) {
+    if let Some(trip) = tt.trip_mut(name) {
+        trip.terminus = format!("{}_{}", trip.line, trip.terminus);
+        tt.touch_trip(name);
+    }
+}
+
+#[cfg(test)]
+mod destination_prefix_tests {
+    use super::*;
+
+    #[test]
+    fn prefix_uses_the_current_trip_line_and_only_changes_its_destination() {
+        let mut tt = Timetable::default();
+        tt.trips.push(Trip {
+            name: "outbound".into(),
+            display_name: "outbound-track".into(),
+            line: "X10".into(),
+            terminus: "Nordpark".into(),
+            stations: vec![10, 20],
+            ..Default::default()
+        });
+        tt.trips.push(Trip {
+            name: "other".into(),
+            line: "M19".into(),
+            terminus: "Nordpark".into(),
+            ..Default::default()
+        });
+        let before = tt.trips.clone();
+        println!("Before:\n{}\n{}", timetable::trip_text(&before[0]), timetable::trip_text(&before[1]));
+        prefix_trip_destination(&mut tt, "outbound");
+        println!("After:\n{}\n{}", timetable::trip_text(&tt.trips[0]), timetable::trip_text(&tt.trips[1]));
+        let mut expected = before[0].clone();
+        expected.terminus = "X10_Nordpark".into();
+        assert_eq!(tt.trips[0], expected);
+        assert_eq!(tt.trips[1], before[1]);
+        assert!(tt.dirty);
+        assert!(tt.reroute.is_empty());
     }
 }
