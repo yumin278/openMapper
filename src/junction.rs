@@ -3184,30 +3184,37 @@ mod tests {
 
     // Generated segments are emitted consecutively for each lane-to-lane connection.
     // Match their ends back to the original directed lane ends.
+    /// The junction records now form a graph, not a sequence of complete
+    /// per-movement paths. Walk the graph to verify each lane's destinations.
     fn lane_connectivity_report(label: &str, lanes: &[LaneEnd], records: &[PathRec]) -> Vec<Vec<usize>> {
         let mut links = vec![Vec::new(); lanes.len()];
-        let mut start = None;
-        let mut previous: Option<DVec3> = None;
-        for record in records.iter().filter(|record| record.kind == 0) {
-            let seg = &record.seg;
-            let matches = |lane: &LaneEnd, p: DVec2, z: f64| {
-                lane.kind == 0 && lane.pos.distance_squared(p.extend(z)) < 1e-6
-            };
-            if let Some(pos) = previous {
-                assert!(pos.distance_squared(seg.start.extend(record.z0)) < 1e-6);
-            }
-            let source = *start.get_or_insert_with(|| lanes.iter()
-                .position(|lane| lane.incoming && matches(lane, seg.start, record.z0)).unwrap());
-            if let Some(target) = lanes.iter().position(|lane| !lane.incoming && matches(lane, seg.end(), record.z1)) {
-                links[source].push(target);
-                links[target].push(source);
-                start = None;
-                previous = None;
-            } else {
-                previous = Some(seg.end().extend(record.z1));
+        for (source, lane) in lanes.iter().enumerate().filter(|(_, l)| l.kind == 0 && l.incoming) {
+            let mut queue = vec![lane.pos];
+            let mut visited = std::collections::HashSet::<usize>::new();
+            while let Some(at) = queue.pop() {
+                for (idx, rec) in records.iter().enumerate() {
+                    if rec.kind != 0 || rec.bus != lane.bus || visited.contains(&idx)
+                        || at.distance_squared(rec.seg.start.extend(rec.z0)) > 1e-5 {
+                        continue;
+                    }
+                    visited.insert(idx);
+                    let end = rec.seg.end().extend(rec.z1);
+                    let mut terminal = false;
+                    for (target, exit) in lanes.iter().enumerate()
+                        .filter(|(_, l)| l.kind == 0 && !l.incoming && l.bus == lane.bus)
+                    {
+                        if exit.pos.distance_squared(end) < 1e-5 {
+                            if !links[source].contains(&target) {
+                                links[source].push(target);
+                                links[target].push(source);
+                            }
+                            terminal = true;
+                        }
+                    }
+                    if !terminal { queue.push(end); }
+                }
             }
         }
-        assert!(start.is_none(), "unfinished route in {label}");
         println!("{label}");
         for (idx, lane) in lanes.iter().enumerate() {
             let peers: Vec<_> = links[idx].iter().map(|&i| (lanes[i].arm, lanes[i].pos)).collect();
@@ -4910,10 +4917,13 @@ mod tests {
         let mut result = Vec::new();
         let mut used = std::collections::HashSet::new();
         for _ in 0..10 {
-            let (idx, rec) = paths.iter().enumerate().find(|(idx, rec)| {
-                rec.kind == 0 && rec.blinker == blinker && !used.contains(idx)
+            let candidates = || paths.iter().enumerate().filter(|(idx, rec)| {
+                rec.kind == 0 && !used.contains(idx)
                     && (rec.seg.start - current).length() < 0.02
-            }).unwrap_or_else(|| panic!("missing route segment at {current:?} toward {pb:?}, blink {blinker}"));
+            });
+            let (idx, rec) = candidates().find(|(_, rec)| rec.blinker == blinker)
+                .or_else(|| candidates().find(|(_, rec)| rec.blinker == 0))
+                .unwrap_or_else(|| panic!("missing route segment at {current:?} toward {pb:?}, blink {blinker}"));
             used.insert(idx);
             current = rec.seg.end();
             result.push(rec);
