@@ -35,6 +35,17 @@ jobs:
         with:
           key: windows-x64-integration
 
+      # Temporary verification fixture export for the new shared-stem layout.
+      # Remove this step after committing the regenerated reference files.
+      - name: Export junction baseline candidates
+        shell: pwsh
+        run: |
+          $env:OPENMAPPER_SNAPSHOT_WRITE = Join-Path $env:RUNNER_TEMP "junction-baseline"
+          cargo test --release --locked junction_sco_baseline_snapshots -- --nocapture
+          Get-ChildItem $env:OPENMAPPER_SNAPSHOT_WRITE -Filter "*.sco" | ForEach-Object {
+            Write-Output ("GOLDEN__{0}__{1}" -f $_.BaseName, [Convert]::ToHexString([IO.File]::ReadAllBytes($_.FullName)))
+          }
+
       - name: All tests
         run: cargo test --release --locked -- --nocapture
 
