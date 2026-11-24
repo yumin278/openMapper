@@ -2617,6 +2617,50 @@ mod station_edit_tests {
     }
 
     #[test]
+    fn type2_preparation_unlocks_map_picking_before_conversion() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        let trip = ed.doc.as_mut().unwrap().timetable.trip_mut("current").unwrap();
+        trip.display_name = "original-track".into();
+        trip.stations.clear();
+        trip.profiles[0].other_stopping.clear();
+        println!("Before preparation:\n{}", timetable::trip_text(trip));
+        let center = |output: &egui::FullOutput, label: &str| {
+            output.shapes.iter().rev().find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.text().contains(label) => Some(text.pos + text.galley.size() * 0.5),
+                _ => None,
+            })
+        };
+        let click = |ui: &mut TimetableUi, ed: &mut Editor, pos| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default(),
+            };
+            frame(&ctx, ui, ed, vec![egui::Event::PointerMoved(pos), button(true)]);
+            frame(&ctx, ui, ed, vec![button(false)])
+        };
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let prepare = center(&output, tr("Prepare Type 2 stops", "Подготовить остановки типа 2")).unwrap();
+        click(&mut ui, &mut ed, prepare);
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let pick = center(&output, tr("Pick stops on the map", "Выбрать на карте")).unwrap();
+        click(&mut ui, &mut ed, pick);
+        assert!(ed.pick_mode);
+        for id in [11, 12] {
+            ed.picked = Some((Some(Sel::Object((0, 0), id)), None));
+            frame(&ctx, &mut ui, &mut ed, Vec::new());
+        }
+        let tt = &ed.doc.as_ref().unwrap().timetable;
+        let trip = tt.trip("current").unwrap();
+        println!("Prepared before conversion:\n{}", timetable::trip_text(trip));
+        assert!(tt.is_type2_draft(trip));
+        assert_eq!(trip.display_name, "original-track");
+        assert_eq!(trip.stations, [11, 12]);
+        assert!(tt.reroute.is_empty());
+        assert!(trip.profiles[0].other_stopping.contains(&(1, 1)));
+    }
+
+    #[test]
     fn type2_conversion_checkbox_unlocks_stop_picking_for_a_zero_stop_legacy_trip() {
         let _map = crate::doc::one_map();
         let (mut ed, mut ui, ctx) = editor_fixture();
