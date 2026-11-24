@@ -799,7 +799,7 @@ impl TimetableUi {
             // An explicit stop edit is a new request to route this trip.
             self.bulk_blocked.remove(&lower(&name));
             let Some(trip) = doc.timetable.trip(&name).cloned() else { continue };
-            if timetable::is_type1(&trip) {
+            if doc.timetable.is_type1(&trip) {
                 continue;
             }
             if doc.timetable.by_hand(&name) {
@@ -850,7 +850,7 @@ impl TimetableUi {
         for trip in &doc.timetable.trips {
             // A legacy [station] trip specifies a track and its own stop records.
             // Never convert it to [station_typ2] as a side effect of this action.
-            if !eligible_for_batch(trip) {
+            if doc.timetable.is_type1(trip) || !eligible_for_batch(trip) {
                 skipped += 1;
                 protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
                 continue;
@@ -998,7 +998,7 @@ impl TimetableUi {
         let w = (cam.distance * 0.004).clamp(0.08, 6.0) as f32;
         if let Some((name, stations, _, r)) = &self.shown {
             let lift = DVec3::Z * 0.45;
-            if let Some(trip) = doc.timetable.trip(name).filter(|t| timetable::is_type1(t)) {
+            if let Some(trip) = doc.timetable.trip(name).filter(|t| doc.timetable.is_type1(t)) {
                 // Draw each original path individually: a missing TrackEntry must
                 // *not* be connected by a made-up straight line or a new search.
                 let (_, mapped) = type1_track_lanes(&doc.timetable, trip, net, &doc.order);
@@ -1157,10 +1157,11 @@ impl TimetableUi {
     /// Inserting queues the stop for the same profile remapping as edits in the stop list.
     fn pick_from_view(&mut self, ed: &mut Editor) {
         ed.pick_mode = self.picking || self.way_edit || self.insert_before.is_some();
-        if ed.pick_mode && self.trip.as_deref()
-            .and_then(|name| ed.doc.as_ref()?.timetable.trip(name))
-            .is_some_and(timetable::is_type1)
-        {
+        if ed.pick_mode && self.trip.as_deref().is_some_and(|name| {
+            ed.doc.as_ref().is_some_and(|doc| doc.timetable.trip(name).is_some_and(|t| {
+                doc.timetable.is_type1(t) && !doc.timetable.is_type2_draft(t)
+            }))
+        }) {
             self.picking = false;
             self.way_edit = false;
             self.clear_stop_edits();
@@ -1204,11 +1205,20 @@ impl TimetableUi {
             return;
         }
         let terminus = self.stop_name(&doc.timetable, id);
+        let draft = doc.timetable.trip(&trip).is_some_and(|t| doc.timetable.is_type2_draft(t));
         if let Some(t) = doc.timetable.trip_mut(&trip) {
             if t.stations.last() == Some(&id) {
                 return;
             }
+            let old_len = t.stations.len();
             t.stations.push(id);
+            if draft {
+                let mut rows: Vec<_> = (0..old_len).map(Some).collect();
+                rows.push(None);
+                remap_station_profiles(&mut t.profiles, old_len, &t.stations, &rows, |id| {
+                    self.stops.iter().find(|s| s.id == id).map(|s| s.kind.serve())
+                });
+            }
             t.terminus = terminus;
         }
         doc.timetable.touch_route(&trip);
@@ -1221,8 +1231,13 @@ impl TimetableUi {
             self.shown = None;
             return;
         };
-        if timetable::is_type1(trip) {
+        if doc.timetable.is_type1(trip) {
             let (_, mapped) = type1_track_lanes(&doc.timetable, trip, net, &doc.order);
+            if doc.timetable.is_type2_draft(trip) {
+                let lanes = mapped.unwrap_or_default().into_iter().flatten().collect();
+                self.shown = Some((trip.name.clone(), trip.stations.clone(), self.net_key, Route { lanes, by_hand: true, ..Default::default() }));
+                return;
+            }
             self.shown = mapped.map(|mapped| {
                 let ids: Vec<i64> = trip.stations_legacy.iter()
                     .filter_map(|row| row.first().and_then(|v| v.trim().parse::<i64>().ok()))
@@ -1254,7 +1269,7 @@ impl TimetableUi {
     }
 
     fn type2_conversion(&mut self, ui: &mut egui::Ui, doc: &mut Document, toasts: &mut Vec<crate::editor::Toast>) {
-        let legacy = || doc.timetable.trips.iter().filter(|t| timetable::is_type1(t));
+        let legacy = || doc.timetable.trips.iter().filter(|t| doc.timetable.is_type1(t));
         let total = legacy().count();
         if total == 0 {
             self.confirm_type2_conversion = false;
@@ -1668,8 +1683,11 @@ impl TimetableUi {
                 tt.touch_trip(&name);
             }
         });
-        if timetable::is_type1(&t) {
-            self.clear_stop_edits();
+        let legacy = tt.is_type1(&t);
+        let draft = tt.is_type2_draft(&t);
+        if legacy {
+            if !draft { self.clear_stop_edits(); }
+            self.way_edit = false;
             let mut excluded = tt.excludes_type2(&t);
             if ui.checkbox(&mut excluded, tr("Exclude from Type 2 conversion", "Исключить из преобразования в тип 2")).changed() {
                 tt.set_type2_exclusion(&t, excluded);
@@ -1748,14 +1766,21 @@ impl TimetableUi {
                         });
                 }
             }
-            ui.label(RichText::new(tr("Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.", "Показаны только сохранённые TrackEntry; маршрут не пересчитывается и не изменяется.")).small().color(pal().text_dim));
-            return;
+            ui.label(RichText::new(tr("The original track is a reference only. Preparing stops does not change it or recalculate the route.", "Исходный путь служит только ориентиром. Подготовка остановок не изменяет его и не пересчитывает маршрут.")).small().color(pal().text_dim));
+            if !draft {
+                if ui.add_enabled(!t.train_reverse && t.stations.is_empty(), egui::Button::new(tr("Prepare Type 2 stops", "Подготовить остановки типа 2"))).clicked() {
+                    if !tt.prepare_type2_stops(&name) {
+                        toasts.push(crate::editor::Toast { text: tr("Cannot prepare stops: invalid legacy station ID.", "Невозможно подготовить остановки: неверный ID старой остановки.").into(), at: std::time::Instant::now(), error: true });
+                    }
+                }
+                return;
+            }
         }
         let _ = line;
         // what it drives on: as set here, else as its way was found
         let found = self.shown.as_ref().filter(|x| x.0 == name).and_then(|x| x.3.ways);
         let ways = self.ways.get(&lower(&name)).copied().or(found).unwrap_or(Ways::Road);
-        ui.horizontal(|ui| {
+        if !draft { ui.horizontal(|ui| {
             ui.label(tr("Drives on", "Ездит по")).on_hover_text(tr("Found from where its stops stand; set it for a tram whose stops stand by a road as well", "Определяется по тому, у чего стоят остановки; задайте сами для трамвая, если его остановки стоят и у дороги"));
             for (w, label) in [(Ways::Road, tr("Roads (bus)", "Дорогам (автобус)")), (Ways::Rail, tr("Tracks (tram, train)", "Рельсам (трамвай, поезд)"))] {
                 if ui.selectable_label(ways == w, label).clicked() && ways != w {
@@ -1764,7 +1789,7 @@ impl TimetableUi {
                     self.shown = None;
                 }
             }
-        });
+        }); }
 
         // the stops
         ui.add_space(4.0);
@@ -1897,6 +1922,13 @@ impl TimetableUi {
             });
             tm.stations.clone_from(&stations);
             tt.touch_route(&name);
+        }
+
+        if draft {
+            let legs = vec![0.0; stations.len().saturating_sub(1)];
+            self.times_section(ui, &mut doc.timetable, &name, &stations, &legs, None);
+            self.serve_section(ui, &mut doc.timetable, &name, &stations);
+            return;
         }
 
         // the route
