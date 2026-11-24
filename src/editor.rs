@@ -8818,10 +8818,10 @@ impl Editor {
         self.toast(tr("Cut in two: each piece can now be changed on its own", "Разрезана надвое: каждый кусок теперь можно менять отдельно"));
     }
 
-    /// Spline `id` and the one after it made one spline again, where they make one curve.
-    pub fn join_with_next(&mut self, k: TileKey, id: i64) {
-        let Some(doc) = self.doc.as_ref() else { return };
-        let Some(s) = doc.spline(k, id) else { return };
+    /// Join two pieces; false keeps the menu open for a native double-click after a shape warning.
+    pub fn join_with_next(&mut self, k: TileKey, id: i64, allow_shape_change: bool) -> bool {
+        let Some(doc) = self.doc.as_ref() else { return true };
+        let Some(s) = doc.spline(k, id) else { return true };
         self.history.begin(tr("Join the pieces", "Соединить куски"));
         self.history.touch_tile(doc, k);
         if let Some((nk, n)) = doc.find_spline(s.next_id) {
@@ -8830,15 +8830,22 @@ impl Editor {
                 self.history.touch_tile(doc, ck);
             }
         }
-        match self.doc.as_mut().unwrap().join_splines(k, id) {
+        match self.doc.as_mut().unwrap().join_splines(k, id, allow_shape_change) {
             Ok(()) => {
                 self.history.commit();
                 self.set_selection(vec![Sel::Spline(k, id)]);
                 self.toast(tr("Joined into one piece", "Соединены в один кусок"));
+                true
             }
-            Err(why) => {
+            Err(crate::doc::JoinSplineError::ShapeChange) => {
+                self.history.cancel();
+                self.error(tr("Joining would change the shape. Double-click Join with the next piece to force it.", "При соединении изменится форма. Дважды щёлкните «Соединить со следующим куском», чтобы соединить принудительно."));
+                false
+            }
+            Err(crate::doc::JoinSplineError::Other(why)) => {
                 self.history.cancel();
                 self.error(why);
+                true
             }
         }
     }

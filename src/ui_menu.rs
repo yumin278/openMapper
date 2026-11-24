@@ -18,8 +18,12 @@ pub struct ViewMenu {
     pub ground: Option<DVec3>,
 }
 
+fn item_response(ui: &mut egui::Ui, icon: Icon, text: &str, keys: &str, enabled: bool) -> egui::Response {
+    ui.add_enabled(enabled, egui::Button::new(icons::labelled(icon, text)).shortcut_text(keys).min_size(egui::vec2(230.0, 0.0)))
+}
+
 fn item(ui: &mut egui::Ui, icon: Icon, text: &str, keys: &str, enabled: bool) -> bool {
-    ui.add_enabled(enabled, egui::Button::new(icons::labelled(icon, text)).shortcut_text(keys).min_size(egui::vec2(230.0, 0.0))).clicked()
+    item_response(ui, icon, text, keys, enabled).clicked()
 }
 
 /// The menu, while it is open. It closes on a choice, a click elsewhere or Esc.
@@ -93,9 +97,13 @@ pub fn show(ctx: &egui::Context, menu: &mut Option<ViewMenu>, ed: &mut Editor, l
                 done = true;
             }
             if let Some((k, id)) = joinable {
-                if item(ui, Icon::Link, tr("Join with the next piece", "Соединить со следующим куском"), "", true) {
-                    ed.join_with_next(k, id);
-                    done = true;
+                let response = item_response(ui, Icon::Link, tr("Join with the next piece", "Соединить со следующим куском"), "", true);
+                // The first click on an incompatible shape warns and leaves this widget alive.
+                // egui recognizes the second click itself; no map-click or confirmation counter.
+                if response.double_clicked() {
+                    done = ed.join_with_next(k, id, true);
+                } else if response.clicked() {
+                    done = ed.join_with_next(k, id, false);
                 }
             }
             // (two free ends among the selected splines: a new piece between them)

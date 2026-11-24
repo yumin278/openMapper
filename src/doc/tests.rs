@@ -408,7 +408,7 @@ fn a_cut_road_joined_again_is_the_road_it_was() {
     row2.range = 40.0;
     doc.tiles.get_mut(&(0, 0)).unwrap().tile.spline_attachments.push(row2);
     let spots = row_spots(&doc);
-    doc.join_splines((0, 0), 1).unwrap();
+    doc.join_splines((0, 0), 1, false).unwrap();
     assert!(doc.find_spline(b).is_none());
     let after = doc.spline((0, 0), 1).unwrap();
     assert_eq!(after.next_id, 0);
@@ -425,15 +425,15 @@ fn pieces_of_other_bends_are_not_joined() {
     add_spline(&mut doc, (0, 0), 2, 50.0, 100.0, 0.0, 50.0, 1, 3);
     add_spline(&mut doc, (0, 0), 3, 50.0, 150.0, 0.0, 30.0, 2, 0);
     doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines[1].radius = 200.0;
-    assert!(doc.join_splines((0, 0), 1).is_err());
+    assert!(doc.join_splines((0, 0), 1, false).is_err());
     // two straights in line: one, the third now following it
     doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines[1].radius = 0.0;
-    doc.join_splines((0, 0), 1).unwrap();
+    doc.join_splines((0, 0), 1, false).unwrap();
     assert_eq!(doc.spline((0, 0), 1).unwrap().length, 100.0);
     assert_eq!(doc.spline((0, 0), 3).unwrap().prev_id, 1);
-    doc.join_splines((0, 0), 1).unwrap();
+    doc.join_splines((0, 0), 1, false).unwrap();
     assert_eq!(doc.spline((0, 0), 1).unwrap().length, 130.0);
-    assert!(doc.join_splines((0, 0), 1).is_err());
+    assert!(doc.join_splines((0, 0), 1, false).is_err());
 }
 
 /// A map whose NextIDCode is behind the roads it already has still gets a fresh IDCode:
@@ -638,4 +638,45 @@ fn an_old_tiles_rows_stand_where_they_stood_after_a_save() {
     let after = spots(&back);
     assert!(after.len() == 1 && (after[0] - before[0]).length() < 1e-6, "{after:?} - {before:?}");
     let _ = std::fs::remove_dir_all(&roots.content);
+}
+
+#[test]
+fn junction_force_join_shape_change_only() {
+    use crate::selection::tests::{add_spline, flat_map};
+    let mut doc = flat_map(1);
+    add_spline(&mut doc, (0, 0), 1, 50.0, 50.0, 0.0, 50.0, 0, 2);
+    add_spline(&mut doc, (0, 0), 2, 50.0, 100.0, 0.0, 50.0, 1, 3);
+    add_spline(&mut doc, (0, 0), 3, 50.0, 150.0, 0.0, 30.0, 2, 0);
+    doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines[1].radius = 200.0;
+    let a = doc.spline((0, 0), 1).unwrap().clone();
+    let b = doc.spline((0, 0), 2).unwrap().clone();
+    let c = doc.spline((0, 0), 3).unwrap().clone();
+    let org = tile_origin((0, 0));
+    let old_end = omsi_geometry::SplineCurve::from_map(&b, org).point_at(b.length);
+    println!("Before: A={a:#?} B={b:#?} C={c:#?} B end={old_end:?}");
+    let rejected = doc.join_splines((0, 0), 1, false);
+    println!("Single click: {rejected:?}");
+    assert_eq!(rejected, Err(JoinSplineError::ShapeChange));
+    assert_eq!(doc.spline((0, 0), 1).unwrap().length, a.length);
+    assert_eq!(doc.spline((0, 0), 2).unwrap().radius, b.radius);
+
+    // A different road type is still rejected, even with the explicit override.
+    doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines[1].file = "other.sli".into();
+    let incompatible = doc.join_splines((0, 0), 1, true);
+    println!("Forced join with a different road type: {incompatible:?}");
+    assert!(matches!(incompatible, Err(JoinSplineError::Other(_))));
+    assert!(doc.find_spline(2).is_some());
+    doc.tiles.get_mut(&(0, 0)).unwrap().tile.splines[1].file = b.file.clone();
+
+    doc.join_splines((0, 0), 1, true).unwrap();
+    let joined = doc.spline((0, 0), 1).unwrap();
+    let next = doc.spline((0, 0), 3).unwrap();
+    let new_end = omsi_geometry::SplineCurve::from_map(joined, org).point_at(joined.length);
+    println!("Double click: joined={joined:#?} next={next:#?} end={new_end:?} displacement={:?}", new_end - old_end);
+    assert_eq!(joined.radius, a.radius);
+    assert_eq!(joined.length, a.length + b.length);
+    assert_eq!(joined.next_id, 3);
+    assert_eq!(next.prev_id, 1);
+    assert!(doc.find_spline(2).is_none());
+    assert!((new_end - old_end).length() > 0.05);
 }

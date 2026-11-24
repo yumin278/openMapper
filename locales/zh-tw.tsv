@@ -335,6 +335,7 @@ The two pieces are of different road types	兩段的道路類型不同
 The two pieces have different settings (path rules, ground, skew)	兩段的設定不同（路徑規則、地面、傾斜）
 A row of objects comes onto the next piece from another tile	有一排物件從另一個圖塊進入下一段
 The two pieces do not bend, climb or bank alike: joined they would change shape	兩段的彎曲、爬升或傾斜方式不同：接合後形狀會改變
+Joining would change the shape. Double-click Join with the next piece to force it.	接合會改變道路形狀。雙擊「與下一段接合」即可強制接合。
 Earlier versions	先前的版本
 Before every save, the files it replaces are kept (the last 10 saves). Going back puts the map as it was before that save; later changes go.	每次儲存前，會保留被取代的檔案（最近 10 次儲存）。返回會將地圖還原為該次儲存之前的狀態；之後的變更會消失。
 No earlier versions yet: they appear once the map is saved again.	尚無先前的版本：再次儲存地圖後就會出現。
