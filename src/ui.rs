@@ -2472,7 +2472,7 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
     let mut step: Option<bool> = None;
     let mut knife = false;
     let mut split_half = false;
-    let mut join_next = false;
+    let mut join_next = None;
     let mut reverse = false;
     let mut flip = false;
     let mut lay = false;
@@ -2886,8 +2886,13 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
                         .on_hover_text(tr("Split only this spline into two equal-length pieces, not the whole connected road", "Разделить только этот сплайн на две равные части, не всю соединённую дорогу")).clicked() {
                         split_half = true;
                     }
-                    if s.next_id != 0 && ui.small_button(icons::labelled(Icon::Link, tr("Join with the next piece", "Соединить со следующим куском"))).on_hover_text(tr("One piece again with the one after it, where the two make one curve", "Снова один кусок со следующим, если вместе они образуют одну кривую")).clicked() {
-                        join_next = true;
+                    if s.next_id != 0 {
+                        let response = ui.small_button(icons::labelled(Icon::Link, tr("Join with the next piece", "Соединить со следующим куском"))).on_hover_text(tr("One piece again with the one after it, where the two make one curve", "Снова один кусок со следующим, если вместе они образуют одну кривую"));
+                        if response.double_clicked() {
+                            join_next = Some(true);
+                        } else if response.clicked() {
+                            join_next = Some(false);
+                        }
                     }
                 });
                 let shown = ed.heading_shown.filter(|(kk, iid, _, _)| *kk == k && *iid == id).map(|(_, _, at, h)| (at, h));
@@ -3187,8 +3192,8 @@ fn properties(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Librar
                 crate::ui_edit::split_selected_spline_in_half(ed);
                 return;
             }
-            if join_next {
-                ed.join_with_next(k, id);
+            if let Some(allow_shape_change) = join_next {
+                ed.join_with_next(k, id, allow_shape_change);
                 return;
             }
             if reverse {

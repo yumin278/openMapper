@@ -11306,7 +11306,7 @@ impl Editor {
             // (one piece where the stretch's pieces make one curve: the taper needs length)
             let mut i = 0;
             while i + 1 < inner.len() {
-                if doc.join_splines(inner[i].0, inner[i].1).is_ok() {
+                if doc.join_splines(inner[i].0, inner[i].1, false).is_ok() {
                     inner.remove(i + 1);
                 } else {
                     i += 1;

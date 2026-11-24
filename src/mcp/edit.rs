@@ -395,7 +395,7 @@ impl Server {
             "join_with_next" => {
                 let id = c.i64("id").ok_or("`id` is needed")?;
                 let Some(Sel::Spline(k, id)) = self.sel_of(id) else { return Err(format!("no spline {id}")) };
-                self.ed.join_with_next(k, id);
+                self.ed.join_with_next(k, id, false);
             }
             "link_ends" => {
                 // two free spline ends lying on one another (any angle) linked, as the map check's "Join"

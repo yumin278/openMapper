@@ -630,7 +630,7 @@ impl App {
         if let Some(n) = std::env::var("OPENMAPPER_JOIN_NEXT").ok().and_then(|v| v.parse::<usize>().ok()) {
             if let Some(Sel::Spline(k, id)) = self.ed.selected {
                 for _ in 0..n {
-                    self.ed.join_with_next(k, id);
+                    self.ed.join_with_next(k, id, false);
                 }
             }
         }
