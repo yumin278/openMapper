@@ -11625,7 +11625,15 @@ fn join_two(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, 
 }
 
 fn join_two_with_pocket(doc: &mut Document, assets: &mut Assets, adapt: bool, follow: bool, content: &Path, asphalt: Option<&Path>, a: &crate::junction::Arm, b: &crate::junction::Arm, pocket_paths: Option<&std::ops::Range<usize>>) -> bool {
-    if adapt && width_step(doc, assets, a, b).is_some() {
+    // A two-arm bend with sidewalks needs an actual junction plate: a plain
+    // bend spline only carries the first road's section and cannot join both
+    // pavement edges. This is independent of automated signal programs.
+    let has_walks = pocket_paths.is_none() && [a, b].iter().any(|arm| {
+        doc.spline(arm.key, arm.id)
+            .and_then(|sp| assets.spline(&sp.file))
+            .is_some_and(|model| model.def.paths.iter().any(|p| p.kind == 1))
+    });
+    if (adapt && width_step(doc, assets, a, b).is_some()) || has_walks {
         let ends = arm_ends_world(doc, &[*a, *b]);
         if ends.len() == 2 {
             let centre = (ends[0] + ends[1]) * 0.5;
@@ -18440,6 +18448,22 @@ impl Editor {
                     return Err("joint: a road could not be cut back".into());
                 }
                 let (Some(a), Some(b)) = (crate::ed_author::end_of(doc, cut[0]), crate::ed_author::end_of(doc, cut[1])) else { return Err("joint: ends lost".into()) };
+                // A two-arm bend with pedestrian paths is a junction plate,
+                // not a plain bend of the first road's spline: both sidewalk
+                // sides must be connected. Do not require automatic lights.
+                let arms = cut.iter().map(|&(key, id, at_end)| crate::junction::Arm { key, id, at_end }).collect::<Vec<_>>();
+                let has_walks = arms.iter().any(|arm| {
+                    doc.spline(arm.key, arm.id)
+                        .and_then(|sp| assets.spline(&sp.file))
+                        .is_some_and(|model| model.def.paths.iter().any(|p| p.kind == 1))
+                });
+                if has_walks {
+                    let opts = crate::junction::Options::default();
+                    match crate::junction::make_with(doc, assets, &content, asphalt.as_deref(), centre, &arms, &opts, Default::default()) {
+                        Ok(_) => return Ok(true),
+                        Err(e) => log::warn!("two-arm sidewalk plate: {e}"),
+                    }
+                }
                 let segs = crate::ed_author::chain_through(&[a.0.truncate(), b.0.truncate()], Some(a.1), Some(roads::norm_deg(b.1 + 180.0)))?;
                 crate::ed_author::lay_chain_in(doc, &file, &segs, Some(cut[0]), Some(cut[1]), 0.0)?;
                 return Ok(true);
