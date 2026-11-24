@@ -578,7 +578,9 @@ fn paths_with_lane_repair(
         };
         let total = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
         let mut acc = 0.0;
+        let mut route_segs = Vec::new();
         for seg in segs {
+            route_segs.push(seg);
             let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
             acc += seg.length;
             let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
@@ -595,9 +597,7 @@ fn paths_with_lane_repair(
                 else { c.i == b.arm && c.j == a.arm }
             });
             if let Some(c) = corner {
-                let (clear, pos) = path_kerb_clearance(&out.iter()
-                    .filter(|p| p.kind == 0 && p.blinker == route.blinker && p.light.is_none())
-                    .map(|p| p.seg).collect::<Vec<_>>(), c);
+                let (clear, pos) = path_kerb_clearance(&route_segs, c);
                 let required = a.width.max(2.5) * 0.5 - 0.1;
                 if clear < required {
                     log::warn!("junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
@@ -607,42 +607,50 @@ fn paths_with_lane_repair(
         }
     }
 
-    // Keep the existing pedestrian generation, including zebras, separate from
-    // vehicle movement topology. Two-arm plates must connect BOTH sides.
-    let pedestrian = paths_with_lane_repair_legacy(lanes, centre, light_of, walk_joins,
-        corner_walks, kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, repair);
-    out.extend(pedestrian.into_iter().filter(|p| p.kind == 1));
+    // Two arms have two pavement sides; neither is optional when both have
+    // sidewalks. The old pedestrian loop deliberately skipped its second side.
     if corner_walks && arms == 2 {
-        let mut order = [0usize, 1usize];
-        let angle = |i: usize| -> f64 {
-            let p = lanes.iter().find(|l| l.arm == i).map(|l| l.pos.truncate() - c2).unwrap_or(DVec2::ZERO);
-            p.y.atan2(p.x)
-        };
-        order.sort_by(|a, b| angle(*a).total_cmp(&angle(*b)));
-        let (i, j) = (order[1], order[0]);
-        let on_side = |l: &LaneEnd, left: bool| walk_joins.iter()
-            .find(|w| w.arm == l.arm && w.left == left)
-            .map(|w| (l.pos - w.at_arm).length() < 0.01).unwrap_or(true);
-        let joined = |l: &LaneEnd| walk_joins.iter()
-            .find(|w| w.arm == l.arm && (l.pos - w.at_arm).length() < 0.01)
-            .map(|w| w.at_crossing).unwrap_or(l.pos);
-        let best = lanes.iter().filter(|l| l.kind == 1 && l.arm == i && on_side(l, true))
-            .flat_map(|a| lanes.iter().filter(move |b| b.kind == 1 && b.arm == j && on_side(b, false))
-                .map(move |b| (a, b)))
-            .min_by(|(a, b), (c, d)| a.pos.distance_squared(b.pos).total_cmp(&c.pos.distance_squared(d.pos)));
-        if let Some((a, b)) = best {
-            let pa = joined(a);
-            let pb = joined(b);
-            if let Some(seg) = roads::straight(pa.truncate() - c2, pb.truncate() - c2) {
-                out.push(PathRec {
-                    seg, z0: pa.z - centre.z, z1: pb.z - centre.z,
-                    kind: 1, width: a.width.max(1.5), direction: 2,
-                    blinker: 0, light: None, pocket: false, bus: false,
-                });
+        for (i, j) in [(0, 1), (1, 0)] {
+            let a = two_arm_sidewalk(lanes, walk_joins, c2, i, true);
+            let b = two_arm_sidewalk(lanes, walk_joins, c2, j, false);
+            if let (Some(a), Some(b)) = (a, b) {
+                let joined = |l: &LaneEnd| walk_joins.iter()
+                    .find(|w| w.arm == l.arm && (l.pos - w.at_arm).length() < 0.01)
+                    .map(|w| w.at_crossing).unwrap_or(l.pos);
+                let (pa, pb) = (joined(a), joined(b));
+                if let Some(seg) = roads::straight(pa.truncate() - c2, pb.truncate() - c2) {
+                    out.push(PathRec {
+                        seg, z0: pa.z - centre.z, z1: pb.z - centre.z,
+                        kind: 1, width: a.width.max(1.5), direction: 2,
+                        blinker: 0, light: None, pocket: false, bus: false,
+                    });
+                }
             }
         }
+    } else {
+        out.extend(paths_with_lane_repair_legacy(lanes, centre, light_of, walk_joins,
+            corner_walks, kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, repair)
+            .into_iter().filter(|p| p.kind == 1));
     }
     out
+}
+
+/// The outer sidewalk on one physical side of a two-arm bend, determined from
+/// the road's outward direction (not the two-way footpath's flow).
+fn two_arm_sidewalk<'a>(
+    lanes: &'a [LaneEnd], walk_joins: &[WalkJoin], centre: DVec2,
+    arm: usize, left: bool,
+) -> Option<&'a LaneEnd> {
+    let out = lanes.iter().find(|l| l.arm == arm && !l.incoming)
+        .map(|l| l.flow).or_else(|| lanes.iter().find(|l| l.arm == arm)
+            .map(|l| roads::norm_deg(l.flow + 180.0)))?;
+    let right = roads::right(out);
+    let offset = |l: &LaneEnd| (l.pos.truncate() - centre).dot(right);
+    lanes.iter().filter(|l| l.arm == arm && l.kind == 1)
+        .filter(|l| if left { offset(l) < -0.1 } else { offset(l) > 0.1 })
+        .filter(|l| walk_joins.iter().find(|w| w.arm == l.arm && w.left == left)
+            .is_none_or(|w| (l.pos - w.at_arm).length() < 0.01))
+        .max_by(|a, b| offset(a).abs().total_cmp(&offset(b).abs()))
 }
 
 fn paths_with_lane_repair_legacy(
