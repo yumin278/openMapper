@@ -3389,11 +3389,11 @@ mod tests {
     }
 
     /// Three roads out of `centre`, turned by `turn`, made into a junction: its object.
-    fn t_junction(doc: &mut Document, assets: &mut Assets, content: &Path, centre: DVec2, turn: f64, ids: [i64; 3], lengths: [f64; 3]) -> MapObject {
+    fn t_junction(doc: &mut Document, assets: &mut Assets, content: &Path, centre: DVec2, turn: f64, ids: [i64; 3], lengths: [f64; 3], reach: f64) -> MapObject {
         let mut arms = Vec::new();
         for ((rel, id), length) in [0.0, 90.0, 270.0].into_iter().zip(ids).zip(lengths) {
             let out = roads::norm_deg(turn + rel);
-            let p = centre + roads::dir(out) * 10.0;
+            let p = centre + roads::dir(out) * reach;
             crate::selection::tests::add_spline(doc, (0, 0), id, p.x, p.y, out, length, 0, 0);
             arms.push(Arm { key: (0, 0), id, at_end: false });
         }
@@ -3630,8 +3630,10 @@ mod tests {
         doc.dir = content.join("maps").join("shared");
         let mut assets = Assets::new(roots.omsi.clone(), content.clone());
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(test_road())));
-        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0]);
-        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 37.0, [6, 5, 4], [13.5, 41.2, 27.3]);
+        // Allow complete turns with the fixed 4 m tangents and minimum 6 m radius.
+        // The intentionally open tight-turn case is covered by its own regression test.
+        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0], 18.0);
+        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 37.0, [6, 5, 4], [13.5, 41.2, 27.3], 18.0);
         assert_eq!(a.file, b.file);
         assert!((roads::norm_deg(b.rot[0] - a.rot[0]) - 37.0).abs() < 1e-6, "{:?} {:?}", a.rot, b.rot);
         let dir = omsi_cfg::resolve_path(&content, &a.file);
@@ -3641,8 +3643,8 @@ mod tests {
         // each junction's lanes meet its roads' lanes on the map, however it is turned
         assets.object_wait(&a.file, 5000).expect("the object reads back");
         for centre in [DVec2::new(100.0, 100.0), DVec2::new(200.0, 200.0)] {
-            let (_, ends) = crate::lanes::near(&doc, &mut assets, centre, 14.0);
-            let inner: Vec<_> = ends.iter().filter(|e| (e.pos.truncate() - centre).length() < 12.5).collect();
+            let (_, ends) = crate::lanes::near(&doc, &mut assets, centre, 22.0);
+            let inner: Vec<_> = ends.iter().filter(|e| (e.pos.truncate() - centre).length() < 20.5).collect();
             assert!(inner.len() >= 12, "{}", inner.len());
             assert!(inner.iter().all(|e| e.linked), "{centre:?} {inner:?}");
         }
@@ -4049,9 +4051,9 @@ mod tests {
         let mut assets = Assets::new(roots.omsi.clone(), content.clone());
         let tex = test_dir("object");
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(painted_road(&tex, true, false))));
-        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0]);
+        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0], 10.0);
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(painted_road(&tex, false, false))));
-        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 0.0, [4, 5, 6], [20.0, 20.0, 20.0]);
+        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 0.0, [4, 5, 6], [20.0, 20.0, 20.0], 10.0);
         assert_ne!(a.file, b.file);
         let sco = omsi_cfg::resolve_path(&content, &a.file);
         let x = std::fs::read_to_string(sco.parent().unwrap().join("model").join(format!("{}.x", sco.file_stem().unwrap().to_string_lossy()))).unwrap();
