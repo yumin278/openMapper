@@ -419,29 +419,233 @@ fn fill_vehicle_lanes(
 }
 
 /// The ways through the junction.
+/// A road lane owns exactly one approach or departure stem. Every permitted movement
+/// uses the end of that stem, including the straight-through movement.
 fn paths(
     lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
     corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
     zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
 ) -> Vec<PathRec> {
+    paths_mode(lanes, centre, light_of, walk_joins, corner_walks, kerb_lead,
+        zebra_arms, kerb_corners, left_hand_traffic, true)
+}
+
+/// Bus-bay and taper plates retain their established path layout and template indices.
+fn paths_legacy(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+) -> Vec<PathRec> {
+    paths_mode(lanes, centre, light_of, walk_joins, corner_walks, kerb_lead,
+        zebra_arms, kerb_corners, left_hand_traffic, false)
+}
+
+fn paths_mode(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+    share_stems: bool,
+) -> Vec<PathRec> {
+    let generate = |selected: &[LaneEnd]| {
+        if share_stems {
+            paths_with_lane_repair(selected, centre, light_of, walk_joins, corner_walks,
+                kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, true)
+        } else {
+            paths_with_lane_repair_legacy(selected, centre, light_of, walk_joins, corner_walks,
+                kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, true)
+        }
+    };
     let normal: Vec<_> = lanes.iter().copied().filter(|l| !l.bus).collect();
-    let mut out = paths_with_lane_repair(&normal, centre, light_of, walk_joins, corner_walks, kerb_lead,
-        zebra_arms, kerb_corners, left_hand_traffic, true);
+    let mut out = generate(&normal);
     let mut buses: Vec<_> = lanes.iter().copied().filter(|l| l.bus).collect();
     if !buses.is_empty() {
         for lane in &mut buses {
             lane.kerb_outer = !lanes.iter().any(|other| other.kind == 0 && other.arm == lane.arm && other.incoming == lane.incoming &&
                 if lane.incoming != left_hand_traffic { other.side > lane.side + 1e-6 } else { other.side < lane.side - 1e-6 });
         }
-        let mut extra = paths_with_lane_repair(&buses, centre, light_of, walk_joins, corner_walks, kerb_lead,
-            zebra_arms, kerb_corners, left_hand_traffic, true);
+        let mut extra = generate(&buses);
         for rec in &mut extra { rec.bus = true; }
         out.extend(extra);
     }
     out
 }
 
+/// Collect a junction's movements first, so each lane can have one shared stem.
+/// The same lane pairer and missing-lane repair are used for the old taper path mode.
 fn paths_with_lane_repair(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+    repair: bool,
+) -> Vec<PathRec> {
+    let c2 = centre.truncate();
+    let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
+    let mut incoming = vec![Vec::new(); arms];
+    let mut outgoing = vec![Vec::new(); arms];
+    for (idx, lane) in lanes.iter().enumerate().filter(|(_, lane)| lane.kind == 0) {
+        if lane.incoming { incoming[lane.arm].push(idx); }
+        else { outgoing[lane.arm].push(idx); }
+    }
+    for group in &mut incoming { group.sort_by(|&a, &b| lanes[b].side.total_cmp(&lanes[a].side)); }
+    for group in &mut outgoing { group.sort_by(|&a, &b| lanes[a].side.total_cmp(&lanes[b].side)); }
+
+    let mut routes = Vec::<LaneRoute>::new();
+    let mut used = vec![false; lanes.len()];
+    for i in 0..arms {
+        let ins = &incoming[i];
+        for j in (0..arms).filter(|j| *j != i) {
+            let outs = &outgoing[j];
+            if ins.is_empty() || outs.is_empty() { continue; }
+            let turn = signed_turn(lanes[ins[0]].flow, lanes[outs[0]].flow);
+            if turn.abs() > 150.0 { continue; }
+            let blinker = turn_blinker(turn);
+            let pairs: Vec<(usize, usize)> = if blinker == 3 {
+                vec![(ins[0], outs[0])]
+            } else if blinker == 2 {
+                vec![(ins[ins.len() - 1], outs[outs.len() - 1])]
+            } else {
+                (0..ins.len().max(outs.len()))
+                    .map(|k| (ins[k.min(ins.len() - 1)], outs[k.min(outs.len() - 1)])).collect()
+            };
+            for (a, b) in pairs {
+                if lanes[a].pos.distance(lanes[b].pos) < 0.01 { continue; }
+                routes.push(LaneRoute { from: a, to: b, turn, blinker });
+                used[a] = true;
+                used[b] = true;
+            }
+        }
+    }
+    if repair {
+        fill_vehicle_lanes(lanes, &incoming, &outgoing, &mut used, &mut routes,
+            |route| lanes[route.from].pos.distance(lanes[route.to].pos) >= 0.01);
+    }
+
+    // A longer zebra or kerb lead on any movement from a lane lengthens that
+    // lane's ONE stem; all its movements still leave from exactly the same point.
+    let mut length = vec![0.0f64; lanes.len()];
+    for route in &routes {
+        let (a, b) = (&lanes[route.from], &lanes[route.to]);
+        let turning = route.turn.abs() >= 30.0;
+        let outer = if left_hand_traffic { route.blinker == 2 } else { route.blinker == 3 };
+        let (mut kerb_a, mut kerb_b) = if turning && outer {
+            kerb_lead.iter().find_map(|&(i, j, li, lj)| {
+                if route.blinker == 3 && i == a.arm && j == b.arm { Some((li, lj)) }
+                else if route.blinker == 2 && i == b.arm && j == a.arm { Some((lj, li)) }
+                else { None }
+            }).unwrap_or((0.0, 0.0))
+        } else { (0.0, 0.0) };
+        if !a.kerb_outer { kerb_a = 0.0; }
+        if !b.kerb_outer { kerb_b = 0.0; }
+        let zebra_a = if turning && zebra_arms.get(a.arm).copied().unwrap_or(false) { TURN_LEAD } else { 0.0 };
+        let zebra_b = if turning && zebra_arms.get(b.arm).copied().unwrap_or(false) { TURN_LEAD } else { 0.0 };
+        length[route.from] = length[route.from].max(TURN_LEAD.max(kerb_a).max(zebra_a));
+        length[route.to] = length[route.to].max(TURN_LEAD.max(kerb_b).max(zebra_b));
+    }
+    let mut stems = vec![None; lanes.len()];
+    let mut out = Vec::new();
+    for (idx, lane) in lanes.iter().enumerate() {
+        if lane.kind != 0 || length[idx] <= 0.0 { continue; }
+        let at = lane.pos.truncate() - c2;
+        let seg = if lane.incoming {
+            Seg { start: at, heading: lane.flow, length: length[idx], radius: 0.0 }
+        } else {
+            Seg { start: at - roads::dir(lane.flow) * length[idx], heading: lane.flow, length: length[idx], radius: 0.0 }
+        };
+        stems[idx] = Some(seg);
+        let pocket = lane.pocket || routes.iter().any(|r|
+            (r.from == idx || r.to == idx) && (lanes[r.from].pocket || lanes[r.to].pocket));
+        out.push(PathRec {
+            seg, z0: lane.pos.z - centre.z, z1: lane.pos.z - centre.z,
+            kind: 0, width: lane.width.max(2.5), direction: 0, blinker: 0,
+            light: lane.incoming.then(|| light_of.get(lane.arm).copied().flatten()).flatten(),
+            pocket, bus: false,
+        });
+    }
+
+    for route in &routes {
+        let (a, b) = (&lanes[route.from], &lanes[route.to]);
+        let (Some(entry), Some(exit)) = (stems[route.from], stems[route.to]) else { continue };
+        let pa = entry.end();
+        let pb = exit.start;
+        let turning = route.turn.abs() >= 30.0;
+        let segs = roads::biarc(pa, a.flow, pb, b.flow).or_else(|| {
+            (!turning).then(|| roads::straight(pa, pb)).flatten().map(|s| vec![s])
+        });
+        let Some(segs) = segs else {
+            log::warn!("junction turn {:?} -> {:?} ({:.1}°): unable to join the shared stems; keep the one-per-lane ends for manual connection",
+                pa, pb, route.turn);
+            continue;
+        };
+        let total = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
+        let mut acc = 0.0;
+        for seg in segs {
+            let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
+            acc += seg.length;
+            let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
+            out.push(PathRec {
+                seg, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0,
+                blinker: route.blinker, light: None, pocket: a.pocket || b.pocket, bus: false,
+            });
+        }
+        // The check concerns the connected curve, never the shared straight stem.
+        let outer = if left_hand_traffic { route.blinker == 2 } else { route.blinker == 3 };
+        if turning && outer {
+            let corner = kerb_corners.iter().find(|c| {
+                if route.blinker == 3 { c.i == a.arm && c.j == b.arm }
+                else { c.i == b.arm && c.j == a.arm }
+            });
+            if let Some(c) = corner {
+                let (clear, pos) = path_kerb_clearance(&out.iter()
+                    .filter(|p| p.kind == 0 && p.blinker == route.blinker && p.light.is_none())
+                    .map(|p| p.seg).collect::<Vec<_>>(), c);
+                let required = a.width.max(2.5) * 0.5 - 0.1;
+                if clear < required {
+                    log::warn!("junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
+                        pa, pb, clear, pos, required);
+                }
+            }
+        }
+    }
+
+    // Keep the existing pedestrian generation, including zebras, separate from
+    // vehicle movement topology. Two-arm plates must connect BOTH sides.
+    let pedestrian = paths_with_lane_repair_legacy(lanes, centre, light_of, walk_joins,
+        corner_walks, kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, repair);
+    out.extend(pedestrian.into_iter().filter(|p| p.kind == 1));
+    if corner_walks && arms == 2 {
+        let mut order = [0usize, 1usize];
+        let angle = |i: usize| -> f64 {
+            let p = lanes.iter().find(|l| l.arm == i).map(|l| l.pos.truncate() - c2).unwrap_or(DVec2::ZERO);
+            p.y.atan2(p.x)
+        };
+        order.sort_by(|a, b| angle(*a).total_cmp(&angle(*b)));
+        let (i, j) = (order[1], order[0]);
+        let on_side = |l: &LaneEnd, left: bool| walk_joins.iter()
+            .find(|w| w.arm == l.arm && w.left == left)
+            .map(|w| (l.pos - w.at_arm).length() < 0.01).unwrap_or(true);
+        let joined = |l: &LaneEnd| walk_joins.iter()
+            .find(|w| w.arm == l.arm && (l.pos - w.at_arm).length() < 0.01)
+            .map(|w| w.at_crossing).unwrap_or(l.pos);
+        let best = lanes.iter().filter(|l| l.kind == 1 && l.arm == i && on_side(l, true))
+            .flat_map(|a| lanes.iter().filter(move |b| b.kind == 1 && b.arm == j && on_side(b, false))
+                .map(move |b| (a, b)))
+            .min_by(|(a, b), (c, d)| a.pos.distance_squared(b.pos).total_cmp(&c.pos.distance_squared(d.pos)));
+        if let Some((a, b)) = best {
+            let pa = joined(a);
+            let pb = joined(b);
+            if let Some(seg) = roads::straight(pa.truncate() - c2, pb.truncate() - c2) {
+                out.push(PathRec {
+                    seg, z0: pa.z - centre.z, z1: pb.z - centre.z,
+                    kind: 1, width: a.width.max(1.5), direction: 2,
+                    blinker: 0, light: None, pocket: false, bus: false,
+                });
+            }
+        }
+    }
+    out
+}
+
+fn paths_with_lane_repair_legacy(
     lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
     corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
     zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
@@ -2194,7 +2398,8 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     let bypass_bus = bus_bay || files.iter().any(|f| crate::pocket::is_bay_spline(f));
     let mut route_lanes = plate.lanes.clone();
     if bypass_bus { for lane in &mut route_lanes { lane.bus = false; } }
-    let mut recs = paths(
+    let build_paths = if bus_bay { paths_legacy } else { paths };
+    let mut recs = build_paths(
         &route_lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
         &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
     );
