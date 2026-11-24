@@ -852,7 +852,10 @@ impl TimetableUi {
             // Never convert it to [station_typ2] as a side effect of this action.
             if doc.timetable.is_type1(trip) || !eligible_for_batch(trip) {
                 skipped += 1;
-                protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                // Prepared IDs do not yet use any station links.
+                if !doc.timetable.is_type2_draft(trip) {
+                    protected.extend(trip.stations.windows(2).map(|p| (p[0], p[1])));
+                }
                 continue;
             }
             if !overwrite_hand && doc.timetable.by_hand(&trip.name) {
