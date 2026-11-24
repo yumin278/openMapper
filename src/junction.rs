@@ -3252,6 +3252,73 @@ mod tests {
     }
 
     #[test]
+    fn junction_movements_share_one_entry_and_exit_stem_per_lane() {
+        let mut lanes = Vec::new();
+        for (arm, out) in [0.0, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let centre = roads::dir(out) * 20.0;
+            let sideways = roads::right(out) * 1.75;
+            for (incoming, pos, flow) in [
+                (true, centre - sideways, roads::norm_deg(out + 180.0)),
+                (false, centre + sideways, out),
+            ] {
+                lanes.push(LaneEnd {
+                    arm, pos: pos.extend(0.0), flow, kind: 0, width: 3.0,
+                    side: 0.0, incoming, pocket: false, bus: false, kerb_outer: true,
+                });
+            }
+        }
+        let lights = [Some(0), Some(1), Some(2), Some(3)];
+        let recs = paths(&lanes, DVec3::ZERO, &lights, &[], false, &[], &[], &[], false);
+        for lane in lanes.iter().filter(|l| l.incoming) {
+            let stems: Vec<_> = recs.iter().filter(|p| p.kind == 0 && p.seg.radius == 0.0
+                && (p.seg.start - lane.pos.truncate()).length() < 1e-6).collect();
+            assert_eq!(stems.len(), 1, "one common entry stem for arm {}", lane.arm);
+            let stem = stems[0];
+            assert_eq!(stem.blinker, 0);
+            assert_eq!(stem.light, lights[lane.arm]);
+            assert!(stem.seg.length >= TURN_LEAD);
+            let fork = stem.seg.end();
+            let turns: Vec<_> = recs.iter().filter(|p| p.kind == 0
+                && (p.seg.start - fork).length() < 0.02).map(|p| p.blinker).collect();
+            assert!(turns.contains(&0) && turns.contains(&2) && turns.contains(&3),
+                "straight, left and right must begin at the same fork {fork:?}: {turns:?}");
+        }
+        for lane in lanes.iter().filter(|l| !l.incoming) {
+            let stems: Vec<_> = recs.iter().filter(|p| p.kind == 0 && p.seg.radius == 0.0
+                && (p.seg.end() - lane.pos.truncate()).length() < 1e-6).collect();
+            assert_eq!(stems.len(), 1, "one common exit stem for arm {}", lane.arm);
+            assert_eq!(stems[0].blinker, 0);
+            assert_eq!(stems[0].light, None);
+        }
+        let links = lane_connectivity_report("shared stems", &lanes, &recs);
+        for (idx, lane) in lanes.iter().enumerate().filter(|(_, l)| l.incoming) {
+            let arms: std::collections::HashSet<_> = links[idx].iter().map(|&j| lanes[j].arm).collect();
+            assert_eq!(arms.len(), 3, "arm {} must reach all three other arms", lane.arm);
+        }
+    }
+
+    #[test]
+    fn two_arm_pavement_paths_connect_both_sides_without_automatic_lights() {
+        let mut lanes = Vec::new();
+        for (arm, out) in [0.0, 180.0].into_iter().enumerate() {
+            let point = roads::dir(out) * 18.0;
+            for side in [-5.5, 5.5] {
+                lanes.push(LaneEnd {
+                    arm, pos: (point + roads::right(out) * side).extend(0.25),
+                    flow: out, kind: 1, width: 2.0, side, incoming: false,
+                    pocket: false, bus: false, kerb_outer: true,
+                });
+            }
+        }
+        let recs = paths(&lanes, DVec3::ZERO, &[None; 2], &[], true, &[], &[], &[], false);
+        let walks: Vec<_> = recs.iter().filter(|p| p.kind == 1).collect();
+        assert_eq!(walks.len(), 2, "the two-arm junction must join both pavements");
+        let x: Vec<_> = walks.iter().map(|w| w.seg.start.x).collect();
+        assert!(x.iter().any(|v| *v < -5.0) && x.iter().any(|v| *v > 5.0), "{x:?}");
+        assert!(recs.iter().all(|p| p.light.is_none()), "pavements do not require signals");
+    }
+
+    #[test]
     fn outer_bus_lane_straight_and_right_turn_use_the_correct_lanes_and_lead() {
         let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
         let mut lanes = Vec::new();
