@@ -1,7 +1,7 @@
 openMapper junction: lights=0 heads=0 main=30 side=20 crossings= zebra_tex=1 walks=1 helpers=omsi sig=
 
 [friendlyname]
-Junction 0724e6
+Junction 000000
 
 [groups]
 1
@@ -12,7 +12,7 @@ openMapper
 [absheight]
 
 [mesh]
-junction_0724e6eeac595d1d.x
+junction_0000000000000000.x
 
 [splinehelper]
 Splines\openMapper\Plain.sli
@@ -55,8 +55,120 @@ Splines\openMapper\Plain.sli
 18
 0.1
 180
-16.25
-12.7627
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+1.75
+14
+0.1
+0
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+-18
+-1.75
+0.1
+90
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+-14
+1.75
+0.1
+270
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+1.75
+-18
+0.1
+0
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+-1.75
+-14
+0.1
+180
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+18
+1.75
+0.1
+270
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+14
+-1.75
+0.1
+90
+0
+4
+0
+0
+0
+3.15
+0
+0
+
+[path]
+-1.75
+14
+0.1
+180
+12.25
+9.6211
 0
 0
 0
@@ -65,12 +177,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
--6.5095
-6.5095
+-5.3379
+5.3379
 0.1
 225
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -80,11 +192,11 @@ Splines\openMapper\Plain.sli
 
 [path]
 -1.75
-18
+14
 0.1
 180
 0
-18
+14
 0
 0
 0
@@ -98,7 +210,7 @@ Splines\openMapper\Plain.sli
 0.1
 180
 0
-18
+14
 0
 0
 0
@@ -108,11 +220,11 @@ Splines\openMapper\Plain.sli
 
 [path]
 -1.75
-18
+14
 0.1
 180
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -121,12 +233,12 @@ Splines\openMapper\Plain.sli
 2
 
 [path]
-4.0346
-4.0346
+2.8631
+2.8631
 0.1
 135
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -135,12 +247,12 @@ Splines\openMapper\Plain.sli
 2
 
 [path]
--18
+-14
 -1.75
 0.1
 90
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -149,12 +261,12 @@ Splines\openMapper\Plain.sli
 2
 
 [path]
--4.0346
-4.0346
+-2.8631
+2.8631
 0.1
 45
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -163,12 +275,12 @@ Splines\openMapper\Plain.sli
 2
 
 [path]
--18
+-14
 -1.75
 0.1
 90
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -177,12 +289,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
--6.5095
--6.5095
+-5.3379
+-5.3379
 0.1
 135
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -191,12 +303,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
--18
+-14
 -1.75
 0.1
 90
 0
-18
+14
 0
 0
 0
@@ -210,7 +322,7 @@ Splines\openMapper\Plain.sli
 0.1
 90
 0
-18
+14
 0
 0
 0
@@ -220,11 +332,11 @@ Splines\openMapper\Plain.sli
 
 [path]
 1.75
--18
+-14
 0.1
 0
 0
-18
+14
 0
 0
 0
@@ -238,7 +350,7 @@ Splines\openMapper\Plain.sli
 0.1
 0
 0
-18
+14
 0
 0
 0
@@ -248,11 +360,11 @@ Splines\openMapper\Plain.sli
 
 [path]
 1.75
--18
+-14
 0.1
 0
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -261,12 +373,12 @@ Splines\openMapper\Plain.sli
 2
 
 [path]
--4.0346
--4.0346
+-2.8631
+-2.8631
 0.1
 315
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -276,11 +388,11 @@ Splines\openMapper\Plain.sli
 
 [path]
 1.75
--18
+-14
 0.1
 0
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -289,12 +401,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
-6.5095
--6.5095
+5.3379
+-5.3379
 0.1
 45
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -303,12 +415,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
-18
+14
 1.75
 0.1
 270
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -317,12 +429,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
-6.5095
-6.5095
+5.3379
+5.3379
 0.1
 315
-16.25
-12.7627
+12.25
+9.6211
 0
 0
 0
@@ -331,12 +443,12 @@ Splines\openMapper\Plain.sli
 3
 
 [path]
-18
+14
 1.75
 0.1
 270
 0
-18
+14
 0
 0
 0
@@ -350,7 +462,7 @@ Splines\openMapper\Plain.sli
 0.1
 270
 0
-18
+14
 0
 0
 0
@@ -359,12 +471,12 @@ Splines\openMapper\Plain.sli
 0
 
 [path]
-18
+14
 1.75
 0.1
 270
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0
@@ -373,12 +485,12 @@ Splines\openMapper\Plain.sli
 2
 
 [path]
-4.0346
--4.0346
+2.8631
+-2.8631
 0.1
 225
--19.75
-15.5116
+-15.75
+12.37
 0
 0
 0

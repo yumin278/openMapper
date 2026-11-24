@@ -40,13 +40,33 @@ fn drawn_junctions_place_rules_on_the_baked_bus_routes() {
     }
     assert!(bus_ends.len() >= 2);
     let at_bus_end = |p: DVec2| bus_ends.iter().any(|q| p.distance(*q) < 0.02);
-    let mut inside = false;
+    // Bus paths form a branching graph: the approach/exit segment is shared,
+    // not emitted again for every turn. Validate every member is reachable
+    // from a declared bus lane and that internal nodes are not left dangling.
+    let mut visited = std::collections::HashSet::new();
+    let mut pending = bus_ends.clone();
+    while let Some(at) = pending.pop() {
+        for &i in &plate.bus_paths {
+            let seg = &plate.lanes[i].0;
+            if !visited.contains(&i) && seg.start.distance(at) < 0.02 {
+                visited.insert(i);
+                pending.push(seg.end());
+            }
+        }
+    }
+    assert_eq!(visited.len(), plate.bus_paths.len(),
+        "every dedicated bus path must be reachable from an actual bus-lane mouth");
     for &i in &plate.bus_paths {
         let seg = &plate.lanes[i].0;
-        if !inside { assert!(at_bus_end(seg.start), "route must start at a declared bus lane"); }
-        inside = !at_bus_end(seg.end());
+        let has_in = plate.bus_paths.iter().any(|&j|
+            plate.lanes[j].0.end().distance(seg.start) < 0.02);
+        let has_out = plate.bus_paths.iter().any(|&j|
+            plate.lanes[j].0.start.distance(seg.end()) < 0.02);
+        assert!(at_bus_end(seg.start) || has_in,
+            "interior bus path must have a connected predecessor");
+        assert!(at_bus_end(seg.end()) || has_out,
+            "interior bus path must have a connected successor");
     }
-    assert!(!inside, "last bus route must reach a declared bus lane");
     let check = |object: &omsi_map::MapObject, offset: usize| {
         let abs = omsi_cfg::resolve_path(&content, &object.file);
         let sco = omsi_scenery::SceneryObject::load(&abs).unwrap();

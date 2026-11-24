@@ -312,46 +312,28 @@ fn path_kerb_clearance(segs: &[Seg], corner: &KerbCorner) -> (f64, DVec2) {
     best
 }
 
-/// Keep straight tangents at the road ends, then join the shortened portion
-/// with a biarc. Retry three times at half the previous tangent lengths.
-/// A zero-length tangent is omitted, preserving the original path verbatim.
-fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> Vec<Seg> {
-    if lead_a <= 0.0 && lead_b <= 0.0 {
-        return roads::biarc(pa, ha, pb, hb).or_else(|| roads::straight(pa, pb).map(|s| vec![s])).unwrap_or_default();
-    }
-    let (mut la, mut lb) = (lead_a, lead_b);
-    let mut attempts = Vec::new();
-    for retry in 0..=3 {
-        let p = pa + roads::dir(ha) * la;
-        let q = pb - roads::dir(hb) * lb;
-        attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {:?} -> {:?} returned None", p, q));
-        if let Some(mut middle) = roads::biarc(p, ha, q, hb) {
-            if retry > 0 {
-                log::warn!(
-                    "junction biarc recovered after reduced tangent leads {:?} -> {:?}; previous attempts: {}",
-                    pa, pb, attempts[..attempts.len() - 1].join("; ")
-                );
-            }
-            let mut segs = Vec::new();
-            if la > 1e-6 {
-                segs.push(Seg { start: pa, heading: ha, length: la, radius: 0.0 });
-            }
-            segs.append(&mut middle);
-            if lb > 1e-6 {
-                segs.push(Seg { start: q, heading: hb, length: lb, radius: 0.0 });
-            }
-            return segs;
-        }
-        if retry < 3 { la *= 0.5; lb *= 0.5; }
-    }
-    if let Some(segs) = roads::biarc(pa, ha, pb, hb) {
-        log::warn!("junction biarc lead retries failed {:?} -> {:?}; attempts: {}; using original biarc",
-            pa, pb, attempts.join("; "));
-        return segs;
-    }
-    log::warn!("junction biarc lead retries and original biarc failed {:?} -> {:?}; attempts: {}; reason: roads::biarc returned None; using straight fallback",
-        pa, pb, attempts.join("; "));
-    roads::straight(pa, pb).map(|s| vec![s]).unwrap_or_default()
+/// Straight approach and departure retained for every vehicle turn, independently of zebra crossings.
+pub(crate) const TURN_LEAD: f64 = 4.0;
+
+/// The two fixed tangent segments, in the direction of traffic. Their free ends can
+/// be joined in the crossing editor even when the automatic curve cannot be made.
+fn turn_tangents(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> (Seg, Seg) {
+    (
+        Seg { start: pa, heading: ha, length: lead_a, radius: 0.0 },
+        Seg { start: pb - roads::dir(hb) * lead_b, heading: hb, length: lead_b, radius: 0.0 },
+    )
+}
+
+/// Join the fixed tangents with a biarc. Never shorten them or draw an unrelated
+/// straight chord through a turn. The caller retains the original tangents on failure.
+fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> Option<Vec<Seg>> {
+    let (entry, exit) = turn_tangents(pa, ha, pb, hb, lead_a, lead_b);
+    let mut middle = roads::biarc(pa + roads::dir(ha) * lead_a, ha, exit.start, hb)?;
+    let mut segs = Vec::with_capacity(middle.len() + 2);
+    if lead_a > 1e-6 { segs.push(entry); }
+    segs.append(&mut middle);
+    if lead_b > 1e-6 { segs.push(exit); }
+    Some(segs)
 }
 
 fn turn_blinker(turn: f64) -> i32 {
@@ -376,7 +358,8 @@ impl LaneRoute {
     }
 }
 
-/// Append a connection for each remaining lane, first exits, then entrances.
+/// Append paths for each remaining lane, first exits, then entrances. A lane with a
+/// deliberately open tangent is accounted for, even though it has no complete route.
 fn fill_vehicle_lanes(
     lanes: &[LaneEnd], incoming: &[Vec<usize>], outgoing: &[Vec<usize>],
     used: &mut [bool], routes: &mut Vec<LaneRoute>, mut write: impl FnMut(LaneRoute) -> bool,
@@ -423,7 +406,7 @@ fn fill_vehicle_lanes(
                     used[route.to] = true;
                     routes.push(route);
                     log::info!(
-                        "junction connected {} lane at arm {} side {:.3}: arm {} side {:.3} {:?} -> arm {} side {:.3} {:?}, turn {:.1}°, blinker {}",
+                        "junction generated paths for {} lane at arm {} side {:.3}: arm {} side {:.3} {:?} -> arm {} side {:.3} {:?}, turn {:.1}°, blinker {}",
                         if entering { "incoming" } else { "outgoing" }, arm, lane.side,
                         lanes[route.from].arm, lanes[route.from].side, lanes[route.from].pos,
                         lanes[route.to].arm, lanes[route.to].side, lanes[route.to].pos,
@@ -436,29 +419,241 @@ fn fill_vehicle_lanes(
 }
 
 /// The ways through the junction.
+/// A road lane owns exactly one approach or departure stem. Every permitted movement
+/// uses the end of that stem, including the straight-through movement.
 fn paths(
     lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
     corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
     zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
 ) -> Vec<PathRec> {
+    paths_mode(lanes, centre, light_of, walk_joins, corner_walks, kerb_lead,
+        zebra_arms, kerb_corners, left_hand_traffic, true)
+}
+
+/// Bus-bay and taper plates retain their established path layout and template indices.
+fn paths_legacy(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+) -> Vec<PathRec> {
+    paths_mode(lanes, centre, light_of, walk_joins, corner_walks, kerb_lead,
+        zebra_arms, kerb_corners, left_hand_traffic, false)
+}
+
+fn paths_mode(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+    share_stems: bool,
+) -> Vec<PathRec> {
+    let generate = |selected: &[LaneEnd]| {
+        if share_stems {
+            paths_with_lane_repair(selected, centre, light_of, walk_joins, corner_walks,
+                kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, true)
+        } else {
+            paths_with_lane_repair_legacy(selected, centre, light_of, walk_joins, corner_walks,
+                kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, true)
+        }
+    };
     let normal: Vec<_> = lanes.iter().copied().filter(|l| !l.bus).collect();
-    let mut out = paths_with_lane_repair(&normal, centre, light_of, walk_joins, corner_walks, kerb_lead,
-        zebra_arms, kerb_corners, left_hand_traffic, true);
+    let mut out = generate(&normal);
     let mut buses: Vec<_> = lanes.iter().copied().filter(|l| l.bus).collect();
     if !buses.is_empty() {
         for lane in &mut buses {
             lane.kerb_outer = !lanes.iter().any(|other| other.kind == 0 && other.arm == lane.arm && other.incoming == lane.incoming &&
                 if lane.incoming != left_hand_traffic { other.side > lane.side + 1e-6 } else { other.side < lane.side - 1e-6 });
         }
-        let mut extra = paths_with_lane_repair(&buses, centre, light_of, walk_joins, corner_walks, kerb_lead,
-            zebra_arms, kerb_corners, left_hand_traffic, true);
+        let mut extra = generate(&buses);
         for rec in &mut extra { rec.bus = true; }
         out.extend(extra);
     }
     out
 }
 
+/// Collect a junction's movements first, so each lane can have one shared stem.
+/// The same lane pairer and missing-lane repair are used for the old taper path mode.
 fn paths_with_lane_repair(
+    lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
+    corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
+    zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
+    repair: bool,
+) -> Vec<PathRec> {
+    let c2 = centre.truncate();
+    let arms = lanes.iter().map(|l| l.arm).max().map(|m| m + 1).unwrap_or(0);
+    let mut incoming = vec![Vec::new(); arms];
+    let mut outgoing = vec![Vec::new(); arms];
+    for (idx, lane) in lanes.iter().enumerate().filter(|(_, lane)| lane.kind == 0) {
+        if lane.incoming { incoming[lane.arm].push(idx); }
+        else { outgoing[lane.arm].push(idx); }
+    }
+    for group in &mut incoming { group.sort_by(|&a, &b| lanes[b].side.total_cmp(&lanes[a].side)); }
+    for group in &mut outgoing { group.sort_by(|&a, &b| lanes[a].side.total_cmp(&lanes[b].side)); }
+
+    let mut routes = Vec::<LaneRoute>::new();
+    let mut used = vec![false; lanes.len()];
+    for i in 0..arms {
+        let ins = &incoming[i];
+        for j in (0..arms).filter(|j| *j != i) {
+            let outs = &outgoing[j];
+            if ins.is_empty() || outs.is_empty() { continue; }
+            let turn = signed_turn(lanes[ins[0]].flow, lanes[outs[0]].flow);
+            if turn.abs() > 150.0 { continue; }
+            let blinker = turn_blinker(turn);
+            let pairs: Vec<(usize, usize)> = if blinker == 3 {
+                vec![(ins[0], outs[0])]
+            } else if blinker == 2 {
+                vec![(ins[ins.len() - 1], outs[outs.len() - 1])]
+            } else {
+                (0..ins.len().max(outs.len()))
+                    .map(|k| (ins[k.min(ins.len() - 1)], outs[k.min(outs.len() - 1)])).collect()
+            };
+            for (a, b) in pairs {
+                if lanes[a].pos.distance(lanes[b].pos) < 0.01 { continue; }
+                routes.push(LaneRoute { from: a, to: b, turn, blinker });
+                used[a] = true;
+                used[b] = true;
+            }
+        }
+    }
+    if repair {
+        fill_vehicle_lanes(lanes, &incoming, &outgoing, &mut used, &mut routes,
+            |route| lanes[route.from].pos.distance(lanes[route.to].pos) >= 0.01);
+    }
+
+    // A longer zebra or kerb lead on any movement from a lane lengthens that
+    // lane's ONE stem; all its movements still leave from exactly the same point.
+    let mut length = vec![0.0f64; lanes.len()];
+    for route in &routes {
+        let (a, b) = (&lanes[route.from], &lanes[route.to]);
+        let turning = route.turn.abs() >= 30.0;
+        let outer = if left_hand_traffic { route.blinker == 2 } else { route.blinker == 3 };
+        let (mut kerb_a, mut kerb_b) = if turning && outer {
+            kerb_lead.iter().find_map(|&(i, j, li, lj)| {
+                if route.blinker == 3 && i == a.arm && j == b.arm { Some((li, lj)) }
+                else if route.blinker == 2 && i == b.arm && j == a.arm { Some((lj, li)) }
+                else { None }
+            }).unwrap_or((0.0, 0.0))
+        } else { (0.0, 0.0) };
+        if !a.kerb_outer { kerb_a = 0.0; }
+        if !b.kerb_outer { kerb_b = 0.0; }
+        let zebra_a = if turning && zebra_arms.get(a.arm).copied().unwrap_or(false) { TURN_LEAD } else { 0.0 };
+        let zebra_b = if turning && zebra_arms.get(b.arm).copied().unwrap_or(false) { TURN_LEAD } else { 0.0 };
+        length[route.from] = length[route.from].max(TURN_LEAD.max(kerb_a).max(zebra_a));
+        length[route.to] = length[route.to].max(TURN_LEAD.max(kerb_b).max(zebra_b));
+    }
+    let mut stems = vec![None; lanes.len()];
+    let mut out = Vec::new();
+    for (idx, lane) in lanes.iter().enumerate() {
+        if lane.kind != 0 || length[idx] <= 0.0 { continue; }
+        let at = lane.pos.truncate() - c2;
+        let seg = if lane.incoming {
+            Seg { start: at, heading: lane.flow, length: length[idx], radius: 0.0 }
+        } else {
+            Seg { start: at - roads::dir(lane.flow) * length[idx], heading: lane.flow, length: length[idx], radius: 0.0 }
+        };
+        stems[idx] = Some(seg);
+        let pocket = lane.pocket || routes.iter().any(|r|
+            (r.from == idx || r.to == idx) && (lanes[r.from].pocket || lanes[r.to].pocket));
+        out.push(PathRec {
+            seg, z0: lane.pos.z - centre.z, z1: lane.pos.z - centre.z,
+            kind: 0, width: lane.width.max(2.5), direction: 0, blinker: 0,
+            light: lane.incoming.then(|| light_of.get(lane.arm).copied().flatten()).flatten(),
+            pocket, bus: false,
+        });
+    }
+
+    for route in &routes {
+        let (a, b) = (&lanes[route.from], &lanes[route.to]);
+        let (Some(entry), Some(exit)) = (stems[route.from], stems[route.to]) else { continue };
+        let pa = entry.end();
+        let pb = exit.start;
+        let turning = route.turn.abs() >= 30.0;
+        let segs = roads::biarc(pa, a.flow, pb, b.flow).or_else(|| {
+            (!turning).then(|| roads::straight(pa, pb)).flatten().map(|s| vec![s])
+        });
+        let Some(segs) = segs else {
+            log::warn!("junction turn {:?} -> {:?} ({:.1}°): unable to join the shared stems; keep the one-per-lane ends for manual connection",
+                pa, pb, route.turn);
+            continue;
+        };
+        let total = segs.iter().map(|s| s.length).sum::<f64>().max(0.01);
+        let mut acc = 0.0;
+        let mut route_segs = Vec::new();
+        for seg in segs {
+            route_segs.push(seg);
+            let z0 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
+            acc += seg.length;
+            let z1 = a.pos.z + (b.pos.z - a.pos.z) * acc / total - centre.z;
+            out.push(PathRec {
+                seg, z0, z1, kind: 0, width: a.width.max(2.5), direction: 0,
+                blinker: route.blinker, light: None, pocket: a.pocket || b.pocket, bus: false,
+            });
+        }
+        // The check concerns the connected curve, never the shared straight stem.
+        let outer = if left_hand_traffic { route.blinker == 2 } else { route.blinker == 3 };
+        if turning && outer {
+            let corner = kerb_corners.iter().find(|c| {
+                if route.blinker == 3 { c.i == a.arm && c.j == b.arm }
+                else { c.i == b.arm && c.j == a.arm }
+            });
+            if let Some(c) = corner {
+                let (clear, pos) = path_kerb_clearance(&route_segs, c);
+                let required = a.width.max(2.5) * 0.5 - 0.1;
+                if clear < required {
+                    log::warn!("junction turning lane {:?} -> {:?} approaches corner kerb: min {:.3} m at {:?}, required {:.3} m",
+                        pa, pb, clear, pos, required);
+                }
+            }
+        }
+    }
+
+    // Two arms have two pavement sides; neither is optional when both have
+    // sidewalks. The old pedestrian loop deliberately skipped its second side.
+    if corner_walks && arms == 2 {
+        for (i, j) in [(0, 1), (1, 0)] {
+            let a = two_arm_sidewalk(lanes, walk_joins, c2, i, true);
+            let b = two_arm_sidewalk(lanes, walk_joins, c2, j, false);
+            if let (Some(a), Some(b)) = (a, b) {
+                let joined = |l: &LaneEnd| walk_joins.iter()
+                    .find(|w| w.arm == l.arm && (l.pos - w.at_arm).length() < 0.01)
+                    .map(|w| w.at_crossing).unwrap_or(l.pos);
+                let (pa, pb) = (joined(a), joined(b));
+                if let Some(seg) = roads::straight(pa.truncate() - c2, pb.truncate() - c2) {
+                    out.push(PathRec {
+                        seg, z0: pa.z - centre.z, z1: pb.z - centre.z,
+                        kind: 1, width: a.width.max(1.5), direction: 2,
+                        blinker: 0, light: None, pocket: false, bus: false,
+                    });
+                }
+            }
+        }
+    } else {
+        out.extend(paths_with_lane_repair_legacy(lanes, centre, light_of, walk_joins,
+            corner_walks, kerb_lead, zebra_arms, kerb_corners, left_hand_traffic, repair)
+            .into_iter().filter(|p| p.kind == 1));
+    }
+    out
+}
+
+/// The outer sidewalk on one physical side of a two-arm bend, determined from
+/// the road's outward direction (not the two-way footpath's flow).
+fn two_arm_sidewalk<'a>(
+    lanes: &'a [LaneEnd], walk_joins: &[WalkJoin], centre: DVec2,
+    arm: usize, left: bool,
+) -> Option<&'a LaneEnd> {
+    let out = lanes.iter().find(|l| l.arm == arm && !l.incoming)
+        .map(|l| l.flow).or_else(|| lanes.iter().find(|l| l.arm == arm)
+            .map(|l| roads::norm_deg(l.flow + 180.0)))?;
+    let right = roads::right(out);
+    let offset = |l: &LaneEnd| (l.pos.truncate() - centre).dot(right);
+    lanes.iter().filter(|l| l.arm == arm && l.kind == 1)
+        .filter(|l| if left { offset(l) < -0.1 } else { offset(l) > 0.1 })
+        .filter(|l| walk_joins.iter().find(|w| w.arm == l.arm && w.left == left)
+            .is_none_or(|w| (l.pos - w.at_arm).length() < 0.01))
+        .max_by(|a, b| offset(a).abs().total_cmp(&offset(b).abs()))
+}
+
+fn paths_with_lane_repair_legacy(
     lanes: &[LaneEnd], centre: DVec3, light_of: &[Option<usize>], walk_joins: &[WalkJoin],
     corner_walks: bool, kerb_lead: &[(usize, usize, f64, f64)],
     zebra_arms: &[bool], kerb_corners: &[KerbCorner], left_hand_traffic: bool,
@@ -515,7 +710,47 @@ fn paths_with_lane_repair(
         if !b.kerb_outer { kerb_b = 0.0; }
         let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
         let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
-        let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
+        let turn_lead = if turning { TURN_LEAD } else { 0.0 };
+        let lead_a = kerb_a.max(zebra_a).max(turn_lead);
+        let lead_b = kerb_b.max(zebra_b).max(turn_lead);
+        let segs = if turning {
+            match led_biarc(pa, a.flow, pb, b.flow, lead_a, lead_b) {
+                Some(segs) => segs,
+                None => {
+                    let (entry, exit) = turn_tangents(pa, a.flow, pb, b.flow, lead_a, lead_b);
+                    log::warn!(
+                        "junction turn {:?} -> {:?} ({turn:.1}°): biarc failed with fixed leads {lead_a:.3}/{lead_b:.3} m; keeping open tangents for manual connection",
+                        pa, pb
+                    );
+                    // These are two disconnected paths, not a complete route. Each
+                    // retains its own lane height, width and direction; only the
+                    // approach carries its traffic light. Do not interpolate the
+                    // missing middle's height over the remaining straight pieces.
+                    for (seg, lane, light) in [(entry, a, light_of.get(i).copied().flatten()), (exit, b, None)] {
+                        let z = lane.pos.z - centre.z;
+                        let width = lane.width.max(2.5);
+                        let duplicate = out.iter().any(|p: &PathRec| p.kind == 0
+                            && p.seg.radius == 0.0 && (p.seg.start - seg.start).length() < 1e-6
+                            && (p.seg.length - seg.length).abs() < 1e-6
+                            && signed_turn(p.seg.heading, seg.heading).abs() < 1e-6
+                            && (p.z0 - z).abs() < 1e-6 && (p.z1 - z).abs() < 1e-6
+                            && (p.width - width).abs() < 1e-6 && p.direction == 0
+                            && p.blinker == blinker && p.light == light && p.pocket == pocket);
+                        if !duplicate {
+                            out.push(PathRec { seg, z0: z, z1: z, kind: 0, width, direction: 0,
+                                blinker, light, pocket, bus: false });
+                        }
+                    }
+                    // Account for both lane ends so the repair pass does not try
+                    // to replace the deliberately missing connection.
+                    return true;
+                }
+            }
+        } else {
+            // Keep the existing through-lane and bus-bay taper behaviour.
+            roads::biarc(pa, a.flow, pb, b.flow)
+                .or_else(|| roads::straight(pa, pb).map(|s| vec![s])).unwrap_or_default()
+        };
         if segs.is_empty() { return false; }
         if let Some(c) = corner {
             let (distance, position) = path_kerb_clearance(&segs, c);
@@ -539,6 +774,8 @@ fn paths_with_lane_repair(
         }
         true
     };
+    // A lane is accounted for by a complete route or by a retained open tangent.
+    // routes also remembers the intended lane pairing for the unused-lane pass.
     let mut used = vec![false; lanes.len()];
     let mut routes = Vec::new();
     // traffic: every lane coming in to the lanes going out of the other arms, matched by
@@ -2169,7 +2406,8 @@ pub(crate) fn make_with(doc: &mut Document, assets: &mut Assets, content: &Path,
     let bypass_bus = bus_bay || files.iter().any(|f| crate::pocket::is_bay_spline(f));
     let mut route_lanes = plate.lanes.clone();
     if bypass_bus { for lane in &mut route_lanes { lane.bus = false; } }
-    let mut recs = paths(
+    let build_paths = if bus_bay { paths_legacy } else { paths };
+    let mut recs = build_paths(
         &route_lanes, DVec3::ZERO, &plate_lights, &walk_joins, opts.corner_walks,
         &kerb_lead, &zebra_arms, &kerb_corners, doc.global.left_hand_traffic,
     );
@@ -2946,30 +3184,37 @@ mod tests {
 
     // Generated segments are emitted consecutively for each lane-to-lane connection.
     // Match their ends back to the original directed lane ends.
+    /// The junction records now form a graph, not a sequence of complete
+    /// per-movement paths. Walk the graph to verify each lane's destinations.
     fn lane_connectivity_report(label: &str, lanes: &[LaneEnd], records: &[PathRec]) -> Vec<Vec<usize>> {
         let mut links = vec![Vec::new(); lanes.len()];
-        let mut start = None;
-        let mut previous: Option<DVec3> = None;
-        for record in records.iter().filter(|record| record.kind == 0) {
-            let seg = &record.seg;
-            let matches = |lane: &LaneEnd, p: DVec2, z: f64| {
-                lane.kind == 0 && lane.pos.distance_squared(p.extend(z)) < 1e-6
-            };
-            if let Some(pos) = previous {
-                assert!(pos.distance_squared(seg.start.extend(record.z0)) < 1e-6);
-            }
-            let source = *start.get_or_insert_with(|| lanes.iter()
-                .position(|lane| lane.incoming && matches(lane, seg.start, record.z0)).unwrap());
-            if let Some(target) = lanes.iter().position(|lane| !lane.incoming && matches(lane, seg.end(), record.z1)) {
-                links[source].push(target);
-                links[target].push(source);
-                start = None;
-                previous = None;
-            } else {
-                previous = Some(seg.end().extend(record.z1));
+        for (source, lane) in lanes.iter().enumerate().filter(|(_, l)| l.kind == 0 && l.incoming) {
+            let mut queue = vec![lane.pos];
+            let mut visited = std::collections::HashSet::<usize>::new();
+            while let Some(at) = queue.pop() {
+                for (idx, rec) in records.iter().enumerate() {
+                    if rec.kind != 0 || rec.bus != lane.bus || visited.contains(&idx)
+                        || at.distance_squared(rec.seg.start.extend(rec.z0)) > 1e-5 {
+                        continue;
+                    }
+                    visited.insert(idx);
+                    let end = rec.seg.end().extend(rec.z1);
+                    let mut terminal = false;
+                    for (target, exit) in lanes.iter().enumerate()
+                        .filter(|(_, l)| l.kind == 0 && !l.incoming && l.bus == lane.bus)
+                    {
+                        if exit.pos.distance_squared(end) < 1e-5 {
+                            if !links[source].contains(&target) {
+                                links[source].push(target);
+                                links[target].push(source);
+                            }
+                            terminal = true;
+                        }
+                    }
+                    if !terminal { queue.push(end); }
+                }
             }
         }
-        assert!(start.is_none(), "unfinished route in {label}");
         println!("{label}");
         for (idx, lane) in lanes.iter().enumerate() {
             let peers: Vec<_> = links[idx].iter().map(|&i| (lanes[i].arm, lanes[i].pos)).collect();
@@ -3007,6 +3252,73 @@ mod tests {
     }
 
     #[test]
+    fn junction_movements_share_one_entry_and_exit_stem_per_lane() {
+        let mut lanes = Vec::new();
+        for (arm, out) in [0.0, 90.0, 180.0, 270.0].into_iter().enumerate() {
+            let centre = roads::dir(out) * 20.0;
+            let sideways = roads::right(out) * 1.75;
+            for (incoming, pos, flow) in [
+                (true, centre - sideways, roads::norm_deg(out + 180.0)),
+                (false, centre + sideways, out),
+            ] {
+                lanes.push(LaneEnd {
+                    arm, pos: pos.extend(0.0), flow, kind: 0, width: 3.0,
+                    side: 0.0, incoming, pocket: false, bus: false, kerb_outer: true,
+                });
+            }
+        }
+        let lights = [Some(0), Some(1), Some(2), Some(3)];
+        let recs = paths(&lanes, DVec3::ZERO, &lights, &[], false, &[], &[], &[], false);
+        for lane in lanes.iter().filter(|l| l.incoming) {
+            let stems: Vec<_> = recs.iter().filter(|p| p.kind == 0 && p.seg.radius == 0.0
+                && (p.seg.start - lane.pos.truncate()).length() < 1e-6).collect();
+            assert_eq!(stems.len(), 1, "one common entry stem for arm {}", lane.arm);
+            let stem = stems[0];
+            assert_eq!(stem.blinker, 0);
+            assert_eq!(stem.light, lights[lane.arm]);
+            assert!(stem.seg.length >= TURN_LEAD);
+            let fork = stem.seg.end();
+            let turns: Vec<_> = recs.iter().filter(|p| p.kind == 0
+                && (p.seg.start - fork).length() < 0.02).map(|p| p.blinker).collect();
+            assert!(turns.contains(&0) && turns.contains(&2) && turns.contains(&3),
+                "straight, left and right must begin at the same fork {fork:?}: {turns:?}");
+        }
+        for lane in lanes.iter().filter(|l| !l.incoming) {
+            let stems: Vec<_> = recs.iter().filter(|p| p.kind == 0 && p.seg.radius == 0.0
+                && (p.seg.end() - lane.pos.truncate()).length() < 1e-6).collect();
+            assert_eq!(stems.len(), 1, "one common exit stem for arm {}", lane.arm);
+            assert_eq!(stems[0].blinker, 0);
+            assert_eq!(stems[0].light, None);
+        }
+        let links = lane_connectivity_report("shared stems", &lanes, &recs);
+        for (idx, lane) in lanes.iter().enumerate().filter(|(_, l)| l.incoming) {
+            let arms: std::collections::HashSet<_> = links[idx].iter().map(|&j| lanes[j].arm).collect();
+            assert_eq!(arms.len(), 3, "arm {} must reach all three other arms", lane.arm);
+        }
+    }
+
+    #[test]
+    fn two_arm_pavement_paths_connect_both_sides_without_automatic_lights() {
+        let mut lanes = Vec::new();
+        for (arm, out) in [0.0, 180.0].into_iter().enumerate() {
+            let point = roads::dir(out) * 18.0;
+            for side in [-5.5, 5.5] {
+                lanes.push(LaneEnd {
+                    arm, pos: (point + roads::right(out) * side).extend(0.25),
+                    flow: out, kind: 1, width: 2.0, side, incoming: false,
+                    pocket: false, bus: false, kerb_outer: true,
+                });
+            }
+        }
+        let recs = paths(&lanes, DVec3::ZERO, &[None; 2], &[], true, &[], &[], &[], false);
+        let walks: Vec<_> = recs.iter().filter(|p| p.kind == 1).collect();
+        assert_eq!(walks.len(), 2, "the two-arm junction must join both pavements");
+        let x: Vec<_> = walks.iter().map(|w| w.seg.start.x).collect();
+        assert!(x.iter().any(|v| *v < -5.0) && x.iter().any(|v| *v > 5.0), "{x:?}");
+        assert!(recs.iter().all(|p| p.light.is_none()), "pavements do not require signals");
+    }
+
+    #[test]
     fn outer_bus_lane_straight_and_right_turn_use_the_correct_lanes_and_lead() {
         let profile = [(-5.0, 3.0, 1), (-2.0, 3.0, 1), (2.0, 3.0, 0), (5.0, 3.0, 0)];
         let mut lanes = Vec::new();
@@ -3032,7 +3344,7 @@ mod tests {
         let bus_route = trace_turn(&recs, lanes[bus_in].pos.truncate(), lanes[right_target].pos.truncate(), 3);
         assert!(bus_route.iter().all(|p| p.bus));
         assert_eq!(bus_route[0].seg.radius, 0.0);
-        assert!((bus_route[0].seg.length - 3.0).abs() < 1e-6, "outer bus uses its kerb lead");
+        assert!((bus_route[0].seg.length - TURN_LEAD).abs() < 1e-6, "the universal lead is longer than this kerb lead");
     }
 
     #[test]
@@ -3129,15 +3441,24 @@ mod tests {
             assert_eq!(new[idx].len(), 1);
             let source = &lanes[new[idx][0]];
             assert_eq!(source.arm, 1);
-            assert!(after[before.len()..].iter().any(|record| {
+            let stems: Vec<_> = after.iter().filter(|record| {
                 record.seg.start.distance(source.pos.truncate()) < 1e-6
-                    && record.blinker == 3 && record.light == Some(source.arm)
-            }));
+                    && record.blinker == 0 && record.light == Some(source.arm)
+            }).collect();
+            assert_eq!(stems.len(), 1, "every repaired lane uses its one shared approach");
+            assert!(after.iter().any(|record| {
+                record.seg.start.distance(stems[0].seg.end()) < 0.02 && record.blinker == 3
+            }), "right turn must branch after the shared light-controlled approach");
         }
         assert!(new.iter().all(|links| !links.is_empty()));
         let (old_sco, new_sco) = (lane_connectivity_blocks(&before), lane_connectivity_blocks(&after));
         println!("T junction before [path]\n{old_sco}T junction after [path]\n{new_sco}");
-        assert!(new_sco.starts_with(&old_sco));
+        assert_ne!(old_sco, new_sco, "repair must add the missing connections");
+        for (lane, peers) in old.iter().enumerate() {
+            for &target in peers {
+                assert!(new[lane].contains(&target), "repair must preserve lane {lane} -> {target}");
+            }
+        }
     }
 
     #[test]
@@ -3364,11 +3685,11 @@ mod tests {
     }
 
     /// Three roads out of `centre`, turned by `turn`, made into a junction: its object.
-    fn t_junction(doc: &mut Document, assets: &mut Assets, content: &Path, centre: DVec2, turn: f64, ids: [i64; 3], lengths: [f64; 3]) -> MapObject {
+    fn t_junction(doc: &mut Document, assets: &mut Assets, content: &Path, centre: DVec2, turn: f64, ids: [i64; 3], lengths: [f64; 3], reach: f64) -> MapObject {
         let mut arms = Vec::new();
         for ((rel, id), length) in [0.0, 90.0, 270.0].into_iter().zip(ids).zip(lengths) {
             let out = roads::norm_deg(turn + rel);
-            let p = centre + roads::dir(out) * 10.0;
+            let p = centre + roads::dir(out) * reach;
             crate::selection::tests::add_spline(doc, (0, 0), id, p.x, p.y, out, length, 0, 0);
             arms.push(Arm { key: (0, 0), id, at_end: false });
         }
@@ -3605,8 +3926,10 @@ mod tests {
         doc.dir = content.join("maps").join("shared");
         let mut assets = Assets::new(roots.omsi.clone(), content.clone());
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(test_road())));
-        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0]);
-        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 37.0, [6, 5, 4], [13.5, 41.2, 27.3]);
+        // Allow complete turns with the fixed 4 m tangents and minimum 6 m radius.
+        // The intentionally open tight-turn case is covered by its own regression test.
+        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0], 18.0);
+        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 37.0, [6, 5, 4], [13.5, 41.2, 27.3], 18.0);
         assert_eq!(a.file, b.file);
         assert!((roads::norm_deg(b.rot[0] - a.rot[0]) - 37.0).abs() < 1e-6, "{:?} {:?}", a.rot, b.rot);
         let dir = omsi_cfg::resolve_path(&content, &a.file);
@@ -3616,8 +3939,8 @@ mod tests {
         // each junction's lanes meet its roads' lanes on the map, however it is turned
         assets.object_wait(&a.file, 5000).expect("the object reads back");
         for centre in [DVec2::new(100.0, 100.0), DVec2::new(200.0, 200.0)] {
-            let (_, ends) = crate::lanes::near(&doc, &mut assets, centre, 14.0);
-            let inner: Vec<_> = ends.iter().filter(|e| (e.pos.truncate() - centre).length() < 12.5).collect();
+            let (_, ends) = crate::lanes::near(&doc, &mut assets, centre, 22.0);
+            let inner: Vec<_> = ends.iter().filter(|e| (e.pos.truncate() - centre).length() < 20.5).collect();
             assert!(inner.len() >= 12, "{}", inner.len());
             assert!(inner.iter().all(|e| e.linked), "{centre:?} {inner:?}");
         }
@@ -4024,9 +4347,9 @@ mod tests {
         let mut assets = Assets::new(roots.omsi.clone(), content.clone());
         let tex = test_dir("object");
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(painted_road(&tex, true, false))));
-        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0]);
+        let a = t_junction(&mut doc, &mut assets, &content, DVec2::new(100.0, 100.0), 0.0, [1, 2, 3], [20.0, 20.0, 20.0], 10.0);
         assets.splines.insert("splines\\road.sli".into(), crate::assets::Slot::Ready(std::sync::Arc::new(painted_road(&tex, false, false))));
-        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 0.0, [4, 5, 6], [20.0, 20.0, 20.0]);
+        let b = t_junction(&mut doc, &mut assets, &content, DVec2::new(200.0, 200.0), 0.0, [4, 5, 6], [20.0, 20.0, 20.0], 10.0);
         assert_ne!(a.file, b.file);
         let sco = omsi_cfg::resolve_path(&content, &a.file);
         let x = std::fs::read_to_string(sco.parent().unwrap().join("model").join(format!("{}.x", sco.file_stem().unwrap().to_string_lossy()))).unwrap();
@@ -4670,10 +4993,13 @@ mod tests {
         let mut result = Vec::new();
         let mut used = std::collections::HashSet::new();
         for _ in 0..10 {
-            let (idx, rec) = paths.iter().enumerate().find(|(idx, rec)| {
-                rec.kind == 0 && rec.blinker == blinker && !used.contains(idx)
+            let candidates = || paths.iter().enumerate().filter(|(idx, rec)| {
+                rec.kind == 0 && !used.contains(idx)
                     && (rec.seg.start - current).length() < 0.02
-            }).unwrap_or_else(|| panic!("missing route segment at {current:?} toward {pb:?}, blink {blinker}"));
+            });
+            let (idx, rec) = candidates().find(|(_, rec)| rec.blinker == blinker)
+                .or_else(|| candidates().find(|(_, rec)| rec.blinker == 0))
+                .unwrap_or_else(|| panic!("missing route segment at {current:?} toward {pb:?}, blink {blinker}"));
             used.insert(idx);
             current = rec.seg.end();
             result.push(rec);
@@ -4756,7 +5082,7 @@ mod tests {
     }
 
     #[test]
-    fn symmetric_kerbs_are_bit_identical_without_zebras() {
+    fn junction_symmetric_kerbs_do_not_change_universal_turn_leads() {
         let (geo, lanes) = kerb_lead_fixture(true);
         let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
         let leads = corner_leads(&corners);
@@ -4773,8 +5099,8 @@ mod tests {
         println!("===== SYMMETRIC FOUR ARMS BEFORE [path] =====\n{before}");
         println!("===== SYMMETRIC FOUR ARMS AFTER [path] =====\n{after}");
 
-        // Even on asymmetric roads, without zebra crossings a normal
-        // left turn (not an outer LHT turn) is completely unchanged.
+        // On asymmetric roads the RHT left turn has its universal leads;
+        // the unrelated inner-corner kerb leads must not change that route.
         let (geo, lanes) = kerb_lead_fixture(false);
         let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
         let leads = corner_leads(&corners);
@@ -4835,6 +5161,80 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn junction_turn_leads_are_fixed_for_both_turns_with_or_without_zebras() {
+        for heading in [90.0, 270.0] {
+            for left_hand in [false, true] {
+                for zebra in [false, true] {
+                    let a = LaneEnd { arm: 0, pos: DVec3::ZERO, flow: 0.0, kind: 0, width: 3.0,
+                        side: 0.0, incoming: true, pocket: false, bus: false, kerb_outer: true };
+                    let b = LaneEnd { arm: 1, pos: DVec3::new(if heading == 90.0 { 16.0 } else { -16.0 }, 16.0, 0.0),
+                        flow: heading, incoming: false, ..a };
+                    let recs = paths(&[a, b], DVec3::ZERO, &[Some(0), None], &[], false,
+                        &[], &[zebra; 2], &[], left_hand);
+                    let turn = trace_turn(&recs, a.pos.truncate(), b.pos.truncate(),
+                        if heading == 90.0 { 3 } else { 2 });
+                    assert_eq!(turn.len(), 4);
+                    assert_eq!(turn[0].seg.radius, 0.0);
+                    assert_eq!(turn[3].seg.radius, 0.0);
+                    assert!((turn[0].seg.length - TURN_LEAD).abs() < 1e-6);
+                    assert!((turn[3].seg.length - TURN_LEAD).abs() < 1e-6);
+                    assert!(turn[1..3].iter().all(|p| (p.seg.radius.abs() - 12.0).abs() < 1e-6));
+                    assert_eq!(turn[0].light, Some(0));
+                    assert!(turn[1..].iter().all(|p| p.light.is_none()));
+                    println!("{}", turn_blocks(&turn));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn junction_failed_turn_keeps_both_full_tangents_without_false_connection() {
+        for heading in [90.0, 270.0] {
+            for left_hand in [false, true] {
+                for zebra in [false, true] {
+                    let a = LaneEnd { arm: 0, pos: DVec3::new(0.0, 0.0, 0.1), flow: 0.0,
+                        kind: 0, width: 3.0, side: 0.0, incoming: true,
+                        pocket: false, bus: false, kerb_outer: true };
+                    let b = LaneEnd { arm: 1, pos: DVec3::new(if heading == 90.0 { 8.0 } else { -8.0 }, 8.0, 0.4),
+                        flow: heading, width: 3.5, incoming: false, ..a };
+                    // The old retry/fallback could generate the 8 m radius direct
+                    // biarc. The required 4 m leads leave only a 4 m radius, below
+                    // roads::MIN_RADIUS. Preserve both leads instead.
+                    assert!(roads::biarc(a.pos.truncate(), a.flow, b.pos.truncate(), b.flow).is_some());
+                    assert!(led_biarc(a.pos.truncate(), a.flow, b.pos.truncate(), b.flow, TURN_LEAD, TURN_LEAD).is_none());
+                    for repair in [false, true] {
+                        let recs = paths_with_lane_repair(&[a, b], DVec3::ZERO, &[Some(0), None],
+                            &[], false, &[], &[zebra; 2], &[], left_hand, repair);
+                        assert_eq!(recs.len(), 2, "no retry, chord or repair may replace the missing curve");
+                        let (entry, exit) = (&recs[0], &recs[1]);
+                        assert!(recs.iter().all(|p| p.seg.radius == 0.0 && p.seg.length == TURN_LEAD && p.direction == 0));
+                        assert!(entry.seg.start.distance(a.pos.truncate()) < 1e-6);
+                        assert!(exit.seg.end().distance(b.pos.truncate()) < 1e-6);
+                        assert!(entry.seg.end().distance(exit.seg.start) > 5.0);
+                        assert_eq!((entry.z0, entry.z1, entry.width, entry.light), (0.1, 0.1, 3.0, Some(0)));
+                        assert_eq!((exit.z0, exit.z1, exit.width, exit.light), (0.4, 0.4, 3.5, None));
+                        assert!(recs.iter().all(|p| p.blinker == 0), "shared stems carry no turn signals");
+                        println!("{}", record_paths(&recs));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn junction_failed_turn_keeps_longer_kerb_lead() {
+        let a = LaneEnd { arm: 0, pos: DVec3::ZERO, flow: 0.0, kind: 0, width: 3.0,
+            side: 0.0, incoming: true, pocket: false, bus: false, kerb_outer: true };
+        let b = LaneEnd { arm: 1, pos: DVec3::new(8.0, 8.0, 0.0), flow: 90.0,
+            incoming: false, ..a };
+        let recs = paths(&[a, b], DVec3::ZERO, &[None; 2], &[], false,
+            &[(0, 1, 6.0, 5.0)], &[false; 2], &[], false);
+        assert_eq!(recs.len(), 2);
+        assert_eq!((recs[0].seg.length, recs[1].seg.length), (6.0, 5.0));
+        assert!(recs.iter().all(|p| p.seg.radius == 0.0));
     }
 
 }

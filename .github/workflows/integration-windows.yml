@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration
+      - fix/junction-turn-leads
   workflow_dispatch:
 
 permissions:
