@@ -313,7 +313,7 @@ fn path_kerb_clearance(segs: &[Seg], corner: &KerbCorner) -> (f64, DVec2) {
 }
 
 /// Straight approach and departure retained for every vehicle turn, independently of zebra crossings.
-const TURN_LEAD: f64 = 4.0;
+pub(crate) const TURN_LEAD: f64 = 4.0;
 
 /// The two fixed tangent segments, in the direction of traffic. Their free ends can
 /// be joined in the crossing editor even when the automatic curve cannot be made.
