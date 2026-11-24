@@ -3400,3 +3400,6 @@ Show start of original track	在地圖上顯示原始軌跡的起點
 {count} original paths are missing from the current map; no replacement route was calculated.	目前地圖缺少 {count} 段原始路徑；沒有重新尋路代替。
 Locate the tile; the missing path's exact position is unknown	定位所在圖塊（缺失路徑的精確位置未知）
 Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	只顯示已儲存的 TrackEntry 路徑，不重新尋路或修改班次。
+The original track is a reference only. Preparing stops does not change it or recalculate the route.	原始軌跡僅供參考。準備站點不會修改原始軌跡或重新尋路。
+Prepare Type 2 stops	準備 Type 2 站點
+Cannot prepare stops: invalid legacy station ID.	無法準備站點：舊格式的站點 ID 無效。

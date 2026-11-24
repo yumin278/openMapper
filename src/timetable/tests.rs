@@ -1104,3 +1104,60 @@ fn disconnected_bus_berth_falls_back_to_reachable_general_lane() {
     assert!(route.ok(), "{:?}", route.problems);
     assert_eq!(ids, vec![601], "only the general lane reaches both stops");
 }
+
+
+#[test]
+fn type2_preparation_persists_station_ids_and_keeps_shared_tracks_until_last_conversion() {
+    let out = scratch("type2-preparation");
+    let dir = out.join("TTData");
+    let track = "[track_entry]\n1756623\n58\n0\n144\n3.4700000000\n0\n\n";
+    let zero = "[trip]\nold-track\nTerminus\n66\n\n[profile]\nstandard\n18.000\n";
+    let other = "[trip]\nold-track\nTerminus\n66\n\n[station]\n11\n0\nStop 11\n0\n0\n0\n0\n0\n\n[station]\n22\n0\nStop 22\n0\n0\n0\n0\n0\n\n[profile]\nstandard\n18.000\n\n[profile_otherstopping]\n1\n4\n";
+    for (file, contents) in [("old-track.ttr", track), ("zero.ttp", zero), ("other.ttp", other)] {
+        std::fs::write(dir.join(file), encode(contents)).unwrap();
+    }
+    let mut tt = Timetable::load(&out, &[]);
+    let other_trip = tt.trip("other").unwrap().clone();
+    tt.set_type2_exclusion(&other_trip, true);
+    println!("Before preparation:\n{zero}\nOriginal track:\n{track}");
+    assert!(tt.prepare_type2_stops("zero"));
+    let trip = tt.trip_mut("zero").unwrap();
+    trip.stations = vec![12345, 67890]; // Neither needs to lie on the original track.
+    trip.profiles[0].other_stopping = vec![(1, 1)];
+    tt.touch_route("zero");
+    assert!(tt.reroute.is_empty());
+    assert!(!tt.excludes_type2(tt.trip("zero").unwrap()));
+    save_to(&mut tt, &out, &[]).unwrap();
+    let draft = std::fs::read_to_string(dir.join("zero.ttp")).unwrap();
+    println!("Prepared and saved:\n{draft}\nUnchanged original track:\n{}", std::fs::read_to_string(dir.join("old-track.ttr")).unwrap());
+    assert!(draft.contains(convert::TYPE2_DRAFT));
+    assert_eq!(std::fs::read(dir.join("old-track.ttr")).unwrap(), encode(track));
+    let mut tt = Timetable::load(&out, &[]);
+    let trip = tt.trip("zero").unwrap();
+    assert!(tt.is_type1(trip) && tt.is_type2_draft(trip));
+    assert_eq!(trip.display_name, "old-track");
+    assert_eq!(trip.stations, [12345, 67890]);
+    assert_eq!(trip.profiles[0].other_stopping, [(1, 1)]);
+    assert_eq!(tt.convert_all_to_type2(), (1, 1));
+    save_to(&mut tt, &out, &[]).unwrap();
+    let converted = std::fs::read_to_string(dir.join("zero.ttp")).unwrap();
+    println!("Converted first trip:\n{converted}");
+    assert!(!converted.contains(convert::TYPE2_DRAFT));
+    assert_eq!(std::fs::read(dir.join("old-track.ttr")).unwrap(), encode(track));
+    assert!(tt.prepare_type2_stops("other"));
+    assert_eq!(tt.trip("other").unwrap().stations, [11, 22]);
+    assert_eq!(tt.trip("other").unwrap().profiles[0].other_stopping, [(1, 4)]);
+    let other = tt.trip("other").unwrap().clone();
+    tt.set_type2_exclusion(&other, false);
+    assert_eq!(tt.convert_all_to_type2(), (1, 0));
+    save_to(&mut tt, &out, &[]).unwrap();
+    let converted = std::fs::read_to_string(dir.join("other.ttp")).unwrap();
+    println!("Converted last referencing trip:\n{converted}\nOriginal track removed: {}", !dir.join("old-track.ttr").exists());
+    assert!(!dir.join("old-track.ttr").exists());
+    let reloaded = Timetable::load(&out, &[]);
+    assert!(!reloaded.is_type1(reloaded.trip("zero").unwrap()));
+    assert!(!reloaded.is_type1(reloaded.trip("other").unwrap()));
+    assert_eq!(reloaded.trip("zero").unwrap().stations, [12345, 67890]);
+    assert_eq!(reloaded.trip("other").unwrap().profiles[0].other_stopping, [(1, 4)]);
+    let _ = std::fs::remove_dir_all(out);
+}
