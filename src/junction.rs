@@ -312,46 +312,28 @@ fn path_kerb_clearance(segs: &[Seg], corner: &KerbCorner) -> (f64, DVec2) {
     best
 }
 
-/// Keep straight tangents at the road ends, then join the shortened portion
-/// with a biarc. Retry three times at half the previous tangent lengths.
-/// A zero-length tangent is omitted, preserving the original path verbatim.
-fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> Vec<Seg> {
-    if lead_a <= 0.0 && lead_b <= 0.0 {
-        return roads::biarc(pa, ha, pb, hb).or_else(|| roads::straight(pa, pb).map(|s| vec![s])).unwrap_or_default();
-    }
-    let (mut la, mut lb) = (lead_a, lead_b);
-    let mut attempts = Vec::new();
-    for retry in 0..=3 {
-        let p = pa + roads::dir(ha) * la;
-        let q = pb - roads::dir(hb) * lb;
-        attempts.push(format!("#{retry} ({la:.3}, {lb:.3}): biarc {:?} -> {:?} returned None", p, q));
-        if let Some(mut middle) = roads::biarc(p, ha, q, hb) {
-            if retry > 0 {
-                log::warn!(
-                    "junction biarc recovered after reduced tangent leads {:?} -> {:?}; previous attempts: {}",
-                    pa, pb, attempts[..attempts.len() - 1].join("; ")
-                );
-            }
-            let mut segs = Vec::new();
-            if la > 1e-6 {
-                segs.push(Seg { start: pa, heading: ha, length: la, radius: 0.0 });
-            }
-            segs.append(&mut middle);
-            if lb > 1e-6 {
-                segs.push(Seg { start: q, heading: hb, length: lb, radius: 0.0 });
-            }
-            return segs;
-        }
-        if retry < 3 { la *= 0.5; lb *= 0.5; }
-    }
-    if let Some(segs) = roads::biarc(pa, ha, pb, hb) {
-        log::warn!("junction biarc lead retries failed {:?} -> {:?}; attempts: {}; using original biarc",
-            pa, pb, attempts.join("; "));
-        return segs;
-    }
-    log::warn!("junction biarc lead retries and original biarc failed {:?} -> {:?}; attempts: {}; reason: roads::biarc returned None; using straight fallback",
-        pa, pb, attempts.join("; "));
-    roads::straight(pa, pb).map(|s| vec![s]).unwrap_or_default()
+/// Straight approach and departure retained for every vehicle turn, independently of zebra crossings.
+const TURN_LEAD: f64 = 4.0;
+
+/// The two fixed tangent segments, in the direction of traffic. Their free ends can
+/// be joined in the crossing editor even when the automatic curve cannot be made.
+fn turn_tangents(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> (Seg, Seg) {
+    (
+        Seg { start: pa, heading: ha, length: lead_a, radius: 0.0 },
+        Seg { start: pb - roads::dir(hb) * lead_b, heading: hb, length: lead_b, radius: 0.0 },
+    )
+}
+
+/// Join the fixed tangents with a biarc. Never shorten them or draw an unrelated
+/// straight chord through a turn. The caller retains the original tangents on failure.
+fn led_biarc(pa: DVec2, ha: f64, pb: DVec2, hb: f64, lead_a: f64, lead_b: f64) -> Option<Vec<Seg>> {
+    let (entry, exit) = turn_tangents(pa, ha, pb, hb, lead_a, lead_b);
+    let mut middle = roads::biarc(pa + roads::dir(ha) * lead_a, ha, exit.start, hb)?;
+    let mut segs = Vec::with_capacity(middle.len() + 2);
+    if lead_a > 1e-6 { segs.push(entry); }
+    segs.append(&mut middle);
+    if lead_b > 1e-6 { segs.push(exit); }
+    Some(segs)
 }
 
 fn turn_blinker(turn: f64) -> i32 {
@@ -376,7 +358,8 @@ impl LaneRoute {
     }
 }
 
-/// Append a connection for each remaining lane, first exits, then entrances.
+/// Append paths for each remaining lane, first exits, then entrances. A lane with a
+/// deliberately open tangent is accounted for, even though it has no complete route.
 fn fill_vehicle_lanes(
     lanes: &[LaneEnd], incoming: &[Vec<usize>], outgoing: &[Vec<usize>],
     used: &mut [bool], routes: &mut Vec<LaneRoute>, mut write: impl FnMut(LaneRoute) -> bool,
@@ -423,7 +406,7 @@ fn fill_vehicle_lanes(
                     used[route.to] = true;
                     routes.push(route);
                     log::info!(
-                        "junction connected {} lane at arm {} side {:.3}: arm {} side {:.3} {:?} -> arm {} side {:.3} {:?}, turn {:.1}°, blinker {}",
+                        "junction generated paths for {} lane at arm {} side {:.3}: arm {} side {:.3} {:?} -> arm {} side {:.3} {:?}, turn {:.1}°, blinker {}",
                         if entering { "incoming" } else { "outgoing" }, arm, lane.side,
                         lanes[route.from].arm, lanes[route.from].side, lanes[route.from].pos,
                         lanes[route.to].arm, lanes[route.to].side, lanes[route.to].pos,
@@ -515,7 +498,47 @@ fn paths_with_lane_repair(
         if !b.kerb_outer { kerb_b = 0.0; }
         let zebra_a = if turning && zebra_arms.get(i).copied().unwrap_or(false) { 4.0 } else { 0.0 };
         let zebra_b = if turning && zebra_arms.get(j).copied().unwrap_or(false) { 4.0 } else { 0.0 };
-        let segs = led_biarc(pa, a.flow, pb, b.flow, kerb_a.max(zebra_a), kerb_b.max(zebra_b));
+        let turn_lead = if turning { TURN_LEAD } else { 0.0 };
+        let lead_a = kerb_a.max(zebra_a).max(turn_lead);
+        let lead_b = kerb_b.max(zebra_b).max(turn_lead);
+        let segs = if turning {
+            match led_biarc(pa, a.flow, pb, b.flow, lead_a, lead_b) {
+                Some(segs) => segs,
+                None => {
+                    let (entry, exit) = turn_tangents(pa, a.flow, pb, b.flow, lead_a, lead_b);
+                    log::warn!(
+                        "junction turn {:?} -> {:?} ({turn:.1}°): biarc failed with fixed leads {lead_a:.3}/{lead_b:.3} m; keeping open tangents for manual connection",
+                        pa, pb
+                    );
+                    // These are two disconnected paths, not a complete route. Each
+                    // retains its own lane height, width and direction; only the
+                    // approach carries its traffic light. Do not interpolate the
+                    // missing middle's height over the remaining straight pieces.
+                    for (seg, lane, light) in [(entry, a, light_of.get(i).copied().flatten()), (exit, b, None)] {
+                        let z = lane.pos.z - centre.z;
+                        let width = lane.width.max(2.5);
+                        let duplicate = out.iter().any(|p: &PathRec| p.kind == 0
+                            && p.seg.radius == 0.0 && (p.seg.start - seg.start).length() < 1e-6
+                            && (p.seg.length - seg.length).abs() < 1e-6
+                            && signed_turn(p.seg.heading, seg.heading).abs() < 1e-6
+                            && (p.z0 - z).abs() < 1e-6 && (p.z1 - z).abs() < 1e-6
+                            && (p.width - width).abs() < 1e-6 && p.direction == 0
+                            && p.blinker == blinker && p.light == light && p.pocket == pocket);
+                        if !duplicate {
+                            out.push(PathRec { seg, z0: z, z1: z, kind: 0, width, direction: 0,
+                                blinker, light, pocket, bus: false });
+                        }
+                    }
+                    // Account for both lane ends so the repair pass does not try
+                    // to replace the deliberately missing connection.
+                    return true;
+                }
+            }
+        } else {
+            // Keep the existing through-lane and bus-bay taper behaviour.
+            roads::biarc(pa, a.flow, pb, b.flow)
+                .or_else(|| roads::straight(pa, pb).map(|s| vec![s])).unwrap_or_default()
+        };
         if segs.is_empty() { return false; }
         if let Some(c) = corner {
             let (distance, position) = path_kerb_clearance(&segs, c);
@@ -539,6 +562,8 @@ fn paths_with_lane_repair(
         }
         true
     };
+    // A lane is accounted for by a complete route or by a retained open tangent.
+    // routes also remembers the intended lane pairing for the unused-lane pass.
     let mut used = vec![false; lanes.len()];
     let mut routes = Vec::new();
     // traffic: every lane coming in to the lanes going out of the other arms, matched by
@@ -3032,7 +3057,7 @@ mod tests {
         let bus_route = trace_turn(&recs, lanes[bus_in].pos.truncate(), lanes[right_target].pos.truncate(), 3);
         assert!(bus_route.iter().all(|p| p.bus));
         assert_eq!(bus_route[0].seg.radius, 0.0);
-        assert!((bus_route[0].seg.length - 3.0).abs() < 1e-6, "outer bus uses its kerb lead");
+        assert!((bus_route[0].seg.length - TURN_LEAD).abs() < 1e-6, "the universal lead is longer than this kerb lead");
     }
 
     #[test]
@@ -4756,7 +4781,7 @@ mod tests {
     }
 
     #[test]
-    fn symmetric_kerbs_are_bit_identical_without_zebras() {
+    fn junction_symmetric_kerbs_do_not_change_universal_turn_leads() {
         let (geo, lanes) = kerb_lead_fixture(true);
         let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
         let leads = corner_leads(&corners);
@@ -4773,8 +4798,8 @@ mod tests {
         println!("===== SYMMETRIC FOUR ARMS BEFORE [path] =====\n{before}");
         println!("===== SYMMETRIC FOUR ARMS AFTER [path] =====\n{after}");
 
-        // Even on asymmetric roads, without zebra crossings a normal
-        // left turn (not an outer LHT turn) is completely unchanged.
+        // On asymmetric roads the RHT left turn has its universal leads;
+        // the unrelated inner-corner kerb leads must not change that route.
         let (geo, lanes) = kerb_lead_fixture(false);
         let (_, corners) = junction_mesh(&geo, DVec3::ZERO, None, 8.0, 0.0);
         let leads = corner_leads(&corners);
@@ -4835,6 +4860,80 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn junction_turn_leads_are_fixed_for_both_turns_with_or_without_zebras() {
+        for heading in [90.0, 270.0] {
+            for left_hand in [false, true] {
+                for zebra in [false, true] {
+                    let a = LaneEnd { arm: 0, pos: DVec3::ZERO, flow: 0.0, kind: 0, width: 3.0,
+                        side: 0.0, incoming: true, pocket: false, bus: false, kerb_outer: true };
+                    let b = LaneEnd { arm: 1, pos: DVec3::new(if heading == 90.0 { 16.0 } else { -16.0 }, 16.0, 0.0),
+                        flow: heading, incoming: false, ..a };
+                    let recs = paths(&[a, b], DVec3::ZERO, &[Some(0), None], &[], false,
+                        &[], &[zebra; 2], &[], left_hand);
+                    let turn = trace_turn(&recs, a.pos.truncate(), b.pos.truncate(),
+                        if heading == 90.0 { 3 } else { 2 });
+                    assert_eq!(turn.len(), 4);
+                    assert_eq!(turn[0].seg.radius, 0.0);
+                    assert_eq!(turn[3].seg.radius, 0.0);
+                    assert!((turn[0].seg.length - TURN_LEAD).abs() < 1e-6);
+                    assert!((turn[3].seg.length - TURN_LEAD).abs() < 1e-6);
+                    assert!(turn[1..3].iter().all(|p| (p.seg.radius.abs() - 12.0).abs() < 1e-6));
+                    assert_eq!(turn[0].light, Some(0));
+                    assert!(turn[1..].iter().all(|p| p.light.is_none()));
+                    println!("{}", turn_blocks(&turn));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn junction_failed_turn_keeps_both_full_tangents_without_false_connection() {
+        for heading in [90.0, 270.0] {
+            for left_hand in [false, true] {
+                for zebra in [false, true] {
+                    let a = LaneEnd { arm: 0, pos: DVec3::new(0.0, 0.0, 0.1), flow: 0.0,
+                        kind: 0, width: 3.0, side: 0.0, incoming: true,
+                        pocket: false, bus: false, kerb_outer: true };
+                    let b = LaneEnd { arm: 1, pos: DVec3::new(if heading == 90.0 { 8.0 } else { -8.0 }, 8.0, 0.4),
+                        flow: heading, width: 3.5, incoming: false, ..a };
+                    // The old retry/fallback could generate the 8 m radius direct
+                    // biarc. The required 4 m leads leave only a 4 m radius, below
+                    // roads::MIN_RADIUS. Preserve both leads instead.
+                    assert!(roads::biarc(a.pos.truncate(), a.flow, b.pos.truncate(), b.flow).is_some());
+                    assert!(led_biarc(a.pos.truncate(), a.flow, b.pos.truncate(), b.flow, TURN_LEAD, TURN_LEAD).is_none());
+                    for repair in [false, true] {
+                        let recs = paths_with_lane_repair(&[a, b], DVec3::ZERO, &[Some(0), None],
+                            &[], false, &[], &[zebra; 2], &[], left_hand, repair);
+                        assert_eq!(recs.len(), 2, "no retry, chord or repair may replace the missing curve");
+                        let (entry, exit) = (&recs[0], &recs[1]);
+                        assert!(recs.iter().all(|p| p.seg.radius == 0.0 && p.seg.length == TURN_LEAD && p.direction == 0));
+                        assert!(entry.seg.start.distance(a.pos.truncate()) < 1e-6);
+                        assert!(exit.seg.end().distance(b.pos.truncate()) < 1e-6);
+                        assert!(entry.seg.end().distance(exit.seg.start) > 5.0);
+                        assert_eq!((entry.z0, entry.z1, entry.width, entry.light), (0.1, 0.1, 3.0, Some(0)));
+                        assert_eq!((exit.z0, exit.z1, exit.width, exit.light), (0.4, 0.4, 3.5, None));
+                        assert!(recs.iter().all(|p| p.blinker == if heading == 90.0 { 3 } else { 2 }));
+                        println!("{}", record_paths(&recs));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn junction_failed_turn_keeps_longer_kerb_lead() {
+        let a = LaneEnd { arm: 0, pos: DVec3::ZERO, flow: 0.0, kind: 0, width: 3.0,
+            side: 0.0, incoming: true, pocket: false, bus: false, kerb_outer: true };
+        let b = LaneEnd { arm: 1, pos: DVec3::new(8.0, 8.0, 0.0), flow: 90.0,
+            incoming: false, ..a };
+        let recs = paths(&[a, b], DVec3::ZERO, &[None; 2], &[], false,
+            &[(0, 1, 6.0, 5.0)], &[false; 2], &[], false);
+        assert_eq!(recs.len(), 2);
+        assert_eq!((recs[0].seg.length, recs[1].seg.length), (6.0, 5.0));
+        assert!(recs.iter().all(|p| p.seg.radius == 0.0));
     }
 
 }
