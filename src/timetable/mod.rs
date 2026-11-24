@@ -49,6 +49,8 @@ pub struct Timetable {
     pub reroute: BTreeSet<String>,
     /// Trips converted since the last save, whose existing route is kept on that save.
     pub type2_converted: BTreeSet<String>,
+    /// Trips editing Type 2 stops while keeping their original Track for reference.
+    type2_drafts: BTreeSet<String>,
     /// Manual overrides of the default Type 2 conversion exclusion.
     type2_exclusions: BTreeMap<String, bool>,
     type2_exclusions_changed: bool,
@@ -207,7 +209,8 @@ impl Timetable {
         calendar.holidays.sort_by_key(|h| h.date);
         calendar.ranges.sort_by_key(|r| r.start);
         let hand = d.tracks.iter().filter(|t| marked_by_hand(&t.path)).map(|t| key(&track_name(t))).collect();
-        Timetable { stops: d.bus_stops, links: d.stn_links, trips: d.trips, tracks: d.tracks, lines: d.lines, order: order.to_vec(), calendar, car_use: caruse::load_dir(dir), hand, type2_exclusions: convert::load_exclusions(dir), ..Default::default() }
+        let type2_drafts = convert::load_drafts(&d.trips);
+        Timetable { type2_drafts, stops: d.bus_stops, links: d.stn_links, trips: d.trips, tracks: d.tracks, lines: d.lines, order: order.to_vec(), calendar, car_use: caruse::load_dir(dir), hand, type2_exclusions: convert::load_exclusions(dir), ..Default::default() }
     }
 
     pub(crate) fn is_dirty(&self) -> bool {
@@ -271,6 +274,10 @@ impl Timetable {
     /// A trip's stops changed: its route is found again.
     pub fn touch_route(&mut self, name: &str) {
         self.touch_trip(name);
+        if self.trip(name).is_some_and(|t| self.is_type1(t)) {
+            self.reroute.remove(&key(name));
+            return;
+        }
         self.type2_converted.remove(&key(name));
         self.reroute.insert(key(name));
     }
@@ -304,7 +311,7 @@ impl Timetable {
     /// found for them or what is still to be saved).
     pub fn same_content(&self, o: &Timetable) -> bool {
         let hand_tracks = |t: &Timetable| -> Vec<Track> { t.tracks.iter().filter(|x| t.hand.contains(&key(&track_name(x)))).cloned().collect() };
-        self.lines == o.lines && self.trips == o.trips && self.stops == o.stops && self.calendar == o.calendar && self.car_use == o.car_use && self.hand == o.hand && self.type2_exclusions == o.type2_exclusions && hand_tracks(self) == hand_tracks(o)
+        self.lines == o.lines && self.trips == o.trips && self.stops == o.stops && self.calendar == o.calendar && self.car_use == o.car_use && self.hand == o.hand && self.type2_exclusions == o.type2_exclusions && self.type2_drafts == o.type2_drafts && hand_tracks(self) == hand_tracks(o)
     }
 
     /// A new line (its name made unique).
@@ -424,7 +431,9 @@ impl Timetable {
         if !old.eq_ignore_ascii_case(new) && self.trip(new).is_some() {
             return None;
         }
+        let draft = self.type2_drafts.remove(&key(old));
         self.trip_mut(old)?.name = new.to_string();
+        if draft { self.type2_drafts.insert(key(new)); }
         if self.type2_converted.remove(&key(old)) {
             self.type2_converted.insert(key(new));
         }
@@ -432,16 +441,18 @@ impl Timetable {
             self.type2_exclusions.insert(key(new), excluded);
             self.type2_exclusions_changed = true;
         }
-        for ext in ["ttp", "ttr"] {
-            self.removed.insert(key(&format!("{old}.{ext}")));
-            self.changed.remove(&key(&format!("{old}.{ext}")));
-        }
-        if let Some(t) = self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(old)) {
-            t.path = format!("{new}.ttr").into();
-            self.changed.insert(key(&format!("{new}.ttr")));
-        }
-        if self.hand.remove(&key(old)) {
-            self.hand.insert(key(new));
+        self.removed.insert(key(&format!("{old}.ttp")));
+        self.changed.remove(&key(&format!("{old}.ttp")));
+        if !draft {
+            self.removed.insert(key(&format!("{old}.ttr")));
+            self.changed.remove(&key(&format!("{old}.ttr")));
+            if let Some(t) = self.tracks.iter_mut().find(|t| track_name(t).eq_ignore_ascii_case(old)) {
+                t.path = format!("{new}.ttr").into();
+                self.changed.insert(key(&format!("{new}.ttr")));
+            }
+            if self.hand.remove(&key(old)) {
+                self.hand.insert(key(new));
+            }
         }
         for l in &mut self.lines {
             let mut hit = false;
@@ -461,6 +472,7 @@ impl Timetable {
 
     /// Take a trip away, its track and the departures of it.
     pub fn delete_trip(&mut self, name: &str) {
+        self.type2_drafts.remove(&key(name));
         self.trips.retain(|t| !t.name.eq_ignore_ascii_case(name));
         self.tracks.retain(|t| !track_name(t).eq_ignore_ascii_case(name));
         for ext in ["ttp", "ttr"] {
@@ -668,7 +680,11 @@ pub fn plan(tt: &mut Timetable, map_dir: &Path, order: &[TileKey]) -> Vec<Op> {
         let (stem, ext) = f.rsplit_once('.').unwrap_or((f.as_str(), ""));
         let text = match ext {
             "ttl" => tt.lines.iter().find(|l| key(&l.name) == stem).map(|l| (l.name.clone(), line_text(l))),
-            "ttp" => tt.trips.iter().find(|t| key(&t.name) == stem).map(|t| (t.name.clone(), trip_text(t))),
+            "ttp" => tt.trips.iter().find(|t| key(&t.name) == stem).map(|t| {
+                let text = trip_text(t);
+                let text = if tt.is_type2_draft(t) { format!("{}\n\n{text}", convert::TYPE2_DRAFT) } else { text };
+                (t.name.clone(), text)
+            }),
             "ttr" => tt.tracks.iter().find(|t| key(&track_name(t)) == stem).map(|t| (track_name(t), track_text_of(t, tt.hand.contains(stem)))),
             _ => None,
         };
