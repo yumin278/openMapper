@@ -3441,15 +3441,24 @@ mod tests {
             assert_eq!(new[idx].len(), 1);
             let source = &lanes[new[idx][0]];
             assert_eq!(source.arm, 1);
-            assert!(after[before.len()..].iter().any(|record| {
+            let stems: Vec<_> = after.iter().filter(|record| {
                 record.seg.start.distance(source.pos.truncate()) < 1e-6
-                    && record.blinker == 3 && record.light == Some(source.arm)
-            }));
+                    && record.blinker == 0 && record.light == Some(source.arm)
+            }).collect();
+            assert_eq!(stems.len(), 1, "every repaired lane uses its one shared approach");
+            assert!(after.iter().any(|record| {
+                record.seg.start.distance(stems[0].seg.end()) < 0.02 && record.blinker == 3
+            }), "right turn must branch after the shared light-controlled approach");
         }
         assert!(new.iter().all(|links| !links.is_empty()));
         let (old_sco, new_sco) = (lane_connectivity_blocks(&before), lane_connectivity_blocks(&after));
         println!("T junction before [path]\n{old_sco}T junction after [path]\n{new_sco}");
-        assert!(new_sco.starts_with(&old_sco));
+        assert_ne!(old_sco, new_sco, "repair must add the missing connections");
+        for (lane, peers) in old.iter().enumerate() {
+            for &target in peers {
+                assert!(new[lane].contains(&target), "repair must preserve lane {lane} -> {target}");
+            }
+        }
     }
 
     #[test]
@@ -5207,7 +5216,7 @@ mod tests {
                         assert!(entry.seg.end().distance(exit.seg.start) > 5.0);
                         assert_eq!((entry.z0, entry.z1, entry.width, entry.light), (0.1, 0.1, 3.0, Some(0)));
                         assert_eq!((exit.z0, exit.z1, exit.width, exit.light), (0.4, 0.4, 3.5, None));
-                        assert!(recs.iter().all(|p| p.blinker == if heading == 90.0 { 3 } else { 2 }));
+                        assert!(recs.iter().all(|p| p.blinker == 0), "shared stems carry no turn signals");
                         println!("{}", record_paths(&recs));
                     }
                 }
