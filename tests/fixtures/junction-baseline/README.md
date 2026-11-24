@@ -15,3 +15,12 @@ into the junction mesh (`plate_marks`/`add_marks`), so the mesh — and with it 
 generated name, which is hashed from the mesh — changed. Only the `[friendlyname]` and
 `[mesh]` lines differ; every `[splinehelper]` and `[path]` record is byte-for-byte the
 same as before.
+
+The three ordinary junction fixtures now describe the fixed 4 m approach/departure
+policy for every turn. For their symmetric 18 m arms and 1.75 m lane offsets,
+the remaining 90-degree arcs have radii 12.25 m (right) and 15.75 m (left).
+The expected path records are calculated independently from these dimensions.
+The derived mesh/friendly-name hashes alone are masked to zero by the snapshot
+check; every other byte is checked. The two bus-bay fixtures retain their original
+full-byte comparisons and are unchanged. Use OPENMAPPER_SNAPSHOT_WRITE to regenerate
+these fixtures from the running Rust tests when changing the generation policy.
