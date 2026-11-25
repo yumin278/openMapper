@@ -15,7 +15,7 @@ use crate::timetable::Timetable;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Terminus {
-    /// What the driver types on the IBIS (three digits at most).
+    /// Destination (Ziel) code; extended displays may use more than three digits.
     pub code: i32,
     /// The destination's name: the stop where everybody leaves, and what a timetable
     /// trip's terminus is matched against.
@@ -408,6 +408,17 @@ mod tests {
         let g = Hof::load(&omsi.join("Vehicles/MAN_SD202/Grundorf.hof")).unwrap();
         assert!(g.termini.len() > 5 && g.routes.len() > 1 && g.routes[0].stops.len() == 7, "{g:?}");
         assert!(n > 10, "{n}");
+    }
+
+
+    #[test]
+    fn extended_ziel_codes_survive_read_and_write() {
+        let input = "stringcount_terminus\n2\n\nstringcount_busstop\n0\n\n[addterminus_list]\n\t106\tRomerberg\tBASE\t\n\t20106\tRomerberg\tGLETSCHER-XPRESS*I*K\tRomerberg ZOB*B\n\t21106\tRomerberg\tGLETSCHER-XPRESS*I*K\tvia Zavelstein\n\t14990\t\t*B*CE\t*CE\n[end]\n";
+        let hof = parse(&CfgFile::from_str("extended.hof", input));
+        let output = text(&hof);
+        println!("Before:\n{input}\nAfter:\n{output}");
+        assert_eq!(hof.termini.iter().map(|t| t.code).collect::<Vec<_>>(), vec![106, 20106, 21106, 14990]);
+        assert_eq!(parse(&CfgFile::from_str("saved.hof", &output)), hof);
     }
 
     #[test]
