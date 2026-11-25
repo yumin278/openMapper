@@ -123,6 +123,9 @@ pub struct Prefs {
     /// The asset browser's presentation and last expanded floating window bounds.
     #[serde(default)]
     pub assets_layout: AssetsLayout,
+    /// Separator between the line number and destination; absent in older settings means underscore.
+    #[serde(default)]
+    pub destination_line_separator: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
@@ -225,6 +228,10 @@ fn restore_ui_memory(ctx: &egui::Context, text: &str) {
 }
 
 impl Prefs {
+    pub fn destination_line_separator(&self) -> &str {
+        self.destination_line_separator.as_deref().unwrap_or("_")
+    }
+
     fn path() -> PathBuf {
         openomsi_data_dir().join("openmapper.json")
     }

@@ -55,6 +55,7 @@ struct ReplaceStopId {
 #[derive(Default)]
 pub struct TimetableUi {
     pub open: bool,
+    destination_line_separator: String,
     files: Files,
     net: Option<Network>,
     net_key: u64,
@@ -1069,7 +1070,7 @@ impl TimetableUi {
         }
     }
 
-    pub fn window(&mut self, ctx: &egui::Context, ed: &mut Editor, roots: Option<&Roots>, actions: &mut Vec<Action>) {
+    pub fn window(&mut self, ctx: &egui::Context, ed: &mut Editor, roots: Option<&Roots>, destination_line_separator: &str, actions: &mut Vec<Action>) {
         let Some(dir) = ed.doc.as_ref().map(|d| d.dir.clone()) else {
             self.open = false;
             self.picking = false;
@@ -1092,6 +1093,7 @@ impl TimetableUi {
             self.confirm_recalculate = false;
             return;
         }
+        self.destination_line_separator = destination_line_separator.to_owned();
         self.roots = roots.map(|r| vec![r.content.clone(), r.omsi.clone()]);
         {
             let doc = ed.doc.as_ref().unwrap();
@@ -1685,10 +1687,8 @@ impl TimetableUi {
                 tt.trip_mut(&name).unwrap().line = l;
                 tt.touch_trip(&name);
             }
-            if ui.button(format!("{} + _", tr("Line", "Линия")))
-                .on_hover_text(format!("{} + _ + {}", tr("Line", "Линия"), tr("Destination sign", "Табличка")))
-                .clicked() {
-                prefix_trip_destination(tt, &name);
+            if ui.button(tr("Prefix destination with line number", "Добавить номер линии перед пунктом назначения")).clicked() {
+                prefix_trip_destination(tt, &name, &self.destination_line_separator);
             }
         });
         let legacy = tt.is_type1(&t);
@@ -2600,7 +2600,7 @@ mod station_edit_tests {
             events,
             ..Default::default()
         };
-        ctx.run_ui(input, |root| ui.window(root.ctx(), ed, None, &mut Vec::new()))
+        ctx.run_ui(input, |root| ui.window(root.ctx(), ed, None, "_", &mut Vec::new()))
     }
 
     fn editor_fixture() -> (Editor, TimetableUi, egui::Context) {
@@ -3167,9 +3167,9 @@ mod type1_track_preview_tests {
     }
 }
 
-fn prefix_trip_destination(tt: &mut Timetable, name: &str) {
+fn prefix_trip_destination(tt: &mut Timetable, name: &str, separator: &str) {
     if let Some(trip) = tt.trip_mut(name) {
-        trip.terminus = format!("{}_{}", trip.line, trip.terminus);
+        trip.terminus = format!("{}{separator}{}", trip.line, trip.terminus);
         tt.touch_trip(name);
     }
 }
@@ -3197,13 +3197,32 @@ mod destination_prefix_tests {
         });
         let before = tt.trips.clone();
         println!("Before:\n{}\n{}", timetable::trip_text(&before[0]), timetable::trip_text(&before[1]));
-        prefix_trip_destination(&mut tt, "outbound");
-        println!("After:\n{}\n{}", timetable::trip_text(&tt.trips[0]), timetable::trip_text(&tt.trips[1]));
-        let mut expected = before[0].clone();
-        expected.terminus = "X10_Nordpark".into();
-        assert_eq!(tt.trips[0], expected);
-        assert_eq!(tt.trips[1], before[1]);
-        assert!(tt.dirty);
-        assert!(tt.reroute.is_empty());
+        for (separator, expected_destination) in [("_", "X10_Nordpark"), (":", "X10:Nordpark"), ("::", "X10::Nordpark"), ("", "X10Nordpark")] {
+            tt.trips = before.clone();
+            prefix_trip_destination(&mut tt, "outbound", separator);
+            println!("Separator {separator:?}; After:\n{}\n{}", timetable::trip_text(&tt.trips[0]), timetable::trip_text(&tt.trips[1]));
+            let mut expected = before[0].clone();
+            expected.terminus = expected_destination.into();
+            assert_eq!(tt.trips[0], expected);
+            assert_eq!(tt.trips[1], before[1]);
+            assert!(tt.dirty);
+            assert!(tt.reroute.is_empty());
+        }
+    }
+
+    #[test]
+    fn destination_prefix_separator_preferences_round_trip() {
+        use crate::install::Prefs;
+        let mut prefs: Prefs = serde_json::from_str("{}").unwrap();
+        println!("Old settings {{}}: separator {:?}", prefs.destination_line_separator());
+        assert_eq!(prefs.destination_line_separator(), "_");
+        assert_eq!(Prefs::default().destination_line_separator(), "_");
+        for separator in ["_", ":", "::", ""] {
+            prefs.destination_line_separator = Some(separator.into());
+            let json = serde_json::to_string(&prefs).unwrap();
+            let loaded: Prefs = serde_json::from_str(&json).unwrap();
+            println!("Saved separator {:?}; loaded {:?}", prefs.destination_line_separator, loaded.destination_line_separator());
+            assert_eq!(loaded.destination_line_separator(), separator);
+        }
     }
 }
