@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Tiada apa-apa dite
 Pasted rules:	Peraturan ditempel:
 Skipped rules (this crossing has no such path):	Peraturan ditinggalkan (persimpangan ini tiada laluan itu):
 Conflicting segments	Segmen yang bercanggah
+Prefix destination with line number	Tambah nombor laluan di hadapan destinasi
+Destination line prefix separator	Pemisah nombor laluan dan destinasi
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Kawalan openMapper sendiri: kamera seperti dipilih di Kamera, kekunci seperti dalam Paparan > Kawalan
 The keys as in View > Controls	Kekunci seperti dalam Paparan > Kawalan
 A copy of its own was made for the script: the original type is unchanged	Salinan tersendiri dibuat untuk skrip: jenis asal tidak berubah

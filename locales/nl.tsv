@@ -3050,6 +3050,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Er is niets geplak
 Pasted rules:	Geplakte regels:
 Skipped rules (this crossing has no such path):	Weggelaten regels (dit kruispunt heeft dat pad niet):
 Conflicting segments	Conflicterende segmenten
+Prefix destination with line number	Lijnnummer vóór de bestemming plaatsen
+Destination line prefix separator	Scheidingsteken tussen lijnnummer en bestemming
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Eigen besturing van openMapper: de camera zoals gekozen onder Camera, de toetsen zoals in Beeld > Besturing
 The keys as in View > Controls	De toetsen zoals in Beeld > Besturing
 A copy of its own was made for the script: the original type is unchanged	Er is een eigen kopie gemaakt voor het script: het oorspronkelijke type is ongewijzigd

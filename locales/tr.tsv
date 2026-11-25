@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Hiçbir şey yapı
 Pasted rules:	Yapıştırılan kural:
 Skipped rules (this crossing has no such path):	Atlanan kural (bu kavşakta o yol yok):
 Conflicting segments	Çakışan kesimler
+Prefix destination with line number	Hedefin başına hat numarasını ekle
+Destination line prefix separator	Hat numarası ile hedef arasındaki ayırıcı
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	openMapper'ın kendi kontrolleri: kamera Kamera'da seçildiği gibi, tuşlar Görünüm > Kontroller'deki gibi
 The keys as in View > Controls	Tuşlar Görünüm > Kontroller'deki gibi
 A copy of its own was made for the script: the original type is unchanged	Betik için ayrı bir kopya yapıldı: asıl tür değişmedi

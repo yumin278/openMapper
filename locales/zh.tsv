@@ -3400,6 +3400,8 @@ Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	�
 The original track is a reference only. Preparing stops does not change it or recalculate the route.	原始轨迹仅供参考。准备站点不会修改原始轨迹或重新寻路。
 Prepare Type 2 stops	准备 Type 2 站点
 Cannot prepare stops: invalid legacy station ID.	无法准备站点：旧格式的站点 ID 无效。
+Prefix destination with line number	目的地添加线路号前缀
+Destination line prefix separator	目的地线路号前缀分隔符
 Dark theme	深色主题
 Light theme	浅色主题
 Lit	亮灯

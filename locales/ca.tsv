@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	No s'ha enganxat r
 Pasted rules:	Regles enganxades:
 Skipped rules (this crossing has no such path):	Regles omeses (aquesta cruïlla no té aquest camí):
 Conflicting segments	Trams en conflicte
+Prefix destination with line number	Anteposa el número de línia a la destinació
+Destination line prefix separator	Separador del prefix de línia de la destinació
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Controls propis d'openMapper: la càmera tal com s'ha triat a Càmera, les tecles com a Visualitza > Controls
 The keys as in View > Controls	Les tecles com a Visualitza > Controls
 A copy of its own was made for the script: the original type is unchanged	S'ha fet una còpia pròpia per a l'script: el tipus original no ha canviat

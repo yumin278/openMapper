@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	何も貼り付け
 Pasted rules:	貼り付けたルール数：
 Skipped rules (this crossing has no such path):	除外したルール数（この交差点にない経路）：
 Conflicting segments	競合する区間
+Prefix destination with line number	行先の先頭に系統番号を追加
+Destination line prefix separator	系統番号と行先の区切り文字
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	openMapper独自の操作：カメラは「カメラ」で選んだもの、キーは「表示 > 操作」のとおり
 The keys as in View > Controls	キーは「表示 > 操作」のとおり
 A copy of its own was made for the script: the original type is unchanged	スクリプト用に専用のコピーを作成しました。元のタイプは変更されていません

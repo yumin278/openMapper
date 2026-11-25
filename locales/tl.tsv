@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Walang naipaste: w
 Pasted rules:	Mga patakarang naipaste:
 Skipped rules (this crossing has no such path):	Mga patakarang iniiwan (wala sa sangandaang ito ang landas na iyon):
 Conflicting segments	Mga segment na nagkakasalungatan
+Prefix destination with line number	Idagdag ang numero ng ruta bago ang destinasyon
+Destination line prefix separator	Panghiwalay ng numero ng ruta at destinasyon
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Sariling kontrol ng openMapper: ang camera ayon sa pinili sa Kamera, ang mga key ayon sa Tingnan > Mga kontrol
 The keys as in View > Controls	Ang mga key ayon sa Tingnan > Mga kontrol
 A copy of its own was made for the script: the original type is unchanged	Gumawa ng sariling kopya para sa script: hindi nabago ang orihinal na uri

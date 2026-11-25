@@ -260,6 +260,10 @@ fn texts(ui: &mut egui::Ui, id: (&str, usize), strings: &mut [String], label: fn
     });
 }
 
+fn ziel_code_editor(ui: &mut egui::Ui, code: &mut i32) {
+    ui.add(egui::DragValue::new(code).range(0..=i32::MAX));
+}
+
 fn termini(ui: &mut egui::Ui, h: &mut Hof, f: &str) {
     let mut remove = None;
     let codes: Vec<i32> = h.termini.iter().map(|t| t.code).collect();
@@ -272,7 +276,7 @@ fn termini(ui: &mut egui::Ui, h: &mut Hof, f: &str) {
         egui::CollapsingHeader::new(RichText::new(title).color(if twice { pal().warn } else { ui.visuals().text_color() })).id_salt(("hof terminus", k)).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(tr("Code", "Код"));
-                ui.add(egui::DragValue::new(&mut t.code).range(0..=999));
+                ziel_code_editor(ui, &mut t.code);
                 if twice {
                     ui.label(RichText::new(tr("another destination has this code", "этот код есть у другой конечной")).color(pal().warn));
                 }
@@ -415,5 +419,23 @@ fn routes(ui: &mut egui::Ui, h: &mut Hof, f: &str) {
     }
     if h.routes.is_empty() {
         hint(ui, tr("No routes: the IBIS knows the destinations' codes only. Add them from the lines above.", "Маршрутов нет: IBIS знает только коды конечных. Добавьте их по линиям выше."));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn opening_ziel_code_editor_preserves_extended_codes() {
+        for original in [0, 106, 999, 1000, 14990, 20106, 21106, 99999] {
+            let ctx = egui::Context::default();
+            let mut code = original;
+            let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ziel_code_editor(ui, &mut code);
+            });
+            println!("Ziel before opening editor: {original}; after: {code}");
+            assert_eq!(code, original);
+        }
     }
 }

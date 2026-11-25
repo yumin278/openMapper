@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Non è stato incol
 Pasted rules:	Regole incollate:
 Skipped rules (this crossing has no such path):	Regole tralasciate (questo incrocio non ha quella corsia):
 Conflicting segments	Tratti in conflitto
+Prefix destination with line number	Anteponi il numero di linea alla destinazione
+Destination line prefix separator	Separatore tra numero di linea e destinazione
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Comandi propri di openMapper: la telecamera come scelta in Telecamera, i tasti come in Visualizza > Comandi
 The keys as in View > Controls	I tasti come in Visualizza > Comandi
 A copy of its own was made for the script: the original type is unchanged	Per lo script è stata fatta una copia propria: il tipo originale non è cambiato

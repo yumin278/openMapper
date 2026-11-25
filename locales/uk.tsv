@@ -3047,6 +3047,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Нічого не 
 Pasted rules:	Вставлено правил:
 Skipped rules (this crossing has no such path):	Відкинуто правил (у цього перехрестя немає такого шляху):
 Conflicting segments	Конфліктні ділянки
+Prefix destination with line number	Додати номер маршруту перед пунктом призначення
+Destination line prefix separator	Роздільник номера маршруту й пункту призначення
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Власне керування openMapper: камера як вибрано в «Камера», клавіші як у «Вигляд > Керування»
 The keys as in View > Controls	Клавіші як у «Вигляд > Керування»
 A copy of its own was made for the script: the original type is unchanged	Для скрипта створено власну копію: вихідний тип не змінено

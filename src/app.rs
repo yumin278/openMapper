@@ -2045,6 +2045,10 @@ impl App {
                 self.prefs.save();
                 self.ed.toast(tr("The graphics API changes the next time openMapper starts", "Графический API сменится при следующем запуске openMapper").to_string());
             }
+            Action::SetDestinationLineSeparator(separator) => {
+                self.prefs.destination_line_separator = Some(separator);
+                self.prefs.save();
+            }
             Action::SetCamera(c) => {
                 self.prefs.camera = c;
                 self.prefs.save();
@@ -3241,7 +3245,7 @@ impl App {
                         actions.push(Action::DriveStart(req));
                     }
                 }
-                self.tt.window(&ctx, &mut self.ed, self.roots.as_ref(), &mut actions);
+                self.tt.window(&ctx, &mut self.ed, self.roots.as_ref(), self.prefs.destination_line_separator(), &mut actions);
                 self.traffic.window(&ctx, &mut self.ed, self.roots.as_ref());
                 self.pbr.window(&ctx, self.roots.as_ref(), &mut actions);
                 self.road_types.window(&ctx, &mut self.ed, &self.lib, self.roots.as_ref(), &mut actions);

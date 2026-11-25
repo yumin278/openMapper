@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Tidak ada yang dit
 Pasted rules:	Aturan ditempel:
 Skipped rules (this crossing has no such path):	Aturan dilewati (persimpangan ini tidak punya lajur itu):
 Conflicting segments	Segmen yang bertentangan
+Prefix destination with line number	Tambahkan nomor rute di depan tujuan
+Destination line prefix separator	Pemisah nomor rute dan tujuan
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Kontrol bawaan openMapper: kamera sesuai pilihan di Kamera, tombol sesuai Tampilan > Kontrol
 The keys as in View > Controls	Tombol sesuai Tampilan > Kontrol
 A copy of its own was made for the script: the original type is unchanged	Salinan tersendiri dibuat untuk skrip: tipe aslinya tidak berubah

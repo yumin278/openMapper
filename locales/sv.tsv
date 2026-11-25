@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Inget klistrades i
 Pasted rules:	Inklistrade regler:
 Skipped rules (this crossing has no such path):	Utelämnade regler (den här korsningen har inget sådant fält):
 Conflicting segments	Motstridiga avsnitt
+Prefix destination with line number	Lägg till linjenumret före destinationen
+Destination line prefix separator	Avgränsare mellan linjenummer och destination
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	openMappers egna kontroller: kameran som valts under Kamera, tangenterna som i Visa > Kontroller
 The keys as in View > Controls	Tangenterna som i Visa > Kontroller
 A copy of its own was made for the script: the original type is unchanged	En egen kopia gjordes för skriptet: den ursprungliga typen är oförändrad

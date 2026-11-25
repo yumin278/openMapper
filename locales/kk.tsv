@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Ештеңе қо�
 Pasted rules:	Қойылған ережелер:
 Skipped rules (this crossing has no such path):	Тасталған ережелер (бұл айқаста ондай жол жоқ):
 Conflicting segments	Қайшы келетін бөліктер
+Prefix destination with line number	Баратын жердің алдына бағыт нөмірін қосу
+Destination line prefix separator	Бағыт нөмірі мен баратын жердің бөлгіші
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	openMapper-дің өз басқаруы: камера «Камера» бөлімінде таңдалғандай, пернелер «Көрініс > Басқару» бөліміндегідей
 The keys as in View > Controls	Пернелер «Көрініс > Басқару» бөліміндегідей
 A copy of its own was made for the script: the original type is unchanged	Скрипт үшін жеке көшірме жасалды: бастапқы түр өзгермеді

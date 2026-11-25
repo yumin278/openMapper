@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Nic nebylo vložen
 Pasted rules:	Vložená pravidla:
 Skipped rules (this crossing has no such path):	Vynechaná pravidla (tato křižovatka takovou cestu nemá):
 Conflicting segments	Konfliktní úseky
+Prefix destination with line number	Přidat číslo linky před cíl
+Destination line prefix separator	Oddělovač čísla linky a cíle
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Vlastní ovládání openMapper: kamera podle volby v Kamera, klávesy podle Zobrazení > Ovládání
 The keys as in View > Controls	Klávesy podle Zobrazení > Ovládání
 A copy of its own was made for the script: the original type is unchanged	Pro skript byla vytvořena vlastní kopie: původní typ zůstal beze změny

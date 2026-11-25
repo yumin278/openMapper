@@ -3049,6 +3049,8 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Semmi nem lett bei
 Pasted rules:	Beillesztett szabályok:
 Skipped rules (this crossing has no such path):	Kihagyott szabályok (ezen a kereszteződésen nincs ilyen sáv):
 Conflicting segments	Ütköző szakaszok
+Prefix destination with line number	Járatszám hozzáadása a célállomás elé
+Destination line prefix separator	A járatszám és a célállomás elválasztója
 openMapper's own controls: the camera as chosen under Camera, the keys as in View > Controls	Az openMapper saját vezérlése: a kamera a Kamera alatt választott módon, a billentyűk a Nézet > Vezérlés szerint
 The keys as in View > Controls	A billentyűk a Nézet > Vezérlés szerint
 A copy of its own was made for the script: the original type is unchanged	A szkript saját másolatot kapott: az eredeti típus változatlan
