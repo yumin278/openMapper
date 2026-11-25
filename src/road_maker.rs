@@ -262,7 +262,9 @@ pub struct RoadSpec {
     /// Derived at export; never trusted from an edited sidecar.
     pub bus_paths: Vec<usize>,
     pub bay_paths: Vec<usize>,
-    #[serde(skip)]
+    /// Kept in advanced (strip) mode: saved in the road.json, so the road stays there and is
+    /// always written from its strips, whatever the simple mode could show of it.
+    #[serde(default, skip_serializing_if = "is_false")]
     pub advanced: bool,
     #[serde(skip)]
     pub mode_error: Option<String>,
@@ -1043,7 +1045,9 @@ impl RoadSpec {
         }
         spec.bus_paths = spec.bus_path_indices();
         spec.bay_paths = spec.bay_path_indices();
-        spec.advanced = spec.imported_sli || !spec.simple_mode_issues().is_empty();
+        // (a road saved in advanced mode stays there; others are advanced only when the simple
+        // mode cannot show them)
+        spec.advanced = spec.advanced || spec.imported_sli || !spec.simple_mode_issues().is_empty();
         if !spec.advanced {
             // Controls are a projection; the saved strips remain authoritative.
             spec = spec.projection();

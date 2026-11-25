@@ -614,3 +614,32 @@ fn an_advanced_road_is_always_written_from_its_strips() {
         }
     }
 }
+
+/// Advanced mode is saved in the road.json: a road the simple mode could show, kept in advanced
+/// mode, is still advanced when opened again, and its `.sli` stays the one its strips write.
+#[test]
+fn an_advanced_road_stays_advanced_when_opened_again() {
+    let dir = std::env::temp_dir().join(format!("om-advanced-kept-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let content = dir.join("content");
+    std::fs::create_dir_all(&dir).unwrap();
+    let road_tex = tex(&dir, "asph.png", 80);
+    let mut spec = RoadSpec { name: "Kept".into(), roadway_tex: road_tex.clone(), ..super::presets()[0].1.clone() }.normalised(false);
+    assert!(spec.simple_mode_issues().is_empty());
+    spec.advanced = true;
+    spec.write_with_traffic(&content, false).unwrap();
+    let sli = content.join("Splines/openMapper/Kept.sli");
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(sli.with_extension("road.json")).unwrap()).unwrap();
+    assert_eq!(json["advanced"], true);
+    let back = RoadSpec::of(&sli).unwrap();
+    assert!(back.advanced);
+    assert_eq!(back.sli(false), super::free_layout::emit(&back.normalised(false)));
+    // (a road left in the simple mode keeps no flag)
+    let simple = RoadSpec { name: "Plain".into(), roadway_tex: road_tex, ..super::presets()[0].1.clone() };
+    simple.write_with_traffic(&content, false).unwrap();
+    let plain = content.join("Splines/openMapper/Plain.road.json");
+    let json: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(plain).unwrap()).unwrap();
+    assert!(json.get("advanced").is_none());
+    assert!(!RoadSpec::of(&content.join("Splines/openMapper/Plain.sli")).unwrap().advanced);
+    std::fs::remove_dir_all(dir).unwrap();
+}
