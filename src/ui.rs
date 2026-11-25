@@ -136,6 +136,7 @@ pub enum Action {
     SetAlpha(String, usize, String, i32, u8),
     /// How the mouse moves the camera ("map" or "fly").
     SetCamera(String),
+    SetDestinationLineSeparator(String),
     SetCamTune(crate::camera::Tuning),
     SetAssetsLayout(crate::install::AssetsLayout),
     SetGraphicsApi(crate::gpu::Api),
@@ -3571,6 +3572,14 @@ fn settings_general(ui: &mut egui::Ui, prefs: &Prefs, actions: &mut Vec<Action>)
     if ui.checkbox(&mut omsi, tr("OMSI 2's editor: mouse and keys", "Редактор OMSI 2: мышь и клавиши")).clicked() {
         actions.push(Action::SetOmsiControls(omsi));
     }
+    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        ui.label(tr("Destination line prefix separator", "Разделитель номера линии и пункта назначения"));
+        let mut separator = prefs.destination_line_separator().to_owned();
+        if ui.add(egui::TextEdit::singleline(&mut separator).desired_width(80.0)).changed() {
+            actions.push(Action::SetDestinationLineSeparator(separator));
+        }
+    });
     ui.add_space(8.0);
     ui.label(RichText::new(tr("Big maps", "Большие карты")).strong().color(pal().accent));
     let mut streaming = prefs.tile_streaming == Some(true);

@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Nic nebylo vložen
 Pasted rules:	Vložená pravidla:
 Skipped rules (this crossing has no such path):	Vynechaná pravidla (tato křižovatka takovou cestu nemá):
 Conflicting segments	Konfliktní úseky
+Prefix destination with line number	Přidat číslo linky před cíl
+Destination line prefix separator	Oddělovač čísla linky a cíle

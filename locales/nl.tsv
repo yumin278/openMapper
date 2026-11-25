@@ -3050,3 +3050,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Er is niets geplak
 Pasted rules:	Geplakte regels:
 Skipped rules (this crossing has no such path):	Weggelaten regels (dit kruispunt heeft dat pad niet):
 Conflicting segments	Conflicterende segmenten
+Prefix destination with line number	Lijnnummer vóór de bestemming plaatsen
+Destination line prefix separator	Scheidingsteken tussen lijnnummer en bestemming

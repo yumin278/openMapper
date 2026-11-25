@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Tiada apa-apa dite
 Pasted rules:	Peraturan ditempel:
 Skipped rules (this crossing has no such path):	Peraturan ditinggalkan (persimpangan ini tiada laluan itu):
 Conflicting segments	Segmen yang bercanggah
+Prefix destination with line number	Tambah nombor laluan di hadapan destinasi
+Destination line prefix separator	Pemisah nombor laluan dan destinasi

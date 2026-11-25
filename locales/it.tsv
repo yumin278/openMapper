@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Non è stato incol
 Pasted rules:	Regole incollate:
 Skipped rules (this crossing has no such path):	Regole tralasciate (questo incrocio non ha quella corsia):
 Conflicting segments	Tratti in conflitto
+Prefix destination with line number	Anteponi il numero di linea alla destinazione
+Destination line prefix separator	Separatore tra numero di linea e destinazione

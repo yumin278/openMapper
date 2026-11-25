@@ -3047,3 +3047,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Nichts eingefügt:
 Pasted rules:	Eingefügte Regeln:
 Skipped rules (this crossing has no such path):	Weggelassene Regeln (diese Kreuzung hat keinen solchen Pfad):
 Conflicting segments	Konfliktbehaftete Abschnitte
+Prefix destination with line number	Liniennummer vor das Fahrtziel setzen
+Destination line prefix separator	Trennzeichen zwischen Liniennummer und Fahrtziel

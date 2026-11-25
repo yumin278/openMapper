@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Hiçbir şey yapı
 Pasted rules:	Yapıştırılan kural:
 Skipped rules (this crossing has no such path):	Atlanan kural (bu kavşakta o yol yok):
 Conflicting segments	Çakışan kesimler
+Prefix destination with line number	Hedefin başına hat numarasını ekle
+Destination line prefix separator	Hat numarası ile hedef arasındaki ayırıcı

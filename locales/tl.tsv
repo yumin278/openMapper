@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Walang naipaste: w
 Pasted rules:	Mga patakarang naipaste:
 Skipped rules (this crossing has no such path):	Mga patakarang iniiwan (wala sa sangandaang ito ang landas na iyon):
 Conflicting segments	Mga segment na nagkakasalungatan
+Prefix destination with line number	Idagdag ang numero ng ruta bago ang destinasyon
+Destination line prefix separator	Panghiwalay ng numero ng ruta at destinasyon

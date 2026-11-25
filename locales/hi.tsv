@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	कुछ भी �
 Pasted rules:	पेस्ट किए गए नियम:
 Skipped rules (this crossing has no such path):	छोड़े गए नियम (इस चौराहे पर ऐसा पथ नहीं है):
 Conflicting segments	परस्पर विरोधी खंड
+Prefix destination with line number	गंतव्य के आगे लाइन नंबर जोड़ें
+Destination line prefix separator	लाइन नंबर और गंतव्य का विभाजक
