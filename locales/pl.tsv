@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Nic nie wklejono: 
 Pasted rules:	Wklejone reguły:
 Skipped rules (this crossing has no such path):	Pominięte reguły (to skrzyżowanie nie ma takiej ścieżki):
 Conflicting segments	Kolidujące odcinki
+Prefix destination with line number	Dodaj numer linii przed celem
+Destination line prefix separator	Separator numeru linii i celu

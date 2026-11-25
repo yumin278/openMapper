@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Inget klistrades i
 Pasted rules:	Inklistrade regler:
 Skipped rules (this crossing has no such path):	Utelämnade regler (den här korsningen har inget sådant fält):
 Conflicting segments	Motstridiga avsnitt
+Prefix destination with line number	Lägg till linjenumret före destinationen
+Destination line prefix separator	Avgränsare mellan linjenummer och destination

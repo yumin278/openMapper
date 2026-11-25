@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Semmi nem lett bei
 Pasted rules:	Beillesztett szabályok:
 Skipped rules (this crossing has no such path):	Kihagyott szabályok (ezen a kereszteződésen nincs ilyen sáv):
 Conflicting segments	Ütköző szakaszok
+Prefix destination with line number	Járatszám hozzáadása a célállomás elé
+Destination line prefix separator	A járatszám és a célállomás elválasztója

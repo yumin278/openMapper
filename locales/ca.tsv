@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	No s'ha enganxat r
 Pasted rules:	Regles enganxades:
 Skipped rules (this crossing has no such path):	Regles omeses (aquesta cruïlla no té aquest camí):
 Conflicting segments	Trams en conflicte
+Prefix destination with line number	Anteposa el número de línia a la destinació
+Destination line prefix separator	Separador del prefix de línia de la destinació

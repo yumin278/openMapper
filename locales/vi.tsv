@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Không dán đư�
 Pasted rules:	Số quy tắc đã dán:
 Skipped rules (this crossing has no such path):	Số quy tắc bị bỏ (giao lộ này không có làn đó):
 Conflicting segments	Đoạn xung đột
+Prefix destination with line number	Thêm số tuyến vào trước điểm đến
+Destination line prefix separator	Dấu phân cách số tuyến và điểm đến

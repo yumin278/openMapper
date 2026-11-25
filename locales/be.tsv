@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Нічога не 
 Pasted rules:	Устаўлена правіл:
 Skipped rules (this crossing has no such path):	Адкінута правіл (у гэтага скрыжавання няма такога шляху):
 Conflicting segments	Канфліктныя ўчасткі
+Prefix destination with line number	Дадаць нумар маршруту перад пунктам прызначэння
+Destination line prefix separator	Раздзяляльнік нумара маршруту і пункта прызначэння

@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Ештеңе қо�
 Pasted rules:	Қойылған ережелер:
 Skipped rules (this crossing has no such path):	Тасталған ережелер (бұл айқаста ондай жол жоқ):
 Conflicting segments	Қайшы келетін бөліктер
+Prefix destination with line number	Баратын жердің алдына бағыт нөмірін қосу
+Destination line prefix separator	Бағыт нөмірі мен баратын жердің бөлгіші

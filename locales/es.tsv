@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	No se pegó nada: 
 Pasted rules:	Reglas pegadas:
 Skipped rules (this crossing has no such path):	Reglas omitidas (este cruce no tiene ese carril):
 Conflicting segments	Tramos en conflicto
+Prefix destination with line number	Anteponer el número de línea al destino
+Destination line prefix separator	Separador del número de línea y el destino

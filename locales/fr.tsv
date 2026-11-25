@@ -3047,3 +3047,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	Rien n'a été col
 Pasted rules:	Règles collées :
 Skipped rules (this crossing has no such path):	Règles ignorées (ce carrefour n'a pas cette voie) :
 Conflicting segments	Tronçons en conflit
+Prefix destination with line number	Préfixer la destination par le numéro de ligne
+Destination line prefix separator	Séparateur entre le numéro de ligne et la destination

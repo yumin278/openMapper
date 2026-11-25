@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	ไม่มีอ
 Pasted rules:	จำนวนกฎที่วาง:
 Skipped rules (this crossing has no such path):	จำนวนกฎที่ตัดออก (ทางแยกนี้ไม่มีเส้นทางนั้น):
 Conflicting segments	ช่วงที่ขัดแย้งกัน
+Prefix destination with line number	เพิ่มหมายเลขสายหน้าจุดหมายปลายทาง
+Destination line prefix separator	ตัวคั่นระหว่างหมายเลขสายกับจุดหมายปลายทาง

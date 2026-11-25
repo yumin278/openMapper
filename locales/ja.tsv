@@ -3049,3 +3049,5 @@ Nothing was pasted: the clipboard does not hold [rule] blocks	何も貼り付け
 Pasted rules:	貼り付けたルール数：
 Skipped rules (this crossing has no such path):	除外したルール数（この交差点にない経路）：
 Conflicting segments	競合する区間
+Prefix destination with line number	行先の先頭に系統番号を追加
+Destination line prefix separator	系統番号と行先の区切り文字
