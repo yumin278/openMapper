@@ -12,7 +12,7 @@ fn draw(label: &str, textures: Vec<PathBuf>, roadway: Option<PathBuf>) -> (RoadS
         spec.roadway_tex = path;
     }
     let mut list = Some(textures);
-    let mut search = [String::new(), String::new(), String::new()];
+    let mut search: [String; 4] = Default::default();
     let mut pics = TexCache::default();
     let mut canvas = false;
     let ctx = egui::Context::default();

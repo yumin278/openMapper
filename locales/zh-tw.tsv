@@ -3403,3 +3403,10 @@ Only the saved TrackEntry paths are shown; the trip is not rerouted or edited.	�
 The original track is a reference only. Preparing stops does not change it or recalculate the route.	原始軌跡僅供參考。準備站點不會修改原始軌跡或重新尋路。
 Prepare Type 2 stops	準備 Type 2 站點
 Cannot prepare stops: invalid legacy station ID.	無法準備站點：舊格式的站點 ID 無效。
+Dark theme	深色主題
+Light theme	淺色主題
+Lit	點亮
+Right footway texture	右側行人路材質
+Left footway texture	左側行人路材質
+like the left one	與左側相同
+The lanes' paths run the way a left-hand map has them (a one-way road keeps its way)	行車線路徑依靠左行駛地圖的方向走(單向道路維持原方向)

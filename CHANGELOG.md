@@ -4,6 +4,34 @@ Releases are tagged `v<version>`; the downloads are on the
 [Releases](https://github.com/openOMSI-org/openMapper/releases) page, each with the notes of its
 version from this file.
 
+## 0.2.3 - 2026-11-23
+
+### Added
+- **The right footway can have a texture of its own** (#139): in the road maker, with "a different one on the right" ticked, a second selector gives the right footway its own picture (grass, gravel), the left one keeps the first, and both previews show them. Left as "like the left one" it runs on as before.
+- **Left-hand roads** (#138): the road maker has a Traffic choice, keeps right or keeps left, which sets the way the lanes' paths run (a one-way road keeps its way); a new road type starts on the map's own side. On a left-hand map every new road whose lanes keep right and which is drawn as wide on one side as on the other is now laid mirrored, so its lanes run the left-hand way, and the roundabout ring with it: no path to flip by hand. A road drawn on from another of the same type goes on as that one is.
+
+## 0.2.2 - 2026-11-22
+
+### Changed
+- **A road's length, radius or end heading can be changed with roads joined on after it** (#136): those pieces move and turn with the new end and keep their own length, radius and gradients, where the edit was refused before or the next piece was bent to keep its far end. R on one spline turns the chain after it with it, still joined, and mitres the joint with the piece before it as OMSI does.
+
+### Fixed
+- **Lines: picking a trip's paths by hand no longer loops back to the start of the line** (#135, #130): a path clicked past the end of the way was put in as a way round between the line's first paths wherever it led back to them round the block. It now goes where it adds the least driving; a way round must replace part of the way or mend a gap. A trip whose way is found only part of the way keeps that part, so picking by hand goes on from where it stops instead of from nothing. The list of the way's paths opens while picking and shows more of them.
+- **Aerial imagery stays sharp on maps with more than 64 tiles of pictures** (#134): every tile went up at 512 pixels. The tile under the camera now goes up at 4096, the eight round it at 2048 and the sixteen round those at 1024.
+- **An object marked Solid (collides) stops the bus** (#128): its `.sco` lacked `[fixed]`, without which OMSI 2 gives vehicles no collision.
+- **Objects put on a road drawn on from another road's end show** (#131): the new road's chain distance started at 0, so the game and the editor dropped objects within the old road's length of its start.
+
+## 0.2.1 - 2026-11-20
+
+### Changed
+- **Picking under the cursor is fast on city-sized maps**: on a map of 485 tiles, moving the mouse over the view took one to two seconds per pick, now a few milliseconds. While the view is still moving the cursor follows the ground, and what stands under it is looked for once the view settles, or at once when you click.
+- **The whole interface is translated again in all 26 languages**: the trolleybus wire, the script editor and debugger, and the newer checks and hints showed in English.
+
+### Fixed
+- The light theme was called "traffic light" in every language but English and Russian (and the mesh editor's light setting too).
+- Hungarian: a road's cant is *túlemelés*.
+- Updated crates: rfd 0.18 (file dialogs), zip 9.5, ureq.
+
 ## 0.2.0 - 2026-11-18
 
 ### Added

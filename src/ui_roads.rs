@@ -27,7 +27,7 @@ pub struct RoadTypes {
     maker_target: Option<MakerTarget>,
     /// Pictures that can be a roadway or a footway (found once).
     textures: Option<Vec<PathBuf>>,
-    tex_search: [String; 3],
+    tex_search: [String; 4],
     /// The road's textures as the previews show them.
     pics: TexCache,
     error: Option<String>,
@@ -341,7 +341,7 @@ impl RoadTypes {
         self.open = open;
     }
 
-    fn maker_ui(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &mut Option<Vec<PathBuf>>, search: &mut [String; 3], roots: &Roots, tex: &mut TexCache, canvas: &mut bool, left_hand: bool, edit: Option<&MakerTarget>) {
+    fn maker_ui(ui: &mut egui::Ui, s: &mut RoadSpec, textures: &mut Option<Vec<PathBuf>>, search: &mut [String; 4], roots: &Roots, tex: &mut TexCache, canvas: &mut bool, left_hand: bool, edit: Option<&MakerTarget>) {
         ui.label(RichText::new(tr("Road maker", "Конструктор дороги")).strong().color(Color32::WHITE));
         let map_left_hand = left_hand;
         let left_hand = s.left_hand.unwrap_or(map_left_hand);
@@ -370,7 +370,7 @@ impl RoadTypes {
                     if ui.selectable_label(false, label).clicked() {
                         // (the name and a chosen roadway picture stay; a road with none
                         // starts on the preset's stock asphalt)
-                        let mut next = RoadSpec { name: std::mem::take(&mut s.name), footway_tex: std::mem::take(&mut s.footway_tex), median_tex: std::mem::take(&mut s.median_tex), ..p };
+                        let mut next = RoadSpec { name: std::mem::take(&mut s.name), footway_tex: std::mem::take(&mut s.footway_tex), footway_right_tex: std::mem::take(&mut s.footway_right_tex), median_tex: std::mem::take(&mut s.median_tex), ..p };
                         if !s.roadway_tex.as_os_str().is_empty() { next.roadway_tex = std::mem::take(&mut s.roadway_tex); }
                         *s = next;
                     }
@@ -434,12 +434,14 @@ impl RoadTypes {
         }
         preview(ui, s, tex, left_hand);
         let has_median = s.median_width() > 0.0;
-        for (i, (label, hint)) in [(tr("Roadway texture", "Текстура проезжей части"), "asph"), (tr("Footway texture", "Текстура тротуара"), "side"), (tr("Middle strip texture", "Текстура разделителя"), "gras")].into_iter().enumerate() {
-            if (s.advanced && i > 0) || (i == 2 && !has_median) {
+        let apart = s.footway_right.is_some();
+        for (i, (label, hint)) in [(tr("Roadway texture", "Текстура проезжей части"), "asph"), (tr("Footway texture", "Текстура тротуара"), "side"), (tr("Right footway texture", "Текстура правого тротуара"), "side"), (tr("Middle strip texture", "Текстура разделителя"), "gras")].into_iter().enumerate() {
+            if (s.advanced && i > 0) || (i == 3 && !has_median) || (i == 2 && !apart) {
                 continue;
             }
-            // (a sensible one to start with: the stock asphalt or footway; the strip may keep
-            // the roadway's own)
+            let label = if i == 1 && apart { tr("Left footway texture", "Текстура левого тротуара") } else { label };
+            // (a sensible one to start with: the stock asphalt or footway; the strip and the
+            // right footway may keep the roadway's own or the left one's)
             if i == 0 {
                 s.use_default_roadway_texture(list.as_slice());
             } else if i == 1 && s.footway_tex.as_os_str().is_empty() {
@@ -448,11 +450,14 @@ impl RoadTypes {
                     s.footway_tex = p.clone();
                 }
             }
-            let cur = match i { 0 => &mut s.roadway_tex, 1 => &mut s.footway_tex, _ => &mut s.median_tex };
+            let cur = match i { 0 => &mut s.roadway_tex, 1 => &mut s.footway_tex, 2 => &mut s.footway_right_tex, _ => &mut s.median_tex };
             ui.horizontal(|ui| {
                 ui.label(label);
-                egui::ComboBox::from_id_salt(("road tex", i)).width(260.0).selected_text(if cur.as_os_str().is_empty() { if i == 1 { tr("No footway texture", "Нет текстуры тротуара").to_string() } else { tr("like the roadway", "как у проезжей части").to_string() } } else { file_name(cur) }).show_ui(ui, |ui| {
-                    if i == 2 && ui.selectable_label(cur.as_os_str().is_empty(), tr("like the roadway", "как у проезжей части")).clicked() {
+                egui::ComboBox::from_id_salt(("road tex", i)).width(260.0).selected_text(if cur.as_os_str().is_empty() { match i { 1 => tr("No footway texture", "Нет текстуры тротуара").to_string(), 2 => tr("like the left one", "как у левого").to_string(), _ => tr("like the roadway", "как у проезжей части").to_string() } } else { file_name(cur) }).show_ui(ui, |ui| {
+                    if i == 2 && ui.selectable_label(cur.as_os_str().is_empty(), tr("like the left one", "как у левого")).clicked() {
+                        cur.clear();
+                    }
+                    if i == 3 && ui.selectable_label(cur.as_os_str().is_empty(), tr("like the roadway", "как у проезжей части")).clicked() {
                         cur.clear();
                     }
                     ui.add(egui::TextEdit::singleline(&mut search[i]).hint_text(tr("Search", "Поиск")));

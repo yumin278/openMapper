@@ -597,3 +597,20 @@ fn road_maker_writers_take_every_path_x_from_the_shared_calculation() {
     assert!(path_x_lines(&two_way.sli(false)).contains(&"-1.750".to_string()));
     assert!(path_x_lines(&two_way.sli(false)).contains(&"1.750".to_string()));
 }
+
+/// A road kept in advanced mode is written from its strips even when the simple mode could
+/// show it, so the simple mode's writer (which follows upstream) never changes it.
+#[test]
+fn an_advanced_road_is_always_written_from_its_strips() {
+    for left in [false, true] {
+        for (name, preset) in super::presets() {
+            let mut simple = preset.clone();
+            simple.advanced = false;
+            let simple = simple.normalised(left);
+            if !simple.simple_mode_issues().is_empty() { continue; }
+            let advanced = RoadSpec { advanced: true, ..simple.clone() };
+            assert_eq!(advanced.sli(left), super::free_layout::emit(&advanced), "{name}, left hand {left}: advanced");
+            assert_eq!(simple.sli(left), simple.projection().compatible_sli(left), "{name}, left hand {left}: simple");
+        }
+    }
+}

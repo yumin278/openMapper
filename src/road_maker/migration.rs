@@ -53,7 +53,7 @@ pub fn from_legacy(spec: &RoadSpec, left_hand: bool) -> Vec<Strip> {
     if right > 0.0 {
         strips.push(Strip::Footway {
             width: right,
-            tex: spec.footway_tex.clone(),
+            tex: spec.right_tex().to_path_buf(),
             path: true,
             height: None,
         });

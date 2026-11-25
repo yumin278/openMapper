@@ -290,6 +290,9 @@ pub struct RoadSpec {
     /// Texture files (found in the installation or the content folder).
     pub roadway_tex: PathBuf,
     pub footway_tex: PathBuf,
+    /// The right footway's own texture (grass, gravel); the left one's runs on if none. Used
+    /// where the footways differ (`footway_right` set).
+    pub footway_right_tex: PathBuf,
     /// The middle strip's own texture (grass, paving); the roadway's runs on under it if none.
     pub median_tex: PathBuf,
     /// The lines are painted by the maker (`markings`) onto the roadway texture, which should
@@ -303,7 +306,7 @@ pub struct RoadSpec {
 
 impl Default for RoadSpec {
     fn default() -> Self {
-        RoadSpec { imported_sli: false, x_offset: 0.0, source_x_origin: 0.0, source_height_profile: Vec::new(), bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
+        RoadSpec { imported_sli: false, x_offset: 0.0, source_x_origin: 0.0, source_height_profile: Vec::new(), bay_paths: Vec::new(), bus_paths: Vec::new(), advanced: false, mode_error: None, strips: Vec::new(), left_hand: None, name: String::new(), lanes_fwd: 1, lanes_back: 1, lane_width: 3.5, median: 0.0, median_raised: false, footway: 3.0, footway_right: None, kerb: 0.15, pocket: 0.0, roadway_tex: PathBuf::new(), footway_tex: PathBuf::new(), footway_right_tex: PathBuf::new(), median_tex: PathBuf::new(), marked: false, markings: Vec::new(), hand: None }
     }
 }
 
@@ -368,6 +371,7 @@ impl RoadSpec {
         let strips = self.effective_strips();
         s.strips = strips.to_vec();
         let left_dir = if self.left_hand.unwrap_or(false) { Direction::Fwd } else { Direction::Back };
+        s.footway_right_tex.clear();
         s.lanes_back = 0;
         s.lanes_fwd = 0;
         s.median = 0.0;
@@ -388,12 +392,19 @@ impl RoadSpec {
                     s.median_tex = tex.clone();
                 }
                 Strip::Footway { width, tex, .. } => {
-                    if i == 0 { s.footway = *width; } else { s.footway_right = Some(*width); }
-                    if !tex.as_os_str().is_empty() { s.footway_tex = tex.clone(); }
+                    if i == 0 {
+                        s.footway = *width;
+                        if !tex.as_os_str().is_empty() { s.footway_tex = tex.clone(); }
+                    } else {
+                        s.footway_right = Some(*width);
+                        s.footway_right_tex = tex.clone();
+                    }
                 }
                 Strip::BusBay { width } => s.pocket = *width,
             }
         }
+        // (the right footway keeps no texture of its own when it is the left one's: "like the left one")
+        if s.footway_right_tex == s.footway_tex { s.footway_right_tex.clear(); }
         s
     }
 
@@ -447,7 +458,8 @@ impl RoadSpec {
         let first_lane = strips.iter().position(|s| matches!(s, Strip::Lane { .. })).unwrap_or(0);
         if strips[..first_lane].iter().any(|s| matches!(s, Strip::BusBay { .. })) { issues.push(crate::i18n::tr("Contains a left BusBay", "Есть левый автобусный карман").into()); }
         let textures: Vec<_> = strips.iter().filter_map(|s| if let Strip::Footway { tex, .. } = s { Some(if tex.as_os_str().is_empty() { &self.footway_tex } else { tex }) } else { None }).collect();
-        if textures.windows(2).any(|p| p[0] != p[1]) { issues.push(crate::i18n::tr("Footway textures differ", "Разные текстуры тротуаров").into()); }
+        // (0.2.3: the right footway may have a texture of its own, so two footways may differ)
+        if textures.len() > 2 && textures.windows(2).any(|p| p[0] != p[1]) { issues.push(crate::i18n::tr("Footway textures differ", "Разные текстуры тротуаров").into()); }
         if strips.iter().any(|s| matches!(s, Strip::Footway { path: false, .. })) {
             issues.push(crate::i18n::tr("Contains a footway without an AI path", "Есть тротуар без пути ИИ").into());
         }
@@ -536,6 +548,11 @@ impl RoadSpec {
 
     pub fn footway_right(&self) -> f32 {
         match self.effective_strips().last() { Some(Strip::Footway { width, .. }) => *width, _ => 0.0 }
+    }
+
+    /// The texture of the right footway: its own when the footways differ and it has one.
+    pub fn right_tex(&self) -> &Path {
+        if self.footway_right.is_some() && !self.footway_right_tex.as_os_str().is_empty() { &self.footway_right_tex } else { &self.footway_tex }
     }
 
     pub fn total_width(&self) -> f32 { self.effective_strips().iter().map(Strip::width).sum() }
@@ -666,7 +683,9 @@ impl RoadSpec {
     pub fn sli(&self, left_hand: bool) -> String {
         let s = self.normalised(left_hand);
         if s.validate().is_err() { return String::new(); }
-        if !s.imported_sli && s.simple_mode_issues().is_empty() {
+        // (a road kept in advanced mode is always written from its strips, so the simple
+        // mode's writer, which follows upstream, never changes it)
+        if !s.advanced && !s.imported_sli && s.simple_mode_issues().is_empty() {
             let projected = s.projection();
             projected.compatible_sli(projected.left_hand.unwrap())
         } else { free_layout::emit(&s) }
@@ -723,6 +742,13 @@ impl RoadSpec {
             side_ix = next;
             next += 1;
         }
+        // (the right footway's own picture, when it has one)
+        let mut right_ix = side_ix;
+        if side_tex && fr > 0.0 && self.right_tex() != self.footway_tex.as_path() {
+            let _ = write!(s, "[texture]\n{}\n\n", name(self.right_tex()));
+            right_ix = next;
+            next += 1;
+        }
         let mut median_ix = 0;
         if own_median {
             let _ = write!(s, "[texture]\n{}\n\n", name(&self.median_tex));
@@ -766,6 +792,7 @@ impl RoadSpec {
                 profile(&mut s, t, (xl, side_h, 0.953, 0.2), (xl, road_h, 0.995, 0.2));
             }
             if fr > 0.0 {
+                let t = right_ix;
                 profile(&mut s, t, (xr2, road_h, 0.995, 0.2), (xr2, side_h, 0.953, 0.2));
                 profile(&mut s, t, (xr2, side_h, 0.953, 0.2), (xr2 + fr, side_h, 0.187, 0.2));
             }
@@ -944,7 +971,7 @@ impl RoadSpec {
         let strip_textures = self.strips.iter().filter_map(|strip| match strip {
             Strip::Footway { tex, .. } | Strip::Median { tex, .. } => Some(tex), _ => None,
         });
-        for t in [&self.roadway_tex, &self.footway_tex, &self.median_tex].into_iter().chain(strip_textures).filter(|t| t.is_file()) {
+        for t in [&self.roadway_tex, &self.footway_tex, &self.footway_right_tex, &self.median_tex].into_iter().chain(strip_textures).filter(|t| t.is_file()) {
             let name = t.file_name().unwrap();
             if self.strips.iter().any(|s| matches!(s, Strip::BusBay { .. })) && name == std::ffi::OsStr::new(&self.bay_tex_name()) {
                 // The independent bay file is managed exclusively by copy_bay_texture.
@@ -980,6 +1007,7 @@ impl RoadSpec {
             let projected = serde_json::to_value(self.projection())?;
             for field in Self::LEGACY_FIELDS { saved[field] = projected[field].clone(); }
             saved["footway_tex"] = projected["footway_tex"].clone();
+            saved["footway_right_tex"] = projected["footway_right_tex"].clone();
         } else {
             for field in Self::LEGACY_FIELDS { saved.as_object_mut().unwrap().remove(field); }
         }
@@ -1189,6 +1217,36 @@ mod tests {
         assert!(content.join("Splines/openMapper/texture/asph.png").is_file());
         assert_eq!(RoadSpec::of(&path).unwrap(), spec.normalised(false).projection());
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_left_hand_road_has_its_lanes_turned_round_and_a_right_footway_its_own_texture() {
+        // (fork: the traffic side is the writer's argument; the road keeps none of its own here)
+        let mk = |_left: bool| RoadSpec { lanes_fwd: 2, lanes_back: 2, footway: 2.0, footway_right: Some(3.0), footway_tex: PathBuf::from("a.png"), footway_right_tex: PathBuf::from("grass.png"), roadway_tex: PathBuf::from("r.png"), ..Default::default() };
+        let (right_text, left_text) = (mk(false).sli(false), mk(true).sli(true));
+        let dirs = |t: &str| -> Vec<(bool, bool)> {
+            // (is it right of the middle, does it run with the road) of every car lane
+            let mut out = Vec::new();
+            let parts: Vec<&str> = t.split("[path]").skip(1).collect();
+            for p in parts {
+                let v: Vec<&str> = p.lines().filter(|l| !l.trim().is_empty()).take(5).collect();
+                if v[0].trim() == "0" {
+                    out.push((v[1].trim().parse::<f32>().unwrap() > 0.0, v[4].trim() == "0"));
+                }
+            }
+            out
+        };
+        assert!(dirs(&right_text).iter().all(|(r, with)| r == with), "right of the middle runs with the road");
+        assert!(dirs(&left_text).iter().all(|(r, with)| r != with), "left of the middle runs with the road");
+        // the right footway has a texture of its own, the left one's stays the first
+        assert!(right_text.contains("[texture]\ngrass.png") && right_text.contains("[texture]\na.png"));
+        let same = RoadSpec { footway_right: None, ..mk(false) };
+        assert!(!same.sli(false).contains("grass.png"));
+        // a one-way road keeps its way
+        // (fork: on a left-hand map the maker's "the way the road is drawn" lanes are `lanes_back`,
+        // so a one-way road made there keeps its way)
+        let one = RoadSpec { lanes_fwd: 0, ..mk(false) };
+        assert!(dirs(&one.sli(true)).iter().all(|(_, with)| *with));
     }
 
     #[test]
