@@ -272,7 +272,7 @@ fn termini(ui: &mut egui::Ui, h: &mut Hof, f: &str) {
         egui::CollapsingHeader::new(RichText::new(title).color(if twice { pal().warn } else { ui.visuals().text_color() })).id_salt(("hof terminus", k)).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(tr("Code", "Код"));
-                ui.add(egui::DragValue::new(&mut t.code).range(0..=999));
+                ui.add(egui::DragValue::new(&mut t.code).range(0..=i32::MAX));
                 if twice {
                     ui.label(RichText::new(tr("another destination has this code", "этот код есть у другой конечной")).color(pal().warn));
                 }
