@@ -1214,6 +1214,7 @@ fn type2_preparation_persists_station_ids_and_keeps_shared_tracks_until_last_con
     assert_eq!(reloaded.trip("zero").unwrap().stations, [12345, 67890]);
     assert_eq!(reloaded.trip("other").unwrap().profiles[0].other_stopping, [(1, 4)]);
     let _ = std::fs::remove_dir_all(out);
+}
 
 /// A junction a chrono scenario puts onto the map (active today, so the view draws it) is in
 /// the network, and its lanes are drawn: a way could not be picked through it (#147).
