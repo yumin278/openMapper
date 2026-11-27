@@ -1253,3 +1253,34 @@ fn second_precision_clock_and_ttl_round_trip() {
         assert_eq!((&a.trip, a.profile, clock_secs(a.departure)), (&b.trip, b.profile, clock_secs(b.departure)));
     }
 }
+
+#[test]
+fn prune_unused_links_preserves_shared_pairs_and_entries() {
+    let mut tt = Timetable::default();
+    tt.add_trip("", "first", vec![1, 2]);
+    tt.add_trip("", "second", vec![1, 2, 3]);
+    let link = |from_id, to_id, length| StnLink {
+        from_id, to_id, length,
+        entries: vec![StnLinkEntry { values: [42.0, 0.0, 0.0, length, -1.0, 0.0, 0.0] }],
+        ..Default::default()
+    };
+    let ab = link(1, 2, 123.5);
+    let bc = link(2, 3, 456.25);
+    tt.links = vec![ab.clone(), bc.clone(), link(2, 1, 99.0)];
+    tt.delete_trip("first");
+    let removed = tt.prune_unused_links();
+    println!("After deleting first: removed {removed:?}; retained {:?}", tt.links);
+    assert_eq!(removed, vec![(2, 1)]);
+    assert_eq!(tt.links, vec![ab, bc]);
+    assert!(tt.links_changed && tt.dirty);
+    tt.delete_trip("second");
+    let removed = tt.prune_unused_links();
+    println!("After deleting second: removed {removed:?}; retained {:?}", tt.links);
+    assert_eq!(removed, vec![(1, 2), (2, 3)]);
+    assert!(tt.links.is_empty());
+    saved(&mut tt);
+    let edit = tt.edit;
+    assert!(tt.prune_unused_links().is_empty());
+    assert!(!tt.links_changed && !tt.dirty);
+    assert_eq!(tt.edit, edit);
+}

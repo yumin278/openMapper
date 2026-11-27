@@ -34,8 +34,11 @@ jobs:
         with:
           key: windows-x64-upstream-0.2.3
 
-      - name: Junction tests
-        run: cargo test --release --locked junction -- --nocapture
+      - name: All tests
+        run: cargo test --release --locked
+
+      - name: Unused station link regression output
+        run: cargo test --release --locked prune_unused_links -- --nocapture
 
       - name: Build portable Windows x64 ZIP
         shell: pwsh
