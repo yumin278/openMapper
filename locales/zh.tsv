@@ -3409,3 +3409,23 @@ Right footway texture	右侧人行道材质
 Left footway texture	左侧人行道材质
 like the left one	与左侧相同
 The lanes' paths run the way a left-hand map has them (a one-way road keeps its way)	车道路径按靠左行驶地图的方向走(单向道路保持原方向)
+Insert departures	插入班次
+Empty tour	空车序
+Before first departure	首班前
+After last departure	末班后
+Overlap with previous departure	与前一班重叠
+Different connecting stops	衔接站点不同
+(none: tour boundary)	（无：头尾）
+Select all positions	全选
+Clear selection	全不选
+Previous trip	前一班 Trip
+Following trip	后一班 Trip
+Select by neighbouring trips	依前后班选择
+Trip to insert	插入 Trip
+Time reference	时间基准
+After previous arrival	接在前一班到达后
+Before following departure	赶在后一班发车前
+Departures to insert:	将插入：
+Positions skipped (no previous trip):	因没有前一班而略过的位置：
+Positions skipped (no following trip):	因没有后一班而略过的位置：
+Confirm insertion	确认插入

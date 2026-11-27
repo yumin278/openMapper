@@ -6,6 +6,7 @@
 
 pub mod caruse;
 mod convert;
+pub mod insert;
 pub mod network;
 pub mod profile;
 pub mod route;

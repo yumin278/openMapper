@@ -16,6 +16,7 @@ use crate::i18n::tr;
 use crate::icons::{self, Icon};
 use crate::install::Roots;
 use crate::render::FrameExtras;
+use crate::timetable::insert;
 use crate::timetable::network::{Files, Network};
 use crate::timetable::route::{self, Problem, Route, Ways};
 use crate::timetable::{self, clock_secs, Timetable, ALL_DAYS};
@@ -97,6 +98,7 @@ pub struct TimetableUi {
     fill_from: (u32, u32),
     fill_to: (u32, u32),
     layover: u32,
+    departure_insert: Option<DepartureInsert>,
     /// The year the holidays are shown of.
     holiday_year: i32,
     holidays_open: bool,
@@ -118,6 +120,22 @@ pub struct TimetableUi {
     trip_filter: String,
     /// The trip's time profile shown (its place in the list).
     profile: usize,
+}
+
+struct DepartureInsert {
+    trip: String,
+    profile: i32,
+    basis: insert::Basis,
+    offset_seconds: i32,
+    before: insert::Filter,
+    after: insert::Filter,
+    selection: insert::Selection,
+}
+
+impl DepartureInsert {
+    fn new(trip: String) -> Self {
+        Self { trip, profile: 0, basis: insert::Basis::default(), offset_seconds: 0, before: insert::Filter::Any, after: insert::Filter::Any, selection: insert::Selection::default() }
+    }
 }
 
 fn type2_conversion_label() -> &'static str {
@@ -1073,6 +1091,7 @@ impl TimetableUi {
     pub fn window(&mut self, ctx: &egui::Context, ed: &mut Editor, roots: Option<&Roots>, destination_line_separator: &str, actions: &mut Vec<Action>) {
         let Some(dir) = ed.doc.as_ref().map(|d| d.dir.clone()) else {
             self.open = false;
+            self.departure_insert = None;
             self.picking = false;
             self.way_edit = false;
             self.clear_stop_edits();
@@ -1085,6 +1104,7 @@ impl TimetableUi {
             *self = TimetableUi { open, want_line, tours_tab, holidays_open, map: Some(dir), ..TimetableUi::new() };
         }
         if !self.open {
+            self.departure_insert = None;
             self.picking = false;
             self.clear_stop_edits();
             self.way_edit = false;
@@ -1115,6 +1135,7 @@ impl TimetableUi {
         let before = ed.doc.as_ref().unwrap().timetable.clone();
         let traffic_before = ed.doc.as_ref().unwrap().traffic.clone();
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.departure_insert = None;
             self.clear_stop_edits();
         }
         self.pick_from_view(ed);
@@ -1129,6 +1150,7 @@ impl TimetableUi {
             .show(ctx, |ui| self.contents(ui, ed, actions));
         self.open = open;
         if !open {
+            self.departure_insert = None;
             self.confirm_type2_conversion = false;
             self.confirm_recalculate = false;
             self.picking = false;
@@ -1419,6 +1441,7 @@ impl TimetableUi {
                         Some(l) if doc.timetable.lines.iter().any(|x| x.name == l) => self.line_panel(ui, doc, &l, &mut ed.toasts, actions),
                         _ => {
                             self.line = None;
+                            self.departure_insert = None;
                             ui.add_space(20.0);
                             ui.label(RichText::new(tr("Pick a line on the left, or make a new one.\n\nA line has trips (a way from stop to stop) and tours (one bus's day: which trip it drives when).", "Выберите линию слева или создайте новую.\n\nУ линии есть рейсы (путь от остановки к остановке) и выходы (день одного автобуса: какой рейс и когда)."))
                                 .color(pal().text_dim));
@@ -1432,6 +1455,7 @@ impl TimetableUi {
     fn select_line(&mut self, tt: &Timetable, name: Option<String>) {
         self.line_name = name.clone().unwrap_or_default();
         self.line = name;
+        self.departure_insert = None;
         self.tour = None;
         self.picking = false;
         self.all_trips = false;
@@ -1541,6 +1565,7 @@ impl TimetableUi {
             }
             if small_button(ui, Icon::Delete, tr("Delete the line and its trips", "Удалить линию и её рейсы")) {
                 doc.timetable.delete_line(line);
+                self.departure_insert = None;
                 self.line = None;
                 self.select_trip(None);
             }
@@ -1557,6 +1582,7 @@ impl TimetableUi {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             if ui.add(egui::Button::selectable(!self.tours_tab && !self.vehicles_tab, icons::labelled(Icon::Route, tr("Trips", "Рейсы")))).clicked() {
+                self.departure_insert = None;
                 self.tours_tab = false;
                 self.vehicles_tab = false;
             }
@@ -1568,6 +1594,7 @@ impl TimetableUi {
             }
             if ui.add(egui::Button::selectable(self.vehicles_tab, icons::labelled(Icon::Bus, tr("Vehicles", "Транспорт")))).on_hover_text(tr("Which buses drive this line", "Какие автобусы ходят по этой линии")).clicked() {
                 self.vehicles_tab = !self.vehicles_tab;
+                self.departure_insert = None;
                 self.tours_tab = false;
                 self.picking = false;
                 self.clear_stop_edits();
@@ -2243,35 +2270,40 @@ impl TimetableUi {
                 let t = &tt.lines[li].tours[i];
                 let text = format!("{} {}", tr("Tour", "Выход"), t.number);
                 if ui.add(egui::Button::selectable(self.tour == Some(i), text)).clicked() {
+                    if self.tour != Some(i) { self.departure_insert = None; }
                     self.tour = Some(i);
                 }
             }
             if ui.button(icons::labelled(Icon::Add, tr("New tour", "Новый выход"))).clicked() {
                 let number = tt.lines[li].tours.iter().filter_map(|t| t.number.trim().parse::<i64>().ok()).max().unwrap_or(0) + 1;
                 tt.lines[li].tours.push(Tour { number: number.to_string(), ai_group: depots.first().cloned().unwrap_or_default(), extra: ALL_DAYS.to_string(), trips: Vec::new() });
+                self.departure_insert = None;
                 self.tour = Some(n);
                 tt.touch_line(&line);
             }
         });
         let Some(ti) = self.tour.filter(|i| *i < n) else {
+            self.departure_insert = None;
             if n > 0 {
                 ui.label(RichText::new(tr("Pick a tour to see its departures.", "Выберите выход, чтобы увидеть отправления.")).color(pal().text_dim));
             }
             return;
         };
         if trips.is_empty() {
+            self.departure_insert = None;
             ui.label(RichText::new(tr("Make a trip first.", "Сначала создайте рейс.")).color(pal().warn));
             return;
         }
         // trip times, for the arrivals and the next departure
         let times: HashMap<String, f32> = trips.iter().filter_map(|t| tt.trip(t).map(|x| (lower(t), minutes(x)))).collect();
         // (every trip's profiles: a departure can run any trip of the map, to any of its profiles)
-        let profiles: HashMap<String, Vec<(String, f32)>> = tt.trips.iter().map(|t| (lower(&t.name), t.profiles.iter().map(|p| (p.name.trim().to_string(), if p.factor > 0.0 { p.factor } else { 10.0 })).collect())).collect();
+        let profiles: insert::Profiles = tt.trips.iter().map(|t| (lower(&t.name), t.profiles.iter().map(|p| (p.name.trim().to_string(), if p.factor > 0.0 { p.factor } else { 10.0 })).collect())).collect();
         let others: Vec<String> = {
             let mut v: Vec<String> = tt.trips.iter().map(|t| t.name.clone()).filter(|n| !trips.iter().any(|x| x.eq_ignore_ascii_case(n))).collect();
             v.sort_by_key(|n| n.to_lowercase());
             v
         };
+        let endpoints: insert::Endpoints = tt.trips.iter().filter_map(|t| Some((lower(&t.name), (*t.stations.first()?, *t.stations.last()?)))).collect();
         let mut changed = false;
         let mut resort = false;
         let mut delete_tour = false;
@@ -2341,7 +2373,11 @@ impl TimetableUi {
                         None => (trips[0].clone(), (self.fill_from.0 * 60 + self.fill_from.1) as f32),
                     };
                     tour.trips.push(TourTrip { trip, profile: 0, departure: dep });
+                    self.departure_insert = None;
                     resort = true;
+                }
+                if self.departure_insert.is_none() && ui.button(tr("Insert departures", "Вставить отправления")).clicked() {
+                    self.departure_insert = Some(DepartureInsert::new(trips[0].clone()));
                 }
             });
             ui.horizontal_wrapped(|ui| {
@@ -2355,6 +2391,7 @@ impl TimetableUi {
                     let from = (self.fill_from.0 * 60 + self.fill_from.1) as f32;
                     let to = (self.fill_to.0 * 60 + self.fill_to.1) as f32;
                     tour.trips.clear();
+                    self.departure_insert = None;
                     let mut dep = from;
                     let mut k = 0;
                     while dep <= to && tour.trips.len() < 500 {
@@ -2374,12 +2411,42 @@ impl TimetableUi {
             if count == 0 {
                 ui.label(RichText::new(tr("No departures yet: add them above.", "Отправлений пока нет: добавьте их выше.")).color(pal().text_dim));
             }
+            let overlaps = insert::overlaps(&tour.trips, &profiles);
             egui::Grid::new("tt deps").num_columns(5).spacing(Vec2::new(8.0, 3.0)).show(ui, |ui| {
-                for k in 0..count {
+                for k in insert::positions(&tour.trips) {
+                    let mismatch = if k > 0 && k < count {
+                        insert::discontinuity(&tour.trips[k - 1], &tour.trips[k], &endpoints)
+                    } else { None };
+                    if let Some(state) = &mut self.departure_insert {
+                        let (text, color) = if let Some(gap) = insert::gap(&tour.trips, k, &profiles) {
+                            (signed_mmss((gap * 60.0).round() as i32), if gap < 0.0 { Color32::RED } else { pal().text_dim })
+                        } else if count == 0 {
+                            (tr("Empty tour", "Пустой выход").to_owned(), pal().text_dim)
+                        } else if k == 0 {
+                            (tr("Before first departure", "Перед первым отправлением").to_owned(), pal().text_dim)
+                        } else {
+                            (tr("After last departure", "После последнего отправления").to_owned(), pal().text_dim)
+                        };
+                        let mut on = state.selection.positions.contains(&k);
+                        if ui.push_id(("tt insert position", k), |ui| ui.checkbox(&mut on, RichText::new(text).color(color))).inner.changed() {
+                            state.selection.click(k, ui.input(|i| i.modifiers.shift), on);
+                        }
+                        if let Some((end, start)) = mismatch {
+                            station_mismatch(ui, end, start);
+                        } else { ui.label(""); }
+                        for _ in 0..3 { ui.label(""); }
+                        ui.end_row();
+                    } else if let Some((end, start)) = mismatch {
+                        station_mismatch(ui, end, start);
+                        for _ in 0..4 { ui.label(""); }
+                        ui.end_row();
+                    }
+                    if k == count { break; }
                     let tr_ = &mut tour.trips[k];
                     let (mut h, mut m, mut s) = departure_parts(tr_.departure);
-                    ui.horizontal(|ui| {
+                    let departure_edit = ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 2.0;
+                        if overlaps.contains_key(&k) { ui.visuals_mut().override_text_color = Some(Color32::RED); }
                         let a = ui.add(egui::DragValue::new(&mut h).range(0..=47).custom_formatter(|v, _| format!("{:02}", v as i32)));
                         ui.label(":");
                         let b = ui.add(egui::DragValue::new(&mut m).range(-1..=60).custom_formatter(|v, _| format!("{:02}", v as i32)));
@@ -2390,6 +2457,9 @@ impl TimetableUi {
                             changed = true;
                         }
                     });
+                    if let Some(overlap) = overlaps.get(&k) {
+                        departure_edit.response.on_hover_text(format!("{} {}", tr("Overlap with previous departure", "Пересечение с предыдущим отправлением"), mmss(*overlap)));
+                    }
                     egui::ComboBox::from_id_salt(("tt dep trip", k)).selected_text(tr_.trip.clone()).width(160.0).height(360.0).show_ui(ui, |ui| {
                         for t in trips {
                             changed |= ui.selectable_value(&mut tr_.trip, t.clone(), t).changed();
@@ -2429,10 +2499,26 @@ impl TimetableUi {
             });
             if let Some(k) = remove {
                 tour.trips.remove(k);
+                self.departure_insert = None;
                 changed = true;
+            }
+            if let Some(mut state) = self.departure_insert.take() {
+                match departure_insert_panel(ui, &mut state, &tour.trips, trips, &others, &profiles) {
+                    InsertAction::Keep => self.departure_insert = Some(state),
+                    InsertAction::Cancel => {}
+                    InsertAction::Confirm(plan) => {
+                        if !plan.departures.is_empty() {
+                            tour.trips.extend(plan.departures);
+                            resort = true;
+                            changed = true;
+                            self.stop_edit_undo = Some(tr("Insert departures", "Вставить отправления"));
+                        }
+                    }
+                }
             }
         });
         if delete_tour {
+            self.departure_insert = None;
             tt.lines[li].tours.remove(ti);
             self.tour = None;
             changed = true;
@@ -2477,6 +2563,131 @@ pub(crate) fn add_depot(doc: &mut Document) {
     tt.mark();
 }
 
+fn signed_mmss(seconds: i32) -> String {
+    let s = i64::from(seconds).abs();
+    format!("{}{}:{:02}", if seconds < 0 { "-" } else { "" }, s / 60, s % 60)
+}
+
+fn parse_offset(value: &str) -> Option<f64> {
+    let value = value.trim();
+    if let Some((m, s)) = value.trim_start_matches(['-', '+']).split_once(':') {
+        let m = m.parse::<u32>().ok()?;
+        let s = s.parse::<u32>().ok()?;
+        if s >= 60 { return None; }
+        let seconds = f64::from(m) * 60.0 + f64::from(s);
+        Some(if value.starts_with('-') { -seconds } else { seconds })
+    } else {
+        value.parse::<f64>().ok()
+    }
+}
+
+fn station_mismatch(ui: &mut egui::Ui, end: i64, start: i64) {
+    ui.label(RichText::new("↝").color(pal().text_dim)).on_hover_text(format!("{}: {end} → {start}", tr("Different connecting stops", "Разные остановки стыковки")));
+}
+
+fn neighbour_filter(ui: &mut egui::Ui, id: &str, filter: &mut insert::Filter, names: &[String]) {
+    let any = tr("Any", "Любой");
+    let missing = tr("(none: tour boundary)", "(нет: край выхода)");
+    let label = match filter {
+        insert::Filter::Any => any.to_owned(),
+        insert::Filter::Missing => missing.to_owned(),
+        insert::Filter::Trip(name) => name.clone(),
+    };
+    egui::ComboBox::from_id_salt(id).selected_text(label).show_ui(ui, |ui| {
+        ui.selectable_value(filter, insert::Filter::Any, any);
+        ui.selectable_value(filter, insert::Filter::Missing, missing);
+        for name in names {
+            ui.selectable_value(filter, insert::Filter::Trip(name.clone()), name);
+        }
+    });
+}
+
+enum InsertAction {
+    Keep,
+    Cancel,
+    Confirm(insert::Plan),
+}
+
+fn departure_insert_panel(ui: &mut egui::Ui, state: &mut DepartureInsert, departures: &[TourTrip], trips: &[String], others: &[String], profiles: &insert::Profiles) -> InsertAction {
+    let mut action = InsertAction::Keep;
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            if ui.button(tr("Select all positions", "Выбрать все позиции")).clicked() {
+                state.selection.positions = insert::positions(departures).collect();
+                state.selection.anchor = None;
+            }
+            if ui.button(tr("Clear selection", "Снять выбор")).clicked() {
+                state.selection.clear();
+            }
+        });
+        let mut names: Vec<_> = departures.iter().map(|t| t.trip.clone()).collect();
+        names.sort_by_key(|n| lower(n));
+        names.dedup_by(|a, b| lower(a) == lower(b));
+        ui.horizontal_wrapped(|ui| {
+            ui.label(tr("Previous trip", "Предыдущий рейс"));
+            neighbour_filter(ui, "tt insert prev", &mut state.before, &names);
+            ui.label(tr("Following trip", "Следующий рейс"));
+            neighbour_filter(ui, "tt insert next", &mut state.after, &names);
+            if ui.button(tr("Select by neighbouring trips", "Выбрать по соседним рейсам")).clicked() {
+                state.selection.positions.extend(insert::matching_positions(departures, &state.before, &state.after));
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label(tr("Trip to insert", "Вставляемый рейс"));
+            let previous = state.trip.clone();
+            egui::ComboBox::from_id_salt("tt insert trip").selected_text(&state.trip).width(160.0).height(360.0).show_ui(ui, |ui| {
+                for t in trips { ui.selectable_value(&mut state.trip, t.clone(), t); }
+                if !others.is_empty() {
+                    ui.separator();
+                    ui.label(RichText::new(tr("Other trips", "Другие рейсы")).small().color(pal().text_dim));
+                    for t in others { ui.selectable_value(&mut state.trip, t.clone(), t); }
+                }
+            });
+            if state.trip != previous { state.profile = 0; }
+            let ps = profiles.get(&lower(&state.trip)).map(Vec::as_slice).unwrap_or_default();
+            if ps.len() > 1 {
+                if state.profile < 0 || state.profile as usize >= ps.len() { state.profile = 0; }
+                let (name, minutes) = &ps[state.profile as usize];
+                egui::ComboBox::from_id_salt("tt insert profile").selected_text(format!("{name} · {}", mmss(*minutes))).show_ui(ui, |ui| {
+                    for (i, (name, minutes)) in ps.iter().enumerate() {
+                        ui.selectable_value(&mut state.profile, i as i32, format!("{name} · {}", mmss(*minutes)));
+                    }
+                });
+            } else { state.profile = 0; }
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.label(tr("Time reference", "Отсчёт времени"));
+            ui.radio_value(&mut state.basis, insert::Basis::AfterArrival, tr("After previous arrival", "После предыдущего прибытия"));
+            ui.radio_value(&mut state.basis, insert::Basis::BeforeDeparture, tr("Before following departure", "До следующего отправления"));
+        });
+        ui.horizontal(|ui| {
+            ui.label(tr("Offset", "Смещение"));
+            ui.add(egui::DragValue::new(&mut state.offset_seconds).range(-172799..=172799)
+                .custom_formatter(|v, _| signed_mmss(v as i32)).custom_parser(parse_offset));
+        });
+        let request = insert::Request { trip: &state.trip, profile: state.profile, basis: state.basis, offset_seconds: state.offset_seconds };
+        let plan = insert::plan(departures, profiles, &state.selection.positions, &request);
+        ui.label(format!("{} {}", tr("Departures to insert:", "Отправлений для вставки:"), plan.departures.len()));
+        if plan.skipped > 0 {
+            let label = match state.basis {
+                insert::Basis::AfterArrival => tr("Positions skipped (no previous trip):", "Позиций пропущено (нет предыдущего рейса):"),
+                insert::Basis::BeforeDeparture => tr("Positions skipped (no following trip):", "Позиций пропущено (нет следующего рейса):"),
+            };
+            ui.label(format!("{label} {}", plan.skipped));
+        }
+        for t in plan.departures.iter().take(5) {
+            ui.label(format!("{} → {}", clock_secs(t.departure), clock_secs(insert::arrival(profiles, t))));
+        }
+        ui.horizontal(|ui| {
+            if ui.add_enabled(!state.selection.positions.is_empty(), egui::Button::new(tr("Confirm insertion", "Подтвердить вставку"))).clicked() {
+                action = InsertAction::Confirm(plan);
+            }
+            if ui.button(tr("Cancel", "Отмена")).clicked() { action = InsertAction::Cancel; }
+        });
+    });
+    action
+}
+
 /// Minutes as m:ss.
 fn mmss(m: f32) -> String {
     let s = (m * 60.0).round().max(0.0) as i64;
@@ -2514,6 +2725,59 @@ mod station_edit_tests {
             println!("Before: 77_kk-kk profile 0 {} -> {}; After: 77_kk-kk profile 0 {} -> {}", clock_secs(524.25), clock_secs(544.25), clock_secs(after), clock_secs(after + 20.0));
             assert_eq!(clock_secs(after), expected);
         }
+    }
+
+    #[test]
+    fn insert_departures_ui_and_undo() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        let (departures, profiles, _) = insert::tests::fixture();
+        let tt = &mut ed.doc.as_mut().unwrap().timetable;
+        tt.trips.clear();
+        let line = tt.lines[0].name.clone();
+        for (name, stations, minutes) in [("77_kk-kk", vec![4891, 4890], 20.0), ("77_kk_layover", vec![4890, 593153], 2.0), ("Depot_from_kk", vec![4890, 4890], 5.0)] {
+            let mut t = trip(name, &stations, "End");
+            t.line = line.clone();
+            t.profiles[0].factor = minutes;
+            tt.trips.push(t);
+        }
+        tt.lines[0].tours.push(Tour { number: "1".into(), ai_group: String::new(), extra: ALL_DAYS.to_string(), trips: departures });
+        ui.select_line(tt, Some(line));
+        ui.tours_tab = true;
+        ui.tour = Some(0);
+        ui.holidays_open = false;
+        let text_center = |output: &egui::FullOutput, label: &str| {
+            output.shapes.iter().rev().find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.text() == label => Some(text.pos + text.galley.size() * 0.5),
+                _ => None,
+            })
+        };
+        let click = |ui: &mut TimetableUi, ed: &mut Editor, pos| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default(),
+            };
+            frame(&ctx, ui, ed, vec![egui::Event::PointerMoved(pos), button(true)]);
+            frame(&ctx, ui, ed, vec![button(false)])
+        };
+        frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let before = ed.doc.as_ref().unwrap().timetable.clone();
+        insert::tests::print_tour("Before UI insertion", &before.lines[0].tours[0].trips, &profiles);
+        click(&mut ui, &mut ed, text_center(&output, tr("Insert departures", "Вставить отправления")).unwrap());
+        ui.departure_insert.as_mut().unwrap().trip = "77_kk_layover".into();
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        click(&mut ui, &mut ed, text_center(&output, "7:00").unwrap());
+        assert_eq!(ui.departure_insert.as_ref().unwrap().selection.positions.len(), 1);
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        click(&mut ui, &mut ed, text_center(&output, tr("Confirm insertion", "Подтвердить вставку")).unwrap());
+        assert!(ui.departure_insert.is_none());
+        let tt = &ed.doc.as_ref().unwrap().timetable;
+        insert::tests::print_tour("After UI insertion", &tt.lines[0].tours[0].trips, &profiles);
+        assert_eq!(tt.lines[0].tours[0].trips.len(), 5);
+        ed.undo();
+        let restored = &ed.doc.as_ref().unwrap().timetable;
+        insert::tests::print_tour("After Undo", &restored.lines[0].tours[0].trips, &profiles);
+        assert!(before.same_content(restored));
     }
 
     fn profile() -> TripProfile {

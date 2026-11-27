@@ -1,0 +1,25 @@
+name: Timetable insertion checks
+on:
+  pull_request:
+    branches: [merge/upstream-0.2.3]
+permissions:
+  contents: read
+jobs:
+  windows:
+    if: github.head_ref == 'feature/batch-insert-departures'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ref: [7e891f8e36890c58296fa72b42a66c17264c296a, '${{ github.event.pull_request.head.sha }}']
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.ref }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --locked -- --nocapture
+      - run: cargo clippy --locked
+        if: always()
