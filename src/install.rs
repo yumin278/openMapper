@@ -38,7 +38,7 @@ fn launcher_cfg() -> LauncherCfg {
 }
 
 /// The editor's own settings (`~/.openomsi/openmapper.json`).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Prefs {
     /// The OMSI 2 folder chosen by hand (empty: found by itself).
     #[serde(default)]
@@ -126,6 +126,13 @@ pub struct Prefs {
     /// Separator between the line number and destination; absent in older settings means underscore.
     #[serde(default)]
     pub destination_line_separator: Option<String>,
+    /// AI path spline overrides (empty: the original invisible spline).
+    #[serde(default)]
+    pub path_car: String,
+    #[serde(default)]
+    pub path_walk: String,
+    #[serde(default = "default_on")]
+    pub path_follow_lane_kind: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
@@ -227,7 +234,54 @@ fn restore_ui_memory(ctx: &egui::Context, text: &str) {
     });
 }
 
+pub const DEFAULT_PATH_CAR: &str = "Splines\\Marcel\\invis_street.sli";
+pub const DEFAULT_PATH_WALK: &str = "Splines\\invis_sidewalk.sli";
+
+impl Default for Prefs {
+    fn default() -> Self {
+        Self {
+            omsi_root: Default::default(),
+            language: Default::default(),
+            recent: Default::default(),
+            hints_seen: Default::default(),
+            guide_off: Default::default(),
+            favourites: Default::default(),
+            recent_assets: Default::default(),
+            ui_scale: Default::default(),
+            theme: Default::default(),
+            camera: Default::default(),
+            omsi_controls: Default::default(),
+            keys_set: Default::default(),
+            tile_streaming: Default::default(),
+            stream_tiles: Default::default(),
+            cam_tune: Default::default(),
+            graphics_api: Default::default(),
+            graphics: Default::default(),
+            geo: Default::default(),
+            last_views: Default::default(),
+            keys: Default::default(),
+            update_mode: Default::default(),
+            omsi2_copy_ok: Default::default(),
+            drive: Default::default(),
+            snap: Default::default(),
+            assets_layout: Default::default(),
+            destination_line_separator: Default::default(),
+            path_car: Default::default(),
+            path_walk: Default::default(),
+            path_follow_lane_kind: true,
+        }
+    }
+}
+
 impl Prefs {
+    pub fn path_car(&self) -> &str {
+        if self.path_car.is_empty() { DEFAULT_PATH_CAR } else { &self.path_car }
+    }
+
+    pub fn path_walk(&self) -> &str {
+        if self.path_walk.is_empty() { DEFAULT_PATH_WALK } else { &self.path_walk }
+    }
+
     pub fn destination_line_separator(&self) -> &str {
         self.destination_line_separator.as_deref().unwrap_or("_")
     }
@@ -522,6 +576,20 @@ mod tests {
         // (a file that cannot be read changes nothing)
         restore_ui_memory(&next, "not ron");
         assert!(next.memory(|m| m.area_rect(egui::Id::new("saved views"))).is_some());
+    }
+
+    #[test]
+    fn ai_path_defaults_are_backward_compatible() {
+        for prefs in [Prefs::default(), serde_json::from_str::<Prefs>("{}").unwrap()] {
+            assert_eq!(prefs.path_car(), DEFAULT_PATH_CAR);
+            assert_eq!(prefs.path_walk(), DEFAULT_PATH_WALK);
+            assert!(prefs.path_follow_lane_kind);
+        }
+        let prefs: Prefs = serde_json::from_str(r#"{"path_car":"Splines\\custom.sli","path_follow_lane_kind":false}"#).unwrap();
+        assert_eq!(prefs.path_car(), "Splines\\custom.sli");
+        let roundtrip: Prefs = serde_json::from_str(&serde_json::to_string(&prefs).unwrap()).unwrap();
+        assert_eq!(roundtrip.path_car(), prefs.path_car());
+        assert!(!roundtrip.path_follow_lane_kind);
     }
 
     #[test]

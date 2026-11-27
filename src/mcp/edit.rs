@@ -968,12 +968,16 @@ impl Server {
         }
         let rel = match a.str("type") {
             Some(t) => self.resolve(t, Some(true))?,
-            None => self.ed.path_type.clone().or_else(|| self.lib.find("Splines\\Marcel\\invis_street.sli").map(|a| a.rel.clone())).or_else(|| self.lib.assets.iter().find(|a| a.category == Category::Technical && a.kind == Kind::Spline && a.lanes.0 > 0).map(|a| a.rel.clone())).ok_or("`type` is needed: an AI path spline (catalogue category technical)")?,
+            None => self.ed.path_type.clone().or_else(|| self.lib.find(&self.ed.path_car).map(|a| a.rel.clone())).or_else(|| self.lib.assets.iter().find(|a| a.category == Category::Technical && a.kind == Kind::Spline && a.lanes.0 > 0).map(|a| a.rel.clone())).ok_or("`type` is needed: an AI path spline (catalogue category technical)")?,
         };
         self.wait_spline(&rel)?;
         self.ed.set_tool(Tool::Logic);
         self.ed.set_logic(LogicMode::Paths);
-        self.ed.set_path_type(rel.clone());
+        if a.str("type").is_none() && self.ed.path_type.is_none() && rel.eq_ignore_ascii_case(&self.ed.path_car) {
+            self.ed.set_default_path_type(0);
+        } else if self.ed.path_type.as_deref() != Some(rel.as_str()) || a.str("type").is_some() {
+            self.ed.set_path_type(rel.clone());
+        }
         for p in &pts {
             self.click_at(*p, false);
         }
