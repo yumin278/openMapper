@@ -81,6 +81,7 @@ struct Keys {
 pub struct App {
     gfx: Option<Gfx>,
     prefs: Prefs,
+    path_defaults_dirty: bool,
     roots: Option<Roots>,
     assets: Option<Assets>,
     lib: Library,
@@ -233,6 +234,7 @@ impl App {
         let mut app = App {
             gfx: None,
             prefs,
+            path_defaults_dirty: true,
             roots: None,
             assets: None,
             lib: Library::default(),
@@ -290,6 +292,7 @@ impl App {
             sync: Default::default(),
         };
         crate::logging::stage("looking for OMSI 2 and the content");
+        app.ed.path_follow_lane_kind = app.prefs.path_follow_lane_kind;
         app.setup_roots();
         // OPENMAPPER_NEWMAP: the New map dialog open at the start (checks without a person at the screen)
         if std::env::var_os("OPENMAPPER_NEWMAP").is_some() {
@@ -334,6 +337,7 @@ impl App {
         log::info!("OMSI 2: {}", omsi.display());
         let roots = Roots::new(omsi);
         self.assets = Some(Assets::new(roots.omsi.clone(), roots.content.clone()));
+        self.path_defaults_dirty = true;
         self.lib.start_scan(&roots);
         // (every map's global.cfg is read to name it: a long list on a slow disk is not waited for)
         let (tx, rx) = std::sync::mpsc::channel();
@@ -1494,6 +1498,7 @@ impl App {
     fn reload_content(&mut self) {
         let Some(roots) = &self.roots else { return };
         omsi_cfg::content_changed();
+        self.path_defaults_dirty = true;
         self.lib.start_scan(roots);
         if let Some(a) = &mut self.assets {
             a.clear();
@@ -2044,6 +2049,20 @@ impl App {
                 self.prefs.graphics_api = a.code().to_string();
                 self.prefs.save();
                 self.ed.toast(tr("The graphics API changes the next time openMapper starts", "Графический API сменится при следующем запуске openMapper").to_string());
+            }
+            Action::SetPathDefault(kind, rel) => {
+                if kind == 1 {
+                    self.prefs.path_walk = rel;
+                } else {
+                    self.prefs.path_car = rel;
+                }
+                self.prefs.save();
+                self.path_defaults_dirty = true;
+            }
+            Action::SetPathFollowLaneKind(on) => {
+                self.prefs.path_follow_lane_kind = on;
+                self.ed.path_follow_lane_kind = on;
+                self.prefs.save();
             }
             Action::SetDestinationLineSeparator(separator) => {
                 self.prefs.destination_line_separator = Some(separator);
@@ -2927,7 +2946,13 @@ impl App {
         if let Some(a) = &mut self.assets {
             a.poll();
         }
-        self.lib.poll();
+        let catalogue_changed = self.lib.poll();
+        if !self.lib.scanning && (self.path_defaults_dirty || catalogue_changed) {
+            if let Some(assets) = &mut self.assets {
+                self.ed.configure_path_defaults(&self.prefs, &self.lib, assets);
+                self.path_defaults_dirty = false;
+            }
+        }
         // (objects the editor wrote - junctions of its own, bus bays' taper plates, plates of a
         // drawn junction - are read into the catalogue without a rescan, before the window is
         // built: the hot reload takes the editor's own writes as already known, and a full scan
@@ -3203,7 +3228,7 @@ impl App {
             let ctx = ui.ctx().clone();
             crate::theme::sync(&ctx);
             if self.ed.doc.is_none() {
-                ui::welcome(ui, &mut self.ui, &self.prefs, self.roots.as_ref().map(|r| r.omsi.as_path()), &mut actions);
+                ui::welcome(ui, &mut self.ui, &self.prefs, &self.lib, self.roots.as_ref().map(|r| r.omsi.as_path()), &mut actions);
             } else {
                 let can_undo = self.ed.history.can_undo();
                 let can_redo = self.ed.history.can_redo();

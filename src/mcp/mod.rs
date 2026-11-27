@@ -101,6 +101,8 @@ pub fn cli(cfg: Option<&Path>, allow_edit: bool) -> i32 {
     };
     let roots = crate::install::Roots::new(omsi);
     let mut server = Server::new(roots, allow_edit);
+    server.wait_lib();
+    server.ed.configure_path_defaults(&prefs, &server.lib, &mut server.assets);
     if let Some(cfg) = cfg {
         if let Err(e) = server.open(cfg) {
             eprintln!("{e}");

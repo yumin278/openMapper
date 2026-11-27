@@ -3412,3 +3412,8 @@ The lanes' paths run the way a left-hand map has them (a one-way road keeps its 
 Insert a departure after this one	在这班之后插入一班
 Insert departure	插入班次
 Overlaps the previous departure by	与前一班重叠
+AI path defaults	AI 路径默认设置
+Default AI vehicle path spline	AI 车辆路径默认曲线
+Default AI pedestrian path spline	AI 行人路径默认曲线
+Use original invisible spline	使用原始隐形曲线
+Automatically follow nearby lane kind	自动跟随附近路径类型
