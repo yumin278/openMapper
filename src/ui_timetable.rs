@@ -939,10 +939,11 @@ impl TimetableUi {
             log::warn!("timetable: batch route failures: {}", failures.join(", "));
         }
         self.shown = None;
-        self.bulk_changed |= completed > 0;
+        let pruned = doc.timetable.prune_unused_links().len();
+        self.bulk_changed |= completed > 0 || pruned > 0;
         self.bulk_conflicts = causes;
         let mut report = format!(
-            "Recalculated / 已重算: {completed}  |  Failed / 失敗（保留原檔）: {}  |  Conflicts / 衝突（保留原檔）: {conflicting}  |  Skipped / 略過: {skipped}",
+            "Recalculated / 已重算: {completed}  |  Failed / 失敗（保留原檔）: {}  |  Conflicts / 衝突（保留原檔）: {conflicting}  |  Skipped / 略過: {skipped}  |  Pruned / 已清除站間連結: {pruned}",
             failures.len(),
         );
         if kept_hand > 0 {
@@ -1313,6 +1314,19 @@ impl TimetableUi {
     fn contents(&mut self, ui: &mut egui::Ui, ed: &mut Editor, actions: &mut Vec<Action>) {
         let Some(doc) = ed.doc.as_mut() else { return };
         self.type2_conversion(ui, doc, &mut ed.toasts);
+        if ui.button("Prune unused station links / 清除未使用的站間連結").clicked() {
+            let count = doc.timetable.prune_unused_links().len();
+            if count > 0 {
+                self.bulk_changed = true;
+                self.shown = None;
+                self.stop_edit_undo = Some("Prune unused station links / 清除未使用的站間連結");
+            }
+            ed.toasts.push(crate::editor::Toast {
+                text: format!("Pruned unused station links / 已清除未使用的站間連結: {count}"),
+                at: std::time::Instant::now(),
+                error: false,
+            });
+        }
         if self.net.is_none() {
             ui.label(RichText::new(tr("The roads can't be read without the OMSI 2 folder.", "Без папки OMSI 2 дороги не прочитать.")).color(pal().warn));
         }

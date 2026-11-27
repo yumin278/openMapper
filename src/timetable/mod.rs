@@ -522,6 +522,30 @@ impl Timetable {
         self.mark();
     }
 
+    /// Remove only directed station pairs no longer referenced by any trip.
+    pub fn prune_unused_links(&mut self) -> Vec<(i64, i64)> {
+        let used: BTreeSet<_> = self.trips.iter()
+            .flat_map(|trip| trip.stations.windows(2).map(|p| (p[0], p[1])))
+            .collect();
+        let mut removed = Vec::new();
+        self.links.retain(|link| {
+            let (from, to) = (link.from_id, link.to_id);
+            if used.contains(&(from, to)) {
+                true
+            } else {
+                let length = link.length;
+                log::info!("timetable: pruned unused StnLink {from} -> {to} (len {length})");
+                removed.push((from, to));
+                false
+            }
+        });
+        if !removed.is_empty() {
+            self.links_changed = true;
+            self.mark();
+        }
+        removed
+    }
+
     /// The stop list brought in line with the map's stop objects (`stop_entries`): names and
     /// tiles follow the objects, new stops are added. True when anything changed.
     pub fn sync_stops(&mut self, entries: Vec<BusStopEntry>) -> bool {
