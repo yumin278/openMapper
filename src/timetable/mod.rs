@@ -1023,5 +1023,11 @@ pub fn clock(minutes: f32) -> String {
 }
 
 
+/// Minutes after midnight as h:mm:ss, rounded to the nearest second.
+pub fn clock_secs(minutes: f32) -> String {
+    let s = (minutes * 60.0).round().max(0.0) as i64;
+    format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60)
+}
+
 #[cfg(test)]
 pub(crate) mod tests;

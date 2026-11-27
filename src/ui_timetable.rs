@@ -18,7 +18,7 @@ use crate::install::Roots;
 use crate::render::FrameExtras;
 use crate::timetable::network::{Files, Network};
 use crate::timetable::route::{self, Problem, Route, Ways};
-use crate::timetable::{self, clock, Timetable, ALL_DAYS};
+use crate::timetable::{self, clock_secs, Timetable, ALL_DAYS};
 use crate::ui::Action;
 use crate::theme::pal;
 
@@ -2370,26 +2370,38 @@ impl TimetableUi {
             // the departures
             ui.add_space(4.0);
             let mut remove = None;
+            let mut insert_after = None;
             let count = tour.trips.len();
+            let overlapping = overlaps(&tour.trips, &profiles);
             if count == 0 {
                 ui.label(RichText::new(tr("No departures yet: add them above.", "Отправлений пока нет: добавьте их выше.")).color(pal().text_dim));
             }
-            egui::Grid::new("tt deps").num_columns(5).spacing(Vec2::new(8.0, 3.0)).show(ui, |ui| {
+            egui::Grid::new("tt deps").num_columns(6).spacing(Vec2::new(8.0, 3.0)).show(ui, |ui| {
                 for k in 0..count {
                     let tr_ = &mut tour.trips[k];
-                    let mut h = (tr_.departure / 60.0).floor() as i32;
-                    let mut m = (tr_.departure - h as f32 * 60.0).round() as i32;
-                    ui.horizontal(|ui| {
+                    let (mut h, mut m, mut s) = departure_parts(tr_.departure);
+                    let overlap = overlapping.get(&k).map(|m| format!("{} {}", tr("Overlaps the previous departure by", "Перекрывает предыдущее отправление на"), mmss(*m)));
+                    let time = ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 2.0;
+                        if overlap.is_some() {
+                            ui.visuals_mut().override_text_color = Some(pal().error);
+                        }
                         let a = ui.add(egui::DragValue::new(&mut h).range(0..=47).custom_formatter(|v, _| format!("{:02}", v as i32)));
+                        let a = if let Some(hint) = &overlap { a.on_hover_text(hint) } else { a };
                         ui.label(":");
                         let b = ui.add(egui::DragValue::new(&mut m).range(-1..=60).custom_formatter(|v, _| format!("{:02}", v as i32)));
-                        if a.changed() || b.changed() {
-                            let mins = (h * 60 + m).clamp(0, 47 * 60 + 59);
-                            tr_.departure = mins as f32;
+                        let b = if let Some(hint) = &overlap { b.on_hover_text(hint) } else { b };
+                        ui.label(":");
+                        let c = ui.add(egui::DragValue::new(&mut s).range(-1..=60).custom_formatter(|v, _| format!("{:02}", v as i32)));
+                        let c = if let Some(hint) = &overlap { c.on_hover_text(hint) } else { c };
+                        if a.changed() || b.changed() || c.changed() {
+                            tr_.departure = departure_minutes(h, m, s);
                             changed = true;
                         }
                     });
+                    if let Some(hint) = overlap {
+                        time.response.on_hover_text(hint);
+                    }
                     egui::ComboBox::from_id_salt(("tt dep trip", k)).selected_text(tr_.trip.clone()).width(160.0).height(360.0).show_ui(ui, |ui| {
                         for t in trips {
                             changed |= ui.selectable_value(&mut tr_.trip, t.clone(), t).changed();
@@ -2419,8 +2431,10 @@ impl TimetableUi {
                     } else {
                         ui.label("");
                     }
-                    let arrive = ps.get(tr_.profile.max(0) as usize).or(ps.first()).map(|p| p.1).unwrap_or(0.0);
-                    ui.label(RichText::new(format!("» {}", clock(tr_.departure + arrive))).color(pal().text_dim));
+                    ui.label(RichText::new(format!("» {}", clock_secs(departure_arrival(tr_, &profiles)))).color(pal().text_dim));
+                    if small_button(ui, Icon::Add, tr("Insert a departure after this one", "Вставить отправление после этого")) {
+                        insert_after = Some(k);
+                    }
                     if small_button(ui, Icon::Delete, tr("Delete the departure", "Удалить отправление")) {
                         remove = Some(k);
                     }
@@ -2430,6 +2444,10 @@ impl TimetableUi {
             if let Some(k) = remove {
                 tour.trips.remove(k);
                 changed = true;
+            } else if let Some(k) = insert_after {
+                insert_departure(&mut tour.trips, k, &profiles);
+                changed = true;
+                self.stop_edit_undo = Some(tr("Insert departure", "Вставить отправление"));
             }
         });
         if delete_tour {
@@ -2483,6 +2501,37 @@ fn mmss(m: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
+// Use the same profile lookup for the arrival label, cloning and overlap warnings.
+fn departure_arrival(trip: &TourTrip, profiles: &HashMap<String, Vec<(String, f32)>>) -> f32 {
+    trip.departure + profiles.get(&lower(&trip.trip))
+        .and_then(|ps| ps.get(trip.profile.max(0) as usize).or(ps.first()))
+        .map(|p| p.1).unwrap_or(0.0)
+}
+
+fn insert_departure(trips: &mut Vec<TourTrip>, k: usize, profiles: &HashMap<String, Vec<(String, f32)>>) {
+    let source = &trips[k];
+    let departure = (departure_arrival(source, profiles) * 60.0).round().clamp(0.0, 172799.0) / 60.0;
+    let new = TourTrip { trip: source.trip.clone(), profile: source.profile, departure };
+    trips.insert(k + 1, new);
+}
+
+fn overlaps(trips: &[TourTrip], profiles: &HashMap<String, Vec<(String, f32)>>) -> HashMap<usize, f32> {
+    trips.windows(2).enumerate().filter_map(|(k, pair)| {
+        let seconds = (departure_arrival(&pair[0], profiles) * 60.0).round()
+            - (pair[1].departure * 60.0).round();
+        (seconds > 0.0).then_some((k + 1, seconds / 60.0))
+    }).collect()
+}
+
+fn departure_parts(minutes: f32) -> (i32, i32, i32) {
+    let s = (minutes * 60.0).round().clamp(0.0, 172799.0) as i32;
+    (s / 3600, s / 60 % 60, s % 60)
+}
+
+fn departure_minutes(h: i32, m: i32, s: i32) -> f32 {
+    (h * 3600 + m * 60 + s).clamp(0, 172799) as f32 / 60.0
+}
+
 fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
     ui.spacing_mut().item_spacing.x = 2.0;
     ui.add(egui::DragValue::new(&mut t.0).range(0..=47).custom_formatter(|v, _| format!("{:02}", v as i32)));
@@ -2495,6 +2544,101 @@ fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
 mod station_edit_tests {
     use super::*;
     use omsi_timetable::TripProfile;
+
+    #[test]
+    fn departure_edits_keep_seconds() {
+        let (h, m, s) = departure_parts(524.25);
+        assert_eq!((h, m, s), (8, 44, 15));
+        for (parts, expected) in [((h + 1, m, s), "9:44:15"), ((h, m + 1, s), "8:45:15"), ((h, 60, s), "9:00:15"), ((h, m, -1), "8:43:59"), ((47, 59, 60), "47:59:59"), ((0, 0, -1), "0:00:00")] {
+            let after = departure_minutes(parts.0, parts.1, parts.2);
+            println!("Before: 77_kk-kk profile 0 {} -> {}; After: 77_kk-kk profile 0 {} -> {}", clock_secs(524.25), clock_secs(544.25), clock_secs(after), clock_secs(after + 20.0));
+            assert_eq!(clock_secs(after), expected);
+        }
+    }
+
+    fn departure_fixture() -> (Vec<TourTrip>, HashMap<String, Vec<(String, f32)>>) {
+        let profiles = HashMap::from([
+            ("depot_to_kk".into(), vec![("standard".into(), 10.0)]),
+            ("77_kk-kk".into(), vec![("standard".into(), 18.75), ("slow".into(), 21.0)]),
+            ("77_kk_layover".into(), vec![("standard".into(), 2.0)]),
+            ("depot_from_kk".into(), vec![("standard".into(), 10.0)]),
+        ]);
+        let departures = [("Depot_to_kk", 300.0), ("77_kk-kk", 315.0), ("77_kk-kk", 342.0), ("Depot_from_kk", 361.0)]
+            .into_iter().map(|(trip, departure)| TourTrip { trip: trip.into(), profile: 0, departure }).collect();
+        (departures, profiles)
+    }
+
+    fn print_tour(label: &str, trips: &[TourTrip], profiles: &HashMap<String, Vec<(String, f32)>>) {
+        println!("{label}:");
+        for (k, t) in trips.iter().enumerate() {
+            println!("{k}: {} profile {} {} -> {}", t.trip, t.profile, clock_secs(t.departure), clock_secs(departure_arrival(t, profiles)));
+        }
+    }
+
+    fn departure_rows(trips: &[TourTrip]) -> Vec<(&str, i32, f32)> {
+        trips.iter().map(|t| (t.trip.as_str(), t.profile, t.departure)).collect()
+    }
+
+    #[test]
+    fn clone_departure_at_arrival_preserves_all_other_rows() {
+        let (mut trips, profiles) = departure_fixture();
+        let (before, _) = departure_fixture();
+        print_tour("Before insertion", &trips, &profiles);
+        insert_departure(&mut trips, 1, &profiles);
+        print_tour("After insertion", &trips, &profiles);
+        assert_eq!(trips.len(), 5);
+        assert_eq!(departure_rows(&trips[2..3]), vec![("77_kk-kk", 0, 333.75)]);
+        assert_eq!(clock_secs(trips[2].departure), "5:33:45");
+        assert_eq!(departure_rows(&trips[..2]), departure_rows(&before[..2]));
+        assert_eq!(departure_rows(&trips[3..]), departure_rows(&before[2..]));
+    }
+
+    #[test]
+    fn clone_departure_uses_selected_profile() {
+        let (mut trips, profiles) = departure_fixture();
+        print_tour("Before profile change", &trips, &profiles);
+        trips[1].profile = 1;
+        insert_departure(&mut trips, 1, &profiles);
+        print_tour("After profile change and insertion", &trips, &profiles);
+        assert_eq!(departure_rows(&trips[2..3]), vec![("77_kk-kk", 1, 336.0)]);
+        assert_eq!(clock_secs(trips[2].departure), "5:36:00");
+    }
+
+    #[test]
+    fn clone_departure_clamps_to_last_second() {
+        let (mut trips, profiles) = departure_fixture();
+        trips[3].departure = departure_minutes(47, 55, 0);
+        print_tour("Before late insertion", &trips, &profiles);
+        insert_departure(&mut trips, 3, &profiles);
+        print_tour("After late insertion", &trips, &profiles);
+        assert_eq!(clock_secs(trips[4].departure), "47:59:59");
+        assert_eq!(trips[4].departure, departure_minutes(47, 59, 59));
+    }
+
+    #[test]
+    fn overlap_compares_rounded_seconds_in_list_order() {
+        let (mut trips, profiles) = departure_fixture();
+        trips[2].departure = departure_minutes(5, 33, 45);
+        print_tour("Before overlap: touching times", &trips, &profiles);
+        assert!(!overlaps(&trips, &profiles).contains_key(&2));
+        trips[2].departure -= 0.2 / 60.0;
+        assert!(!overlaps(&trips, &profiles).contains_key(&2));
+        trips[2].departure = departure_minutes(5, 32, 30);
+        print_tour("After overlap", &trips, &profiles);
+        let warnings = overlaps(&trips, &profiles);
+        assert_eq!(warnings.get(&2), Some(&1.25));
+        assert_eq!(mmss(warnings[&2]), "1:15");
+    }
+
+    #[test]
+    fn clone_departure_falls_back_to_first_profile() {
+        let (mut trips, profiles) = departure_fixture();
+        trips[1].profile = 99;
+        print_tour("Before fallback insertion", &trips, &profiles);
+        insert_departure(&mut trips, 1, &profiles);
+        print_tour("After fallback insertion", &trips, &profiles);
+        assert_eq!(departure_rows(&trips[2..3]), vec![("77_kk-kk", 99, 333.75)]);
+    }
 
     fn profile() -> TripProfile {
         TripProfile {
@@ -2622,6 +2766,91 @@ mod station_edit_tests {
         let ctx = egui::Context::default();
         ctx.set_fonts(icons::fonts());
         (ed, ui, ctx)
+    }
+
+    fn departure_editor_fixture() -> (Editor, TimetableUi, egui::Context, HashMap<String, Vec<(String, f32)>>) {
+        let (mut ed, mut ui, ctx) = editor_fixture();
+        let (departures, profiles) = departure_fixture();
+        let tt = &mut ed.doc.as_mut().unwrap().timetable;
+        let line = tt.lines[0].name.clone();
+        tt.trips.clear();
+        for name in ["Depot_to_kk", "77_kk-kk", "77_kk_layover", "Depot_from_kk"] {
+            let mut t = trip(name, &[11, 12], "KK");
+            t.line = line.clone();
+            t.profiles = profiles[&lower(name)].iter().map(|(name, factor)| TripProfile {
+                name: name.clone(), factor: *factor, ..profile()
+            }).collect();
+            tt.trips.push(t);
+        }
+        tt.lines[0].tours.push(Tour { number: "1".into(), ai_group: String::new(), extra: ALL_DAYS.to_string(), trips: departures });
+        ui.select_line(tt, Some(line));
+        ui.tours_tab = true;
+        ui.tour = Some(0);
+        (ed, ui, ctx, profiles)
+    }
+
+    fn departure_text_centers(output: &egui::FullOutput, label: &str) -> Vec<egui::Pos2> {
+        output.shapes.iter().filter_map(|shape| match &shape.shape {
+            egui::Shape::Text(text) if text.galley.text() == label => Some(text.pos + text.galley.size() * 0.5),
+            _ => None,
+        }).collect()
+    }
+
+    fn departure_click(ctx: &egui::Context, ui: &mut TimetableUi, ed: &mut Editor, pos: egui::Pos2) -> egui::FullOutput {
+        let button = |pressed| egui::Event::PointerButton {
+            pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::default(),
+        };
+        frame(ctx, ui, ed, vec![egui::Event::PointerMoved(pos), button(true)]);
+        frame(ctx, ui, ed, vec![button(false)])
+    }
+
+    fn click_clone_row(ctx: &egui::Context, ui: &mut TimetableUi, ed: &mut Editor) {
+        frame(ctx, ui, ed, Vec::new());
+        let output = frame(ctx, ui, ed, Vec::new());
+        let arrival = departure_text_centers(&output, "» 5:33:45")[0];
+        let add = departure_text_centers(&output, &Icon::Add.ch().to_string()).into_iter()
+            .find(|pos| pos.x > arrival.x && (pos.y - arrival.y).abs() < 10.0)
+            .expect("the row's insert button is to the right of its arrival");
+        departure_click(ctx, ui, ed, add);
+    }
+
+    #[test]
+    fn clone_departure_button_undo_restores_tour() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx, profiles) = departure_editor_fixture();
+        let before = ed.doc.as_ref().unwrap().timetable.clone();
+        print_tour("Before button click", &before.lines[0].tours[0].trips, &profiles);
+        click_clone_row(&ctx, &mut ui, &mut ed);
+        let after = &ed.doc.as_ref().unwrap().timetable.lines[0].tours[0].trips;
+        print_tour("After button click", after, &profiles);
+        assert_eq!(after.len(), 5);
+        assert_eq!(departure_rows(&after[2..3]), vec![("77_kk-kk", 0, 333.75)]);
+        assert_eq!(ed.history.undo_label(), Some(tr("Insert departure", "Вставить отправление")));
+        ed.undo();
+        let restored = &ed.doc.as_ref().unwrap().timetable;
+        print_tour("After undo", &restored.lines[0].tours[0].trips, &profiles);
+        assert!(restored.same_content(&before));
+    }
+
+    #[test]
+    fn changing_cloned_trip_in_ui_keeps_departure_time() {
+        let _map = crate::doc::one_map();
+        let (mut ed, mut ui, ctx, profiles) = departure_editor_fixture();
+        click_clone_row(&ctx, &mut ui, &mut ed);
+        print_tour("Before trip selection", &ed.doc.as_ref().unwrap().timetable.lines[0].tours[0].trips, &profiles);
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let arrival = departure_text_centers(&output, "» 5:52:30")[0];
+        let combo = departure_text_centers(&output, "77_kk-kk").into_iter()
+            .find(|pos| pos.x < arrival.x && (pos.y - arrival.y).abs() < 10.0)
+            .expect("the inserted row's trip selector");
+        departure_click(&ctx, &mut ui, &mut ed, combo);
+        let output = frame(&ctx, &mut ui, &mut ed, Vec::new());
+        let layover = departure_text_centers(&output, "77_kk_layover").into_iter().next().expect("the layover option");
+        departure_click(&ctx, &mut ui, &mut ed, layover);
+        let trips = &ed.doc.as_ref().unwrap().timetable.lines[0].tours[0].trips;
+        print_tour("After trip selection", trips, &profiles);
+        assert_eq!(departure_rows(&trips[2..3]), vec![("77_kk_layover", 0, 333.75)]);
+        assert_eq!(clock_secs(departure_arrival(&trips[2], &profiles)), "5:35:45");
     }
 
     #[test]
