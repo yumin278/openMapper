@@ -18,7 +18,7 @@ use crate::install::Roots;
 use crate::render::FrameExtras;
 use crate::timetable::network::{Files, Network};
 use crate::timetable::route::{self, Problem, Route, Ways};
-use crate::timetable::{self, clock, Timetable, ALL_DAYS};
+use crate::timetable::{self, clock_secs, Timetable, ALL_DAYS};
 use crate::ui::Action;
 use crate::theme::pal;
 
@@ -2377,16 +2377,16 @@ impl TimetableUi {
             egui::Grid::new("tt deps").num_columns(5).spacing(Vec2::new(8.0, 3.0)).show(ui, |ui| {
                 for k in 0..count {
                     let tr_ = &mut tour.trips[k];
-                    let mut h = (tr_.departure / 60.0).floor() as i32;
-                    let mut m = (tr_.departure - h as f32 * 60.0).round() as i32;
+                    let (mut h, mut m, mut s) = departure_parts(tr_.departure);
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 2.0;
                         let a = ui.add(egui::DragValue::new(&mut h).range(0..=47).custom_formatter(|v, _| format!("{:02}", v as i32)));
                         ui.label(":");
                         let b = ui.add(egui::DragValue::new(&mut m).range(-1..=60).custom_formatter(|v, _| format!("{:02}", v as i32)));
-                        if a.changed() || b.changed() {
-                            let mins = (h * 60 + m).clamp(0, 47 * 60 + 59);
-                            tr_.departure = mins as f32;
+                        ui.label(":");
+                        let c = ui.add(egui::DragValue::new(&mut s).range(-1..=60).custom_formatter(|v, _| format!("{:02}", v as i32)));
+                        if a.changed() || b.changed() || c.changed() {
+                            tr_.departure = departure_minutes(h, m, s);
                             changed = true;
                         }
                     });
@@ -2420,7 +2420,7 @@ impl TimetableUi {
                         ui.label("");
                     }
                     let arrive = ps.get(tr_.profile.max(0) as usize).or(ps.first()).map(|p| p.1).unwrap_or(0.0);
-                    ui.label(RichText::new(format!("» {}", clock(tr_.departure + arrive))).color(pal().text_dim));
+                    ui.label(RichText::new(format!("» {}", clock_secs(tr_.departure + arrive))).color(pal().text_dim));
                     if small_button(ui, Icon::Delete, tr("Delete the departure", "Удалить отправление")) {
                         remove = Some(k);
                     }
@@ -2483,6 +2483,15 @@ fn mmss(m: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
+fn departure_parts(minutes: f32) -> (i32, i32, i32) {
+    let s = (minutes * 60.0).round().clamp(0.0, 172799.0) as i32;
+    (s / 3600, s / 60 % 60, s % 60)
+}
+
+fn departure_minutes(h: i32, m: i32, s: i32) -> f32 {
+    (h * 3600 + m * 60 + s).clamp(0, 172799) as f32 / 60.0
+}
+
 fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
     ui.spacing_mut().item_spacing.x = 2.0;
     ui.add(egui::DragValue::new(&mut t.0).range(0..=47).custom_formatter(|v, _| format!("{:02}", v as i32)));
@@ -2495,6 +2504,17 @@ fn time_edit(ui: &mut egui::Ui, t: &mut (u32, u32)) {
 mod station_edit_tests {
     use super::*;
     use omsi_timetable::TripProfile;
+
+    #[test]
+    fn departure_edits_keep_seconds() {
+        let (h, m, s) = departure_parts(524.25);
+        assert_eq!((h, m, s), (8, 44, 15));
+        for (parts, expected) in [((h + 1, m, s), "9:44:15"), ((h, m + 1, s), "8:45:15"), ((h, 60, s), "9:00:15"), ((h, m, -1), "8:43:59"), ((47, 59, 60), "47:59:59"), ((0, 0, -1), "0:00:00")] {
+            let after = departure_minutes(parts.0, parts.1, parts.2);
+            println!("Before: 77_kk-kk profile 0 {} -> {}; After: 77_kk-kk profile 0 {} -> {}", clock_secs(524.25), clock_secs(544.25), clock_secs(after), clock_secs(after + 20.0));
+            assert_eq!(clock_secs(after), expected);
+        }
+    }
 
     fn profile() -> TripProfile {
         TripProfile {

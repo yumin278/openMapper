@@ -1235,3 +1235,21 @@ fn a_junction_put_in_by_a_chrono_scenario_has_lanes() {
     assert!((lane.length() - 10.0).abs() < 0.1, "{}", lane.length());
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn second_precision_clock_and_ttl_round_trip() {
+    assert_eq!(clock_secs(524.25), "8:44:15");
+    assert_eq!(clock_secs(24.0 * 60.0 + 10.5), "24:10:30");
+    assert_eq!(clock_secs(-0.5), "0:00:00");
+    let mut tt = Timetable::default();
+    let line = tt.add_line("77");
+    tt.lines[0].tours.push(omsi_timetable::Tour { number: "1".into(), ai_group: String::new(), extra: "1023".into(), trips: [524.25, 1450.5, 2879.0 + 59.0 / 60.0].into_iter().map(|departure| omsi_timetable::TourTrip { trip: "77_kk-kk".into(), profile: 0, departure }).collect() });
+    let text = line_text(&tt.lines[0]);
+    println!("Before TTL round trip:\n{text}");
+    let back = omsi_timetable::Line::parse(&omsi_cfg::CfgFile::from_str(format!("{line}.ttl"), &text));
+    println!("After TTL round trip:\n{}", line_text(&back));
+    assert_eq!(back.tours[0].trips.len(), 3);
+    for (a, b) in tt.lines[0].tours[0].trips.iter().zip(&back.tours[0].trips) {
+        assert_eq!((&a.trip, a.profile, clock_secs(a.departure)), (&b.trip, b.profile, clock_secs(b.departure)));
+    }
+}
