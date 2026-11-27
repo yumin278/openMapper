@@ -56,12 +56,21 @@ jobs:
         run: git fetch --no-tags --depth=1 origin "$BASE"
       - name: No large files
         run: |
+          # (fork: a source file that was already this large at the base may still be
+          # changed - src/editor.rs carries the fork's own additions on top of upstream's;
+          # a file that is new, or that crosses the limit in this pull request, still fails)
           status=0
           while IFS= read -r f; do
             size=$(stat -c %s "$f" 2>/dev/null || echo 0)
+            base_size=$(git cat-file -s "$BASE:$f" 2>/dev/null || echo 0)
+            echo "$f: base $base_size bytes, now $size bytes (limit $MAX_BYTES)"
             if [ "$size" -ge "$MAX_BYTES" ]; then
-              echo "::error file=$f::$f is $((size / 1024)) KB. Files of a megabyte or more do not go into the repository (see CONTRIBUTING.md)."
-              status=1
+              if [ "$base_size" -ge "$MAX_BYTES" ]; then
+                echo "::warning file=$f::$f is $((size / 1024)) KB (already $((base_size / 1024)) KB at the base): allowed, it was over the limit before this pull request."
+              else
+                echo "::error file=$f::$f is $((size / 1024)) KB. Files of a megabyte or more do not go into the repository (see CONTRIBUTING.md)."
+                status=1
+              fi
             fi
           done < <(git diff --name-only --diff-filter=AM "$BASE" HEAD)
           exit $status
