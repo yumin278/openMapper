@@ -786,6 +786,12 @@ pub struct Editor {
     pub logic: LogicMode,
     /// The spline type AI paths are drawn with.
     pub path_type: Option<String>,
+    /// Validated defaults for the two AI path kinds (the catalogue is owned by the app).
+    pub path_car: String,
+    pub path_walk: String,
+    pub path_follow_lane_kind: bool,
+    /// A configured spline may carry both kinds; remember which shortcut chose it.
+    path_default_kind: Option<i32>,
     /// The road type while the Logic tool draws AI paths with the road machinery.
     stashed_road: Option<Option<String>>,
     /// Car parks go in a row from one click to the next.
@@ -997,6 +1003,10 @@ impl Default for Editor {
             show_grid: true,
             logic: LogicMode::Start,
             path_type: None,
+            path_car: crate::install::DEFAULT_PATH_CAR.into(),
+            path_walk: crate::install::DEFAULT_PATH_WALK.into(),
+            path_follow_lane_kind: true,
+            path_default_kind: None,
             stashed_road: None,
             parking_row: true,
             parking_step: 5.5,
@@ -1436,7 +1446,7 @@ impl Editor {
             self.history.touch_tile(doc, k);
         }
         self.history.touch_global(doc);
-        let n = crate::lanes_edit::detach(doc, assets, &pieces, &free, "Splines\\Marcel\\invis_street.sli", "Splines\\invis_sidewalk.sli");
+        let n = crate::lanes_edit::detach(doc, assets, &pieces, &free, &self.path_car, &self.path_walk);
         self.history.commit();
         self.show_lanes = true;
         self.toast(format!("{} {n}", tr("Roads whose lanes are now editable:", "Дорог с редактируемыми полосами:")));
@@ -1513,10 +1523,58 @@ impl Editor {
 
     /// Choose the AI path type (while drawing paths, the road machinery takes it at once).
     pub fn set_path_type(&mut self, rel: String) {
+        self.path_default_kind = None;
         self.path_type = Some(rel.clone());
         if self.stashed_road.is_some() {
             self.road_type = Some(rel);
         }
+    }
+
+    /// Resolve the configured defaults once the catalogue has finished scanning.
+    pub fn configure_path_defaults(&mut self, prefs: &crate::install::Prefs, lib: &Library, assets: &mut Assets) {
+        fn resolve(lib: &Library, assets: &mut Assets, requested: &str, fallback: &str, kind: i32) -> String {
+            let check = |assets: &mut Assets, file: &str| -> Result<String, &'static str> {
+                let a = lib.find(file).ok_or("not in the asset catalogue")?;
+                if a.kind != crate::library::Kind::Spline {
+                    return Err("not a spline");
+                }
+                // Models load on a worker: None from spline() alone is not a validation failure.
+                let m = assets.spline_wait(&a.rel, 5000).ok_or("spline model could not be loaded")?;
+                if !m.def.paths.iter().any(|p| p.kind == kind) {
+                    return Err("spline has no path of the required kind");
+                }
+                Ok(a.rel.clone())
+            };
+            match check(assets, requested) {
+                Ok(rel) => rel,
+                Err(reason) => {
+                    log::warn!("AI path default {requested:?} (kind {kind}): {reason}; falling back to {fallback:?}");
+                    if requested.eq_ignore_ascii_case(fallback) {
+                        return fallback.into();
+                    }
+                    match check(assets, fallback) {
+                        Ok(rel) => rel,
+                        Err(reason) => {
+                            log::warn!("AI path fallback {fallback:?} (kind {kind}): {reason}");
+                            fallback.into()
+                        }
+                    }
+                }
+            }
+        }
+        self.path_car = resolve(lib, assets, prefs.path_car(), crate::install::DEFAULT_PATH_CAR, 0);
+        self.path_walk = resolve(lib, assets, prefs.path_walk(), crate::install::DEFAULT_PATH_WALK, 1);
+        self.path_follow_lane_kind = prefs.path_follow_lane_kind;
+        if let Some(kind) = self.path_default_kind {
+            self.set_default_path_type(kind);
+        }
+        log::info!("AI path defaults: path_car={:?}, path_walk={:?}, path_follow_lane_kind={}", self.path_car, self.path_walk, self.path_follow_lane_kind);
+    }
+
+    pub fn set_default_path_type(&mut self, kind: i32) {
+        let rel = if kind == 1 { self.path_walk.clone() } else { self.path_car.clone() };
+        self.set_path_type(rel);
+        self.path_default_kind = Some(kind);
     }
 
     /// Drawing AI paths with the Logic tool.
@@ -4443,6 +4501,9 @@ impl Editor {
 
     /// The kind of lane the AI path type carries (0 cars, 1 people).
     fn path_kind(&self, assets: &mut Assets) -> i32 {
+        if let Some(kind) = self.path_default_kind {
+            return kind;
+        }
         self.path_type.as_deref().and_then(|r| assets.spline(r)).and_then(|m| m.def.paths.first().map(|p| p.kind)).unwrap_or(0)
     }
 
@@ -4510,16 +4571,24 @@ impl Editor {
     /// A path starts at a lane end of its own kind: near the end of a footway lane the path type
     /// becomes the footpath, near a street lane's the street.
     fn follow_lane_kind(&mut self, assets: &mut Assets, p: DVec2) {
+        if !self.path_follow_lane_kind {
+            log::debug!("AI path follow_lane_kind disabled");
+            return;
+        }
         // (a train's path stays one: a road's lane may well end beside a track)
-        if self.path_kind(assets) == 2 {
+        let old_kind = self.path_kind(assets);
+        if old_kind == 2 {
             return;
         }
         let Some(doc) = self.doc.as_ref() else { return };
         let (_, ends) = crate::lanes::near(doc, assets, p, 12.0);
         let near = ends.iter().filter(|e| e.kind < 2 && (e.pos.truncate() - p).length() < 3.0).min_by(|a, b| (a.pos.truncate() - p).length().total_cmp(&(b.pos.truncate() - p).length()));
-        let Some(kind) = near.map(|e| e.kind) else { return };
-        if kind != self.path_kind(assets) {
-            self.set_path_type((if kind == 1 { "Splines\\invis_sidewalk.sli" } else { "Splines\\Marcel\\invis_street.sli" }).to_string());
+        let Some(end) = near else { return };
+        if end.kind != old_kind {
+            let old = self.path_type.clone();
+            self.set_default_path_type(end.kind);
+            log::info!("AI path kind {old_kind} {:?} -> {} {:?}; endpoint {:?}, kind {}, distance {:.3} m",
+                old, end.kind, self.path_type, end.pos, end.kind, (end.pos.truncate() - p).length());
         }
     }
 
@@ -17402,6 +17471,53 @@ mod tests {
         ed.path_type = Some("Splines\\road.sli".into());
         ed.follow_lane_kind(&mut assets, DVec2::new(100.0, 100.0));
         assert_eq!(ed.path_type.as_deref(), Some("Splines\\road.sli"));
+    }
+
+    /// No installed OMSI content is needed: the catalogue and spline models are fixtures.
+    #[test]
+    fn ai_path_defaults_follow_lane_kind_and_fall_back() {
+        use crate::install::{Prefs, DEFAULT_PATH_CAR, DEFAULT_PATH_WALK};
+        let custom = "Splines\\custom_car.sli";
+        let wrong = "Splines\\wrong_kind.sli";
+        let mut assets = Assets::new(std::env::temp_dir().join("openmapper-no-omsi"), std::env::temp_dir().join("openmapper-no-content"));
+        let entries = [(DEFAULT_PATH_CAR, 0), (DEFAULT_PATH_WALK, 1), (custom, 0), (wrong, 1), ("Splines\\road.sli", 0)];
+        let lib = crate::library::roads_for_tests(&entries.map(|(rel, _)| (rel, 0.0)));
+        for (rel, kind) in entries {
+            let model = crate::assets::SplineModel {
+                def: omsi_scenery::Spline { only_editor: true, paths: vec![omsi_scenery::PathDef { kind, width: 1.0, direction: 2, ..Default::default() }], ..Default::default() },
+                materials: Vec::new(),
+                half_width: 0.0,
+            };
+            assets.splines.insert(rel.to_lowercase(), crate::assets::Slot::Ready(std::sync::Arc::new(model)));
+        }
+        let mut doc = flat_map(1);
+        add_spline(&mut doc, (0, 0), 1, 100.0, 100.0, 0.0, 30.0, 0, 0);
+        let mut ed = Editor::default();
+        ed.open(doc);
+        let point = DVec2::new(100.0, 100.0);
+        let mut prefs = Prefs { path_car: custom.into(), ..Default::default() };
+        ed.configure_path_defaults(&prefs, &lib, &mut assets);
+        ed.set_default_path_type(1);
+        ed.follow_lane_kind(&mut assets, point);
+        assert_eq!(ed.path_type.as_deref(), Some(custom));
+
+        prefs.path_car = wrong.into();
+        ed.configure_path_defaults(&prefs, &lib, &mut assets);
+        assert_eq!(ed.path_car, DEFAULT_PATH_CAR);
+        ed.set_default_path_type(1);
+        ed.follow_lane_kind(&mut assets, point);
+        assert_eq!(ed.path_type.as_deref(), Some(DEFAULT_PATH_CAR));
+
+        prefs.path_car = "Splines\\missing.sli".into();
+        ed.configure_path_defaults(&prefs, &lib, &mut assets);
+        assert_eq!(ed.path_car, DEFAULT_PATH_CAR);
+
+        prefs.path_car = custom.into();
+        prefs.path_follow_lane_kind = false;
+        ed.configure_path_defaults(&prefs, &lib, &mut assets);
+        ed.set_default_path_type(1);
+        ed.follow_lane_kind(&mut assets, point);
+        assert_eq!(ed.path_type.as_deref(), Some(DEFAULT_PATH_WALK));
     }
 
     /// The terrain brush stops under a road unless told not to, and then raises the ground

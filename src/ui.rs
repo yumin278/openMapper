@@ -137,6 +137,8 @@ pub enum Action {
     /// How the mouse moves the camera ("map" or "fly").
     SetCamera(String),
     SetDestinationLineSeparator(String),
+    SetPathDefault(i32, String),
+    SetPathFollowLaneKind(bool),
     SetCamTune(crate::camera::Tuning),
     SetAssetsLayout(crate::install::AssetsLayout),
     SetGraphicsApi(crate::gpu::Api),
@@ -620,7 +622,7 @@ fn theme_choice(ui: &mut egui::Ui, actions: &mut Vec<Action>) {
 
 // ---------------------------------------------------------------------------- start page
 
-pub fn welcome(root: &mut egui::Ui, st: &mut UiState, prefs: &Prefs, omsi: Option<&std::path::Path>, actions: &mut Vec<Action>) {
+pub fn welcome(root: &mut egui::Ui, st: &mut UiState, prefs: &Prefs, lib: &Library, omsi: Option<&std::path::Path>, actions: &mut Vec<Action>) {
     egui::Panel::top("menu").frame(Frame::new().fill(pal().bar).inner_margin(Margin::symmetric(6, 2))).show(root, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
             ui.menu_button(tr("File", "Файл"), |ui| {
@@ -668,7 +670,7 @@ pub fn welcome(root: &mut egui::Ui, st: &mut UiState, prefs: &Prefs, omsi: Optio
         });
     });
     // (the settings open here too, before any map is chosen)
-    controls(&root.ctx().clone(), st, prefs, actions);
+    controls(&root.ctx().clone(), st, prefs, lib, actions);
     egui::CentralPanel::default().frame(Frame::new().fill(pal().backdrop)).show(root, |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space((ui.available_height() * 0.5 - 230.0).max(20.0));
@@ -911,7 +913,7 @@ pub fn editor(root: &mut egui::Ui, st: &mut UiState, u: EditorUi, actions: &mut 
         });
     }
     texture_picker(&ctx, st, texture_files, swatches, wanted_swatches, actions);
-    controls(&ctx, st, prefs, actions);
+    controls(&ctx, st, prefs, lib, actions);
     about(&ctx, st);
     st.check.window(&ctx, ed, lib, actions);
     st.find.window(&ctx, ed, lib, actions);
@@ -1775,11 +1777,11 @@ fn logic_panel(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Libra
             }
             // the two everyone needs, at the top
             ui.horizontal(|ui| {
-                for (icon, label, file) in [(Icon::Traffic, tr("Cars", "Машины"), "Splines\\Marcel\\invis_street.sli"), (Icon::Walk, tr("People", "Люди"), "Splines\\invis_sidewalk.sli")] {
-                    let Some(a) = lib.find(file) else { continue };
+                for (icon, label, kind, file) in [(Icon::Traffic, tr("Cars", "Машины"), 0, ed.path_car.clone()), (Icon::Walk, tr("People", "Люди"), 1, ed.path_walk.clone())] {
+                    let Some(a) = lib.find(&file) else { continue };
                     let on = ed.path_type.as_deref().map(|p| p.eq_ignore_ascii_case(&a.rel)).unwrap_or(false);
                     if ui.add(egui::Button::new(icons::labelled(icon, label)).selected(on).min_size(Vec2::new(90.0, 28.0))).clicked() {
-                        ed.set_path_type(a.rel.clone());
+                        ed.set_default_path_type(kind);
                     }
                 }
                 // (a rail lane of the catalogue, else the one openMapper writes)
@@ -1793,8 +1795,8 @@ fn logic_panel(ui: &mut egui::Ui, st: &mut UiState, ed: &mut Editor, lib: &Libra
                 }
             });
             if ed.path_type.is_none() {
-                if let Some(a) = lib.find("Splines\\Marcel\\invis_street.sli") {
-                    ed.set_path_type(a.rel.clone());
+                if lib.find(&ed.path_car).is_some() {
+                    ed.set_default_path_type(0);
                 }
             }
         }
@@ -3422,7 +3424,7 @@ fn texture_picker(ctx: &egui::Context, st: &mut UiState, files: &[String], swatc
     }
 }
 
-fn controls(ctx: &egui::Context, st: &mut UiState, prefs: &Prefs, actions: &mut Vec<Action>) {
+fn controls(ctx: &egui::Context, st: &mut UiState, prefs: &Prefs, lib: &Library, actions: &mut Vec<Action>) {
     let mut open = st.help_open;
     egui::Window::new(icons::labelled(Icon::Settings, tr("Settings", "Настройки"))).open(&mut open).collapsible(false).default_height(600.0).default_width(520.0).show(ctx, |ui| {
         ui.horizontal(|ui| {
@@ -3435,7 +3437,7 @@ fn controls(ctx: &egui::Context, st: &mut UiState, prefs: &Prefs, actions: &mut 
         ui.separator();
         egui::ScrollArea::vertical().auto_shrink([true, false]).show(ui, |ui| {
         match st.settings_tab {
-            0 => settings_general(ui, prefs, actions),
+            0 => settings_general(ui, prefs, lib, actions),
             1 => settings_graphics(ui, prefs, actions),
             2 => camera_tuning(ui, prefs, actions),
             3 => {
@@ -3536,7 +3538,7 @@ fn controls(ctx: &egui::Context, st: &mut UiState, prefs: &Prefs, actions: &mut 
 }
 
 /// Settings > General: language, interface size, how the camera and tiles behave.
-fn settings_general(ui: &mut egui::Ui, prefs: &Prefs, actions: &mut Vec<Action>) {
+fn settings_general(ui: &mut egui::Ui, prefs: &Prefs, lib: &Library, actions: &mut Vec<Action>) {
     ui.label(RichText::new(tr("Interface", "Интерфейс")).strong().color(pal().accent));
     ui.horizontal(|ui| {
         ui.label(tr("Language", "Язык"));
@@ -3580,6 +3582,29 @@ fn settings_general(ui: &mut egui::Ui, prefs: &Prefs, actions: &mut Vec<Action>)
             actions.push(Action::SetDestinationLineSeparator(separator));
         }
     });
+    ui.add_space(8.0);
+    ui.label(RichText::new(tr("AI path defaults", "Типы путей ИИ по умолчанию")).strong().color(pal().accent));
+    for (kind, label, configured, default) in [
+        (0, tr("Default AI vehicle path spline", "Сплайн пути машин ИИ по умолчанию"), prefs.path_car.as_str(), crate::install::DEFAULT_PATH_CAR),
+        (1, tr("Default AI pedestrian path spline", "Сплайн пути пешеходов ИИ по умолчанию"), prefs.path_walk.as_str(), crate::install::DEFAULT_PATH_WALK),
+    ] {
+        ui.label(label);
+        let current = if configured.is_empty() { default } else { configured };
+        egui::ComboBox::from_id_salt(("ai path default", kind)).width(ui.available_width()).selected_text(current).height(300.0).show_ui(ui, |ui| {
+            if ui.selectable_label(configured.is_empty(), tr("Use original invisible spline", "Исходный невидимый сплайн")).clicked() {
+                actions.push(Action::SetPathDefault(kind, String::new()));
+            }
+            for a in lib.assets.iter().filter(|a| a.kind == Kind::Spline && a.category == Category::Technical && if kind == 0 { a.lanes.0 > 0 } else { a.lanes.1 > 0 }) {
+                if ui.selectable_label(current.eq_ignore_ascii_case(&a.rel), &a.rel).clicked() {
+                    actions.push(Action::SetPathDefault(kind, a.rel.clone()));
+                }
+            }
+        });
+    }
+    let mut follow = prefs.path_follow_lane_kind;
+    if ui.checkbox(&mut follow, tr("Automatically follow nearby lane kind", "Автоматически выбирать тип ближайшей полосы")).changed() {
+        actions.push(Action::SetPathFollowLaneKind(follow));
+    }
     ui.add_space(8.0);
     ui.label(RichText::new(tr("Big maps", "Большие карты")).strong().color(pal().accent));
     let mut streaming = prefs.tile_streaming == Some(true);

@@ -3412,3 +3412,8 @@ Right footway texture	右側行人路材質
 Left footway texture	左側行人路材質
 like the left one	與左側相同
 The lanes' paths run the way a left-hand map has them (a one-way road keeps its way)	行車線路徑依靠左行駛地圖的方向走(單向道路維持原方向)
+AI path defaults	AI 路徑預設設定
+Default AI vehicle path spline	AI 車輛路徑預設曲線
+Default AI pedestrian path spline	AI 行人路徑預設曲線
+Use original invisible spline	使用原始隱形曲線
+Automatically follow nearby lane kind	自動跟隨鄰近路徑類型
